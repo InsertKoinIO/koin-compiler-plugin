@@ -1,0 +1,43 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface DataSource : R|kotlin/Any| {
+    }
+    public final class DatabaseDataSource : R|testpkg/DataSource| {
+        public constructor(): R|testpkg/DatabaseDataSource| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final fun provideDataSource(): R|testpkg/DataSource| {
+        ^provideDataSource R|testpkg/DatabaseDataSource.DatabaseDataSource|()
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/TestModule.TestModule|().R|testpkg/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval ds1: R|testpkg/DataSource| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/DataSource|>()
+        lval ds2: R|testpkg/DataSource| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/DataSource|>()
+        lval isSingleton: R|kotlin/Boolean| = ===(R|<local>/ds1|, R|<local>/ds2|)
+        lval correctType: R|kotlin/Boolean| = (R|<local>/ds1| is R|testpkg/DatabaseDataSource|)
+        ^box when () {
+            R|<local>/isSingleton| && R|<local>/correctType| ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: top-level @Singleton function not working)
+            }
+        }
+
+    }
+FILE: testpkg/testpkgTestModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/TestModule|.module(): R|org/koin/core/module/Module|

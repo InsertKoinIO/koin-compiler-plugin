@@ -1,0 +1,58 @@
+FILE: test.kt
+    public abstract interface Repository : R|kotlin/Any| {
+    }
+    public final class RepositoryImpl : R|Repository| {
+        public constructor(): R|RepositoryImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public abstract interface Service : R|kotlin/Any| {
+    }
+    public final class ServiceImpl : R|Service| {
+        public constructor(repo: R|Repository|): R|ServiceImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|Repository| = R|<local>/repo|
+            public get(): R|Repository|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class FunctionModule : R|kotlin/Any| {
+        public constructor(): R|FunctionModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Singleton|() public final fun provideRepository(): R|Repository| {
+            ^provideRepository R|/RepositoryImpl.RepositoryImpl|()
+        }
+
+        @R|org/koin/core/annotation/Factory|() public final fun provideService(repo: R|Repository|): R|Service| {
+            ^provideService R|/ServiceImpl.ServiceImpl|(R|<local>/repo|)
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/FunctionModule.FunctionModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval repo1: R|Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repository|>()
+        lval repo2: R|Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repository|>()
+        lval service1: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        lval service2: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        lval singletonWorks: R|kotlin/Boolean| = ===(R|<local>/repo1|, R|<local>/repo2|)
+        lval factoryWorks: R|kotlin/Boolean| = !==(R|<local>/service1|, R|<local>/service2|)
+        lval dependencyWorks: R|kotlin/Boolean| = ===((R|<local>/service1| as R|ServiceImpl|).R|/ServiceImpl.repo|, R|<local>/repo1|)
+        ^box when () {
+            R|<local>/singletonWorks| && R|<local>/factoryWorks| && R|<local>/dependencyWorks| ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: singleton=), R|<local>/singletonWorks|, String(, factory=), R|<local>/factoryWorks|, String(, dependency=), R|<local>/dependencyWorks|)
+            }
+        }
+
+    }
+FILE: /functionModuleModule.kt
+    public final fun R|FunctionModule|.module(): R|org/koin/core/module/Module|

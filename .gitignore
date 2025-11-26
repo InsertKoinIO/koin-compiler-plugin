@@ -1,7 +1,6 @@
-.idea/*
-!.idea/externalDependencies.xml
-!.idea/kotlinTestDataPluginTestDataPaths.xml
+**/.idea/
 .gradle/
 .kotlin/
 build/
 out/
+**/*/.claude/settings.local.json

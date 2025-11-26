@@ -1,0 +1,38 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class Config : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Property|(value = String(server.host)) host: R|kotlin/String|, @R|org/koin/core/annotation/Property|(value = String(server.port)) port: R|kotlin/String|): R|Config| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val host: R|kotlin/String| = R|<local>/host|
+            public get(): R|kotlin/String|
+
+        public final val port: R|kotlin/String| = R|<local>/port|
+            public get(): R|kotlin/String|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.properties|(R|kotlin/collections/mapOf|<R|kotlin/String|, R|kotlin/String|>(vararg(String(server.host).R|kotlin/to|<R|kotlin/String|, R|kotlin/String|>(String(localhost)), String(server.port).R|kotlin/to|<R|kotlin/String|, R|kotlin/String|>(String(8080)))))
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval config: R|Config| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Config|>()
+        ^box when () {
+            ==(R|<local>/config|.R|/Config.host|, String(localhost)) && ==(R|<local>/config|.R|/Config.port|, String(8080)) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: @Property not working (host=), R|<local>/config|.R|/Config.host|, String(, port=), R|<local>/config|.R|/Config.port|, String()))
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

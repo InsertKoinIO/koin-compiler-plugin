@@ -1,0 +1,36 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public abstract interface Repository : R|kotlin/Any| {
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class RepositoryImpl : R|Repository| {
+        public constructor(): R|RepositoryImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval impl: R|RepositoryImpl| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|RepositoryImpl|>()
+        lval repo: R|Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repository|>()
+        lval sameInstance: R|kotlin/Boolean| = ===(R|<local>/impl|, R|<local>/repo|)
+        lval correctType: R|kotlin/Boolean| = (R|<local>/repo| is R|RepositoryImpl|)
+        ^box when () {
+            R|<local>/sameInstance| && R|<local>/correctType| ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: auto interface binding not working)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

@@ -1,0 +1,14 @@
+[versions]
+kotlin = "2.3.20-Beta1"
+koin = "4.2.0-RC1"
+koin-plugin = "0.3.0"
+
+[libraries]
+koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-annotations = { module = "io.insert-koin:koin-annotations", version.ref = "koin" }
+koin-viewmodel = { module = "io.insert-koin:koin-core-viewmodel", version.ref = "koin" }
+koin-test-junit4 = { module = "io.insert-koin:koin-test-junit4", version.ref = "koin" }
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+koin-plugin = { id = "io.insert-koin.compiler.plugin", version.ref = "koin-plugin" }

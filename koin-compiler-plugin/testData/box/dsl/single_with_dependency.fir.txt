@@ -1,0 +1,38 @@
+FILE: test.kt
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repository: R|Repository|): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|Repository| = R|<local>/repository|
+            public get(): R|Repository|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Repository|>()
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Service|>()
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval repo: R|Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repository|>()
+        lval service: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        ^box when () {
+            ===(R|<local>/service|.R|/Service.repository|, R|<local>/repo|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: dependency not injected correctly)
+            }
+        }
+
+    }

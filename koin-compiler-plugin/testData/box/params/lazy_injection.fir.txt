@@ -1,0 +1,65 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class HeavyService : R|kotlin/Any| {
+        public constructor(): R|HeavyService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final companion object Companion : R|kotlin/Any| {
+            private constructor(): R|HeavyService.Companion| {
+                super<R|kotlin/Any|>()
+            }
+
+            public final var instanceCount: R|kotlin/Int| = Int(0)
+                public get(): R|kotlin/Int|
+                public set(value: R|kotlin/Int|): R|kotlin/Unit|
+
+        }
+
+        init {
+             {
+                lval <unary>: R|kotlin/Int| = this@R|/HeavyService.Companion|.R|/HeavyService.Companion.instanceCount|
+                this@R|/HeavyService.Companion|.R|/HeavyService.Companion.instanceCount| = R|<local>/<unary>|.R|kotlin/Int.inc|()
+                R|<local>/<unary>|
+            }
+
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class Consumer : R|kotlin/Any| {
+        public constructor(lazyHeavy: R|kotlin/Lazy<HeavyService>|): R|Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val lazyHeavy: R|kotlin/Lazy<HeavyService>| = R|<local>/lazyHeavy|
+            public get(): R|kotlin/Lazy<HeavyService>|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        Q|HeavyService|.R|/HeavyService.Companion.instanceCount| = Int(0)
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval consumer: R|Consumer| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Consumer|>()
+        lval beforeAccess: R|kotlin/Int| = Q|HeavyService|.R|/HeavyService.Companion.instanceCount|
+        lval heavy: R|HeavyService| = R|<local>/consumer|.R|/Consumer.lazyHeavy|.R|SubstitutionOverride<kotlin/Lazy.value: R|HeavyService|>|
+        lval afterAccess: R|kotlin/Int| = Q|HeavyService|.R|/HeavyService.Companion.instanceCount|
+        lval heavy2: R|HeavyService| = R|<local>/consumer|.R|/Consumer.lazyHeavy|.R|SubstitutionOverride<kotlin/Lazy.value: R|HeavyService|>|
+        ^box when () {
+            ==(R|<local>/beforeAccess|, Int(0)) && ==(R|<local>/afterAccess|, Int(1)) && ===(R|<local>/heavy|, R|<local>/heavy2|) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: Lazy injection not working (before=), R|<local>/beforeAccess|, String(, after=), R|<local>/afterAccess|, String()))
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

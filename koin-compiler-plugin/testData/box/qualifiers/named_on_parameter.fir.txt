@@ -1,0 +1,41 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(special)) public final class SpecialDependency : R|kotlin/Any| {
+        public constructor(): R|SpecialDependency| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class Consumer : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(special)) dep: R|SpecialDependency|): R|Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|SpecialDependency| = R|<local>/dep|
+            public get(): R|SpecialDependency|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval special: R|SpecialDependency| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|SpecialDependency|>(R|org/koin/core/qualifier/named|(String(special)))
+        lval consumer: R|Consumer| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Consumer|>()
+        ^box when () {
+            ===(R|<local>/consumer|.R|/Consumer.dep|, R|<local>/special|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: @Named on parameter not working)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

@@ -1,0 +1,35 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() @R|org/koin/core/annotation/Configuration|() public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class FeatureService : R|kotlin/Any| {
+        public constructor(): R|FeatureService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/FeatureModule.FeatureModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|FeatureService| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|FeatureService|>()
+        ^box when () {
+            !=(R|<local>/service|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: @Configuration module not working)
+            }
+        }
+
+    }
+FILE: /featureModuleModule.kt
+    public final fun R|FeatureModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/featureModuleModule.kt
+    package org.koin.plugin.hints
+
+    public final fun configuration_default(contributed: R|FeatureModule|): R|kotlin/Unit|

@@ -1,0 +1,45 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class MyScope : R|kotlin/Any| {
+        public constructor(): R|MyScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|MyScope|)) public final class ScopedService : R|kotlin/Any| {
+        public constructor(): R|ScopedService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval scope1: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(scope1), R|org/koin/core/qualifier/named|<R|MyScope|>())
+        lval scope2: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(scope2), R|org/koin/core/qualifier/named|<R|MyScope|>())
+        lval service1a: R|ScopedService| = R|<local>/scope1|.R|org/koin/core/scope/Scope.get|<R|ScopedService|>()
+        lval service1b: R|ScopedService| = R|<local>/scope1|.R|org/koin/core/scope/Scope.get|<R|ScopedService|>()
+        lval service2: R|ScopedService| = R|<local>/scope2|.R|org/koin/core/scope/Scope.get|<R|ScopedService|>()
+        R|<local>/scope1|.R|org/koin/core/scope/Scope.close|()
+        R|<local>/scope2|.R|org/koin/core/scope/Scope.close|()
+        lval sameInScope: R|kotlin/Boolean| = ===(R|<local>/service1a|, R|<local>/service1b|)
+        lval differentAcrossScopes: R|kotlin/Boolean| = !==(R|<local>/service1a|, R|<local>/service2|)
+        ^box when () {
+            R|<local>/sameInScope| && R|<local>/differentAcrossScopes| ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: @Scope not working)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

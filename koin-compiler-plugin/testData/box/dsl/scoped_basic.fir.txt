@@ -1,0 +1,50 @@
+FILE: test.kt
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ScopedService : R|kotlin/Any| {
+        public constructor(repository: R|Repository|): R|ScopedService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|Repository| = R|<local>/repository|
+            public get(): R|Repository|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Repository|>()
+            this@R|special/anonymous|.R|org/koin/core/module/Module.scope|(R|org/koin/core/qualifier/named|(String(myScope)), <L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/scoped|<R|ScopedService|>()
+            }
+            )
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval repo: R|Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repository|>()
+        lval scope1: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(scope1), R|org/koin/core/qualifier/named|(String(myScope)))
+        lval service1a: R|ScopedService| = R|<local>/scope1|.R|org/koin/core/scope/Scope.get|<R|ScopedService|>()
+        lval service1b: R|ScopedService| = R|<local>/scope1|.R|org/koin/core/scope/Scope.get|<R|ScopedService|>()
+        lval scope2: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(scope2), R|org/koin/core/qualifier/named|(String(myScope)))
+        lval service2: R|ScopedService| = R|<local>/scope2|.R|org/koin/core/scope/Scope.get|<R|ScopedService|>()
+        R|<local>/scope1|.R|org/koin/core/scope/Scope.close|()
+        R|<local>/scope2|.R|org/koin/core/scope/Scope.close|()
+        lval sameWithinScope: R|kotlin/Boolean| = ===(R|<local>/service1a|, R|<local>/service1b|)
+        lval differentAcrossScopes: R|kotlin/Boolean| = !==(R|<local>/service1a|, R|<local>/service2|)
+        lval dependencyInjected: R|kotlin/Boolean| = ===(R|<local>/service1a|.R|/ScopedService.repository|, R|<local>/repo|)
+        ^box when () {
+            R|<local>/sameWithinScope| && R|<local>/differentAcrossScopes| && R|<local>/dependencyInjected| ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: sameWithinScope=), R|<local>/sameWithinScope|, String(, differentAcrossScopes=), R|<local>/differentAcrossScopes|, String(, dependencyInjected=), R|<local>/dependencyInjected|)
+            }
+        }
+
+    }

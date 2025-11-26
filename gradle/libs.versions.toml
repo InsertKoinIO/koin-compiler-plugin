@@ -1,14 +1,18 @@
 [versions]
-kotlin = "2.2.20"
+kotlin = "2.3.20-Beta1"
+koin = "4.2.0-RC1"
 build-config = "5.6.5"
 bcv = "0.16.3"
 junit = "4.13.2"
+nmcp = "1.0.1"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
+koin-annotations = { module = "io.insert-koin:koin-annotations-jvm", version.ref = "koin" }
+koin-core = { module = "io.insert-koin:koin-core-jvm", version.ref = "koin" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
-kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 build-config = { id = "com.github.gmazzo.buildconfig", version.ref = "build-config" }
 binary-compatibility-validator = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "bcv" }
+nmcp = { id = "com.gradleup.nmcp.aggregation", version.ref = "nmcp" }

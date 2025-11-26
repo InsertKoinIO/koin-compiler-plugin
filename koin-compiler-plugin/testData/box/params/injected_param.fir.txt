@@ -1,0 +1,47 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class ServiceWithParam : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/InjectedParam|() id: R|kotlin/Int|, @R|org/koin/core/annotation/InjectedParam|() name: R|kotlin/String|): R|ServiceWithParam| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val id: R|kotlin/Int| = R|<local>/id|
+            public get(): R|kotlin/Int|
+
+        public final val name: R|kotlin/String| = R|<local>/name|
+            public get(): R|kotlin/String|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service1: R|ServiceWithParam| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ServiceWithParam|>(<L> = get@fun <anonymous>(): R|org/koin/core/parameter/ParametersHolder| <inline=NoInline>  {
+            ^ R|org/koin/core/parameter/parametersOf|(vararg(Int(42), String(test)))
+        }
+        )
+        lval service2: R|ServiceWithParam| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ServiceWithParam|>(<L> = get@fun <anonymous>(): R|org/koin/core/parameter/ParametersHolder| <inline=NoInline>  {
+            ^ R|org/koin/core/parameter/parametersOf|(vararg(Int(99), String(other)))
+        }
+        )
+        lval correctParams: R|kotlin/Boolean| = ==(R|<local>/service1|.R|/ServiceWithParam.id|, Int(42)) && ==(R|<local>/service1|.R|/ServiceWithParam.name|, String(test))
+        lval differentInstances: R|kotlin/Boolean| = !==(R|<local>/service1|, R|<local>/service2|)
+        lval differentValues: R|kotlin/Boolean| = ==(R|<local>/service2|.R|/ServiceWithParam.id|, Int(99)) && ==(R|<local>/service2|.R|/ServiceWithParam.name|, String(other))
+        ^box when () {
+            R|<local>/correctParams| && R|<local>/differentInstances| && R|<local>/differentValues| ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: @InjectedParam not working)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

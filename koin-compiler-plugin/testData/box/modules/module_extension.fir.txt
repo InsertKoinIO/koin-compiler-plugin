@@ -1,0 +1,32 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class AppService : R|kotlin/Any| {
+        public constructor(): R|AppService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval module: R|org/koin/core/module/Module| = R|/AppModule.AppModule|().R|/module|()
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/module|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|AppService| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|AppService|>()
+        ^box when () {
+            !=(R|<local>/service|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: module extension not generated)
+            }
+        }
+
+    }
+FILE: /appModuleModule.kt
+    public final fun R|AppModule|.module(): R|org/koin/core/module/Module|

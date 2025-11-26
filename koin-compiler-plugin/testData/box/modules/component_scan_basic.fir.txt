@@ -1,0 +1,49 @@
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class ScanModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/ScanModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class ServiceA : R|kotlin/Any| {
+        public constructor(): R|testpkg/ServiceA| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class ServiceB : R|kotlin/Any| {
+        public constructor(a: R|testpkg/ServiceA|): R|testpkg/ServiceB| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val a: R|testpkg/ServiceA| = R|<local>/a|
+            public get(): R|testpkg/ServiceA|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/ScanModule.ScanModule|().R|testpkg/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval a: R|testpkg/ServiceA| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/ServiceA|>()
+        lval b1: R|testpkg/ServiceB| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/ServiceB|>()
+        lval b2: R|testpkg/ServiceB| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/ServiceB|>()
+        lval singletonWorks: R|kotlin/Boolean| = !=(R|<local>/a|, Null(null))
+        lval factoryWorks: R|kotlin/Boolean| = !==(R|<local>/b1|, R|<local>/b2|)
+        lval dependencyWorks: R|kotlin/Boolean| = ===(R|<local>/b1|.R|testpkg/ServiceB.a|, R|<local>/a|)
+        ^box when () {
+            R|<local>/singletonWorks| && R|<local>/factoryWorks| && R|<local>/dependencyWorks| ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: singleton=), R|<local>/singletonWorks|, String(, factory=), R|<local>/factoryWorks|, String(, dependency=), R|<local>/dependencyWorks|)
+            }
+        }
+
+    }
+FILE: testpkg/testpkgScanModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/ScanModule|.module(): R|org/koin/core/module/Module|

@@ -1,0 +1,959 @@
+package org.koin.compiler.plugin.fir
+
+import org.jetbrains.kotlin.GeneratedDeclarationKey
+import org.koin.compiler.plugin.KoinConfigurationRegistry
+import org.koin.compiler.plugin.KoinPluginLogger
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
+import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
+import org.jetbrains.kotlin.fir.extensions.FirDeclarationPredicateRegistrar
+import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
+import org.jetbrains.kotlin.fir.extensions.predicate.LookupPredicate
+import org.jetbrains.kotlin.fir.extensions.predicateBasedProvider
+import org.jetbrains.kotlin.fir.moduleData
+import org.jetbrains.kotlin.fir.plugin.createTopLevelFunction
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
+import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
+import org.jetbrains.kotlin.fir.types.classId
+import org.jetbrains.kotlin.fir.types.constructClassLikeType
+import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.coneTypeOrNull
+import org.jetbrains.kotlin.fir.types.constructType
+import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirVarargArgumentsExpression
+import org.jetbrains.kotlin.fir.expressions.FirLiteralExpression
+import org.jetbrains.kotlin.KtPsiSourceElement
+import org.jetbrains.kotlin.name.CallableId
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.platform.konan.isNative
+import org.koin.compiler.plugin.KoinAnnotationFqNames
+import org.koin.compiler.plugin.KoinPluginConstants
+
+/**
+ * FIR extension that generates:
+ * 1. Module extension functions for classes annotated with @Module
+ * 2. Hint functions in `org.koin.plugin.hints` package for @Configuration modules (cross-module discovery)
+ *
+ * Examples:
+ * ```kotlin
+ * @Module
+ * class MyModule {
+ *     @Single fun provideService(): Service = ServiceImpl()
+ * }
+ * ```
+ * Generates: `fun MyModule.module(): Module = ...`
+ *
+ * ```kotlin
+ * @Module
+ * @Configuration  // Auto-discovered by startKoin<T>()
+ * class MyConfigModule
+ * ```
+ * Generates:
+ * - `fun MyConfigModule.module(): Module = ...`
+ * - `fun org.koin.plugin.hints.configuration(contributed: MyConfigModule): Unit` (hint for cross-module discovery)
+ *
+ * Note: @ComponentScan is only needed for scanning packages for annotated classes, not for @Configuration.
+ * Note: Using a function instead of a property avoids NPE on Kotlin/Native due to backing field issues.
+ *
+ * The hint functions allow downstream modules to discover @Configuration modules from dependencies
+ * by querying the `org.koin.plugin.hints` package via FIR's symbolProvider.
+ */
+@OptIn(SymbolInternals::class, ExperimentalTopLevelDeclarationsGenerationApi::class)
+class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExtension(session) {
+
+    companion object {
+        // Annotations from koin-annotations library - use centralized registry
+        private val MODULE_ANNOTATION = KoinAnnotationFqNames.MODULE
+        private val CONFIGURATION_ANNOTATION = KoinAnnotationFqNames.CONFIGURATION
+
+        // Definition annotations
+        private val SINGLETON_ANNOTATION = KoinAnnotationFqNames.SINGLETON
+        private val SINGLE_ANNOTATION = KoinAnnotationFqNames.SINGLE
+        private val FACTORY_ANNOTATION = KoinAnnotationFqNames.FACTORY
+        private val SCOPED_ANNOTATION = KoinAnnotationFqNames.SCOPED
+        private val KOIN_VIEW_MODEL_ANNOTATION = KoinAnnotationFqNames.KOIN_VIEW_MODEL
+        private val KOIN_WORKER_ANNOTATION = KoinAnnotationFqNames.KOIN_WORKER
+
+        // Scope archetype annotations (also define SCOPED definitions)
+        private val VIEW_MODEL_SCOPE_ANNOTATION = KoinAnnotationFqNames.VIEW_MODEL_SCOPE
+        private val ACTIVITY_SCOPE_ANNOTATION = KoinAnnotationFqNames.ACTIVITY_SCOPE
+        private val ACTIVITY_RETAINED_SCOPE_ANNOTATION = KoinAnnotationFqNames.ACTIVITY_RETAINED_SCOPE
+        private val FRAGMENT_SCOPE_ANNOTATION = KoinAnnotationFqNames.FRAGMENT_SCOPE
+
+        // JSR-330 annotations (jakarta.inject and javax.inject)
+        private val JAKARTA_SINGLETON_ANNOTATION = KoinAnnotationFqNames.JAKARTA_SINGLETON
+        private val JAKARTA_INJECT_ANNOTATION = KoinAnnotationFqNames.JAKARTA_INJECT
+        private val JAVAX_SINGLETON_ANNOTATION = KoinAnnotationFqNames.JAVAX_SINGLETON
+        private val JAVAX_INJECT_ANNOTATION = KoinAnnotationFqNames.JAVAX_INJECT
+
+        // Koin classes
+        private val KOIN_MODULE_CLASS_ID = ClassId.topLevel(KoinAnnotationFqNames.KOIN_MODULE)
+        private val COMPONENT_SCAN_ANNOTATION = KoinAnnotationFqNames.COMPONENT_SCAN
+
+        // Generated names
+        private val MODULE_FUNCTION_NAME = Name.identifier(KoinPluginConstants.MODULE_FUNCTION_NAME)
+
+        // Hint package for all @Configuration modules and definition classes
+        // Function names are label-specific: configuration_<label> (e.g., configuration_default, configuration_test)
+        // Definition function names: definition_<type> (e.g., definition_single, definition_viewmodel)
+        val HINTS_PACKAGE = FqName(KoinPluginConstants.HINTS_PACKAGE)
+        private const val HINT_FUNCTION_PREFIX = KoinPluginConstants.HINT_FUNCTION_PREFIX
+        private const val DEFINITION_HINT_PREFIX = KoinPluginConstants.DEFINITION_HINT_PREFIX
+
+        /**
+         * Get the hint function name for a specific label.
+         * Example: "test" -> "configuration_test", "default" -> "configuration_default"
+         */
+        fun hintFunctionNameForLabel(label: String): Name = Name.identifier("$HINT_FUNCTION_PREFIX$label")
+
+        /**
+         * Extract label from a hint function name.
+         * Example: "configuration_test" -> "test", "configuration_default" -> "default"
+         * Returns null if the function name doesn't match the hint pattern.
+         */
+        fun labelFromHintFunctionName(functionName: String): String? {
+            return if (functionName.startsWith(HINT_FUNCTION_PREFIX)) {
+                functionName.removePrefix(HINT_FUNCTION_PREFIX)
+            } else {
+                null
+            }
+        }
+
+        /**
+         * Get the hint function name for a definition type.
+         * Example: "single" -> "definition_single", "viewmodel" -> "definition_viewmodel"
+         */
+        fun definitionHintFunctionName(type: String): Name = Name.identifier("$DEFINITION_HINT_PREFIX$type")
+
+        /**
+         * Extract definition type from a hint function name.
+         * Example: "definition_single" -> "single", "definition_viewmodel" -> "viewmodel"
+         * Returns null if the function name doesn't match the definition hint pattern.
+         */
+        fun definitionTypeFromHintFunctionName(functionName: String): String? {
+            return if (functionName.startsWith(DEFINITION_HINT_PREFIX)) {
+                functionName.removePrefix(DEFINITION_HINT_PREFIX)
+            } else {
+                null
+            }
+        }
+
+        // Definition types for hint functions - use shared constants
+        const val DEF_TYPE_SINGLE = KoinPluginConstants.DEF_TYPE_SINGLE
+        const val DEF_TYPE_FACTORY = KoinPluginConstants.DEF_TYPE_FACTORY
+        const val DEF_TYPE_SCOPED = KoinPluginConstants.DEF_TYPE_SCOPED
+        const val DEF_TYPE_VIEWMODEL = KoinPluginConstants.DEF_TYPE_VIEWMODEL
+        const val DEF_TYPE_WORKER = KoinPluginConstants.DEF_TYPE_WORKER
+
+        val ALL_DEFINITION_TYPES = KoinPluginConstants.ALL_DEFINITION_TYPES
+
+        /**
+         * Generate a deterministic synthetic file name for FIR-generated functions.
+         * Uses package segments + class name + suffix, all capitalized and joined.
+         * Example: "com.example.DataModule" + "Module" -> "comExampleDataModuleModule.kt"
+         *
+         * This allows K/Native to work with synthetic files since the name is consistent across compilation phases.
+         */
+        fun syntheticFileName(classId: ClassId, suffix: String): String {
+            val parts = sequence {
+                yieldAll(classId.packageFqName.pathSegments().map { it.asString() })
+                yield(classId.shortClassName.asString())
+                yield(suffix)
+            }
+            val fileName = parts
+                .map { segment -> segment.replaceFirstChar { it.uppercaseChar() } }
+                .joinToString(separator = "")
+                .replaceFirstChar { it.lowercaseChar() }
+            return "$fileName.kt"
+        }
+    }
+
+    /**
+     * Holds a @Configuration module with its labels and source file info.
+     * The containing file name is captured at discovery time for use in hint generation.
+     */
+    private data class ConfigurationModule(
+        val classSymbol: FirClassSymbol<*>,
+        val labels: List<String>,
+        val containingFileName: String?
+    )
+
+    /**
+     * Holds a @Module class with its source file information.
+     * We capture the source file name during discovery because it may not be available
+     * later when generating functions (due to KMP compilation phases).
+     */
+    private data class ModuleClassInfo(
+        val classSymbol: FirClassSymbol<*>,
+        val containingFileName: String?
+    )
+
+    /**
+     * Holds a definition class (@Singleton, @Factory, @KoinViewModel, etc.) with its type and source info.
+     * Used for cross-module discovery via hint functions.
+     */
+    private data class DefinitionClassInfo(
+        val classSymbol: FirClassSymbol<*>,
+        val definitionType: String, // single, factory, scoped, viewmodel, worker
+        val containingFileName: String?
+    )
+
+    // Check if we're compiling for a Kotlin/Native target
+    private val isNativeTarget: Boolean by lazy {
+        val isNative = session.moduleData.platform.isNative()
+        log { "Platform check: isNative=$isNative" }
+        isNative
+    }
+
+    // Cache of module classes found (@Module) - generates .module extension property
+    // Excludes `expect` classes - only `actual` classes should have module() generated
+    // Stores source file info at discovery time for later use in generateFunctions
+    private val moduleClassInfos: List<ModuleClassInfo> by lazy {
+        val provider = session.predicateBasedProvider
+
+        provider.getSymbolsByPredicate(modulePredicate)
+            .filterIsInstance<FirClassSymbol<*>>()
+            .filter { classSymbol ->
+                // Skip expect classes - they don't have implementation
+                val isExpect = classSymbol.rawStatus.isExpect
+                if (isExpect) {
+                    log { "  Skipping expect class: ${classSymbol.classId}" }
+                }
+                !isExpect
+            }
+            .mapNotNull { classSymbol ->
+                // Capture source file info NOW while it's available
+                val source = classSymbol.fir.source
+                val sourceKind = source?.kind
+                val sourceType = source?.javaClass?.simpleName
+
+                // Determine if this is a source class or a dependency class
+                // KtPsiSourceElement - standard source PSI elements (direct PSI access)
+                // KtLightSourceElement with RealSourceElementKind - KMP source files (no direct PSI)
+                // Other types (null, metadata) - dependency classes from JARs
+                val containingFileName = when (source) {
+                    is KtPsiSourceElement -> {
+                        val file = source.psi.containingFile
+                        log { "    KtPsiSourceElement: psi=${source.psi.javaClass.simpleName}, file=${file?.name}" }
+                        file?.name
+                    }
+                    else -> {
+                        // Check if this is a real source element (KtRealSourceElementKind) vs synthetic
+                        val isRealSource = sourceKind?.toString()?.contains("RealSourceElementKind") == true
+                        if (isRealSource) {
+                            // Use deterministic synthetic file names
+                            val syntheticName = syntheticFileName(classSymbol.classId, "Module")
+                            log { "    RealSourceElement ($sourceType): using synthetic file name=$syntheticName, isNative=$isNativeTarget" }
+                            syntheticName
+                        } else {
+                            // Skip classes from dependencies (JARs/metadata)
+                            log { "    Skipping class from dependency: $sourceType (kind=$sourceKind)" }
+                            return@mapNotNull null
+                        }
+                    }
+                }
+                log { "  Found @Module class: ${classSymbol.classId} (sourceFile=$containingFileName, sourceType=$sourceType)" }
+                ModuleClassInfo(classSymbol, containingFileName)
+            }
+    }
+
+    // Cached list of module class symbols (extracted from moduleClassInfos)
+    private val moduleClasses: List<FirClassSymbol<*>> by lazy {
+        moduleClassInfos.map { it.classSymbol }
+    }
+
+    // Cache of configuration modules (@Module @Configuration) with their labels - for auto-discovery
+    // Note: @ComponentScan is NOT required for @Configuration
+    // Uses moduleClassInfos to get pre-captured source file info for hint generation
+    private val configurationModules: List<ConfigurationModule> by lazy {
+        log { "Looking for @Configuration modules among ${moduleClassInfos.size} @Module classes" }
+        val modules = moduleClassInfos.mapNotNull { moduleInfo ->
+            val classSymbol = moduleInfo.classSymbol
+            val configAnnotation = classSymbol.fir.annotations
+                .filterIsInstance<FirAnnotationCall>()
+                .firstOrNull { annotation ->
+                    // Use coneTypeOrNull to safely handle unresolved type references
+                    // This prevents crashes when other FIR extensions (e.g., kotlinx-serialization)
+                    // haven't yet resolved their annotations
+                    val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+                    annotationClassId?.asSingleFqName() == CONFIGURATION_ANNOTATION
+                }
+
+            if (configAnnotation != null) {
+                // Extract labels from @Configuration annotation
+                val labels = extractConfigurationLabels(configAnnotation)
+                log { "  -> ${classSymbol.classId}: @Configuration labels=$labels, file=${moduleInfo.containingFileName}" }
+                ConfigurationModule(classSymbol, labels, moduleInfo.containingFileName)
+            } else {
+                log { "  -> ${classSymbol.classId}: no @Configuration" }
+                null
+            }
+        }
+        log { "Found ${modules.size} @Configuration modules" }
+        // Register local modules to the shared registry for IR phase
+        modules.forEach { configModule ->
+            val moduleName = configModule.classSymbol.classId.asSingleFqName().asString()
+            log { "  Registering local @Configuration: $moduleName with labels=${configModule.labels}" }
+            KoinConfigurationRegistry.registerLocalModule(moduleName, configModule.labels)
+        }
+        modules
+    }
+
+    /**
+     * Extract labels from @Configuration annotation.
+     * @Configuration("test", "prod") -> ["test", "prod"]
+     * @Configuration() or @Configuration -> ["default"]
+     */
+    private fun extractConfigurationLabels(annotation: FirAnnotationCall): List<String> {
+        // @Configuration uses vararg value: String
+        val argumentList = annotation.argumentList.arguments
+        if (argumentList.isEmpty()) {
+            return listOf(KoinConfigurationRegistry.DEFAULT_LABEL)
+        }
+
+        // The value parameter contains the labels
+        val labels = mutableListOf<String>()
+        for (argument in argumentList) {
+            when (argument) {
+                is FirVarargArgumentsExpression -> {
+                    // Vararg/Array of strings: @Configuration("test", "prod") or @Configuration(value = ["test", "prod"])
+                    for (element in argument.arguments) {
+                        if (element is FirLiteralExpression) {
+                            val value = element.value
+                            if (value is String) {
+                                labels.add(value)
+                            }
+                        }
+                    }
+                }
+                is FirLiteralExpression -> {
+                    // Single string: @Configuration("test")
+                    val value = argument.value
+                    if (value is String) {
+                        labels.add(value)
+                    }
+                }
+                else -> {
+                    log { "  -> Unknown expression type for @Configuration: ${argument::class.simpleName}" }
+                }
+            }
+        }
+
+        return labels.ifEmpty { listOf(KoinConfigurationRegistry.DEFAULT_LABEL) }
+    }
+
+    // Predicate for @Module annotated classes
+    private val modulePredicate = LookupPredicate.create { annotated(MODULE_ANNOTATION) }
+
+    // Predicates for definition annotations - used for cross-module @ComponentScan discovery
+    private val singletonPredicate = LookupPredicate.create { annotated(SINGLETON_ANNOTATION) }
+    private val singlePredicate = LookupPredicate.create { annotated(SINGLE_ANNOTATION) }
+    private val factoryPredicate = LookupPredicate.create { annotated(FACTORY_ANNOTATION) }
+    private val scopedPredicate = LookupPredicate.create { annotated(SCOPED_ANNOTATION) }
+    private val viewModelPredicate = LookupPredicate.create { annotated(KOIN_VIEW_MODEL_ANNOTATION) }
+    private val workerPredicate = LookupPredicate.create { annotated(KOIN_WORKER_ANNOTATION) }
+    // Scope archetype predicates
+    private val viewModelScopePredicate = LookupPredicate.create { annotated(VIEW_MODEL_SCOPE_ANNOTATION) }
+    private val activityScopePredicate = LookupPredicate.create { annotated(ACTIVITY_SCOPE_ANNOTATION) }
+    private val activityRetainedScopePredicate = LookupPredicate.create { annotated(ACTIVITY_RETAINED_SCOPE_ANNOTATION) }
+    private val fragmentScopePredicate = LookupPredicate.create { annotated(FRAGMENT_SCOPE_ANNOTATION) }
+    // JSR-330 predicates
+    private val jakartaSingletonPredicate = LookupPredicate.create { annotated(JAKARTA_SINGLETON_ANNOTATION) }
+    private val jakartaInjectPredicate = LookupPredicate.create { annotated(JAKARTA_INJECT_ANNOTATION) }
+    private val javaxSingletonPredicate = LookupPredicate.create { annotated(JAVAX_SINGLETON_ANNOTATION) }
+    private val javaxInjectPredicate = LookupPredicate.create { annotated(JAVAX_INJECT_ANNOTATION) }
+
+    // Collect packages scanned by local @Module @ComponentScan classes
+    // Used to filter definition hints - only generate hints for "orphan" definitions not covered locally
+    private val localScanPackages: Set<String> by lazy {
+        val packages = mutableSetOf<String>()
+        for (moduleClassInfo in moduleClassInfos) {
+            val classSymbol = moduleClassInfo.classSymbol
+            // Check for @ComponentScan annotation
+            val componentScanAnnotation = classSymbol.fir.annotations
+                .filterIsInstance<FirAnnotationCall>()
+                .firstOrNull { annotation ->
+                    val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+                    annotationClassId?.asSingleFqName() == COMPONENT_SCAN_ANNOTATION
+                }
+
+            if (componentScanAnnotation != null) {
+                // Extract packages from @ComponentScan
+                val scanPkgs = extractComponentScanPackages(componentScanAnnotation, classSymbol)
+                packages.addAll(scanPkgs)
+            }
+        }
+        log { "Local scan packages: $packages" }
+        packages
+    }
+
+    /**
+     * Check if a package is covered by any local @ComponentScan.
+     * A package is covered if it equals a scan package or is a sub-package.
+     */
+    private fun isCoveredByLocalScan(packageName: String): Boolean {
+        return localScanPackages.any { scanPkg ->
+            packageName == scanPkg || packageName.startsWith("$scanPkg.")
+        }
+    }
+
+    /**
+     * Extract packages from @ComponentScan annotation.
+     * If empty, uses the class's package.
+     */
+    private fun extractComponentScanPackages(annotation: FirAnnotationCall, classSymbol: FirClassSymbol<*>): List<String> {
+        val packages = mutableListOf<String>()
+        val argumentList = annotation.argumentList.arguments
+        for (argument in argumentList) {
+            when (argument) {
+                is FirVarargArgumentsExpression -> {
+                    for (element in argument.arguments) {
+                        if (element is FirLiteralExpression) {
+                            val value = element.value
+                            if (value is String) {
+                                packages.add(value)
+                            }
+                        }
+                    }
+                }
+                is FirLiteralExpression -> {
+                    val value = argument.value
+                    if (value is String) {
+                        packages.add(value)
+                    }
+                }
+            }
+        }
+        // If no packages specified, use class's package
+        if (packages.isEmpty()) {
+            packages.add(classSymbol.classId.packageFqName.asString())
+        }
+        return packages
+    }
+
+    // Cache of definition classes (@Singleton, @Factory, @KoinViewModel, etc.) for cross-module discovery
+    // Only includes "orphan" definitions - classes NOT covered by any local @Module's @ComponentScan
+    // These generate hint functions in org.koin.plugin.hints package
+    private val definitionClassInfos: List<DefinitionClassInfo> by lazy {
+        val provider = session.predicateBasedProvider
+        val definitions = mutableListOf<DefinitionClassInfo>()
+
+        // Helper to collect classes for a predicate with a definition type
+        fun collectDefinitions(predicate: LookupPredicate, defType: String) {
+            provider.getSymbolsByPredicate(predicate)
+                .filterIsInstance<FirClassSymbol<*>>()
+                .filter { classSymbol ->
+                    // Skip expect classes
+                    !classSymbol.rawStatus.isExpect
+                }
+                .forEach { classSymbol ->
+                    val containingFileName = getContainingFileName(classSymbol)
+                    if (containingFileName != null) {
+                        // Only generate hint if NOT covered by local @ComponentScan
+                        val packageName = classSymbol.classId.packageFqName.asString()
+                        if (isCoveredByLocalScan(packageName)) {
+                            log { "  Skipping @$defType class: ${classSymbol.classId} - covered by local @ComponentScan" }
+                        } else {
+                            log { "  Found @$defType class: ${classSymbol.classId} (orphan, needs hint)" }
+                            logUser { "Exporting @$defType ${classSymbol.classId.shortClassName} for cross-module discovery" }
+                            definitions.add(DefinitionClassInfo(classSymbol, defType, containingFileName))
+                        }
+                    }
+                }
+        }
+
+        log { "Collecting orphan definition classes for cross-module discovery..." }
+        collectDefinitions(singletonPredicate, DEF_TYPE_SINGLE)
+        collectDefinitions(singlePredicate, DEF_TYPE_SINGLE)
+        collectDefinitions(factoryPredicate, DEF_TYPE_FACTORY)
+        collectDefinitions(scopedPredicate, DEF_TYPE_SCOPED)
+        collectDefinitions(viewModelPredicate, DEF_TYPE_VIEWMODEL)
+        collectDefinitions(workerPredicate, DEF_TYPE_WORKER)
+        // Scope archetype annotations imply SCOPED
+        collectDefinitions(viewModelScopePredicate, DEF_TYPE_SCOPED)
+        collectDefinitions(activityScopePredicate, DEF_TYPE_SCOPED)
+        collectDefinitions(activityRetainedScopePredicate, DEF_TYPE_SCOPED)
+        collectDefinitions(fragmentScopePredicate, DEF_TYPE_SCOPED)
+        // JSR-330 annotations - class-level @Singleton
+        collectDefinitions(jakartaSingletonPredicate, DEF_TYPE_SINGLE)
+        collectDefinitions(javaxSingletonPredicate, DEF_TYPE_SINGLE)
+        // Note: jakartaInjectPredicate and javaxInjectPredicate only find class-level @Inject
+        // For @Inject constructor, we need to check constructor annotations manually
+        collectDefinitions(jakartaInjectPredicate, DEF_TYPE_FACTORY)
+        collectDefinitions(javaxInjectPredicate, DEF_TYPE_FACTORY)
+
+        // Find classes with @Inject constructor (annotation on constructor, not class)
+        collectInjectConstructorClasses(definitions)
+
+        log { "Found ${definitions.size} orphan definition classes (need hints for cross-module discovery)" }
+        definitions
+    }
+
+    // Predicate to find ALL classes that might have @Inject constructor
+    // This predicate matches ANY class - we filter in code for actual @Inject constructors
+    // This is necessary because FIR predicates can't detect constructor annotations directly
+    private val anyClassPredicate = LookupPredicate.create {
+        // Match any class (empty predicate matches nothing, so we use a broad condition)
+        // Classes that have @Inject annotation import typically also have other classes
+        annotated(JAVAX_INJECT_ANNOTATION) or annotated(JAKARTA_INJECT_ANNOTATION) or
+        annotated(JAVAX_SINGLETON_ANNOTATION) or annotated(JAKARTA_SINGLETON_ANNOTATION) or
+        // Also match common annotation patterns that indicate a DI-aware module
+        annotated(FqName("javax.inject.Named")) or annotated(FqName("jakarta.inject.Named"))
+    }
+
+    /**
+     * Find classes with @Inject annotated constructor (jakarta.inject.Inject or javax.inject.Inject).
+     * The predicate-based search only finds class-level annotations, but @Inject constructor
+     * is a common pattern where the annotation is on the constructor.
+     *
+     * Uses PSI directly to check constructor annotations - more efficient than FIR symbol access.
+     */
+    private fun collectInjectConstructorClasses(definitions: MutableList<DefinitionClassInfo>) {
+        val existingClassIds = definitions.map { it.classSymbol.classId }.toMutableSet()
+        val seenFiles = mutableSetOf<String>()
+        var foundCount = 0
+
+        // Scan source files from known classes to find @Inject constructor classes
+        val knownClasses = moduleClassInfos.map { it.classSymbol } + definitions.map { it.classSymbol }
+        for (classSymbol in knownClasses) {
+            try {
+                val source = classSymbol.fir.source
+                if (source is KtPsiSourceElement) {
+                    val ktFile = source.psi.containingFile as? org.jetbrains.kotlin.psi.KtFile ?: continue
+                    val filePath = ktFile.virtualFilePath
+                    if (filePath in seenFiles) continue
+                    seenFiles.add(filePath)
+
+                    // Scan all classes in this file using PSI
+                    foundCount += scanKtFileForInjectConstructorClasses(ktFile, existingClassIds, definitions)
+                }
+            } catch (e: Exception) {
+                log { "  Error scanning file for @Inject constructor: ${e.message}" }
+            }
+        }
+
+        // Fallback: When no @Module or definition classes found (standalone @Inject module),
+        // try to find source files via the session's lookup table.
+        // This handles modules like core:domain that only have @Inject constructor classes.
+        if (knownClasses.isEmpty()) {
+            log { "  No known classes found, trying to find @Inject constructor classes via lookup..." }
+            try {
+                // Use the predicate provider to find any classes that might have @Inject constructor
+                // We use anyClassPredicate which matches classes with any DI-related annotation
+                val provider = session.predicateBasedProvider
+                val potentialClasses = provider.getSymbolsByPredicate(anyClassPredicate)
+
+                for (symbol in potentialClasses.filterIsInstance<FirClassSymbol<*>>()) {
+                    val source = symbol.fir.source
+                    if (source is KtPsiSourceElement) {
+                        val ktFile = source.psi.containingFile as? org.jetbrains.kotlin.psi.KtFile ?: continue
+                        val filePath = ktFile.virtualFilePath
+                        if (filePath in seenFiles) continue
+                        seenFiles.add(filePath)
+
+                        foundCount += scanKtFileForInjectConstructorClasses(ktFile, existingClassIds, definitions)
+                    }
+                }
+            } catch (e: Exception) {
+                log { "  Error in fallback @Inject constructor scanning: ${e.message}" }
+            }
+        }
+
+        log { "  Scanned ${seenFiles.size} files, found $foundCount @Inject constructor classes" }
+    }
+
+    /**
+     * Scan a KtFile for classes with @Inject constructor and add them to definitions.
+     * Returns the count of classes found.
+     */
+    private fun scanKtFileForInjectConstructorClasses(
+        ktFile: org.jetbrains.kotlin.psi.KtFile,
+        existingClassIds: Set<ClassId>,
+        definitions: MutableList<DefinitionClassInfo>
+    ): Int {
+        var count = 0
+
+        fun hasInjectConstructor(ktClass: org.jetbrains.kotlin.psi.KtClass): Boolean {
+            val primaryConstructor = ktClass.primaryConstructor ?: return false
+            return primaryConstructor.annotationEntries.any { annotation ->
+                val fqName = annotation.shortName?.asString()
+                fqName == "Inject" // Matches jakarta.inject.Inject or javax.inject.Inject
+            }
+        }
+
+        fun scanDeclarations(declarations: List<org.jetbrains.kotlin.psi.KtDeclaration>) {
+            for (declaration in declarations) {
+                if (declaration is org.jetbrains.kotlin.psi.KtClass && hasInjectConstructor(declaration)) {
+                    val fqNameStr = declaration.fqName?.asString() ?: continue
+                    try {
+                        val classId = ClassId.topLevel(FqName(fqNameStr))
+                        if (classId in existingClassIds) continue
+
+                        val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)
+                        if (symbol is FirClassSymbol<*> && !symbol.rawStatus.isExpect) {
+                            val containingFileName = getContainingFileName(symbol)
+                            if (containingFileName != null) {
+                                val packageName = classId.packageFqName.asString()
+                                if (isCoveredByLocalScan(packageName)) {
+                                    log { "  Skipping @Inject constructor class: $classId - covered by local @ComponentScan" }
+                                } else {
+                                    log { "  Found @Inject constructor class: $classId (orphan, needs hint)" }
+                                    logUser { "Exporting @Inject constructor ${classId.shortClassName} for cross-module discovery" }
+                                    definitions.add(DefinitionClassInfo(symbol, DEF_TYPE_FACTORY, containingFileName))
+                                    count++
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {
+                        // Class might not be resolvable
+                    }
+                }
+                // Also scan nested classes
+                if (declaration is org.jetbrains.kotlin.psi.KtClass) {
+                    declaration.body?.declarations?.let { nested -> scanDeclarations(nested) }
+                }
+            }
+        }
+
+        scanDeclarations(ktFile.declarations)
+        return count
+    }
+
+    /**
+     * Get containing file name for a class symbol, handling different source types.
+     */
+    private fun getContainingFileName(classSymbol: FirClassSymbol<*>): String? {
+        val source = classSymbol.fir.source
+        val sourceKind = source?.kind
+        val sourceType = source?.javaClass?.simpleName
+
+        return when (source) {
+            is KtPsiSourceElement -> {
+                source.psi.containingFile?.name
+            }
+            else -> {
+                // Check if this is a real source element (KtRealSourceElementKind) vs synthetic
+                val isRealSource = sourceKind?.toString()?.contains("RealSourceElementKind") == true
+                if (isRealSource) {
+                    // Use deterministic synthetic file names
+                    syntheticFileName(classSymbol.classId, "Definition")
+                } else {
+                    // Skip classes from dependencies (JARs/metadata)
+                    log { "    Skipping class from dependency: $sourceType (kind=$sourceKind)" }
+                    null
+                }
+            }
+        }
+    }
+
+    // Flag to track if we've already discovered modules from hints (to avoid re-discovery)
+    private var hasDiscoveredFromHints = false
+
+    /**
+     * Log a debug message for FIR phase.
+     */
+    private inline fun log(message: () -> String) {
+        KoinPluginLogger.debugFir(message)
+    }
+
+    /**
+     * Log a user-facing message for FIR phase.
+     */
+    private inline fun logUser(message: () -> String) {
+        KoinPluginLogger.userFir(message)
+    }
+
+    /**
+     * Discover @Configuration modules from hint functions in dependencies.
+     * Uses FIR's symbolProvider to query label-specific functions (configuration_<label>) in the hints package.
+     * Each function has a different parameter type representing the module class.
+     *
+     * Discovery strategy:
+     * 1. Query known labels from local @Configuration modules
+     * 2. Query the "default" label (always present for backward compatibility)
+     * 3. Extract module class and label from each hint function
+     */
+    private fun discoverModulesFromHintsIfNeeded() {
+        if (hasDiscoveredFromHints) return
+        hasDiscoveredFromHints = true
+
+        try {
+            log { "Discovering hints: checking for @Configuration modules in dependencies..." }
+
+            // Collect all labels we need to query:
+            // 1. Labels from local @Configuration modules
+            // 2. "default" label (always query for backward compatibility)
+            val labelsToQuery = mutableSetOf(KoinConfigurationRegistry.DEFAULT_LABEL)
+            configurationModules.forEach { configModule ->
+                labelsToQuery.addAll(configModule.labels)
+            }
+
+            log { "  -> Querying labels: $labelsToQuery" }
+
+            // Query hint functions for each label
+            for (label in labelsToQuery) {
+                val functionName = hintFunctionNameForLabel(label)
+                val hintFunctions = session.symbolProvider.getTopLevelFunctionSymbols(HINTS_PACKAGE, functionName)
+
+                log { "  -> Found ${hintFunctions.size} hint functions for label '$label' (function: $functionName)" }
+
+                // Extract module class from each hint function's parameter type
+                for (hintFunc in hintFunctions) {
+                    try {
+                        val paramType = hintFunc.fir.valueParameters.firstOrNull()?.returnTypeRef?.coneTypeOrNull
+                        val moduleClassId = paramType?.classId
+                        if (moduleClassId != null) {
+                            val moduleName = moduleClassId.asSingleFqName().asString()
+                            log { "  -> Discovered @Configuration module from hint: $moduleName (label=$label)" }
+                            KoinConfigurationRegistry.registerJarModule(moduleName, label)
+                        }
+                    } catch (e: Exception) {
+                        log { "  -> Error processing hint function: ${e.message}" }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            log { "Error during hint discovery: ${e.message}" }
+        }
+    }
+
+    override fun FirDeclarationPredicateRegistrar.registerPredicates() {
+        log { "registerPredicates: Registering predicates for @Module and definition annotations" }
+        register(modulePredicate)
+        // Definition predicates for cross-module @ComponentScan discovery
+        register(singletonPredicate)
+        register(singlePredicate)
+        register(factoryPredicate)
+        register(scopedPredicate)
+        register(viewModelPredicate)
+        register(workerPredicate)
+        // Scope archetype predicates
+        register(viewModelScopePredicate)
+        register(activityScopePredicate)
+        register(activityRetainedScopePredicate)
+        register(fragmentScopePredicate)
+        // JSR-330 predicates
+        register(jakartaSingletonPredicate)
+        register(jakartaInjectPredicate)
+        register(javaxSingletonPredicate)
+        register(javaxInjectPredicate)
+        // Catch-all for @Inject constructor discovery (needed for modules with only @Inject constructor classes)
+        register(anyClassPredicate)
+        // Note: We can't trigger hint discovery here because symbolNamesProvider isn't ready yet
+    }
+
+    @ExperimentalTopLevelDeclarationsGenerationApi
+    override fun getTopLevelCallableIds(): Set<CallableId> {
+        // Note: We cannot call symbolProvider here because it would create infinite recursion
+        // The symbol provider needs to call getTopLevelCallableIds() on all extensions to build the names
+
+        val callableIds = mutableSetOf<CallableId>()
+
+        // Generate module extension functions for @Module classes
+        // These are needed for cross-module references (startKoin finding modules from dependencies)
+        moduleClasses.forEach { classSymbol ->
+            val packageFqName = classSymbol.classId.packageFqName
+            callableIds.add(CallableId(packageFqName, MODULE_FUNCTION_NAME))
+        }
+
+        // Generate hint functions for @Configuration modules (cross-module discovery)
+        // One function per label per configuration module in the hints package
+        // Example: @Configuration("test", "prod") generates configuration_test and configuration_prod
+        // Using deterministic synthetic file names allows this to work on all platforms (Kotlin 2.3.20+)
+        val allLabels = mutableSetOf<String>()
+        configurationModules.forEach { configModule ->
+            allLabels.addAll(configModule.labels)
+        }
+
+        for (label in allLabels) {
+            callableIds.add(CallableId(HINTS_PACKAGE, hintFunctionNameForLabel(label)))
+        }
+
+        // Always include hints package with "default" label to trigger generateFunctions()
+        // for hint discovery. This ensures cross-module discovery happens even when there are no local
+        // @Module classes (e.g., test source sets discovering modules from main source sets)
+        callableIds.add(CallableId(HINTS_PACKAGE, hintFunctionNameForLabel(KoinConfigurationRegistry.DEFAULT_LABEL)))
+
+        // Generate hint functions for definition classes (cross-module @ComponentScan discovery)
+        // One function per definition type that has classes
+        val definitionTypesCovered = definitionClassInfos.map { it.definitionType }.toSet()
+        for (defType in definitionTypesCovered) {
+            callableIds.add(CallableId(HINTS_PACKAGE, definitionHintFunctionName(defType)))
+        }
+        // Always include all definition types to trigger discovery from dependencies
+        for (defType in ALL_DEFINITION_TYPES) {
+            callableIds.add(CallableId(HINTS_PACKAGE, definitionHintFunctionName(defType)))
+        }
+
+        log { "getTopLevelCallableIds() returning ${callableIds.size} callables (${moduleClasses.size} modules, labels=$allLabels, definitions=${definitionClassInfos.size})" }
+        return callableIds
+    }
+
+    /**
+     * Generate module extension functions and hint functions.
+     * Uses containingFileName (Kotlin 2.3.0+) to place functions in the source file,
+     * avoiding synthetic files that break Kotlin/Native compilation.
+     *
+     * Note: Using functions instead of properties avoids NPE on Kotlin/Native due to backing field issues.
+     */
+    override fun generateFunctions(
+        callableId: CallableId,
+        context: MemberGenerationContext?
+    ): List<FirNamedFunctionSymbol> {
+        // Trigger hint discovery from dependencies
+        discoverModulesFromHintsIfNeeded()
+
+        // Generate hint functions for @Configuration modules
+        // Function name is label-specific: configuration_<label>
+        if (callableId.packageName == HINTS_PACKAGE) {
+            val label = labelFromHintFunctionName(callableId.callableName.asString())
+            if (label != null) {
+                // Find modules that have this label
+                val modulesWithLabel = configurationModules.filter { it.labels.contains(label) }
+                log { "generateFunctions: Generating hint functions for label '$label', ${modulesWithLabel.size} modules" }
+
+                return modulesWithLabel.mapNotNull { configModule ->
+                    val classSymbol = configModule.classSymbol
+                    val moduleType = classSymbol.constructType(emptyArray(), false)
+
+                    // Use pre-captured file name from ConfigurationModule (captured during discovery)
+                    val containingFile = configModule.containingFileName
+
+                    // Skip hint function generation on Native targets entirely
+                    // FIR-generated hint functions with synthetic file names cause ObjC export crashes:
+                    // "NotImplementedError: An operation is not implemented" in findSourceFile
+                    // Cross-module discovery still works via the registry (populated in FIR phase)
+                    if (isNativeTarget) {
+                        log { "  -> Skipping hint for ${classSymbol.classId} on Native target (registry handles discovery)" }
+                        return@mapNotNull null
+                    }
+
+                    // Use pre-captured file name, or deterministic synthetic file name for dependencies
+                    val effectiveFileName = containingFile ?: syntheticFileName(classSymbol.classId, "Configuration")
+
+                    log { "  -> Generating hint for ${classSymbol.classId} with label '$label' in file $effectiveFileName" }
+
+                    createTopLevelFunction(
+                        Key,
+                        callableId,
+                        session.builtinTypes.unitType.coneType,
+                        containingFileName = effectiveFileName
+                    ) {
+                        valueParameter(Name.identifier("contributed"), moduleType)
+                    }.symbol
+                }
+            }
+        }
+
+        // Generate module extension functions for @Module classes
+        if (callableId.callableName == MODULE_FUNCTION_NAME) {
+            // Find module classes in this package - use moduleClassInfos to access pre-captured source file info
+            val matchingModules = moduleClassInfos.filter { info ->
+                info.classSymbol.classId.packageFqName == callableId.packageName
+            }
+
+            if (matchingModules.isEmpty()) {
+                return emptyList()
+            }
+
+            log { "generateFunctions: Generating ${matchingModules.size} module functions in ${callableId.packageName}" }
+
+            return matchingModules.mapNotNull { moduleInfo ->
+                val classSymbol = moduleInfo.classSymbol
+                val moduleType = KOIN_MODULE_CLASS_ID.constructClassLikeType(emptyArray(), false)
+                val extensionType = classSymbol.constructType(emptyArray(), false)
+                val functionCallableId = CallableId(classSymbol.classId.packageFqName, MODULE_FUNCTION_NAME)
+
+                // Use pre-captured source file info from discovery phase
+                // This is important for KMP where source type changes between phases
+                val containingFile = moduleInfo.containingFileName
+                val isActual = classSymbol.rawStatus.isActual
+                log { "  -> Source for ${classSymbol.classId}: containingFile=$containingFile, isActual=$isActual" }
+
+                // Skip synthetic file generation on Native targets - causes ObjC export failures
+                if (containingFile == null && isNativeTarget) {
+                    log { "  -> Skipping module() for ${classSymbol.classId} on Native target (no source file)" }
+                    return@mapNotNull null
+                }
+
+                // Use source file if available, otherwise use deterministic synthetic file name
+                val effectiveFileName = containingFile ?: syntheticFileName(classSymbol.classId, "Module")
+
+                log { "  -> Generating module() for ${classSymbol.classId} in file $effectiveFileName" }
+
+                createTopLevelFunction(
+                    Key,
+                    functionCallableId,
+                    moduleType,
+                    containingFileName = effectiveFileName
+                ) {
+                    extensionReceiverType(extensionType)
+                }.symbol
+            }
+        }
+
+        // Generate definition hint functions for cross-module @ComponentScan discovery
+        // Function name format: definition_<type> (e.g., definition_single, definition_viewmodel)
+        if (callableId.packageName == HINTS_PACKAGE) {
+            val defType = definitionTypeFromHintFunctionName(callableId.callableName.asString())
+            if (defType != null) {
+                // Find definition classes with this type
+                val matchingDefinitions = definitionClassInfos.filter { it.definitionType == defType }
+                log { "generateFunctions: Generating definition hints for type '$defType', ${matchingDefinitions.size} classes" }
+
+                // Skip all definition hint generation on Native targets
+                // Same as configuration hints - causes ObjC export crashes
+                if (isNativeTarget) {
+                    log { "generateFunctions: Skipping definition hints on Native target" }
+                    return emptyList()
+                }
+
+                return matchingDefinitions.mapNotNull { defInfo ->
+                    val classSymbol = defInfo.classSymbol
+                    val classType = classSymbol.constructType(emptyArray(), false)
+
+                    val containingFile = defInfo.containingFileName
+
+                    // Skip synthetic file generation for dependency classes
+                    if (containingFile == null) {
+                        log { "  -> Skipping definition hint for ${classSymbol.classId} (no source file)" }
+                        return@mapNotNull null
+                    }
+
+                    val effectiveFileName = containingFile
+
+                    log { "  -> Generating definition hint for ${classSymbol.classId} (type=$defType) in file $effectiveFileName" }
+
+                    createTopLevelFunction(
+                        Key,
+                        callableId,
+                        session.builtinTypes.unitType.coneType,
+                        containingFileName = effectiveFileName
+                    ) {
+                        valueParameter(Name.identifier("contributed"), classType)
+                    }.symbol
+                }
+            }
+        }
+
+        return emptyList()
+    }
+
+    /**
+     * Claim ownership of the hints package for generated hint functions.
+     */
+    override fun hasPackage(packageFqName: FqName): Boolean {
+        if (packageFqName == HINTS_PACKAGE && (configurationModules.isNotEmpty() || definitionClassInfos.isNotEmpty())) {
+            return true
+        }
+        return super.hasPackage(packageFqName)
+    }
+
+    object Key : GeneratedDeclarationKey() {
+        override fun toString(): String = "KoinModuleGeneratedKey"
+    }
+}

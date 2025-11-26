@@ -1,0 +1,56 @@
+FILE: test.kt
+    public final class HeavyDep : R|kotlin/Any| {
+        public constructor(): R|HeavyDep| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final companion object Companion : R|kotlin/Any| {
+            private constructor(): R|HeavyDep.Companion| {
+                super<R|kotlin/Any|>()
+            }
+
+            public final var created: R|kotlin/Boolean| = Boolean(false)
+                public get(): R|kotlin/Boolean|
+                public set(value: R|kotlin/Boolean|): R|kotlin/Unit|
+
+        }
+
+        init {
+            this@R|/HeavyDep.Companion|.R|/HeavyDep.Companion.created| = Boolean(true)
+        }
+
+    }
+    public final class Consumer : R|kotlin/Any| {
+        public constructor(lazyDep: R|kotlin/Lazy<HeavyDep>|): R|Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val lazyDep: R|kotlin/Lazy<HeavyDep>| = R|<local>/lazyDep|
+            public get(): R|kotlin/Lazy<HeavyDep>|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        Q|HeavyDep|.R|/HeavyDep.Companion.created| = Boolean(false)
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|HeavyDep|>()
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Consumer|>()
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval consumer: R|Consumer| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Consumer|>()
+        lval beforeAccess: R|kotlin/Boolean| = Q|HeavyDep|.R|/HeavyDep.Companion.created|
+        lval dep: R|HeavyDep| = R|<local>/consumer|.R|/Consumer.lazyDep|.R|SubstitutionOverride<kotlin/Lazy.value: R|HeavyDep|>|
+        lval afterAccess: R|kotlin/Boolean| = Q|HeavyDep|.R|/HeavyDep.Companion.created|
+        ^box when () {
+            R|<local>/beforeAccess|.R|kotlin/Boolean.not|() && R|<local>/afterAccess| && !=(R|<local>/dep|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: Lazy<T> parameter not working (before=), R|<local>/beforeAccess|, String(, after=), R|<local>/afterAccess|, String()))
+            }
+        }
+
+    }

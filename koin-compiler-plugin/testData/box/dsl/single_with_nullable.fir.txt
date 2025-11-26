@@ -1,0 +1,36 @@
+FILE: test.kt
+    public final class OptionalDependency : R|kotlin/Any| {
+        public constructor(): R|OptionalDependency| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(optional: R|OptionalDependency?| = Null(null)): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val optional: R|OptionalDependency?| = R|<local>/optional|
+            public get(): R|OptionalDependency?|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Service|>()
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        ^box when () {
+            ==(R|<local>/service|.R|/Service.optional|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: nullable not handled correctly)
+            }
+        }
+
+    }

@@ -1,31 +1,119 @@
-# Kotlin Compiler Plugin template
+# Koin Compiler Plugin
 
-This is a template project for writing a compiler plugin for the Kotlin compiler.
+A native Kotlin Compiler Plugin for [Koin](https://insert-koin.io/) dependency injection. Write `single<T>()` instead of `singleOf(::T)`, use `@Singleton`/`@Factory` annotations - all resolved at compile-time by the Kotlin compiler, no KSP required.
 
-## Details
+## Setup
 
-This project has three modules:
-- The [`:compiler-plugin`](compiler-plugin/src) module contains the compiler plugin itself.
-- The [`:plugin-annotations`](plugin-annotations/src/commonMain/kotlin) module contains annotations which can be used in
-user code for interacting with compiler plugin.
-- The [`:gradle-plugin`](gradle-plugin/src) module contains a simple Gradle plugin to add the compiler plugin and
-annotation dependency to a Kotlin project. 
+```kotlin
+// build.gradle.kts
+plugins {
+    id("io.insert-koin.compiler.plugin") version "0.3.0"
+}
 
-Extension point registration:
-- K2 Frontend (FIR) extensions can be registered in `SimplePluginRegistrar`.
-- All other extensions (including K1 frontend and backend) can be registered in `SimplePluginComponentRegistrar`.
+dependencies {
+    implementation("io.insert-koin:koin-core:4.2.0")
+    // If using annotations
+    implementation("io.insert-koin:koin-annotations:4.2.0")
+}
+```
 
-## Tests
+## Usage
 
-The [Kotlin compiler test framework][test-framework] is set up for this project.
-To create a new test, add a new `.kt` file in a [compiler-plugin/testData](compiler-plugin/testData) sub-directory:
-`testData/box` for codegen tests and `testData/diagnostics` for diagnostics tests.
-The generated JUnit 5 test classes will be updated automatically when tests are next run.
-They can be manually updated with the `generateTests` Gradle task as well.
-To aid in running tests, it is recommended to install the [Kotlin Compiler DevKit][test-plugin] IntelliJ plugin,
-which is pre-configured in this repository.
+### DSL Syntax
 
-[//]: # (Links)
+> **Important**: Use imports from `org.koin.plugin.module.dsl`, not the classic Koin DSL.
 
-[test-framework]: https://github.com/JetBrains/kotlin/blob/master/compiler/test-infrastructure/ReadMe.md
-[test-plugin]: https://github.com/JetBrains/kotlin-compiler-devkit
+```kotlin
+import org.koin.plugin.module.dsl.single
+import org.koin.plugin.module.dsl.factory
+import org.koin.plugin.module.dsl.viewModel
+import org.koin.plugin.module.dsl.worker
+
+val myModule = module {
+    single<MyService>()
+    factory<MyRepository>()
+    viewModel<MyViewModel>()
+    worker<MyWorker>()        // Android WorkManager
+}
+```
+
+### Annotation Syntax
+
+```kotlin
+@Module
+@ComponentScan
+class AppModule
+
+@Singleton
+class MyService(val repo: Repository)
+
+@Factory
+class MyRepository
+
+@KoinViewModel
+class MyViewModel(val service: MyService) : ViewModel()
+```
+
+### Module Injection
+
+```kotlin
+@KoinApplication(modules = [AppModule::class])
+object MyApp
+
+fun main() {
+    startKoin<MyApp> {
+        printLogger()
+    }
+}
+```
+
+## Features
+
+- **DSL Transformation**: `single<T>()`, `factory<T>()`, `viewModel<T>()`, `worker<T>()`, `scoped<T>()`
+- **Annotation Processing**: `@Singleton`, `@Factory`, `@KoinViewModel`, `@Scoped`, `@KoinWorker`
+- **Auto Module Injection**: `@KoinApplication(modules = [...])` with `startKoin<App>()`
+- **Full KMP Support**: JVM, JS, WASM, iOS, macOS, watchOS, tvOS, Linux, Windows
+- **JSR-330 Support**: `@Inject`, `@Named` from `javax.inject` or `jakarta.inject`
+
+## Configuration
+
+```kotlin
+// build.gradle.kts
+koinCompiler {
+    userLogs = true   // Log component detection
+    debugLogs = true  // Log internal processing (verbose)
+}
+```
+
+## Compatibility
+
+- **Koin**: 4.2.0-RC1+
+- **Kotlin**: K2 compiler required (2.3.x+)
+
+## Documentation
+
+See the [docs/](docs/) folder:
+
+- [MIGRATION_FROM_KSP.md](docs/MIGRATION_FROM_KSP.md) - Migration from Koin Annotations (KSP)
+- [CASE_STUDY_NOW_IN_ANDROID.md](docs/CASE_STUDY_NOW_IN_ANDROID.md) - Real-world migration case study
+- [DEBUGGING.md](docs/DEBUGGING.md) - Debugging guide and common issues
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - Project structure and compilation flow
+- [TRANSFORMATIONS.md](docs/TRANSFORMATIONS.md) - All transformation examples
+- [ROADMAP.md](docs/ROADMAP.md) - Project status and future plans
+
+## Development
+
+```bash
+# Build and install to Maven Local
+./install.sh
+
+# Run tests
+./gradlew :koin-compiler-plugin:test
+
+# Run sample (from test-apps/)
+cd test-apps && ./gradlew :sample-app:jvmRun
+```
+
+## License
+
+Apache 2.0

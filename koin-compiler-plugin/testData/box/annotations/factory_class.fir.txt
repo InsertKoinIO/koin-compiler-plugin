@@ -1,0 +1,32 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class MyFactory : R|kotlin/Any| {
+        public constructor(): R|MyFactory| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval f1: R|MyFactory| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|MyFactory|>()
+        lval f2: R|MyFactory| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|MyFactory|>()
+        ^box when () {
+            !==(R|<local>/f1|, R|<local>/f2|) && !=(R|<local>/f1|, Null(null)) && !=(R|<local>/f2|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: @Factory not working)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

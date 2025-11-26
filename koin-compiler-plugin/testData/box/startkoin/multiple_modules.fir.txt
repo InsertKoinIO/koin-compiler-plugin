@@ -1,0 +1,51 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class ModuleA : R|kotlin/Any| {
+        public constructor(): R|ModuleA| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class ModuleB : R|kotlin/Any| {
+        public constructor(): R|ModuleB| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class ServiceA : R|kotlin/Any| {
+        public constructor(): R|ServiceA| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class ServiceB : R|kotlin/Any| {
+        public constructor(a: R|ServiceA|): R|ServiceB| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val a: R|ServiceA| = R|<local>/a|
+            public get(): R|ServiceA|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|/ModuleA.ModuleA|().R|/module|(), R|/ModuleB.ModuleB|().R|/module|()))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval serviceA: R|ServiceA| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ServiceA|>()
+        lval serviceB: R|ServiceB| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ServiceB|>()
+        lval bothExist: R|kotlin/Boolean| = !=(R|<local>/serviceA|, Null(null)) && !=(R|<local>/serviceB|, Null(null))
+        lval dependencyInjected: R|kotlin/Boolean| = ===(R|<local>/serviceB|.R|/ServiceB.a|, R|<local>/serviceA|)
+        ^box when () {
+            R|<local>/bothExist| && R|<local>/dependencyInjected| ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: multiple modules not working)
+            }
+        }
+
+    }
+FILE: /moduleAModule.kt
+    public final fun R|ModuleA|.module(): R|org/koin/core/module/Module|
+FILE: /moduleBModule.kt
+    public final fun R|ModuleB|.module(): R|org/koin/core/module/Module|

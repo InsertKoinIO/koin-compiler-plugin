@@ -1,19 +1,20 @@
 pluginManagement {
     repositories {
+        mavenLocal()
         mavenCentral()
         gradlePluginPortal()
     }
-    
 }
 
 dependencyResolutionManagement {
     repositories {
+        mavenLocal()
         mavenCentral()
+        google()
     }
 }
 
-rootProject.name = "compiler-plugin-template"
+rootProject.name = "koin-compiler-plugin"
 
-include("compiler-plugin")
-include("gradle-plugin")
-include("plugin-annotations")
+include("koin-compiler-plugin")
+include("koin-compiler-gradle-plugin")
