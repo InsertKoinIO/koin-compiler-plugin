@@ -1,0 +1,30 @@
+FILE: test.kt
+    public final class ServiceWithDefault : R|kotlin/Any| {
+        public constructor(name: R|kotlin/String| = String(default_value)): R|ServiceWithDefault| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val name: R|kotlin/String| = R|<local>/name|
+            public get(): R|kotlin/String|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|ServiceWithDefault|>()
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|ServiceWithDefault| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ServiceWithDefault|>()
+        ^box when () {
+            ==(R|<local>/service|.R|/ServiceWithDefault.name|, String(default_value)) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: expected 'default_value' but got '), R|<local>/service|.R|/ServiceWithDefault.name|, String('))
+            }
+        }
+
+    }
