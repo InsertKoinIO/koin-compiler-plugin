@@ -190,7 +190,7 @@ class LambdaBuilder(
     fun generateArgumentForParameter(
         param: IrValueParameter,
         scopeReceiver: IrExpression,
-        parametersHolderReceiver: IrExpression,
+        parametersHolderReceiver: IrExpression?,
         builder: DeclarationIrBuilder
     ): IrExpression? {
         return argumentGenerator.generateForParameter(param, scopeReceiver, parametersHolderReceiver, builder)
@@ -223,7 +223,7 @@ interface ArgumentGenerator {
     fun generateForParameter(
         param: IrValueParameter,
         scopeReceiver: IrExpression,
-        parametersHolderReceiver: IrExpression,
+        parametersHolderReceiver: IrExpression?,
         builder: DeclarationIrBuilder
     ): IrExpression?
 }

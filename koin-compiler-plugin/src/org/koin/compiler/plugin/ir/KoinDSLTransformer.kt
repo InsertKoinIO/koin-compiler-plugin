@@ -2,17 +2,12 @@ package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
-import org.jetbrains.kotlin.ir.expressions.impl.IrGetEnumValueImpl
-import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
@@ -23,7 +18,6 @@ import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginLogger
-import org.koin.compiler.plugin.PropertyValueRegistry
 
 /**
  * Transforms Koin DSL calls:
@@ -45,6 +39,10 @@ class KoinDSLTransformer(
     // Qualifier extraction helper
     private val qualifierExtractor = QualifierExtractor(context)
 
+    // Reuse argument generator and lambda builder from the annotation processor infrastructure
+    private val argumentGenerator = KoinArgumentGenerator(context, qualifierExtractor)
+    private val lambdaBuilder = LambdaBuilder(context, qualifierExtractor, argumentGenerator)
+
     private val createName = Name.identifier("create")
     private val singleName = Name.identifier("single")
     private val factoryName = Name.identifier("factory")
@@ -63,10 +61,6 @@ class KoinDSLTransformer(
 
     // Cached class lookups (avoid repeated referenceClass calls)
     private val kClassClass by lazy { context.referenceClass(ClassId.topLevel(KoinAnnotationFqNames.KCLASS))?.owner }
-    private val scopeClass by lazy { context.referenceClass(ClassId.topLevel(KoinAnnotationFqNames.SCOPE_CLASS))?.owner }
-    private val parametersHolderClass by lazy { context.referenceClass(ClassId.topLevel(KoinAnnotationFqNames.PARAMETERS_HOLDER))?.owner }
-    private val function2Class by lazy { context.referenceClass(ClassId.topLevel(KoinAnnotationFqNames.FUNCTION2))?.owner }
-    private val lazyModeClass by lazy { context.referenceClass(ClassId.topLevel(KoinAnnotationFqNames.LAZY_THREAD_SAFETY_MODE))?.owner }
 
     // Cache for target functions (buildSingle, buildFactory, etc.)
     private val targetFunctionCache = mutableMapOf<Pair<Name, String>, IrSimpleFunction?>()
@@ -213,7 +207,18 @@ class KoinDSLTransformer(
 
             // Arg 2: Definition lambda { T(get(), get(), ...) }
             val parentFunc = currentFunction ?: return call
-            putValueArgument(2, createDefinitionLambda(constructor, targetClass, builder, parentFunc))
+            putValueArgument(2, lambdaBuilder.create(targetClass, builder, parentFunc) { lb, scopeParam, paramsParam ->
+                lb.irCallConstructor(constructor.symbol, emptyList()).apply {
+                    constructor.valueParameters.forEachIndexed { index, param ->
+                        val scopeGet = lb.irGet(scopeParam)
+                        val paramsGet = lb.irGet(paramsParam)
+                        val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, lb)
+                        if (argument != null) {
+                            putValueArgument(index, argument)
+                        }
+                    }
+                }
+            })
         }
     }
 
@@ -241,7 +246,7 @@ class KoinDSLTransformer(
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${targetClass.name}" }
                 builder.irCallConstructor(referencedFunction.symbol, emptyList()).apply {
                     referencedFunction.valueParameters.forEachIndexed { index, param ->
-                        val argument = generateKoinArgumentForParameter(param, scopeReceiver, null, builder)
+                        val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeReceiver, null, builder)
                         if (argument != null) {
                             putValueArgument(index, argument)
                         }
@@ -255,7 +260,7 @@ class KoinDSLTransformer(
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${referencedFunction.name}) } -> $returnTypeName" }
                 builder.irCall(referencedFunction.symbol).apply {
                     referencedFunction.valueParameters.forEachIndexed { index, param ->
-                        val argument = generateKoinArgumentForParameter(param, scopeReceiver, null, builder)
+                        val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeReceiver, null, builder)
                         if (argument != null) {
                             putValueArgument(index, argument)
                         }
@@ -339,323 +344,4 @@ class KoinDSLTransformer(
         return result
     }
 
-    private fun createDefinitionLambda(
-        constructor: IrConstructor,
-        returnTypeClass: IrClass,
-        builder: DeclarationIrBuilder,
-        parentFunction: IrFunction
-    ): IrExpression {
-        val scopeClassOwner = scopeClass ?: return builder.irNull()
-        val parametersHolderClassOwner = parametersHolderClass ?: return builder.irNull()
-
-        val lambdaFunction = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
-            name = Name.special("<anonymous>"),
-            visibility = DescriptorVisibilities.LOCAL,
-            isInline = false,
-            isExpect = false,
-            returnType = returnTypeClass.defaultType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
-        lambdaFunction.parent = parentFunction
-
-        val extensionReceiverParam = context.irFactory.createValueParameter(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
-            name = Name.special("<this>"),
-            type = scopeClassOwner.defaultType,
-            isAssignable = false,
-            symbol = org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl(),
-            index = -1,
-            varargElementType = null,
-            isCrossinline = false,
-            isNoinline = false,
-            isHidden = false
-        )
-        extensionReceiverParam.parent = lambdaFunction
-        lambdaFunction.extensionReceiverParameter = extensionReceiverParam
-
-        val parametersHolderParam = context.irFactory.createValueParameter(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
-            name = Name.identifier("params"),
-            type = parametersHolderClassOwner.defaultType,
-            isAssignable = false,
-            symbol = org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl(),
-            index = 0,
-            varargElementType = null,
-            isCrossinline = false,
-            isNoinline = false,
-            isHidden = false
-        )
-        parametersHolderParam.parent = lambdaFunction
-        lambdaFunction.valueParameters = listOf(parametersHolderParam)
-
-        val lambdaBuilder = DeclarationIrBuilder(context, lambdaFunction.symbol, UNDEFINED_OFFSET, UNDEFINED_OFFSET)
-
-        val constructorCall = lambdaBuilder.irCallConstructor(constructor.symbol, emptyList()).apply {
-            constructor.valueParameters.forEachIndexed { index, param ->
-                val scopeGet = lambdaBuilder.irGet(extensionReceiverParam)
-                val paramsGet = lambdaBuilder.irGet(parametersHolderParam)
-                val argument = generateKoinArgumentForParameter(param, scopeGet, paramsGet, lambdaBuilder)
-                if (argument != null) {
-                    putValueArgument(index, argument)
-                }
-                // If argument is null, parameter has a default value and will use it
-            }
-        }
-
-        lambdaFunction.body = context.irFactory.createBlockBody(
-            UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-            listOf(lambdaBuilder.irReturn(constructorCall))
-        )
-
-        val function2ClassOwner = function2Class ?: return builder.irNull()
-
-        return IrFunctionExpressionImpl(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            type = function2ClassOwner.typeWith(scopeClassOwner.defaultType, parametersHolderClassOwner.defaultType, returnTypeClass.defaultType),
-            origin = IrStatementOrigin.LAMBDA,
-            function = lambdaFunction
-        )
-    }
-
-    // Qualifier extraction and creation methods have been moved to QualifierExtractor
-
-    /**
-     * Generates a Koin argument for a constructor/function parameter.
-     * Returns null if the parameter has a default value and no explicit annotation,
-     * in which case the default value should be used.
-     */
-    private fun generateKoinArgumentForParameter(
-        param: IrValueParameter,
-        scopeReceiver: IrExpression,
-        parametersHolderReceiver: IrExpression?,
-        builder: DeclarationIrBuilder
-    ): IrExpression? {
-        val paramType = param.type
-
-        // @Property -> getProperty()
-        val propertyKey = qualifierExtractor.getPropertyAnnotationKey(param)
-        if (propertyKey != null) {
-            return createGetPropertyCall(scopeReceiver, propertyKey, paramType, builder)
-        }
-
-        // @InjectedParam -> ParametersHolder.get()
-        if (qualifierExtractor.hasInjectedParamAnnotation(param) && parametersHolderReceiver != null) {
-            return if (paramType.makeNotNull() != paramType) {
-                createParametersHolderGetOrNullCall(parametersHolderReceiver, paramType.makeNotNull(), builder)
-            } else {
-                createParametersHolderGetCall(parametersHolderReceiver, paramType, builder)
-            }
-        }
-
-        val qualifier = qualifierExtractor.extractFromParameter(param)
-
-        // If skipDefaultValues is enabled, parameter has a default value, is NOT nullable,
-        // and has no explicit qualifier annotation, skip injection.
-        // Nullable parameters should still use getOrNull() to let the DI container handle resolution.
-        if (KoinPluginLogger.skipDefaultValuesEnabled && param.defaultValue != null && qualifier == null && paramType.makeNotNull() == paramType) {
-            KoinPluginLogger.user { "  Skipping injection for parameter '${param.name}' - using default value" }
-            return null
-        }
-        val classifier = paramType.classifierOrNull?.owner
-
-        // Lazy<T> -> inject()
-        if (classifier is IrClass && classifier.name.asString() == "Lazy" && classifier.packageFqName?.asString() == "kotlin") {
-            val typeArgument = (paramType as? IrSimpleType)?.arguments?.firstOrNull()?.typeOrNull
-            if (typeArgument != null) {
-                return createScopeInjectCall(scopeReceiver, typeArgument, qualifier, builder)
-            }
-        }
-
-        // List<T> -> getAll()
-        if (classifier is IrClass && classifier.name.asString() == "List" && classifier.packageFqName?.asString() == "kotlin.collections") {
-            val typeArgument = (paramType as? IrSimpleType)?.arguments?.firstOrNull()?.typeOrNull
-            if (typeArgument != null) {
-                return createScopeGetAllCall(scopeReceiver, typeArgument, builder)
-            }
-        }
-
-        // Nullable -> getOrNull()
-        if (paramType.makeNotNull() != paramType) {
-            return createScopeGetOrNullCall(scopeReceiver, paramType.makeNotNull(), qualifier, builder)
-        }
-
-        // Non-nullable -> get()
-        return createScopeGetCall(scopeReceiver, paramType, qualifier, builder)
-    }
-
-    private fun createGetPropertyCall(scopeReceiver: IrExpression, propertyKey: String, expectedType: IrType, builder: DeclarationIrBuilder): IrExpression {
-        val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass) ?: return builder.irNull()
-
-        // Check if there's a @PropertyValue default for this key
-        val defaultProperty = PropertyValueRegistry.getDefault(propertyKey)
-
-        if (defaultProperty != null) {
-            // Use getProperty(key, defaultValue) with 2 parameters
-            val getPropertyWithDefaultFunction = scopeClass.declarations
-                .filterIsInstance<IrSimpleFunction>()
-                .firstOrNull { it.name.asString() == "getProperty" && it.typeParameters.size == 1 && it.valueParameters.size == 2 }
-
-            if (getPropertyWithDefaultFunction != null) {
-                KoinPluginLogger.debug { "  Using getProperty(\"$propertyKey\", ${defaultProperty.name}) with @PropertyValue default" }
-                return builder.irCall(getPropertyWithDefaultFunction.symbol).apply {
-                    dispatchReceiver = scopeReceiver
-                    putTypeArgument(0, expectedType)
-                    putValueArgument(0, builder.irString(propertyKey))
-                    // Reference the default property's getter
-                    val getter = defaultProperty.getter
-                    if (getter != null) {
-                        putValueArgument(1, builder.irCall(getter.symbol))
-                    } else {
-                        // Fallback to backing field if no getter
-                        val backingField = defaultProperty.backingField
-                        if (backingField != null) {
-                            putValueArgument(1, builder.irGetField(null, backingField))
-                        }
-                    }
-                }
-            }
-        }
-
-        // Use single parameter version: getProperty(key)
-        val getPropertyFunction = scopeClass.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .firstOrNull { it.name.asString() == "getProperty" && it.typeParameters.size == 1 && it.valueParameters.size == 1 }
-        return if (getPropertyFunction != null) {
-            builder.irCall(getPropertyFunction.symbol).apply {
-                dispatchReceiver = scopeReceiver
-                putTypeArgument(0, expectedType)
-                putValueArgument(0, builder.irString(propertyKey))
-            }
-        } else {
-            builder.irNull()
-        }
-    }
-
-    private fun createScopeGetAllCall(scopeReceiver: IrExpression, elementType: IrType, builder: DeclarationIrBuilder): IrExpression {
-        val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass) ?: return builder.irNull()
-        val getAllFunction = scopeClass.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .firstOrNull { it.name.asString() == "getAll" && it.typeParameters.size == 1 }
-        return if (getAllFunction != null) {
-            builder.irCall(getAllFunction.symbol).apply {
-                dispatchReceiver = scopeReceiver
-                putTypeArgument(0, elementType)
-            }
-        } else {
-            builder.irNull()
-        }
-    }
-
-    private fun createScopeGetCall(scopeReceiver: IrExpression, type: IrType, qualifier: QualifierValue?, builder: DeclarationIrBuilder): IrExpression {
-        val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass) ?: return builder.irNull()
-        val getFunction = scopeClass.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .filter { it.name.asString() == "get" && it.typeParameters.size == 1 && it.valueParameters.all { p -> p.type.makeNotNull() != p.type } }
-            .minByOrNull { it.valueParameters.size }
-            ?: return builder.irNull()
-
-        return builder.irCall(getFunction.symbol).apply {
-            dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
-            getFunction.valueParameters.forEachIndexed { index, param ->
-                val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
-                if (index == 0 && paramTypeName == "Qualifier" && qualifier != null) {
-                    putValueArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
-                } else {
-                    putValueArgument(index, builder.irNull())
-                }
-            }
-        }
-    }
-
-    private fun createScopeGetOrNullCall(scopeReceiver: IrExpression, type: IrType, qualifier: QualifierValue?, builder: DeclarationIrBuilder): IrExpression {
-        val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass) ?: return builder.irNull()
-        val getOrNullFunction = scopeClass.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .filter { it.name.asString() == "getOrNull" && it.typeParameters.size == 1 && it.valueParameters.all { p -> p.type.makeNotNull() != p.type } }
-            .minByOrNull { it.valueParameters.size }
-            ?: return builder.irNull()
-
-        return builder.irCall(getOrNullFunction.symbol).apply {
-            dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
-            getOrNullFunction.valueParameters.forEachIndexed { index, param ->
-                val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
-                if (index == 0 && paramTypeName == "Qualifier" && qualifier != null) {
-                    putValueArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
-                } else {
-                    putValueArgument(index, builder.irNull())
-                }
-            }
-        }
-    }
-
-    private fun createScopeInjectCall(scopeReceiver: IrExpression, type: IrType, qualifier: QualifierValue?, builder: DeclarationIrBuilder): IrExpression {
-        val scopeClassFromReceiver = (scopeReceiver.type.classifierOrNull?.owner as? IrClass) ?: return builder.irNull()
-        val injectFunction = scopeClassFromReceiver.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .filter { it.name.asString() == "inject" && it.typeParameters.size == 1 }
-            .minByOrNull { it.valueParameters.size }
-            ?: return builder.irNull()
-
-        val synchronizedEntry = lazyModeClass?.declarations?.filterIsInstance<IrEnumEntry>()?.firstOrNull { it.name.asString() == "SYNCHRONIZED" }
-
-        return builder.irCall(injectFunction.symbol).apply {
-            dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
-            injectFunction.valueParameters.forEachIndexed { index, param ->
-                val paramType = param.type
-                val paramTypeName = (paramType.classifierOrNull?.owner as? IrClass)?.name?.asString()
-                when {
-                    paramTypeName == "Qualifier" && qualifier != null -> putValueArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
-                    paramType.classifierOrNull?.owner == lazyModeClass && synchronizedEntry != null -> {
-                        putValueArgument(index, IrGetEnumValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, paramType, synchronizedEntry.symbol))
-                    }
-                    paramType.makeNotNull() != paramType -> putValueArgument(index, builder.irNull())
-                }
-            }
-        }
-    }
-
-    private fun createParametersHolderGetCall(parametersHolderReceiver: IrExpression, type: IrType, builder: DeclarationIrBuilder): IrExpression {
-        val parametersHolderClassFromReceiver = (parametersHolderReceiver.type.classifierOrNull?.owner as? IrClass) ?: return builder.irNull()
-        val getFunction = parametersHolderClassFromReceiver.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .firstOrNull { it.name.asString() == "get" && it.typeParameters.size == 1 && it.valueParameters.isEmpty() }
-            ?: return builder.irNull()
-
-        return builder.irCall(getFunction.symbol).apply {
-            dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
-        }
-    }
-
-    private fun createParametersHolderGetOrNullCall(parametersHolderReceiver: IrExpression, type: IrType, builder: DeclarationIrBuilder): IrExpression {
-        val parametersHolderClass = (parametersHolderReceiver.type.classifierOrNull?.owner as? IrClass) ?: return builder.irNull()
-        val getOrNullFunction = parametersHolderClass.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .firstOrNull { it.name.asString() == "getOrNull" && it.typeParameters.size == 1 && it.valueParameters.isEmpty() }
-            ?: return builder.irNull()
-
-        return builder.irCall(getOrNullFunction.symbol).apply {
-            dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
-        }
-    }
 }
