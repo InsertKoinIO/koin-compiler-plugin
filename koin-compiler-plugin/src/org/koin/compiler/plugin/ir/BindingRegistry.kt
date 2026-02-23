@@ -316,11 +316,78 @@ class BindingRegistry {
     }
 
     /**
-     * Internal key for tracking what's provided.
+     * Key for tracking what's provided.
      */
-    private data class ProviderKey(
+    internal data class ProviderKey(
         val typeKey: TypeKey,
         val qualifier: QualifierValue?,
         val scopeClass: IrClass?
-    )
+    ) {
+        /** Scope FqName for comparison (null = root scope). */
+        val scopeFqName: String? get() = scopeClass?.fqNameWhenAvailable?.asString()
+    }
+
+    // ================================================================================
+    // Unit-testable validation (no IR dependencies)
+    // ================================================================================
+
+    /**
+     * Validate requirements against a provided set using only data types.
+     * Used by unit tests to verify matching logic without IR.
+     *
+     * @param requirements List of (defName, scopeFqName, requirement) triples
+     * @param provided Set of (TypeKey, qualifier, scopeFqName) triples representing providers
+     * @param moduleName For error messages
+     * @return List of (defName, requirement) pairs that are missing
+     */
+    fun validateRequirementsData(
+        requirements: List<Triple<String, String?, Requirement>>,
+        provided: Set<Triple<TypeKey, QualifierValue?, String?>>,
+        moduleName: String = "TestModule"
+    ): List<Pair<String, Requirement>> {
+        val missing = mutableListOf<Pair<String, Requirement>>()
+
+        for ((defName, consumerScopeFqName, req) in requirements) {
+            if (!req.requiresValidation()) continue
+            if (req.isProperty) continue
+
+            val found = findProviderData(req, provided, consumerScopeFqName)
+            if (!found) {
+                missing.add(defName to req)
+            }
+        }
+
+        return missing
+    }
+
+    /**
+     * Search for a provider matching the requirement using plain data.
+     */
+    internal fun findProviderData(
+        req: Requirement,
+        provided: Set<Triple<TypeKey, QualifierValue?, String?>>,
+        consumerScopeFqName: String?
+    ): Boolean {
+        val reqFqName = req.typeKey.fqName
+        val reqClassId = req.typeKey.classId
+
+        for ((providerTypeKey, providerQualifier, providerScopeFqName) in provided) {
+            val typeMatch = when {
+                reqFqName != null && providerTypeKey.fqName != null -> reqFqName == providerTypeKey.fqName
+                reqClassId != null && providerTypeKey.classId != null -> reqClassId == providerTypeKey.classId
+                else -> false
+            }
+            if (!typeMatch) continue
+
+            if (!qualifiersMatch(req.qualifier, providerQualifier)) continue
+
+            // Scope visibility
+            if (providerScopeFqName == null) return true  // Root scope visible to all
+            if (consumerScopeFqName != null && providerScopeFqName == consumerScopeFqName) return true
+        }
+
+        return false
+    }
+
+    internal fun qualifiersMatchPublic(a: QualifierValue?, b: QualifierValue?): Boolean = qualifiersMatch(a, b)
 }

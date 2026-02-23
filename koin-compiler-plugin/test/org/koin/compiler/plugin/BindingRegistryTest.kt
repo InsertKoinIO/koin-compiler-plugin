@@ -110,8 +110,239 @@ class BindingRegistryTest {
     }
 
     // ================================================================================
+    // Negative tests: missing dependency detection
+    // ================================================================================
+
+    @Test
+    fun `missing dependency is detected`() {
+        val registry = BindingRegistry()
+        // Service requires Repository, but Repository is not provided
+        val req = makeRequirement(typeFqName = "com.example.Repository", paramName = "repo")
+        val requirements = listOf(Triple("com.example.Service", null as String?, req))
+        val provided = setOf(
+            Triple(makeTypeKey("com.example.Service"), null as QualifierValue?, null as String?)
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(1, missing.size)
+        assertEquals("com.example.Service", missing[0].first)
+        assertEquals("repo", missing[0].second.paramName)
+    }
+
+    @Test
+    fun `complete graph has no missing dependencies`() {
+        val registry = BindingRegistry()
+        // Service requires Repository, and Repository IS provided
+        val req = makeRequirement(typeFqName = "com.example.Repository", paramName = "repo")
+        val requirements = listOf(Triple("com.example.Service", null as String?, req))
+        val provided = setOf(
+            Triple(makeTypeKey("com.example.Service"), null as QualifierValue?, null as String?),
+            Triple(makeTypeKey("com.example.Repository"), null as QualifierValue?, null as String?)
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(0, missing.size)
+    }
+
+    @Test
+    fun `qualifier mismatch is detected as missing`() {
+        val registry = BindingRegistry()
+        // Requires @Named("prod") Repository, but only @Named("test") Repository exists
+        val req = makeRequirement(
+            typeFqName = "com.example.Repository",
+            paramName = "repo",
+            qualifier = QualifierValue.StringQualifier("prod")
+        )
+        val requirements = listOf(Triple("com.example.Service", null as String?, req))
+        val provided = setOf(
+            Triple(
+                makeTypeKey("com.example.Repository"),
+                QualifierValue.StringQualifier("test") as QualifierValue?,
+                null as String?
+            )
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(1, missing.size)
+    }
+
+    @Test
+    fun `matching qualifier is found`() {
+        val registry = BindingRegistry()
+        val req = makeRequirement(
+            typeFqName = "com.example.Repository",
+            paramName = "repo",
+            qualifier = QualifierValue.StringQualifier("prod")
+        )
+        val requirements = listOf(Triple("com.example.Service", null as String?, req))
+        val provided = setOf(
+            Triple(
+                makeTypeKey("com.example.Repository"),
+                QualifierValue.StringQualifier("prod") as QualifierValue?,
+                null as String?
+            )
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(0, missing.size)
+    }
+
+    @Test
+    fun `unqualified requirement does not match qualified provider`() {
+        val registry = BindingRegistry()
+        // Requires Repository (no qualifier), but only @Named("test") Repository exists
+        val req = makeRequirement(typeFqName = "com.example.Repository", paramName = "repo")
+        val requirements = listOf(Triple("com.example.Service", null as String?, req))
+        val provided = setOf(
+            Triple(
+                makeTypeKey("com.example.Repository"),
+                QualifierValue.StringQualifier("test") as QualifierValue?,
+                null as String?
+            )
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(1, missing.size)
+    }
+
+    @Test
+    fun `lazy missing inner type is detected`() {
+        val registry = BindingRegistry()
+        // Requires Lazy<Repository> (isLazy=true, typeKey=Repository), but Repository not provided
+        val req = makeRequirement(
+            typeFqName = "com.example.Repository",
+            paramName = "repo",
+            isLazy = true
+        )
+        val requirements = listOf(Triple("com.example.Service", null as String?, req))
+        val provided = setOf(
+            Triple(makeTypeKey("com.example.Service"), null as QualifierValue?, null as String?)
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(1, missing.size)
+    }
+
+    @Test
+    fun `root scope provider is visible to scoped consumer`() {
+        val registry = BindingRegistry()
+        // Scoped Service requires root-scope Repository
+        val req = makeRequirement(typeFqName = "com.example.Repository", paramName = "repo")
+        val requirements = listOf(Triple("com.example.Service", "com.example.SessionScope", req))
+        val provided = setOf(
+            // Repository is in root scope (scopeFqName = null)
+            Triple(makeTypeKey("com.example.Repository"), null as QualifierValue?, null as String?)
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(0, missing.size)
+    }
+
+    @Test
+    fun `different scope provider is NOT visible to scoped consumer`() {
+        val registry = BindingRegistry()
+        // Service in SessionScope requires AuthData, but AuthData is in UserScope
+        val req = makeRequirement(typeFqName = "com.example.AuthData", paramName = "auth")
+        val requirements = listOf(Triple("com.example.Service", "com.example.SessionScope", req))
+        val provided = setOf(
+            // AuthData is in UserScope (different scope)
+            Triple(makeTypeKey("com.example.AuthData"), null as QualifierValue?, "com.example.UserScope" as String?)
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(1, missing.size)
+    }
+
+    @Test
+    fun `same scope provider IS visible to scoped consumer`() {
+        val registry = BindingRegistry()
+        val req = makeRequirement(typeFqName = "com.example.AuthData", paramName = "auth")
+        val requirements = listOf(Triple("com.example.Service", "com.example.SessionScope", req))
+        val provided = setOf(
+            Triple(makeTypeKey("com.example.AuthData"), null as QualifierValue?, "com.example.SessionScope" as String?)
+        )
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(0, missing.size)
+    }
+
+    @Test
+    fun `nullable requirement is skipped even when missing`() {
+        val registry = BindingRegistry()
+        val req = makeRequirement(typeFqName = "com.example.Repository", paramName = "repo", isNullable = true)
+        val requirements = listOf(Triple("com.example.Service", null as String?, req))
+        val provided = emptySet<Triple<TypeKey, QualifierValue?, String?>>()
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(0, missing.size)
+    }
+
+    @Test
+    fun `multiple missing dependencies are all reported`() {
+        val registry = BindingRegistry()
+        val req1 = makeRequirement(typeFqName = "com.example.Repository", paramName = "repo")
+        val req2 = makeRequirement(typeFqName = "com.example.Logger", paramName = "logger")
+        val requirements = listOf(
+            Triple("com.example.Service", null as String?, req1),
+            Triple("com.example.Service", null as String?, req2)
+        )
+        val provided = emptySet<Triple<TypeKey, QualifierValue?, String?>>()
+
+        val missing = registry.validateRequirementsData(requirements, provided)
+        assertEquals(2, missing.size)
+    }
+
+    // ================================================================================
+    // Qualifier matching tests
+    // ================================================================================
+
+    @Test
+    fun `qualifiers match - both null`() {
+        val registry = BindingRegistry()
+        assertTrue(registry.qualifiersMatchPublic(null, null))
+    }
+
+    @Test
+    fun `qualifiers match - same string`() {
+        val registry = BindingRegistry()
+        assertTrue(registry.qualifiersMatchPublic(
+            QualifierValue.StringQualifier("prod"),
+            QualifierValue.StringQualifier("prod")
+        ))
+    }
+
+    @Test
+    fun `qualifiers do not match - different string`() {
+        val registry = BindingRegistry()
+        assertFalse(registry.qualifiersMatchPublic(
+            QualifierValue.StringQualifier("prod"),
+            QualifierValue.StringQualifier("test")
+        ))
+    }
+
+    @Test
+    fun `qualifiers do not match - one null one not`() {
+        val registry = BindingRegistry()
+        assertFalse(registry.qualifiersMatchPublic(
+            QualifierValue.StringQualifier("prod"),
+            null
+        ))
+        assertFalse(registry.qualifiersMatchPublic(
+            null,
+            QualifierValue.StringQualifier("prod")
+        ))
+    }
+
+    // ================================================================================
     // Helpers
     // ================================================================================
+
+    private fun makeTypeKey(fqName: String): TypeKey {
+        return TypeKey(
+            classId = ClassId.topLevel(FqName(fqName)),
+            fqName = FqName(fqName)
+        )
+    }
 
     private fun makeRequirement(
         typeFqName: String = "com.example.Dependency",
