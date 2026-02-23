@@ -21,8 +21,26 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("lazy_missing.kt")
+  public void testLazy_missing() {
+    runTest("koin-compiler-plugin/testData/diagnostics/lazy_missing.kt");
+  }
+
+  @Test
   @TestMetadata("missing_dependency.kt")
   public void testMissing_dependency() {
     runTest("koin-compiler-plugin/testData/diagnostics/missing_dependency.kt");
+  }
+
+  @Test
+  @TestMetadata("qualifier_mismatch.kt")
+  public void testQualifier_mismatch() {
+    runTest("koin-compiler-plugin/testData/diagnostics/qualifier_mismatch.kt");
+  }
+
+  @Test
+  @TestMetadata("scoped_cross_scope.kt")
+  public void testScoped_cross_scope() {
+    runTest("koin-compiler-plugin/testData/diagnostics/scoped_cross_scope.kt");
   }
 }

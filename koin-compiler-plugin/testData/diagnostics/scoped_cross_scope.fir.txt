@@ -1,0 +1,36 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class SessionScope : R|kotlin/Any| {
+        public constructor(): R|SessionScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class UserScope : R|kotlin/Any| {
+        public constructor(): R|UserScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|SessionScope|)) public final class Service : R|kotlin/Any| {
+        public constructor(auth: R|AuthData|): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val auth: R|AuthData| = R|<local>/auth|
+            public get(): R|AuthData|
+
+    }
+    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|UserScope|)) public final class AuthData : R|kotlin/Any| {
+        public constructor(): R|AuthData| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|
