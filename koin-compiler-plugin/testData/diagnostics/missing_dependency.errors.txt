@@ -1,0 +1,3 @@
+[Koin] Missing dependency: MissingDep
+  required by: Service (parameter 'missing')
+  in module: TestModule

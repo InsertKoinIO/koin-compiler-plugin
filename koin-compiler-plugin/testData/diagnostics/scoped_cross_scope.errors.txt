@@ -1,0 +1,3 @@
+[Koin] Missing dependency: AuthData
+  required by: Service (parameter 'auth')
+  in module: TestModule

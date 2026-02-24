@@ -1,0 +1,3 @@
+[Koin] Missing dependency: Repository
+  required by: Service (parameter 'repo')
+  in module: TestModule
