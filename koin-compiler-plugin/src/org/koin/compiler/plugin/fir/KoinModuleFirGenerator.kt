@@ -361,11 +361,38 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             }
         }
         log { "Found ${modules.size} @Configuration modules" }
+
+        // Detect @ComponentScan classes via predicate for scan package registration
+        val scanClassIds = session.predicateBasedProvider
+            .getSymbolsByPredicate(componentScanPredicate)
+            .filterIsInstance<FirClassSymbol<*>>()
+            .map { it.classId }
+            .toSet()
+
         // Register local modules to the shared registry for IR phase
         modules.forEach { configModule ->
             val moduleName = configModule.classSymbol.classId.asSingleFqName().asString()
             log { "  Registering local @Configuration: $moduleName with labels=${configModule.labels}" }
             KoinConfigurationRegistry.registerLocalModule(moduleName, configModule.labels)
+
+            // Also register @ComponentScan packages for this module (so IR can read them for cross-module siblings)
+            val hasComponentScan = configModule.classSymbol.classId in scanClassIds
+            if (hasComponentScan) {
+                val componentScanAnnotation = configModule.classSymbol.fir.annotations
+                    .filterIsInstance<FirAnnotationCall>()
+                    .firstOrNull { annotation ->
+                        val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+                        annotationClassId?.asSingleFqName() == COMPONENT_SCAN_ANNOTATION
+                    }
+                val scanPkgs = if (componentScanAnnotation != null) {
+                    extractComponentScanPackages(componentScanAnnotation, configModule.classSymbol)
+                } else {
+                    // @ComponentScan detected via predicate but annotation not readable - use module's package
+                    listOf(configModule.classSymbol.classId.packageFqName.asString())
+                }
+                log { "  Registering scan packages for $moduleName: $scanPkgs" }
+                KoinConfigurationRegistry.registerScanPackages(moduleName, scanPkgs)
+            }
         }
         modules
     }

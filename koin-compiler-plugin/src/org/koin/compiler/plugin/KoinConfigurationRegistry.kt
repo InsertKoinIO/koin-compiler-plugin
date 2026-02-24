@@ -19,6 +19,10 @@ object KoinConfigurationRegistry {
     // System property key for storing discovered modules with labels
     private const val MODULES_PROPERTY = "koin.plugin.configuration.modules"
 
+    // System property key for storing scan packages per module
+    // Format: "moduleFqName1=pkg1,pkg2;moduleFqName2=pkg3"
+    private const val SCAN_PACKAGES_PROPERTY = "koin.plugin.configuration.scanpackages"
+
     /**
      * Register a module with its configuration labels (called by FIR).
      * Stores in System property to survive classloader boundaries.
@@ -51,6 +55,31 @@ object KoinConfigurationRegistry {
      */
     fun registerJarModule(moduleClassName: String, label: String = DEFAULT_LABEL) {
         registerModule(moduleClassName, listOf(label))
+    }
+
+    /**
+     * Register the @ComponentScan packages for a module (called by FIR).
+     * Stores in System property so IR can read them for cross-Gradle-module siblings.
+     *
+     * @param moduleClassName Fully qualified class name of the module
+     * @param scanPackages Packages scanned by @ComponentScan (empty = module's own package)
+     */
+    fun registerScanPackages(moduleClassName: String, scanPackages: List<String>) {
+        synchronized(System.getProperties()) {
+            val scanMap = parseScanPackagesProperty()
+            scanMap[moduleClassName] = scanPackages.toMutableList()
+            System.setProperty(SCAN_PACKAGES_PROPERTY, serializeScanPackages(scanMap))
+        }
+    }
+
+    /**
+     * Get the @ComponentScan packages for a module (called by IR).
+     * Returns null if the module has no registered scan packages (i.e., no @ComponentScan).
+     * Returns empty list if @ComponentScan with no explicit packages (uses module's own package).
+     */
+    fun getScanPackages(moduleClassName: String): List<String>? {
+        val scanMap = parseScanPackagesProperty()
+        return scanMap[moduleClassName]
     }
 
     /**
@@ -88,6 +117,7 @@ object KoinConfigurationRegistry {
      */
     fun clear() {
         System.clearProperty(MODULES_PROPERTY)
+        System.clearProperty(SCAN_PACKAGES_PROPERTY)
     }
 
     // Parse "label1:mod1,mod2;label2:mod1,mod3" into Map<String, MutableSet<String>>
@@ -112,6 +142,31 @@ object KoinConfigurationRegistry {
     private fun serializeProperty(labelMap: Map<String, Set<String>>): String {
         return labelMap.entries.joinToString(";") { (label, modules) ->
             "$label:${modules.joinToString(",")}"
+        }
+    }
+
+    // Parse "module1=pkg1,pkg2;module2=pkg3" into Map<String, MutableList<String>>
+    private fun parseScanPackagesProperty(): MutableMap<String, MutableList<String>> {
+        val property = System.getProperty(SCAN_PACKAGES_PROPERTY, "")
+        if (property.isEmpty()) return mutableMapOf()
+
+        val result = mutableMapOf<String, MutableList<String>>()
+        for (entry in property.split(";")) {
+            if (entry.isBlank()) continue
+            val parts = entry.split("=", limit = 2)
+            if (parts.size == 2) {
+                val moduleName = parts[0]
+                val packages = parts[1].split(",").filter { it.isNotBlank() }.toMutableList()
+                result[moduleName] = packages
+            }
+        }
+        return result
+    }
+
+    // Serialize Map<String, List<String>> to "module1=pkg1,pkg2;module2=pkg3"
+    private fun serializeScanPackages(scanMap: Map<String, List<String>>): String {
+        return scanMap.entries.joinToString(";") { (module, packages) ->
+            "$module=${packages.joinToString(",")}"
         }
     }
 }

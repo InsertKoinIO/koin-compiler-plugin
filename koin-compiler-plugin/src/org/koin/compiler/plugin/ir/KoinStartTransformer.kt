@@ -417,17 +417,37 @@ class KoinStartTransformer(
         val appName = appClass.name.asString()
 
         // Collect definitions from all modules in the graph
+        var hasUnresolvableModules = false
         val allDefinitions = mutableListOf<Definition>()
         for (moduleIrClass in allModuleIrClasses) {
             val moduleClass = processor.collectedModuleClasses.find {
                 it.irClass.fqNameWhenAvailable == moduleIrClass.fqNameWhenAvailable
             }
             if (moduleClass != null) {
+                // Local module — collect all definitions (includes cross-module hints)
                 allDefinitions.addAll(processor.getDefinitionsForModule(moduleClass))
+            } else {
+                // Cross-module @Configuration module from dependency JAR
+                val moduleFqName = moduleIrClass.fqNameWhenAvailable?.asString() ?: continue
+                KoinPluginLogger.debug { "  -> A3: resolving dependency module $moduleFqName" }
+                val crossModuleDefs = processor.getDefinitionsForDependencyModule(moduleFqName)
+                if (crossModuleDefs.isEmpty()) {
+                    // Module's definitions can't be fully discovered (no hints for locally-scanned classes)
+                    hasUnresolvableModules = true
+                    KoinPluginLogger.debug { "  -> A3: $moduleFqName has 0 discoverable definitions (unresolvable)" }
+                } else {
+                    KoinPluginLogger.debug { "  -> A3: $moduleFqName contributed ${crossModuleDefs.size} definitions" }
+                }
+                allDefinitions.addAll(crossModuleDefs)
             }
         }
 
         if (allDefinitions.isEmpty()) return
+
+        if (hasUnresolvableModules) {
+            KoinPluginLogger.debug { "  -> Full-graph validation for $appName: skipped (some modules not fully resolvable from hints)" }
+            return
+        }
 
         KoinPluginLogger.debug { "  -> Full-graph validation for $appName: ${allDefinitions.size} definitions from ${allModuleIrClasses.size} modules" }
 

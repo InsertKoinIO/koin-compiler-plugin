@@ -138,6 +138,11 @@ class KoinAnnotationProcessor(
         return collectAllDefinitions(moduleClass)
     }
 
+    /** Get definitions from a dependency JAR module (for A3 cross-module validation). */
+    fun getDefinitionsForDependencyModule(moduleFqName: String): List<Definition> {
+        return collectDefinitionsFromDependencyModule(moduleFqName)
+    }
+
     /**
      * Phase 1: Collect all annotated classes, functions, and property values
      */
@@ -672,41 +677,72 @@ class KoinAnnotationProcessor(
             // Compile-time safety: validate that all dependencies are satisfied within this module
             if (KoinPluginLogger.safetyChecksEnabled && definitions.isNotEmpty()) {
                 val moduleName = moduleClass.irClass.name.asString()
-                // Include definitions from included modules (transitive availability at runtime)
-                val allVisibleDefinitions = buildList {
-                    addAll(definitions)
-                    // A1: Explicit includes
-                    for (includedModuleClass in moduleClass.includedModules) {
-                        val includedModule = moduleClasses.find {
-                            it.irClass.fqNameWhenAvailable == includedModuleClass.fqNameWhenAvailable
+                val isConfigurationModule = hasConfigurationAnnotation(moduleClass.irClass)
+                var hasUnresolvableSiblings = false
+                // Non-@Configuration modules that discover cross-module definitions (from hints)
+                // are part of a multi-module graph. Their dependencies may be provided by
+                // @Configuration siblings or parent modules, so standalone A2 validation
+                // would produce false positives. Defer to A3 (startKoin) for full-graph validation.
+                val hasCrossModuleDefinitions = definitions.any { def ->
+                    when (def) {
+                        is Definition.ExternalFunctionDef -> true
+                        is Definition.ClassDef -> {
+                            // A class def from hints won't be in the local definitionClasses
+                            definitionClasses.none { it.irClass.fqNameWhenAvailable == def.irClass.fqNameWhenAvailable }
                         }
-                        if (includedModule != null) {
-                            addAll(collectAllDefinitions(includedModule))
-                        }
+                        else -> false
                     }
-                    // A2: If this module is @Configuration, include sibling modules from the same group
-                    val configLabels = extractConfigurationLabels(moduleClass.irClass)
-                    if (configLabels.isNotEmpty()) {
-                        val siblingModuleNames = KoinConfigurationRegistry.getModuleClassNamesForLabels(configLabels)
-                        for (siblingName in siblingModuleNames) {
-                            val siblingModule = moduleClasses.find {
-                                it.irClass.fqNameWhenAvailable?.asString() == siblingName
+                }
+                if (!isConfigurationModule && hasCrossModuleDefinitions) {
+                    KoinPluginLogger.debug { "  Safety check for $moduleName: deferred to A3 (non-@Configuration module with cross-module definitions)" }
+                } else {
+                    // Include definitions from included modules (transitive availability at runtime)
+                    val allVisibleDefinitions = buildList {
+                        addAll(definitions)
+                        // A1: Explicit includes
+                        for (includedModuleClass in moduleClass.includedModules) {
+                            val includedModule = moduleClasses.find {
+                                it.irClass.fqNameWhenAvailable == includedModuleClass.fqNameWhenAvailable
                             }
-                            if (siblingModule != null && siblingModule != moduleClass) {
-                                // Local sibling — collect all its definitions
-                                addAll(collectAllDefinitions(siblingModule))
-                            } else if (siblingModule == null) {
-                                // Cross-Gradle-module sibling — resolve from dependency JAR
-                                val crossModuleDefs = collectDefinitionsFromDependencyModule(siblingName)
-                                if (crossModuleDefs.isNotEmpty()) {
-                                    KoinPluginLogger.debug { "  A2 cross-module: found ${crossModuleDefs.size} definitions from $siblingName" }
+                            if (includedModule != null) {
+                                addAll(collectAllDefinitions(includedModule))
+                            }
+                        }
+                        // A2: If this module is @Configuration, include sibling modules from the same group
+                        val configLabels = extractConfigurationLabels(moduleClass.irClass)
+                        if (configLabels.isNotEmpty()) {
+                            val siblingModuleNames = KoinConfigurationRegistry.getModuleClassNamesForLabels(configLabels)
+                            KoinPluginLogger.debug { "  A2: $moduleName labels=$configLabels, registry has ${siblingModuleNames.size} siblings" }
+                            for (siblingName in siblingModuleNames) {
+                                val siblingModule = moduleClasses.find {
+                                    it.irClass.fqNameWhenAvailable?.asString() == siblingName
+                                }
+                                if (siblingModule != null && siblingModule != moduleClass) {
+                                    // Local sibling — collect all its definitions
+                                    addAll(collectAllDefinitions(siblingModule))
+                                } else if (siblingModule == null) {
+                                    // Cross-Gradle-module sibling — resolve from dependency JAR
+                                    KoinPluginLogger.debug { "    A2 resolving cross-module sibling: $siblingName" }
+                                    val crossModuleDefs = collectDefinitionsFromDependencyModule(siblingName)
+                                    KoinPluginLogger.debug { "    -> got ${crossModuleDefs.size} definitions" }
+                                    if (crossModuleDefs.isEmpty()) {
+                                        hasUnresolvableSiblings = true
+                                    }
                                     addAll(crossModuleDefs)
                                 }
                             }
                         }
                     }
+                    // If some @Configuration siblings are in different Gradle modules and their
+                    // definitions can't be discovered (no hints for locally-scanned classes,
+                    // class not on classpath), skip per-module validation. The full-graph
+                    // validation (A3: startKoin<T>) will catch real missing dependencies.
+                    if (!hasUnresolvableSiblings) {
+                        bindingRegistry.validateModule(moduleName, allVisibleDefinitions, parameterAnalyzer, qualifierExtractor)
+                    } else {
+                        KoinPluginLogger.debug { "  Safety check for $moduleName: deferred to A3 (cross-module siblings not fully resolvable)" }
+                    }
                 }
-                bindingRegistry.validateModule(moduleName, allVisibleDefinitions, parameterAnalyzer, qualifierExtractor)
             }
 
             // Check if FIR generated a function for this module (even if no local definitions)
@@ -1237,33 +1273,40 @@ class KoinAnnotationProcessor(
      * @return List of definitions visible from this dependency module
      */
     private fun collectDefinitionsFromDependencyModule(moduleFqName: String): List<Definition> {
-        val moduleClassId = ClassId.topLevel(FqName(moduleFqName))
-        val moduleClassSymbol = context.referenceClass(moduleClassId) ?: return emptyList()
-        val moduleIrClass = moduleClassSymbol.owner
-
-        KoinPluginLogger.debug { "  Resolving cross-module @Configuration sibling: $moduleFqName" }
-
         val definitions = mutableListOf<Definition>()
+        val moduleClassId = ClassId.topLevel(FqName(moduleFqName))
+        val moduleClassSymbol = context.referenceClass(moduleClassId)
 
-        // 1. Extract function definitions from the module class (e.g., @Singleton fun providesXxx(): Xxx)
-        val moduleFunctions = collectDefinitionFunctions(moduleIrClass)
-        for (defFunc in moduleFunctions) {
-            definitions.add(Definition.FunctionDef(
-                defFunc.irFunction,
-                moduleIrClass,
-                defFunc.definitionType,
-                defFunc.returnTypeClass,
-                emptyList(), // bindings
-                defFunc.scopeClass,
-                defFunc.scopeArchetype,
-                defFunc.createdAtStart
-            ))
-        }
+        if (moduleClassSymbol != null) {
+            val moduleIrClass = moduleClassSymbol.owner
+            KoinPluginLogger.debug { "      Resolved class $moduleFqName, declarations: ${moduleIrClass.declarations.size}" }
 
-        // 2. If the module has @ComponentScan, include class definitions from hints
-        //    (scanned classes from the dependency module's packages)
-        val scanPackages = getComponentScanPackages(moduleIrClass)
-        if (scanPackages.isNotEmpty() || moduleIrClass.hasAnnotation(componentScanFqName)) {
+            // 1. Extract function definitions from the module class (e.g., @Singleton fun providesXxx(): Xxx)
+            val moduleFunctions = collectDefinitionFunctions(moduleIrClass)
+            KoinPluginLogger.debug { "      Module functions: ${moduleFunctions.size} (${moduleFunctions.joinToString { it.irFunction.name.asString() }})" }
+            for (defFunc in moduleFunctions) {
+                definitions.add(Definition.FunctionDef(
+                    defFunc.irFunction,
+                    moduleIrClass,
+                    defFunc.definitionType,
+                    defFunc.returnTypeClass,
+                    emptyList(), // bindings
+                    defFunc.scopeClass,
+                    defFunc.scopeArchetype,
+                    defFunc.createdAtStart
+                ))
+            }
+
+            // 2. If the module has @ComponentScan, include class/function definitions from hints.
+            //    Read scan packages from registry (populated by FIR in same compilation unit) or
+            //    fall back to module's own package (the default @ComponentScan behavior).
+            val registeredScanPackages = KoinConfigurationRegistry.getScanPackages(moduleFqName)
+            val scanPackages = registeredScanPackages
+                ?: run {
+                    // No registered scan packages — module is from a different compilation unit.
+                    // Fall back to module's own package as default @ComponentScan target.
+                    listOf(moduleIrClass.packageFqName?.asString() ?: "")
+                }
             val effectiveScanPackages = scanPackages.ifEmpty {
                 listOf(moduleIrClass.packageFqName?.asString() ?: "")
             }
@@ -1278,13 +1321,30 @@ class KoinAnnotationProcessor(
                     defClass.createdAtStart
                 )
             })
-            // Also include top-level function definitions from hints
             val crossModuleFunctions = discoverFunctionDefinitionsFromHints(effectiveScanPackages)
+            definitions.addAll(crossModuleFunctions)
+        } else {
+            // Module class not on classpath — can't resolve its declarations.
+            // Try to discover its definitions through hints using its package as scan scope.
+            val modulePackage = FqName(moduleFqName).parent().asString()
+            KoinPluginLogger.debug { "      Cannot resolve $moduleFqName, using package $modulePackage for hint discovery" }
+            val crossModuleClasses = discoverDefinitionsFromHints(listOf(modulePackage))
+            definitions.addAll(crossModuleClasses.map { defClass ->
+                Definition.ClassDef(
+                    defClass.irClass,
+                    defClass.definitionType,
+                    defClass.bindings,
+                    defClass.scopeClass,
+                    defClass.scopeArchetype,
+                    defClass.createdAtStart
+                )
+            })
+            val crossModuleFunctions = discoverFunctionDefinitionsFromHints(listOf(modulePackage))
             definitions.addAll(crossModuleFunctions)
         }
 
         if (definitions.isNotEmpty()) {
-            KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions (${moduleFunctions.size} module functions)" }
+            KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName" }
         }
 
         return definitions
