@@ -92,6 +92,9 @@ class BindingRegistry {
             "androidx.fragment.app.Fragment",
             "androidx.lifecycle.SavedStateHandle",
             "androidx.work.WorkerParameters",
+            // Kotlin coroutines
+            "kotlinx.coroutines.CoroutineDispatcher",
+            "kotlinx.coroutines.CoroutineScope",
         )
 
         fun isWhitelistedType(fqName: String): Boolean = fqName in WHITELISTED_TYPES

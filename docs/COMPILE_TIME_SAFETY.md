@@ -141,6 +141,8 @@ Common Android framework types are always skipped, without requiring `@Provided`
 | `androidx.fragment.app.Fragment` | AndroidX |
 | `androidx.lifecycle.SavedStateHandle` | AndroidX |
 | `androidx.work.WorkerParameters` | AndroidX |
+| `kotlinx.coroutines.CoroutineDispatcher` | Kotlin coroutines |
+| `kotlinx.coroutines.CoroutineScope` | Kotlin coroutines |
 
 The whitelist is defined in `BindingRegistry.WHITELISTED_TYPES`.
 
