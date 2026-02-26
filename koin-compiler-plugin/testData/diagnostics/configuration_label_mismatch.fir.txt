@@ -44,3 +44,11 @@ FILE: org/koin/plugin/hints/serviceModuleModule.kt
     package org.koin.plugin.hints
 
     public final fun configuration_service(contributed: R|ServiceModule|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/coreRepositoryDefinition.kt
+    package org.koin.plugin.hints
+
+    public final fun componentscan_coreModule_single(contributed: R|core/Repository|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/serviceServiceDefinition.kt
+    package org.koin.plugin.hints
+
+    public final fun componentscan_serviceModule_single(contributed: R|service/Service|): R|kotlin/Unit|

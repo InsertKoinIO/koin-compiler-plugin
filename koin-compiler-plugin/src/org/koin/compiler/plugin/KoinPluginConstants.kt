@@ -71,6 +71,12 @@ object KoinPluginConstants {
     /** Prefix for function definition hint functions (e.g., definition_function_single). */
     const val DEFINITION_FUNCTION_HINT_PREFIX = "definition_function_"
 
+    /** Prefix for module-scoped component scan hint functions (e.g., componentscan_comExampleCoreModule_single). */
+    const val COMPONENT_SCAN_HINT_PREFIX = "componentscan_"
+
+    /** Prefix for module-scoped component scan function hint functions (e.g., componentscanfunc_comExampleCoreModule_single). */
+    const val COMPONENT_SCAN_FUNCTION_HINT_PREFIX = "componentscanfunc_"
+
     /** Default label for @Configuration modules. */
     const val DEFAULT_LABEL = "default"
 

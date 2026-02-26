@@ -100,3 +100,9 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/featureModuleMo
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
+FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/featureServiceDefinition.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:componentscan_featureModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.FeatureService
+    BLOCK_BODY
+      CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+        ARG message: CONST String type=kotlin.String value="Stub!"

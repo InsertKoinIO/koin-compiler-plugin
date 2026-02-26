@@ -621,12 +621,15 @@ class KoinAnnotationProcessor(
         currentModuleFragment = moduleFragment
         KoinPluginLogger.debug { "generateModuleExtensions: ${moduleClasses.size} module classes" }
 
+        // Step 1: Pre-collect definitions for every module
+        val moduleDefinitions = moduleClasses.associateWith { collectAllDefinitions(it) }
+
         // Map to track functions for each module class (FIR-generated or newly created)
         val moduleFunctions = mutableMapOf<ModuleClass, IrSimpleFunction>()
 
-        // First pass: Find FIR-generated functions or create new ones
+        // Step 2: For each module, build visibility + validate + generate
         for (moduleClass in moduleClasses) {
-            val definitions = collectAllDefinitions(moduleClass)
+            val definitions = moduleDefinitions[moduleClass] ?: emptyList()
 
             // Log module → definitions summary (guard to avoid precomputation when logging is disabled)
             if (KoinPluginLogger.userLogsEnabled && (definitions.isNotEmpty() || moduleClass.includedModules.isNotEmpty())) {
@@ -669,12 +672,15 @@ class KoinAnnotationProcessor(
                 }
             }
 
-            // Compile-time safety: validate that all dependencies are satisfied within this module
+            // Compile-time safety: build full visibility set and validate
             if (safetyValidator != null && definitions.isNotEmpty()) {
-                safetyValidator.validateModule(
-                    moduleClass, definitions, moduleClasses,
-                    ::collectAllDefinitions, definitionClasses,
-                    ::collectDefinitionsFromDependencyModule
+                val allVisibleDefinitions = buildVisibleDefinitions(moduleClass, definitions, moduleDefinitions)
+                val moduleFqName = moduleClass.irClass.fqNameWhenAvailable?.asString()
+                safetyValidator.validate(
+                    moduleClass.irClass.name.asString(),
+                    moduleFqName,
+                    definitions,
+                    allVisibleDefinitions
                 )
             }
 
@@ -1240,31 +1246,39 @@ class KoinAnnotationProcessor(
             ))
         }
 
-        // 2. Check if the module has @ComponentScan — if so, try to discover scanned definitions
-        //    from hints. Note: FIR skips generating hints for classes covered by local @ComponentScan
-        //    ("covered by local scan"), so cross-module discovery via hints is best-effort.
+        // 2. Check if the module has @ComponentScan — if so, discover scanned definitions
+        //    from module-scoped scan hints (componentscan_* / componentscanfunc_*).
+        //    These hints export what the module's @ComponentScan found, making it fully visible.
+        //    Also query orphan hints (definition_*) as fallback for transitive cross-module definitions.
         val hasComponentScan = moduleIrClass.annotations.any {
             it.type.classFqName?.asString() == "org.koin.core.annotation.ComponentScan"
         }
         if (hasComponentScan) {
-            // Try to discover scanned definitions from hints (best-effort)
+            // Primary: module-scoped scan hints (always complete when available)
+            val scanDefs = discoverModuleScanDefinitions(moduleFqName)
+            definitions.addAll(scanDefs)
+
+            // Fallback: orphan hints for transitive cross-module definitions
+            // (definitions from a third module that were scanned by this module)
             val scanPackages = KoinConfigurationRegistry.getScanPackages(moduleFqName)
             val effectiveScanPackages = scanPackages?.ifEmpty {
                 listOf(moduleIrClass.packageFqName?.asString() ?: "")
             } ?: listOf(moduleIrClass.packageFqName?.asString() ?: "")
-            definitions.addAll(discoverClassDefinitionsFromHints(effectiveScanPackages))
-            definitions.addAll(discoverFunctionDefinitionsFromHints(effectiveScanPackages))
+            val orphanDefs = discoverClassDefinitionsFromHints(effectiveScanPackages)
+            val orphanFuncDefs = discoverFunctionDefinitionsFromHints(effectiveScanPackages)
+            // Deduplicate — scan hints may overlap with orphan hints
+            val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
+            definitions.addAll(orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
+            definitions.addAll(orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
         }
 
         if (definitions.isNotEmpty()) {
             KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName (hasComponentScan=$hasComponentScan)" }
         }
 
-        // A @Module without @ComponentScan only has function definitions — fully resolvable from JAR.
-        // A @Module with @ComponentScan also gathers scanned classes, but FIR doesn't generate hints
-        // for classes covered by local @ComponentScan, so we can't fully discover them cross-module.
-        val isComplete = !hasComponentScan
-        return DependencyModuleResult(definitions, isComplete)
+        // Module class resolved — definitions are always complete now.
+        // Module-scoped scan hints provide full visibility for @ComponentScan modules.
+        return DependencyModuleResult(definitions, isComplete = true)
     }
 
     /**
@@ -1280,6 +1294,142 @@ class KoinAnnotationProcessor(
                 defClass.scopeArchetype,
                 defClass.createdAtStart
             )
+        }
+    }
+
+    /**
+     * Discover definitions from module-scoped component scan hints.
+     * These hints are generated for each @Configuration module with @ComponentScan,
+     * exporting what the module's scan found. This makes @ComponentScan results
+     * visible cross-module without requiring the definitions themselves to have orphan hints.
+     *
+     * @param moduleFqName Fully qualified name of the module class
+     * @return List of definitions discovered via module-scan hints
+     */
+    private fun discoverModuleScanDefinitions(moduleFqName: String): List<Definition> {
+        val moduleClassId = ClassId.topLevel(FqName(moduleFqName))
+        val sanitizedId = KoinModuleFirGenerator.sanitizeModuleIdForHint(moduleClassId)
+        val definitions = mutableListOf<Definition>()
+
+        KoinPluginLogger.debug { "      Querying module-scan hints for $moduleFqName (id=$sanitizedId)" }
+
+        for (defType in KoinModuleFirGenerator.ALL_DEFINITION_TYPES) {
+            // Class definition hints: componentscan_<moduleId>_<defType>
+            val className = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedId, defType)
+            val hintFunctions = context.referenceFunctions(
+                CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, className)
+            )
+
+            for (hintFuncSymbol in hintFunctions) {
+                val hintFunc = hintFuncSymbol.owner
+                val paramType = hintFunc.valueParameters.firstOrNull()?.type ?: continue
+                val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+
+                // Skip duplicates
+                if (definitions.any { it.returnTypeClass.fqNameWhenAvailable == defClass.fqNameWhenAvailable }) continue
+
+                val definitionType = when (defType) {
+                    KoinModuleFirGenerator.DEF_TYPE_SINGLE -> DefinitionType.SINGLE
+                    KoinModuleFirGenerator.DEF_TYPE_FACTORY -> DefinitionType.FACTORY
+                    KoinModuleFirGenerator.DEF_TYPE_SCOPED -> DefinitionType.SCOPED
+                    KoinModuleFirGenerator.DEF_TYPE_VIEWMODEL -> DefinitionType.VIEW_MODEL
+                    KoinModuleFirGenerator.DEF_TYPE_WORKER -> DefinitionType.WORKER
+                    else -> continue
+                }
+
+                val bindings = detectBindings(defClass) + getExplicitBindings(defClass)
+                val scopeClass = getScopeClass(defClass)
+                val createdAtStart = getCreatedAtStart(defClass)
+
+                KoinPluginLogger.debug { "        Found: ${defClass.name} ($defType) via module-scan hint" }
+
+                definitions.add(Definition.ClassDef(
+                    defClass,
+                    definitionType,
+                    bindings.distinctBy { it.fqNameWhenAvailable },
+                    scopeClass,
+                    getScopeArchetypeFromClass(defClass),
+                    createdAtStart
+                ))
+            }
+
+            // Function definition hints: componentscanfunc_<moduleId>_<defType>
+            val funcName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedId, defType)
+            val funcHintFunctions = context.referenceFunctions(
+                CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, funcName)
+            )
+
+            for (hintFuncSymbol in funcHintFunctions) {
+                val hintFunc = hintFuncSymbol.owner
+                val paramType = hintFunc.valueParameters.firstOrNull()?.type ?: continue
+                val returnTypeClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+
+                if (definitions.any { it.returnTypeClass.fqNameWhenAvailable == returnTypeClass.fqNameWhenAvailable }) continue
+
+                val definitionType = when (defType) {
+                    KoinModuleFirGenerator.DEF_TYPE_SINGLE -> DefinitionType.SINGLE
+                    KoinModuleFirGenerator.DEF_TYPE_FACTORY -> DefinitionType.FACTORY
+                    KoinModuleFirGenerator.DEF_TYPE_SCOPED -> DefinitionType.SCOPED
+                    KoinModuleFirGenerator.DEF_TYPE_VIEWMODEL -> DefinitionType.VIEW_MODEL
+                    KoinModuleFirGenerator.DEF_TYPE_WORKER -> DefinitionType.WORKER
+                    else -> continue
+                }
+
+                KoinPluginLogger.debug { "        Found: ${returnTypeClass.name} ($defType) via module-scan function hint" }
+
+                definitions.add(Definition.ExternalFunctionDef(
+                    definitionType = definitionType,
+                    returnTypeClass = returnTypeClass
+                ))
+            }
+        }
+
+        if (definitions.isNotEmpty()) {
+            KoinPluginLogger.debug { "      -> ${definitions.size} definitions from module-scan hints for $moduleFqName" }
+        }
+
+        return definitions
+    }
+
+    /**
+     * Build the full set of definitions visible to a module for validation.
+     * Includes: own definitions + included modules + @Configuration siblings (local + cross-module).
+     */
+    private fun buildVisibleDefinitions(
+        moduleClass: ModuleClass,
+        ownDefinitions: List<Definition>,
+        allModuleDefinitions: Map<ModuleClass, List<Definition>>
+    ): List<Definition> {
+        return buildList {
+            addAll(ownDefinitions)
+
+            // A1: Explicit includes
+            for (included in moduleClass.includedModules) {
+                val includedModule = moduleClasses.find {
+                    it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
+                }
+                if (includedModule != null) {
+                    addAll(allModuleDefinitions[includedModule] ?: emptyList())
+                }
+            }
+
+            // A2: @Configuration siblings
+            val configLabels = extractConfigurationLabels(moduleClass.irClass)
+            if (configLabels.isNotEmpty()) {
+                val siblingNames = KoinConfigurationRegistry.getModuleClassNamesForLabels(configLabels)
+                for (siblingName in siblingNames) {
+                    val sibling = moduleClasses.find {
+                        it.irClass.fqNameWhenAvailable?.asString() == siblingName
+                    }
+                    if (sibling != null && sibling != moduleClass) {
+                        // Local sibling
+                        addAll(allModuleDefinitions[sibling] ?: emptyList())
+                    } else if (sibling == null) {
+                        // Cross-Gradle-module sibling — resolve from JAR + module scan hints
+                        addAll(collectDefinitionsFromDependencyModule(siblingName).definitions)
+                    }
+                }
+            }
         }
     }
 

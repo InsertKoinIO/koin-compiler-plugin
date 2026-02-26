@@ -84,7 +84,7 @@ ksp {
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("io.insert-koin.compiler.plugin") version "0.4.0-beta6"
+    id("io.insert-koin.compiler.plugin") version "0.4.0-beta7"
 }
 
 dependencies {
@@ -302,7 +302,7 @@ Just apply the plugin:
 ```kotlin
 // feature/build.gradle.kts
 plugins {
-    id("io.insert-koin.compiler.plugin") version "0.4.0-beta6"
+    id("io.insert-koin.compiler.plugin") version "0.4.0-beta7"
 }
 ```
 

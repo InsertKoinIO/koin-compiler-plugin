@@ -33,3 +33,7 @@ FILE: org/koin/plugin/hints/featureModuleModule.kt
     package org.koin.plugin.hints
 
     public final fun configuration_default(contributed: R|FeatureModule|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/featureServiceDefinition.kt
+    package org.koin.plugin.hints
+
+    public final fun componentscan_featureModule_single(contributed: R|FeatureService|): R|kotlin/Unit|

@@ -129,10 +129,9 @@ enum class DefinitionType {
  *
  * @param definitions The discovered definitions
  * @param isComplete Whether we could fully resolve all the module's definitions.
- *   - true: Module has no @ComponentScan (function-only, fully resolved from JAR),
- *     or its @ComponentScan was registered by FIR in the current compilation.
- *   - false: Module class couldn't be resolved, or it has @ComponentScan from a different
- *     compilation unit whose scanned classes may not have hints.
+ *   - true: Module class resolved and definitions collected (including module-scan hints
+ *     for @ComponentScan definitions).
+ *   - false: Module class not on classpath (can't resolve ClassId at all).
  */
 data class DependencyModuleResult(
     val definitions: List<Definition>,

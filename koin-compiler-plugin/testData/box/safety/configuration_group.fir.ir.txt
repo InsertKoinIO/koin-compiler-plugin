@@ -190,9 +190,21 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/coreModuleModul
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
+FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/coreRepositoryDefinition.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:componentscan_coreModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:core.Repository
+    BLOCK_BODY
+      CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+        ARG message: CONST String type=kotlin.String value="Stub!"
 FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/serviceModuleModule.kt
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.ServiceModule
+    BLOCK_BODY
+      CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+        ARG message: CONST String type=kotlin.String value="Stub!"
+FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/serviceServiceDefinition.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:componentscan_serviceModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:service.Service
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
