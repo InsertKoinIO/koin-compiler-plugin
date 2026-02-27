@@ -136,9 +136,29 @@ class KoinAnnotationProcessor(
     /** Exposed for cross-phase validation (A3: startKoin full-graph). */
     val collectedModuleClasses: List<ModuleClass> get() = moduleClasses
 
-    /** Get all definitions for a module (local + cross-module via hints). */
+    /** Get all definitions for a module (local + cross-module via hints + included modules). */
     fun getDefinitionsForModule(moduleClass: ModuleClass): List<Definition> {
-        return collectAllDefinitions(moduleClass)
+        val definitions = collectAllDefinitions(moduleClass).toMutableList()
+
+        // Follow @Module(includes = [...]) to collect included module definitions.
+        // Included modules may not be @Configuration, so they won't appear in the top-level
+        // module list. We must collect their definitions here for A3 full-graph validation.
+        for (included in moduleClass.includedModules) {
+            val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
+            val localIncluded = collectedModuleClasses.find {
+                it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
+            }
+            val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
+            if (localIncluded != null) {
+                val includedDefs = collectAllDefinitions(localIncluded)
+                definitions.addAll(includedDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
+            } else {
+                val result = collectDefinitionsFromDependencyModule(includedFqName)
+                definitions.addAll(result.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
+            }
+        }
+
+        return definitions
     }
 
     /** Get definitions from a dependency JAR module (for cross-module validation). */
@@ -861,11 +881,8 @@ class KoinAnnotationProcessor(
                         KoinPluginLogger.debug { "    + componentscanfunc hint: ${targetClass.name} ($defTypeStr)" }
                     }
                     is Definition.FunctionDef -> {
-                        // Module function definitions: also use componentscanfunc_* hint
-                        // (these are @Singleton fun provide...() inside @Module classes)
-                        val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
-                        generateSingleHint(moduleFragment, hintsPackage, hintName, targetClass, targetClassId)
-                        KoinPluginLogger.debug { "    + componentscanfunc hint: ${targetClass.name} ($defTypeStr) [module function]" }
+                        // Skip: module-internal function definitions (@Singleton fun provide...() inside @Module classes)
+                        // are NOT component-scanned. They are resolved directly from the module class, not via hints.
                     }
                 }
             }
@@ -1511,6 +1528,34 @@ class KoinAnnotationProcessor(
             val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
             definitions.addAll(orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
             definitions.addAll(orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
+        }
+
+        // 3. Follow @Module(includes = [...]) to collect definitions from included modules.
+        //    Included modules (e.g., DatabaseKoinModule included by DaosKoinModule) may not be
+        //    @Configuration, so they won't appear in the top-level module list. We must collect
+        //    their definitions here to make them visible for A3 full-graph validation.
+        val includedModules = getModuleIncludes(moduleIrClass)
+        for (included in includedModules) {
+            val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
+            // Check if already collected locally (avoid re-processing)
+            val localModuleClass = collectedModuleClasses.find {
+                it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
+            }
+            if (localModuleClass != null) {
+                // Included module is local — use collectAllDefinitions
+                val includedDefs = collectAllDefinitions(localModuleClass)
+                val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
+                val newDefs = includedDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+                definitions.addAll(newDefs)
+                KoinPluginLogger.debug { "      Included (local) $includedFqName: ${newDefs.size} new definitions" }
+            } else {
+                // Included module from JAR — recursively collect
+                val includedResult = collectDefinitionsFromDependencyModule(includedFqName)
+                val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
+                val newDefs = includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+                definitions.addAll(newDefs)
+                KoinPluginLogger.debug { "      Included (dependency) $includedFqName: ${newDefs.size} new definitions" }
+            }
         }
 
         if (definitions.isNotEmpty()) {
