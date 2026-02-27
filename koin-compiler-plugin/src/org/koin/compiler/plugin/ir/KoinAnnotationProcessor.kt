@@ -5,11 +5,17 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
+import org.jetbrains.kotlin.fir.backend.FirMetadataSource
+import org.jetbrains.kotlin.fir.builder.buildPackageDirective
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.builder.buildFile
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
+import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
@@ -31,6 +37,8 @@ import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.PropertyValueRegistry
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
+import kotlin.io.path.Path
+import kotlin.io.path.absolutePathString
 
 /**
  * Processes Koin annotations and generates module extension properties with definitions.
@@ -624,6 +632,12 @@ class KoinAnnotationProcessor(
         // Step 1: Pre-collect definitions for every module
         val moduleDefinitions = moduleClasses.associateWith { collectAllDefinitions(it) }
 
+        // Step 1b: Generate module-scoped component scan hints for downstream visibility.
+        // This replaces the FIR-time generation: IR has complete knowledge of all definitions
+        // (including @Inject constructor classes in subpackages that FIR couldn't discover).
+        // Uses registerFunctionAsMetadataVisible to make hints visible to downstream compilations.
+        generateModuleScanHints(moduleFragment, moduleDefinitions)
+
         // Map to track functions for each module class (FIR-generated or newly created)
         val moduleFunctions = mutableMapOf<ModuleClass, IrSimpleFunction>()
 
@@ -787,6 +801,215 @@ class KoinAnnotationProcessor(
         // Second pass: Fill all function bodies (now all functions exist for includes())
         for ((moduleClass, function) in moduleFunctions) {
             fillFunctionBody(function, moduleClass)
+        }
+    }
+
+    /**
+     * Generate module-scoped component scan hints at IR time.
+     *
+     * For each @Configuration module with @ComponentScan, generates componentscan_* and
+     * componentscanfunc_* hint functions that export what the module's scan discovered.
+     * These hints are made visible to downstream compilations via registerFunctionAsMetadataVisible.
+     *
+     * This replaces FIR-time generation which couldn't discover @Inject constructor classes
+     * in subpackages (FIR predicates don't index constructor annotations, and PSI scanning
+     * doesn't work with KtLightSourceElement from Build Tools API).
+     *
+     * Pattern based on Metro's HintGenerator: creates a synthetic FirFile + IrFileImpl per hint
+     * and registers the function for metadata serialization.
+     */
+    private fun generateModuleScanHints(
+        moduleFragment: IrModuleFragment,
+        moduleDefinitions: Map<ModuleClass, List<Definition>>
+    ) {
+        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
+
+        // Only process @Configuration modules with @ComponentScan
+        val configModulesWithScan = moduleClasses.filter { moduleClass ->
+            moduleClass.hasComponentScan && hasConfigurationAnnotation(moduleClass.irClass)
+        }
+
+        if (configModulesWithScan.isEmpty()) return
+
+        KoinPluginLogger.debug { "generateModuleScanHints: ${configModulesWithScan.size} @Configuration modules with @ComponentScan" }
+
+        for (moduleClass in configModulesWithScan) {
+            val definitions = moduleDefinitions[moduleClass] ?: continue
+            if (definitions.isEmpty()) continue
+
+            val moduleClassId = moduleClass.irClass.classIdOrFail
+            val sanitizedModuleId = KoinModuleFirGenerator.sanitizeModuleIdForHint(moduleClassId)
+
+            KoinPluginLogger.debug { "  Module ${moduleClassId}: generating ${definitions.size} scan hints" }
+
+            for (definition in definitions) {
+                val defTypeStr = definitionTypeToString(definition.definitionType)
+                val targetClass = definition.returnTypeClass
+                val targetClassId = targetClass.classId ?: continue
+
+                when (definition) {
+                    is Definition.ClassDef, is Definition.ExternalFunctionDef -> {
+                        // Class definition hint: componentscan_<moduleId>_<defType>
+                        val hintName = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedModuleId, defTypeStr)
+                        generateSingleHint(moduleFragment, hintsPackage, hintName, targetClass, targetClassId)
+                        KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr)" }
+                    }
+                    is Definition.TopLevelFunctionDef -> {
+                        // Function definition hint: componentscanfunc_<moduleId>_<defType>
+                        val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
+                        generateSingleHint(moduleFragment, hintsPackage, hintName, targetClass, targetClassId)
+                        KoinPluginLogger.debug { "    + componentscanfunc hint: ${targetClass.name} ($defTypeStr)" }
+                    }
+                    is Definition.FunctionDef -> {
+                        // Module function definitions: also use componentscanfunc_* hint
+                        // (these are @Singleton fun provide...() inside @Module classes)
+                        val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
+                        generateSingleHint(moduleFragment, hintsPackage, hintName, targetClass, targetClassId)
+                        KoinPluginLogger.debug { "    + componentscanfunc hint: ${targetClass.name} ($defTypeStr) [module function]" }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Generate a single hint function in a synthetic IR file and register it for metadata visibility.
+     *
+     * Creates a synthetic FirFile + IrFileImpl with a deterministic path, adds a simple function
+     * with the target class type as parameter, and calls registerFunctionAsMetadataVisible to
+     * ensure downstream compilations can discover it.
+     *
+     * Based on Metro's HintGenerator pattern.
+     */
+    private fun generateSingleHint(
+        moduleFragment: IrModuleFragment,
+        hintsPackage: FqName,
+        hintName: Name,
+        targetClass: IrClass,
+        targetClassId: ClassId
+    ) {
+        // Build the IR function
+        val function = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = hintName,
+            visibility = DescriptorVisibilities.PUBLIC,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
+
+        // Add parameter with the target class type
+        val valueParam = context.irFactory.createValueParameter(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = Name.identifier("contributed"),
+            type = targetClass.defaultType,
+            isAssignable = false,
+            symbol = IrValueParameterSymbolImpl(),
+            index = 0,
+            varargElementType = null,
+            isCrossinline = false,
+            isNoinline = false,
+            isHidden = false
+        )
+        valueParam.parent = function
+        function.valueParameters = listOf(valueParam)
+
+        // Empty body (stub — hint functions are never called)
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+
+        // Build deterministic file name from target class + hint name
+        val fileName = buildHintFileName(targetClassId, hintName)
+
+        // Create synthetic FirFile for metadata
+        val metadataSource = targetClass.metadata
+        val firModuleData = when (metadataSource) {
+            is FirMetadataSource.Class -> metadataSource.fir.moduleData
+            is FirMetadataSource.Function -> metadataSource.fir.moduleData
+            is FirMetadataSource.File -> metadataSource.fir.moduleData
+            else -> null
+        }
+
+        if (firModuleData == null) {
+            KoinPluginLogger.debug { "    WARN: No FIR module data for ${targetClass.name}, skipping hint" }
+            return
+        }
+
+        val firFile = buildFile {
+            moduleData = firModuleData
+            origin = FirDeclarationOrigin.Synthetic.PluginFile
+            packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+            name = fileName
+        }
+
+        // Create synthetic IrFile with a deterministic fake path
+        // (same approach as Metro — kotlinc IC needs an absolute-looking path)
+        val fakeNewPath = Path(targetClass.fileEntry.name).parent.resolve(fileName)
+        val hintFile = IrFileImpl(
+            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+            packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
+                moduleFragment.descriptor,
+                hintsPackage
+            ),
+            module = moduleFragment
+        ).also { it.metadata = FirMetadataSource.File(firFile) }
+
+        moduleFragment.addFile(hintFile)
+        hintFile.addChild(function)
+
+        // Register for downstream visibility — this is the key API that makes hints visible
+        // to downstream compilations via Kotlin metadata in the compiled artifact.
+        context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+    }
+
+    /**
+     * Build a deterministic file name for a hint function.
+     * Uses the target class package + class name + hint name to avoid collisions.
+     */
+    private fun buildHintFileName(targetClassId: ClassId, hintName: Name): String {
+        val parts = sequence {
+            yieldAll(targetClassId.packageFqName.pathSegments().map { it.asString() })
+            yield(targetClassId.shortClassName.asString())
+            yield(hintName.asString())
+        }
+        val fileName = parts
+            .map { segment -> segment.replaceFirstChar { it.uppercaseChar() } }
+            .joinToString(separator = "")
+            .replaceFirstChar { it.lowercaseChar() }
+        return "$fileName.kt"
+    }
+
+    /**
+     * Check if a class has the @Configuration annotation.
+     */
+    private fun hasConfigurationAnnotation(irClass: IrClass): Boolean {
+        return irClass.annotations.any {
+            it.type.classFqName?.asString() == KoinAnnotationFqNames.CONFIGURATION.asString()
+        }
+    }
+
+    /**
+     * Convert DefinitionType enum to the string constant used in hint function names.
+     */
+    private fun definitionTypeToString(type: DefinitionType): String {
+        return when (type) {
+            DefinitionType.SINGLE -> KoinModuleFirGenerator.DEF_TYPE_SINGLE
+            DefinitionType.FACTORY -> KoinModuleFirGenerator.DEF_TYPE_FACTORY
+            DefinitionType.SCOPED -> KoinModuleFirGenerator.DEF_TYPE_SCOPED
+            DefinitionType.VIEW_MODEL -> KoinModuleFirGenerator.DEF_TYPE_VIEWMODEL
+            DefinitionType.WORKER -> KoinModuleFirGenerator.DEF_TYPE_WORKER
         }
     }
 

@@ -320,31 +320,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         val returnTypeClassId: ClassId
     )
 
-    /**
-     * Holds a definition class discovered via @ComponentScan for a specific module.
-     * Used for module-scoped component scan hints — exports what each module's @ComponentScan found.
-     * Unlike [DefinitionClassInfo] (which only includes orphan definitions), this includes ALL
-     * definitions in a module's scan packages, regardless of local scan coverage.
-     */
-    private data class ModuleScanDefinitionInfo(
-        val moduleClassId: ClassId,
-        val classSymbol: FirClassSymbol<*>,
-        val definitionType: String,
-        val containingFileName: String?
-    )
-
-    /**
-     * Holds a top-level function discovered via @ComponentScan for a specific module.
-     * Used for module-scoped component scan function hints.
-     */
-    private data class ModuleScanFunctionInfo(
-        val moduleClassId: ClassId,
-        val functionSymbol: FirNamedFunctionSymbol,
-        val definitionType: String,
-        val containingFileName: String?,
-        val returnTypeClassId: ClassId
-    )
-
     // Check if we're compiling for a KLIB-based target (Native, JS, or Wasm)
     // KLIB serialization cannot handle synthetic FIR declarations without a real source file,
     // causing "No file found for source null" crashes (KT-82395).
@@ -771,214 +746,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         functions
     }
 
-    // Cache of module-scoped component scan definitions.
-    // For each @Configuration module with @ComponentScan, collects ALL definition classes
-    // in its scan packages — NOT filtered by isCoveredByLocalScan (unlike definitionClassInfos).
-    // This ensures cross-module consumers can see what each module's scan discovered.
-    private val moduleScanDefinitionInfos: List<ModuleScanDefinitionInfo> by lazy {
-        val provider = session.predicateBasedProvider
-        val results = mutableListOf<ModuleScanDefinitionInfo>()
-
-        // Find @ComponentScan modules
-        val scanClassIds = provider.getSymbolsByPredicate(componentScanPredicate)
-            .filterIsInstance<FirClassSymbol<*>>()
-            .map { it.classId }
-            .toSet()
-
-        // For each @Configuration module with @ComponentScan, find definitions in its scan packages
-        val configModulesWithScan = configurationModules.filter { it.classSymbol.classId in scanClassIds }
-        if (configModulesWithScan.isEmpty()) {
-            log { "No @Configuration modules with @ComponentScan — skipping module-scan hint collection" }
-            return@lazy results
-        }
-
-        log { "Collecting module-scoped scan definitions for ${configModulesWithScan.size} modules..." }
-
-        // Collect ALL definition class symbols (not filtered by local scan coverage)
-        fun collectAllDefinitionSymbols(predicate: LookupPredicate, defType: String): List<Pair<FirClassSymbol<*>, String>> {
-            return provider.getSymbolsByPredicate(predicate)
-                .filterIsInstance<FirClassSymbol<*>>()
-                .filter { !it.rawStatus.isExpect }
-                .mapNotNull { classSymbol ->
-                    val containingFileName = getContainingFileName(classSymbol)
-                    if (containingFileName != null) classSymbol to defType else null
-                }
-        }
-
-        val allDefinitionSymbols = buildList {
-            addAll(collectAllDefinitionSymbols(singletonPredicate, DEF_TYPE_SINGLE))
-            addAll(collectAllDefinitionSymbols(singlePredicate, DEF_TYPE_SINGLE))
-            addAll(collectAllDefinitionSymbols(factoryPredicate, DEF_TYPE_FACTORY))
-            addAll(collectAllDefinitionSymbols(scopedPredicate, DEF_TYPE_SCOPED))
-            addAll(collectAllDefinitionSymbols(viewModelPredicate, DEF_TYPE_VIEWMODEL))
-            addAll(collectAllDefinitionSymbols(workerPredicate, DEF_TYPE_WORKER))
-            addAll(collectAllDefinitionSymbols(viewModelScopePredicate, DEF_TYPE_SCOPED))
-            addAll(collectAllDefinitionSymbols(activityScopePredicate, DEF_TYPE_SCOPED))
-            addAll(collectAllDefinitionSymbols(activityRetainedScopePredicate, DEF_TYPE_SCOPED))
-            addAll(collectAllDefinitionSymbols(fragmentScopePredicate, DEF_TYPE_SCOPED))
-            addAll(collectAllDefinitionSymbols(jakartaSingletonPredicate, DEF_TYPE_SINGLE))
-            addAll(collectAllDefinitionSymbols(javaxSingletonPredicate, DEF_TYPE_SINGLE))
-            addAll(collectAllDefinitionSymbols(jakartaInjectPredicate, DEF_TYPE_FACTORY))
-            addAll(collectAllDefinitionSymbols(javaxInjectPredicate, DEF_TYPE_FACTORY))
-        }
-
-        // Deduplicate: a class may match multiple predicates
-        val deduped = allDefinitionSymbols.distinctBy { it.first.classId }
-
-        for (configModule in configModulesWithScan) {
-            val moduleClassId = configModule.classSymbol.classId
-
-            // Get scan packages for this module
-            val componentScanAnnotation = configModule.classSymbol.fir.annotations
-                .filterIsInstance<FirAnnotationCall>()
-                .firstOrNull { annotation ->
-                    val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
-                    annotationClassId?.asSingleFqName() == COMPONENT_SCAN_ANNOTATION
-                }
-            val scanPkgs = if (componentScanAnnotation != null) {
-                extractComponentScanPackages(componentScanAnnotation, configModule.classSymbol)
-            } else {
-                listOf(configModule.classSymbol.classId.packageFqName.asString())
-            }
-
-            log { "  Module ${moduleClassId}: scan packages=$scanPkgs" }
-
-            val foundClassIds = mutableSetOf<ClassId>()
-
-            // Find definition classes in scan packages (predicate-matched: @Singleton, @Factory, etc.)
-            for ((classSymbol, defType) in deduped) {
-                val packageName = classSymbol.classId.packageFqName.asString()
-                val matchesScanPackage = scanPkgs.any { scanPkg ->
-                    packageName == scanPkg || packageName.startsWith("$scanPkg.")
-                }
-                if (matchesScanPackage) {
-                    val containingFileName = getContainingFileName(classSymbol) ?: continue
-                    foundClassIds.add(classSymbol.classId)
-                    log { "    + ${classSymbol.classId} ($defType)" }
-                    results.add(ModuleScanDefinitionInfo(moduleClassId, classSymbol, defType, containingFileName))
-                }
-            }
-
-            // Also find @Inject constructor classes in scan packages.
-            // FIR predicates can't match constructor annotations, so we enumerate classes
-            // in each scan package using getTopLevelClassifierNamesInPackage and check constructors.
-            // This works for exact packages; subpackages need the PSI fallback below.
-            for (scanPkg in scanPkgs) {
-                val pkgFqName = FqName(scanPkg)
-                val classNames = session.symbolProvider.symbolNamesProvider
-                    .getTopLevelClassifierNamesInPackage(pkgFqName) ?: continue
-                for (className in classNames) {
-                    val classId = ClassId(pkgFqName, className)
-                    if (classId in foundClassIds) continue
-                    val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)
-                        as? FirClassSymbol<*> ?: continue
-                    if (symbol.rawStatus.isExpect) continue
-                    if (hasInjectConstructorFir(symbol)) {
-                        val containingFileName = getContainingFileName(symbol) ?: continue
-                        foundClassIds.add(classId)
-                        log { "    + $classId (factory, @Inject constructor)" }
-                        results.add(ModuleScanDefinitionInfo(moduleClassId, symbol, DEF_TYPE_FACTORY, containingFileName))
-                    }
-                }
-            }
-
-            // Subpackage discovery: scan source directories to find @Inject constructor classes
-            // in subpackages. getTopLevelClassifierNamesInPackage only works for exact packages,
-            // so we derive source roots from the config module's file and walk subdirectories.
-            discoverInjectConstructorInSubpackages(
-                configModule.classSymbol, scanPkgs, foundClassIds, moduleClassId, results
-            )
-        }
-
-        log { "Collected ${results.size} module-scoped scan definitions" }
-        results
-    }
-
-    // Cache of module-scoped component scan function definitions.
-    // For each @Configuration module with @ComponentScan, collects ALL top-level function definitions
-    // in its scan packages — NOT filtered by isCoveredByLocalScan.
-    private val moduleScanFunctionInfos: List<ModuleScanFunctionInfo> by lazy {
-        val provider = session.predicateBasedProvider
-        val results = mutableListOf<ModuleScanFunctionInfo>()
-
-        val scanClassIds = provider.getSymbolsByPredicate(componentScanPredicate)
-            .filterIsInstance<FirClassSymbol<*>>()
-            .map { it.classId }
-            .toSet()
-
-        val configModulesWithScan = configurationModules.filter { it.classSymbol.classId in scanClassIds }
-        if (configModulesWithScan.isEmpty()) {
-            return@lazy results
-        }
-
-        log { "Collecting module-scoped scan functions for ${configModulesWithScan.size} modules..." }
-
-        // Collect ALL top-level function symbols with definition annotations
-        fun collectAllFunctionSymbols(predicate: LookupPredicate, defType: String): List<Triple<FirNamedFunctionSymbol, String, ClassId>> {
-            return provider.getSymbolsByPredicate(predicate)
-                .filterIsInstance<FirNamedFunctionSymbol>()
-                .mapNotNull { functionSymbol ->
-                    val callableId = functionSymbol.callableId
-                    if (callableId.classId != null) return@mapNotNull null // skip class member functions
-
-                    val returnTypeClassId = functionSymbol.resolvedReturnTypeRef.coneType.classId ?: return@mapNotNull null
-                    if (returnTypeClassId.asSingleFqName().asString() == "kotlin.Unit") return@mapNotNull null
-
-                    Triple(functionSymbol, defType, returnTypeClassId)
-                }
-        }
-
-        val allFunctionSymbols = buildList {
-            addAll(collectAllFunctionSymbols(singletonPredicate, DEF_TYPE_SINGLE))
-            addAll(collectAllFunctionSymbols(singlePredicate, DEF_TYPE_SINGLE))
-            addAll(collectAllFunctionSymbols(factoryPredicate, DEF_TYPE_FACTORY))
-            addAll(collectAllFunctionSymbols(scopedPredicate, DEF_TYPE_SCOPED))
-            addAll(collectAllFunctionSymbols(viewModelPredicate, DEF_TYPE_VIEWMODEL))
-            addAll(collectAllFunctionSymbols(workerPredicate, DEF_TYPE_WORKER))
-        }
-
-        for (configModule in configModulesWithScan) {
-            val moduleClassId = configModule.classSymbol.classId
-
-            val componentScanAnnotation = configModule.classSymbol.fir.annotations
-                .filterIsInstance<FirAnnotationCall>()
-                .firstOrNull { annotation ->
-                    val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
-                    annotationClassId?.asSingleFqName() == COMPONENT_SCAN_ANNOTATION
-                }
-            val scanPkgs = if (componentScanAnnotation != null) {
-                extractComponentScanPackages(componentScanAnnotation, configModule.classSymbol)
-            } else {
-                listOf(configModule.classSymbol.classId.packageFqName.asString())
-            }
-
-            for ((functionSymbol, defType, returnTypeClassId) in allFunctionSymbols) {
-                val packageName = functionSymbol.callableId.packageName.asString()
-                val matchesScanPackage = scanPkgs.any { scanPkg ->
-                    packageName == scanPkg || packageName.startsWith("$scanPkg.")
-                }
-                if (matchesScanPackage) {
-                    val source = functionSymbol.fir.source
-                    val containingFileName = when (source) {
-                        is KtPsiSourceElement -> source.psi.containingFile?.name
-                        else -> {
-                            val isRealSource = source?.kind?.toString()?.contains("RealSourceElementKind") == true
-                            if (isRealSource) "${packageName.replace('.', '_')}_${functionSymbol.callableId.callableName}_FunctionDefinition.kt"
-                            else null
-                        }
-                    }
-                    if (containingFileName != null) {
-                        log { "    + ${functionSymbol.callableId.callableName}() -> $returnTypeClassId ($defType)" }
-                        results.add(ModuleScanFunctionInfo(moduleClassId, functionSymbol, defType, containingFileName, returnTypeClassId))
-                    }
-                }
-            }
-        }
-
-        log { "Collected ${results.size} module-scoped scan functions" }
-        results
-    }
-
     /**
      * Check if a FIR class symbol has a constructor annotated with @Inject (jakarta or javax).
      * Works for both KtPsiSourceElement and KtLightSourceElement sources.
@@ -1013,6 +780,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      * is a common pattern where the annotation is on the constructor.
      *
      * Uses PSI directly to check constructor annotations - more efficient than FIR symbol access.
+     * Note: This only finds orphan @Inject classes (not covered by local @ComponentScan).
+     * Module-scoped @Inject classes are discovered at IR time and exported via componentscan_* hints.
      */
     private fun collectInjectConstructorClasses(definitions: MutableList<DefinitionClassInfo>) {
         val existingClassIds = definitions.map { it.classSymbol.classId }.toMutableSet()
@@ -1123,135 +892,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
         scanDeclarations(ktFile.declarations)
         return count
-    }
-
-    /**
-     * Discover @Inject constructor classes in subpackages of scan packages.
-     * Derives source roots from the config module's source file, then walks subdirectories
-     * matching the scan package prefixes to find all Kotlin files. Each file is checked for
-     * classes with @Inject constructor that haven't been found by exact-package scanning.
-     */
-    private fun discoverInjectConstructorInSubpackages(
-        configModuleSymbol: FirClassSymbol<*>,
-        scanPkgs: List<String>,
-        foundClassIds: MutableSet<ClassId>,
-        moduleClassId: ClassId,
-        results: MutableList<ModuleScanDefinitionInfo>
-    ) {
-        try {
-            // Get config module's package to derive source root
-            val modulePackage = configModuleSymbol.classId.packageFqName.asString()
-            val source = configModuleSymbol.fir.source
-            if (source !is KtPsiSourceElement) return
-
-            val ktFile = source.psi.containingFile as? org.jetbrains.kotlin.psi.KtFile ?: return
-            val filePath = ktFile.virtualFilePath
-
-            // Derive source root: strip the package directory from the file path
-            // e.g., ".../src/demo/kotlin/com/foo/sync/di/SyncKoinModule.kt" with package "com.foo.sync.di"
-            //   -> source root = ".../src/demo/kotlin/"
-            val packagePath = modulePackage.replace('.', java.io.File.separatorChar)
-            val sourceRootIdx = filePath.indexOf(packagePath)
-            if (sourceRootIdx <= 0) return
-            val sourceRoot = filePath.substring(0, sourceRootIdx)
-
-            log { "    Subpackage scan: sourceRoot=$sourceRoot" }
-
-            // For each scan package, walk its directory and subdirectories to discover subpackages
-            for (scanPkg in scanPkgs) {
-                val scanPkgPath = scanPkg.replace('.', java.io.File.separatorChar)
-                val scanDir = java.io.File(sourceRoot, scanPkgPath)
-                if (!scanDir.isDirectory) {
-                    // Also check other source roots (e.g., main/ vs demo/)
-                    // Derive alternative source roots by replacing the variant-specific path component
-                    val alternativeRoots = findAlternativeSourceRoots(sourceRoot)
-                    for (altRoot in alternativeRoots) {
-                        val altDir = java.io.File(altRoot, scanPkgPath)
-                        if (altDir.isDirectory) {
-                            scanDirectoryForInjectClasses(altDir, scanPkg, foundClassIds, moduleClassId, results)
-                        }
-                    }
-                    continue
-                }
-                scanDirectoryForInjectClasses(scanDir, scanPkg, foundClassIds, moduleClassId, results)
-            }
-        } catch (e: Exception) {
-            log { "    Error in subpackage discovery: ${e.message}" }
-        }
-    }
-
-    /**
-     * Find alternative source roots by replacing variant-specific components.
-     * E.g., ".../src/demo/kotlin/" -> [".../src/main/kotlin/", ".../src/debug/kotlin/"]
-     */
-    private fun findAlternativeSourceRoots(sourceRoot: String): List<String> {
-        val sep = java.io.File.separator
-        // Match pattern: .../src/<variant>/kotlin/
-        val srcIdx = sourceRoot.lastIndexOf("${sep}src${sep}")
-        if (srcIdx < 0) return emptyList()
-
-        val afterSrc = sourceRoot.substring(srcIdx + "${sep}src${sep}".length)
-        val variantEnd = afterSrc.indexOf(sep)
-        if (variantEnd < 0) return emptyList()
-
-        val basePath = sourceRoot.substring(0, srcIdx + "${sep}src${sep}".length)
-        val suffix = afterSrc.substring(variantEnd)
-
-        // Try common source set names
-        return listOf("main", "debug", "release", "demo", "prod").mapNotNull { variant ->
-            val altRoot = "$basePath$variant$suffix"
-            if (altRoot != sourceRoot && java.io.File(altRoot).isDirectory) altRoot else null
-        }
-    }
-
-    /**
-     * Recursively scan a directory for Kotlin files containing @Inject constructor classes.
-     */
-    private fun scanDirectoryForInjectClasses(
-        dir: java.io.File,
-        basePackage: String,
-        foundClassIds: MutableSet<ClassId>,
-        moduleClassId: ClassId,
-        results: MutableList<ModuleScanDefinitionInfo>
-    ) {
-        // Calculate the package for this directory
-        val currentPackage = basePackage + if (dir.name == basePackage.substringAfterLast('.')) "" else ""
-
-        dir.walkTopDown().forEach { file ->
-            if (!file.isFile || !file.name.endsWith(".kt")) return@forEach
-
-            // Derive package from directory relative to scan root
-            val relativePath = file.parentFile.toRelativeString(dir.parentFile)
-            val pkg = relativePath.replace(java.io.File.separatorChar, '.')
-
-            // Read the file and check for @Inject constructor
-            try {
-                val content = file.readText()
-                // Quick check: skip files without @Inject
-                if ("@Inject" !in content) return@forEach
-
-                // Extract class declarations with @Inject constructor
-                // Pattern: class <Name> @Inject constructor or class <Name> @jakarta.inject.Inject constructor
-                val classPattern = Regex("""class\s+(\w+)\s+@\S*Inject\s+constructor""")
-                for (match in classPattern.findAll(content)) {
-                    val className = match.groupValues[1]
-                    val classId = ClassId(FqName(pkg), Name.identifier(className))
-                    if (classId in foundClassIds) continue
-
-                    val symbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)
-                        as? FirClassSymbol<*> ?: continue
-                    if (symbol.rawStatus.isExpect) continue
-
-                    // Verify with FIR that it actually has @Inject constructor
-                    if (!hasInjectConstructorFir(symbol)) continue
-
-                    val containingFileName = getContainingFileName(symbol) ?: continue
-                    foundClassIds.add(classId)
-                    log { "    + $classId (factory, @Inject constructor via subpackage scan)" }
-                    results.add(ModuleScanDefinitionInfo(moduleClassId, symbol, DEF_TYPE_FACTORY, containingFileName))
-                }
-            } catch (_: Exception) {}
-        }
     }
 
     /**
@@ -1428,22 +1068,11 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             callableIds.add(CallableId(HINTS_PACKAGE, definitionFunctionHintFunctionName(defType)))
         }
 
-        // Generate module-scoped component scan hints for cross-module visibility.
-        // Each @Configuration module with @ComponentScan exports what it found,
-        // so cross-module consumers can see the full picture.
-        val moduleScanModuleIds = mutableSetOf<String>()
-        for (info in moduleScanDefinitionInfos) {
-            val moduleId = sanitizeModuleIdForHint(info.moduleClassId)
-            moduleScanModuleIds.add(moduleId)
-            callableIds.add(CallableId(HINTS_PACKAGE, moduleScanHintFunctionName(moduleId, info.definitionType)))
-        }
-        for (info in moduleScanFunctionInfos) {
-            val moduleId = sanitizeModuleIdForHint(info.moduleClassId)
-            moduleScanModuleIds.add(moduleId)
-            callableIds.add(CallableId(HINTS_PACKAGE, moduleScanFunctionHintFunctionName(moduleId, info.definitionType)))
-        }
+        // Note: componentscan_* / componentscanfunc_* hints are now generated at IR time
+        // using registerFunctionAsMetadataVisible (see KoinAnnotationProcessor.generateModuleScanHints).
+        // This ensures complete discovery of @Inject constructor classes in subpackages.
 
-        log { "getTopLevelCallableIds() returning ${callableIds.size} callables (${moduleClasses.size} modules, labels=$allLabels, definitions=${definitionClassInfos.size}, functionDefs=${definitionFunctionInfos.size}, moduleScanModules=${moduleScanModuleIds.size})" }
+        log { "getTopLevelCallableIds() returning ${callableIds.size} callables (${moduleClasses.size} modules, labels=$allLabels, definitions=${definitionClassInfos.size}, functionDefs=${definitionFunctionInfos.size})" }
         return callableIds
     }
 
@@ -1629,69 +1258,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                 }
             }
 
-            // Generate module-scoped component scan hints for class definitions
-            // Function name format: componentscan_<moduleId>_<defType>
-            val scanInfo = moduleScanInfoFromHintFunctionName(callableId.callableName.asString())
-            if (scanInfo != null) {
-                val (moduleId, defType) = scanInfo
-                val matchingInfos = moduleScanDefinitionInfos.filter { info ->
-                    sanitizeModuleIdForHint(info.moduleClassId) == moduleId && info.definitionType == defType
-                }
-                log { "generateFunctions: Generating module-scan hints for module=$moduleId type=$defType, ${matchingInfos.size} classes" }
-
-                if (isKlibTarget) {
-                    log { "generateFunctions: Skipping module-scan hints on KLIB target" }
-                    return emptyList()
-                }
-
-                return matchingInfos.mapNotNull { scanDefInfo ->
-                    val containingFile = scanDefInfo.containingFileName ?: return@mapNotNull null
-                    val classType = scanDefInfo.classSymbol.constructType(emptyArray(), false)
-
-                    log { "  -> Generating module-scan hint for ${scanDefInfo.classSymbol.classId} (module=$moduleId, type=$defType) in file $containingFile" }
-
-                    createTopLevelFunction(
-                        Key,
-                        callableId,
-                        session.builtinTypes.unitType.coneType,
-                        containingFileName = containingFile
-                    ) {
-                        valueParameter(Name.identifier("contributed"), classType)
-                    }.symbol
-                }
-            }
-
-            // Generate module-scoped component scan hints for function definitions
-            // Function name format: componentscanfunc_<moduleId>_<defType>
-            val scanFuncInfo = moduleScanFunctionInfoFromHintFunctionName(callableId.callableName.asString())
-            if (scanFuncInfo != null) {
-                val (moduleId, defType) = scanFuncInfo
-                val matchingInfos = moduleScanFunctionInfos.filter { info ->
-                    sanitizeModuleIdForHint(info.moduleClassId) == moduleId && info.definitionType == defType
-                }
-                log { "generateFunctions: Generating module-scan function hints for module=$moduleId type=$defType, ${matchingInfos.size} functions" }
-
-                if (isKlibTarget) {
-                    log { "generateFunctions: Skipping module-scan function hints on KLIB target" }
-                    return emptyList()
-                }
-
-                return matchingInfos.mapNotNull { scanFuncInfo2 ->
-                    val containingFile = scanFuncInfo2.containingFileName ?: return@mapNotNull null
-                    val returnClassType = scanFuncInfo2.returnTypeClassId.constructClassLikeType(emptyArray(), false)
-
-                    log { "  -> Generating module-scan function hint for ${scanFuncInfo2.functionSymbol.callableId.callableName}() -> ${scanFuncInfo2.returnTypeClassId} (module=$moduleId, type=$defType) in file $containingFile" }
-
-                    createTopLevelFunction(
-                        Key,
-                        callableId,
-                        session.builtinTypes.unitType.coneType,
-                        containingFileName = containingFile
-                    ) {
-                        valueParameter(Name.identifier("contributed"), returnClassType)
-                    }.symbol
-                }
-            }
+            // Note: componentscan_* / componentscanfunc_* hints are now generated at IR time
+            // using registerFunctionAsMetadataVisible (see KoinAnnotationProcessor.generateModuleScanHints).
         }
 
         return emptyList()
@@ -1701,7 +1269,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      * Claim ownership of the hints package for generated hint functions.
      */
     override fun hasPackage(packageFqName: FqName): Boolean {
-        if (packageFqName == HINTS_PACKAGE && (configurationModules.isNotEmpty() || definitionClassInfos.isNotEmpty() || definitionFunctionInfos.isNotEmpty() || moduleScanDefinitionInfos.isNotEmpty() || moduleScanFunctionInfos.isNotEmpty())) {
+        if (packageFqName == HINTS_PACKAGE && (configurationModules.isNotEmpty() || definitionClassInfos.isNotEmpty() || definitionFunctionInfos.isNotEmpty())) {
             return true
         }
         return super.hasPackage(packageFqName)
