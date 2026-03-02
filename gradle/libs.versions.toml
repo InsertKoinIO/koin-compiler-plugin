@@ -1,7 +1,7 @@
 [versions]
-kotlin = "2.3.20-Beta1"
-koin = "4.2.0-RC1"
-kotzilla-sdk = "1.2.1"
+kotlin = "2.3.20-RC"
+koin = "4.2.0-RC2"
+kotzilla-sdk = "1.4.2"
 build-config = "5.6.5"
 bcv = "0.16.3"
 junit = "4.13.2"

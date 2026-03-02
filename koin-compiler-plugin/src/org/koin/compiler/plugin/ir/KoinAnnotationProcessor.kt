@@ -96,9 +96,14 @@ class KoinAnnotationProcessor(
     /** Exposed for cross-phase validation (A3: startKoin full-graph). */
     val collectedModuleClasses: List<ModuleClass> get() = moduleClasses
 
-    /** Get all definitions for a module (local + cross-module via hints + included modules). */
-    fun getDefinitionsForModule(moduleClass: ModuleClass): List<Definition> {
+    /**
+     * Get all definitions for a module (local + cross-module via hints + included modules).
+     * Returns a DependencyModuleResult with isComplete=false when any included dependency module's
+     * definitions couldn't be fully resolved (e.g., when hint functions are unavailable).
+     */
+    fun getDefinitionsForModule(moduleClass: ModuleClass): DependencyModuleResult {
         val definitions = (cachedModuleDefinitions?.get(moduleClass) ?: collectAllDefinitions(moduleClass)).toMutableList()
+        var allComplete = true
 
         // Track visited modules to prevent infinite recursion on circular includes
         val visited = mutableSetOf<String>()
@@ -113,17 +118,20 @@ class KoinAnnotationProcessor(
             val localIncluded = collectedModuleClasses.find {
                 it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
             }
-            val newDefs = if (localIncluded != null) {
-                collectAllDefinitions(localIncluded).filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+            if (localIncluded != null) {
+                val newDefs = collectAllDefinitions(localIncluded).filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+                definitions.addAll(newDefs)
+                existingFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
             } else {
-                collectDefinitionsFromDependencyModule(includedFqName, visited).definitions
-                    .filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+                val result = collectDefinitionsFromDependencyModule(includedFqName, visited)
+                if (!result.isComplete) allComplete = false
+                val newDefs = result.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+                definitions.addAll(newDefs)
+                existingFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
             }
-            definitions.addAll(newDefs)
-            existingFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
         }
 
-        return definitions
+        return DependencyModuleResult(definitions, allComplete)
     }
 
     /** Get definitions from a dependency JAR module (for cross-module validation). */
@@ -667,14 +675,18 @@ class KoinAnnotationProcessor(
             // be validated as part of the parent's visibility set (or at A3).
             val isIncludedByOtherModule = moduleClass.irClass.fqNameWhenAvailable in includedModuleFqNames
             if (safetyValidator != null && definitions.isNotEmpty() && !isIncludedByOtherModule) {
-                val allVisibleDefinitions = buildVisibleDefinitions(moduleClass, definitions, moduleDefinitions)
-                val moduleFqName = moduleClass.irClass.fqNameWhenAvailable?.asString()
-                safetyValidator.validate(
-                    moduleClass.irClass.name.asString(),
-                    moduleFqName,
-                    definitions,
-                    allVisibleDefinitions
-                )
+                val visibilityResult = buildVisibleDefinitions(moduleClass, definitions, moduleDefinitions)
+                if (visibilityResult.isComplete) {
+                    val moduleFqName = moduleClass.irClass.fqNameWhenAvailable?.asString()
+                    safetyValidator.validate(
+                        moduleClass.irClass.name.asString(),
+                        moduleFqName,
+                        definitions,
+                        visibilityResult.definitions
+                    )
+                } else {
+                    KoinPluginLogger.debug { "  Skipping A2 validation for ${moduleClass.irClass.name}: dependency module definitions incomplete (hint functions unavailable)" }
+                }
             }
 
             // Check if FIR generated a function for this module (even if no local definitions)
@@ -1476,6 +1488,7 @@ class KoinAnnotationProcessor(
         val hasComponentScan = moduleIrClass.annotations.any {
             it.type.classFqName?.asString() == "org.koin.core.annotation.ComponentScan"
         }
+        var scanDefinitionsFound = false
         if (hasComponentScan) {
             // Primary: module-scoped scan hints (always complete when available)
             val scanDefs = discoverModuleScanDefinitions(moduleFqName)
@@ -1491,8 +1504,12 @@ class KoinAnnotationProcessor(
             val orphanFuncDefs = discoverFunctionDefinitionsFromHints(effectiveScanPackages)
             // Deduplicate — scan hints may overlap with orphan hints
             val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
-            definitions.addAll(orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
-            definitions.addAll(orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
+            val newOrphanDefs = orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+            val newOrphanFuncDefs = orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+            definitions.addAll(newOrphanDefs)
+            definitions.addAll(newOrphanFuncDefs)
+
+            scanDefinitionsFound = scanDefs.isNotEmpty() || newOrphanDefs.isNotEmpty() || newOrphanFuncDefs.isNotEmpty()
         }
 
         // 3. Follow @Module(includes = [...]) to collect definitions from included modules.
@@ -1526,9 +1543,15 @@ class KoinAnnotationProcessor(
             KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName (hasComponentScan=$hasComponentScan)" }
         }
 
-        // Module class resolved — definitions are always complete now.
-        // Module-scoped scan hints provide full visibility for @ComponentScan modules.
-        return DependencyModuleResult(definitions, isComplete = true)
+        // Module is complete if it has no @ComponentScan, or if scan definitions were found.
+        // When hint functions are unavailable, discoverModuleScanDefinitions returns empty.
+        // In that case, we can't fully resolve the module's scanned definitions and must
+        // mark it incomplete to skip safety validation.
+        val isComplete = !hasComponentScan || scanDefinitionsFound
+        if (!isComplete) {
+            KoinPluginLogger.debug { "    -> WARNING: $moduleFqName has @ComponentScan but no scan hints found (hint functions unavailable)" }
+        }
+        return DependencyModuleResult(definitions, isComplete = isComplete)
     }
 
     /**
@@ -1654,6 +1677,17 @@ class KoinAnnotationProcessor(
     }
 
     /**
+     * Result of building visible definitions for a module.
+     * @param definitions All definitions visible to the module
+     * @param isComplete Whether all dependency modules' definitions could be fully resolved.
+     *   False when a dependency module has @ComponentScan but no hint functions are available.
+     */
+    private data class VisibilityResult(
+        val definitions: List<Definition>,
+        val isComplete: Boolean
+    )
+
+    /**
      * Build the full set of definitions visible to a module for validation.
      * Includes: own definitions + included modules + @Configuration siblings (local + cross-module).
      */
@@ -1661,18 +1695,26 @@ class KoinAnnotationProcessor(
         moduleClass: ModuleClass,
         ownDefinitions: List<Definition>,
         allModuleDefinitions: Map<ModuleClass, List<Definition>>
-    ): List<Definition> {
+    ): VisibilityResult {
         // Pre-build lookup map for O(1) sibling resolution
         val modulesByFqName = moduleClasses.associateBy { it.irClass.fqNameWhenAvailable?.asString() }
+        var allComplete = true
 
-        return buildList {
+        val definitions = buildList {
             addAll(ownDefinitions)
 
             // A1: Explicit includes
             for (included in moduleClass.includedModules) {
                 val includedModule = modulesByFqName[included.fqNameWhenAvailable?.asString()]
                 if (includedModule != null) {
+                    // Local included module
                     addAll(allModuleDefinitions[includedModule] ?: emptyList())
+                } else {
+                    // Cross-module included module from dependency JAR
+                    val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
+                    val result = collectDefinitionsFromDependencyModule(includedFqName)
+                    addAll(result.definitions)
+                    if (!result.isComplete) allComplete = false
                 }
             }
 
@@ -1687,11 +1729,14 @@ class KoinAnnotationProcessor(
                         addAll(allModuleDefinitions[sibling] ?: emptyList())
                     } else if (sibling == null) {
                         // Cross-Gradle-module sibling — resolve from JAR + module scan hints
-                        addAll(collectDefinitionsFromDependencyModule(siblingName).definitions)
+                        val result = collectDefinitionsFromDependencyModule(siblingName)
+                        addAll(result.definitions)
+                        if (!result.isComplete) allComplete = false
                     }
                 }
             }
         }
+        return VisibilityResult(definitions, allComplete)
     }
 
     private fun buildModuleCall(

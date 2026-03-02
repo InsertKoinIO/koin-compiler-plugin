@@ -79,14 +79,14 @@ class CompileSafetyValidator(
      * @param appName Application class name (for error messages)
      * @param allModuleIrClasses All module IrClasses discovered for this startKoin call
      * @param collectedModuleClasses Local module classes from annotation processing
-     * @param getDefinitionsForModule Callback to get definitions for a local module
+     * @param getDefinitionsForModule Callback to get definitions for a local module (returns completeness info)
      * @param getDefinitionsForDependencyModule Callback to get definitions from a dependency JAR module
      */
     fun validateFullGraph(
         appName: String,
         allModuleIrClasses: List<IrClass>,
         collectedModuleClasses: List<ModuleClass>,
-        getDefinitionsForModule: (ModuleClass) -> List<Definition>,
+        getDefinitionsForModule: (ModuleClass) -> DependencyModuleResult,
         getDefinitionsForDependencyModule: (String) -> DependencyModuleResult
     ) {
         KoinPluginLogger.debug { "── A3 Safety: Full-graph for $appName ──" }
@@ -100,6 +100,7 @@ class CompileSafetyValidator(
         // Track which definitions need validation (not already validated at A2)
         val allDefinitions = mutableListOf<Definition>()
         val definitionsToValidate = mutableListOf<Definition>()
+        var allModulesComplete = true
 
         KoinPluginLogger.debug { "  collecting definitions from all modules:" }
         for (moduleIrClass in allModuleIrClasses) {
@@ -112,24 +113,31 @@ class CompileSafetyValidator(
 
             if (moduleClass != null) {
                 // Local module — collect all definitions (includes cross-module hints)
-                val defs = getDefinitionsForModule(moduleClass)
-                allDefinitions.addAll(defs)
+                val result = getDefinitionsForModule(moduleClass)
+                allDefinitions.addAll(result.definitions)
+                if (!result.isComplete) allModulesComplete = false
                 val status = if (alreadyValidated) "provider-only (validated at A2)" else "needs validation"
-                KoinPluginLogger.debug { "    + $moduleFqName (local): ${defs.size} definitions [$status]" }
+                KoinPluginLogger.debug { "    + $moduleFqName (local): ${result.definitions.size} definitions [$status, complete=${result.isComplete}]" }
                 if (!alreadyValidated) {
-                    definitionsToValidate.addAll(defs)
+                    definitionsToValidate.addAll(result.definitions)
                 }
             } else {
                 // Cross-module @Configuration module from dependency JAR
                 KoinPluginLogger.debug { "    + $moduleFqName (dependency JAR):" }
                 val result = getDefinitionsForDependencyModule(moduleFqName)
                 val status = if (alreadyValidated) "provider-only" else "needs validation"
-                KoinPluginLogger.debug { "      -> ${result.definitions.size} definitions [$status]" }
+                KoinPluginLogger.debug { "      -> ${result.definitions.size} definitions [$status, complete=${result.isComplete}]" }
                 allDefinitions.addAll(result.definitions)
+                if (!result.isComplete) allModulesComplete = false
                 if (!alreadyValidated) {
                     definitionsToValidate.addAll(result.definitions)
                 }
             }
+        }
+
+        if (!allModulesComplete) {
+            KoinPluginLogger.debug { "  -> SKIPPED: some dependency modules have incomplete definitions (hint functions unavailable)" }
+            return
         }
 
         if (allDefinitions.isEmpty()) {
