@@ -18,16 +18,15 @@ import org.koin.compiler.plugin.ProvidedTypeRegistry
  * A4: Call-site validation for koinViewModel<T>() and koinNavViewModel<T>().
  *
  * Validates that the type argument T used in Compose ViewModel resolution functions
- * is a declared Koin definition. Uses two strategies:
+ * is a declared Koin definition. Uses two strategies depending on context:
  *
- * 1. **Annotation check**: Inspects T's class for definition annotations
- *    (@KoinViewModel, @Singleton, @Factory, etc.). Works even when the current
- *    compilation unit has no @Module classes — the annotation is on the class itself.
+ * **When A3 assembled graph is available** (startKoin/koinConfiguration present):
+ * Checks if T is in the assembled graph's provided types. This catches cases where
+ * T has a definition annotation but is not included in any loaded module.
  *
- * 2. **Module definitions check**: Looks up T in the collected definitions from all
- *    known @Module classes (covers module function definitions like `@KoinViewModel fun vm() = MyVm()`).
- *
- * Emits a compilation error when T is not found by either strategy.
+ * **Fallback** (no startKoin in this compilation unit):
+ * 1. Annotation check: Inspects T's class for definition annotations
+ * 2. Module definitions check: Looks up T in collected definitions from local @Module classes
  *
  * Runs as Phase 3.5 (after annotation processing and startKoin transformation,
  * before monitor processing). Read-only pass — no IR transformation.
@@ -35,7 +34,8 @@ import org.koin.compiler.plugin.ProvidedTypeRegistry
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
 class KoinCallSiteValidator(
-    private val annotationProcessor: KoinAnnotationProcessor
+    private val annotationProcessor: KoinAnnotationProcessor,
+    private val assembledGraphTypes: Set<String>
 ) : IrElementTransformerVoid() {
 
     /** FQ name strings of functions to intercept. */
@@ -92,16 +92,25 @@ class KoinCallSiteValidator(
             return super.visitCall(expression)
         }
 
-        // Strategy 1: Check if the class itself has a definition annotation
-        if (hasDefinitionAnnotation(targetClass)) {
-            KoinPluginLogger.debug { "A4: OK $calleeFqName<$targetFqName>() — has definition annotation" }
-            return super.visitCall(expression)
-        }
+        if (assembledGraphTypes.isNotEmpty()) {
+            // A3 assembled the full graph — check against the actual runtime types
+            if (targetFqName in assembledGraphTypes) {
+                KoinPluginLogger.debug { "A4: OK $calleeFqName<$targetFqName>() — found in assembled graph" }
+                return super.visitCall(expression)
+            }
+        } else {
+            // No startKoin/koinConfiguration in this compilation unit — fall back to heuristics
+            // Strategy 1: Check if the class itself has a definition annotation
+            if (hasDefinitionAnnotation(targetClass)) {
+                KoinPluginLogger.debug { "A4: OK $calleeFqName<$targetFqName>() — has definition annotation" }
+                return super.visitCall(expression)
+            }
 
-        // Strategy 2: Check if the type is in module-provided definitions
-        if (targetFqName in moduleProvidedTypes) {
-            KoinPluginLogger.debug { "A4: OK $calleeFqName<$targetFqName>() — found in module definitions" }
-            return super.visitCall(expression)
+            // Strategy 2: Check if the type is in module-provided definitions
+            if (targetFqName in moduleProvidedTypes) {
+                KoinPluginLogger.debug { "A4: OK $calleeFqName<$targetFqName>() — found in module definitions" }
+                return super.visitCall(expression)
+            }
         }
 
         // Not found — report error with source location

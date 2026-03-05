@@ -45,10 +45,11 @@ class KoinIrExtension : IrGenerationExtension {
         moduleFragment.transform(startKoinTransformer, null)
 
         // Phase 3.5: Validate koinViewModel<T>() / koinNavViewModel<T>() call sites
-        // Checks that the resolved type T has a matching definition in any declared module
+        // When A3 assembled the full graph, validates against actual runtime types.
+        // Otherwise falls back to annotation/definition heuristics.
         if (safetyValidator != null) {
-            KoinPluginLogger.debug { "Phase 3.5: Validating call-site resolutions" }
-            val callSiteValidator = KoinCallSiteValidator(annotationProcessor)
+            KoinPluginLogger.debug { "Phase 3.5: Validating call-site resolutions (graph types: ${safetyValidator.assembledGraphTypes.size})" }
+            val callSiteValidator = KoinCallSiteValidator(annotationProcessor, safetyValidator.assembledGraphTypes)
             moduleFragment.transform(callSiteValidator, null)
         }
 

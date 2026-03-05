@@ -25,6 +25,10 @@ class CompileSafetyValidator(
     /** FQNames of modules whose definitions were already validated at A2. */
     private val validatedModuleFqNames = mutableSetOf<String>()
 
+    /** All provided type FqNames from the assembled graph (populated by A3). */
+    val assembledGraphTypes: Set<String> get() = _assembledGraphTypes
+    private val _assembledGraphTypes = mutableSetOf<String>()
+
     /**
      * A2: Validate a module's definitions against all visible definitions.
      *
@@ -134,6 +138,15 @@ class CompileSafetyValidator(
                 }
             }
         }
+
+        // Store assembled graph types for A4 call-site validation
+        for (def in allDefinitions) {
+            def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
+            for (binding in def.bindings) {
+                binding.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
+            }
+        }
+        KoinPluginLogger.debug { "  assembled graph: ${_assembledGraphTypes.size} provided types" }
 
         if (!allModulesComplete) {
             KoinPluginLogger.debug { "  -> SKIPPED: some dependency modules have incomplete definitions (hint functions unavailable)" }
