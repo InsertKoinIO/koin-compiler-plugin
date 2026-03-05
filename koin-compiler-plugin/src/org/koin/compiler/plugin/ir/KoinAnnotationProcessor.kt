@@ -33,7 +33,6 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.KoinAnnotationFqNames
-import org.koin.compiler.plugin.KoinConfigurationRegistry
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.PropertyValueRegistry
@@ -1503,10 +1502,10 @@ class KoinAnnotationProcessor(
 
             // Fallback: orphan hints for transitive cross-module definitions
             // (definitions from a third module that were scanned by this module)
-            val scanPackages = KoinConfigurationRegistry.getScanPackages(moduleFqName)
-            val effectiveScanPackages = scanPackages?.ifEmpty {
+            val scanPackages = getComponentScanPackages(moduleIrClass)
+            val effectiveScanPackages = scanPackages.ifEmpty {
                 listOf(moduleIrClass.packageFqName?.asString() ?: "")
-            } ?: listOf(moduleIrClass.packageFqName?.asString() ?: "")
+            }
             val orphanDefs = discoverClassDefinitionsFromHints(effectiveScanPackages)
             val orphanFuncDefs = discoverFunctionDefinitionsFromHints(effectiveScanPackages)
             // Deduplicate — scan hints may overlap with orphan hints
@@ -1725,18 +1724,22 @@ class KoinAnnotationProcessor(
                 }
             }
 
-            // A2: @Configuration siblings
+            // A2: @Configuration siblings — discover via hint functions
             val configLabels = extractConfigurationLabels(moduleClass.irClass)
             if (configLabels.isNotEmpty()) {
-                val siblingNames = KoinConfigurationRegistry.getModuleClassNamesForLabels(configLabels)
-                for (siblingName in siblingNames) {
-                    val sibling = modulesByFqName[siblingName]
-                    if (sibling != null && sibling != moduleClass) {
+                val siblingClasses = discoverConfigurationModulesFromHints(configLabels)
+                for (siblingClass in siblingClasses) {
+                    val siblingFqName = siblingClass.fqNameWhenAvailable?.asString() ?: continue
+                    // Skip self
+                    if (siblingFqName == moduleClass.irClass.fqNameWhenAvailable?.asString()) continue
+
+                    val sibling = modulesByFqName[siblingFqName]
+                    if (sibling != null) {
                         // Local sibling
                         addAll(allModuleDefinitions[sibling] ?: emptyList())
-                    } else if (sibling == null) {
+                    } else {
                         // Cross-Gradle-module sibling — resolve from JAR + module scan hints
-                        val result = collectDefinitionsFromDependencyModule(siblingName)
+                        val result = collectDefinitionsFromDependencyModule(siblingFqName)
                         addAll(result.definitions)
                         if (!result.isComplete) allComplete = false
                     }
@@ -1744,6 +1747,33 @@ class KoinAnnotationProcessor(
             }
         }
         return VisibilityResult(definitions, allComplete)
+    }
+
+    /**
+     * Discover @Configuration modules from hint functions (local + dependencies).
+     * Queries configuration_<label> hint functions via context.referenceFunctions(),
+     * which sees both local FIR-generated hints and dependency hints from klib/JAR metadata.
+     */
+    private fun discoverConfigurationModulesFromHints(labels: List<String>): List<IrClass> {
+        val modules = mutableListOf<IrClass>()
+        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
+
+        for (label in labels) {
+            val callableId = CallableId(hintsPackage, KoinModuleFirGenerator.hintFunctionNameForLabel(label))
+            val hintFunctions = context.referenceFunctions(callableId)
+
+            for (hintFuncSymbol in hintFunctions) {
+                val hintFunc = hintFuncSymbol.owner
+                val paramType = hintFunc.valueParameters.firstOrNull()?.type
+                val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner
+                if (moduleClass != null && moduleClass !in modules) {
+                    modules.add(moduleClass)
+                }
+            }
+        }
+
+        KoinPluginLogger.debug { "A2: Discovered ${modules.size} @Configuration siblings from hints for labels $labels" }
+        return modules
     }
 
     private fun buildModuleCall(

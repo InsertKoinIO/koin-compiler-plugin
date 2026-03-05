@@ -3,7 +3,7 @@ package org.koin.compiler.plugin.ir
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.koin.compiler.plugin.KoinConfigurationRegistry
+import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import org.jetbrains.kotlin.ir.IrElement
@@ -245,7 +245,7 @@ class KoinStartTransformer(
     private fun extractConfigurationLabels(appClass: IrClass): List<String> {
         val koinAppAnnotation = appClass.annotations.firstOrNull { annotation ->
             annotation.type.classFqName?.asString() == "org.koin.core.annotation.KoinApplication"
-        } ?: return listOf(KoinConfigurationRegistry.DEFAULT_LABEL)
+        } ?: return listOf(KoinPluginConstants.DEFAULT_LABEL)
 
         // configurations is the first parameter in @KoinApplication(configurations, modules)
         val configurationsArg = koinAppAnnotation.getValueArgument(0)
@@ -275,7 +275,7 @@ class KoinStartTransformer(
         }
 
         // Default to "default" label if no labels specified
-        return labels.ifEmpty { listOf(KoinConfigurationRegistry.DEFAULT_LABEL) }
+        return labels.ifEmpty { listOf(KoinPluginConstants.DEFAULT_LABEL) }
     }
 
     /**
@@ -340,8 +340,9 @@ class KoinStartTransformer(
     }
 
     /**
-     * Discover @Configuration modules from hint functions in dependencies.
-     * Uses label-specific function names (configuration_<label>) for filtering.
+     * Discover @Configuration modules from hint functions (local + dependencies).
+     * Queries configuration_<label> hint functions via context.referenceFunctions(),
+     * which sees both local FIR-generated hints and dependency hints from klib/JAR metadata.
      *
      * @param labels Configuration labels to filter by
      */
@@ -349,37 +350,20 @@ class KoinStartTransformer(
         val modules = mutableListOf<IrClass>()
 
         try {
-            // Strategy 1: Local hints (from moduleFragment - same compilation)
-            // Look for label-specific hint functions
-            for (file in moduleFragment.files) {
-                if (file.packageFqName == hintsPackage) {
-                    for (declaration in file.declarations) {
-                        if (declaration is IrSimpleFunction) {
-                            val functionLabel = KoinModuleFirGenerator.labelFromHintFunctionName(declaration.name.asString())
-                            if (functionLabel != null && labels.contains(functionLabel)) {
-                                val paramType = declaration.valueParameters.firstOrNull()?.type
-                                val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner
-                                if (moduleClass != null && moduleClass !in modules) {
-                                    KoinPluginLogger.debug { "  -> Found hint module from local: ${moduleClass.fqNameWhenAvailable} (label=$functionLabel)" }
-                                    modules.add(moduleClass)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            for (label in labels) {
+                val callableId = CallableId(hintsPackage, KoinModuleFirGenerator.hintFunctionNameForLabel(label))
+                val hintFunctions = context.referenceFunctions(callableId)
 
-            // Strategy 2: Use registry populated by FIR phase
-            // FIR discovers modules via symbolProvider and stores in System property with labels
-            val registryModules = KoinConfigurationRegistry.getModuleClassNamesForLabels(labels)
-            KoinPluginLogger.debug { "  -> Registry has ${registryModules.size} modules for labels $labels" }
-            for (moduleClassName in registryModules) {
-                val moduleClassId = ClassId.topLevel(FqName(moduleClassName))
-                val moduleClassSymbol = context.referenceClass(moduleClassId)
-                val moduleClass = moduleClassSymbol?.owner
-                if (moduleClass != null && moduleClass !in modules) {
-                    KoinPluginLogger.debug { "  -> Found hint module from registry: $moduleClassName" }
-                    modules.add(moduleClass)
+                KoinPluginLogger.debug { "  -> Hint query for label '$label': ${hintFunctions.count()} functions" }
+
+                for (hintFuncSymbol in hintFunctions) {
+                    val hintFunc = hintFuncSymbol.owner
+                    val paramType = hintFunc.valueParameters.firstOrNull()?.type
+                    val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner
+                    if (moduleClass != null && moduleClass !in modules) {
+                        KoinPluginLogger.debug { "  -> Found hint module: ${moduleClass.fqNameWhenAvailable} (label=$label)" }
+                        modules.add(moduleClass)
+                    }
                 }
             }
         } catch (e: Exception) {

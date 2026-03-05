@@ -1,7 +1,6 @@
 package org.koin.compiler.plugin.fir
 
 import org.jetbrains.kotlin.GeneratedDeclarationKey
-import org.koin.compiler.plugin.KoinConfigurationRegistry
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
@@ -340,20 +339,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         parts.joinToString("/").also { log { "Platform: $it" } }
     }
 
-    /**
-     * Whether the current target is Kotlin/Native.
-     *
-     * On Native targets, hint functions in the synthetic `org.koin.plugin.hints` package must be
-     * skipped because they create IrFiles with no real source backing. The ObjC export header
-     * generator calls `findSourceFile()` on every package fragment, which throws
-     * `NotImplementedError` for synthetic-only fragments (no real .kt source file).
-     *
-     * Module extension functions (`.module()`) are NOT affected because they are placed in the
-     * same package as the @Module class, which always has real source files.
-     */
-    private val isNativeTarget: Boolean by lazy {
-        session.moduleData.platform.isNative()
-    }
 
     /**
      * Mark a FIR-generated hint function as @Deprecated(level = HIDDEN).
@@ -475,7 +460,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                 val labels = if (configAnnotation != null) {
                     extractConfigurationLabels(configAnnotation)
                 } else {
-                    listOf(KoinConfigurationRegistry.DEFAULT_LABEL)
+                    listOf(KoinPluginConstants.DEFAULT_LABEL)
                 }
                 log { "  -> ${classSymbol.classId}: @Configuration labels=$labels, file=${moduleInfo.containingFileName} (predicate=$hasConfigurationViaPredicate, coneType=${configAnnotation != null})" }
                 ConfigurationModule(classSymbol, labels, moduleInfo.containingFileName)
@@ -485,39 +470,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             }
         }
         log { "Found ${modules.size} @Configuration modules" }
-
-        // Detect @ComponentScan classes via predicate for scan package registration
-        val scanClassIds = session.predicateBasedProvider
-            .getSymbolsByPredicate(componentScanPredicate)
-            .filterIsInstance<FirClassSymbol<*>>()
-            .map { it.classId }
-            .toSet()
-
-        // Register local modules to the shared registry for IR phase
-        modules.forEach { configModule ->
-            val moduleName = configModule.classSymbol.classId.asSingleFqName().asString()
-            log { "  Registering local @Configuration: $moduleName with labels=${configModule.labels}" }
-            KoinConfigurationRegistry.registerLocalModule(moduleName, configModule.labels)
-
-            // Also register @ComponentScan packages for this module (so IR can read them for cross-module siblings)
-            val hasComponentScan = configModule.classSymbol.classId in scanClassIds
-            if (hasComponentScan) {
-                val componentScanAnnotation = configModule.classSymbol.fir.annotations
-                    .filterIsInstance<FirAnnotationCall>()
-                    .firstOrNull { annotation ->
-                        val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
-                        annotationClassId?.asSingleFqName() == COMPONENT_SCAN_ANNOTATION
-                    }
-                val scanPkgs = if (componentScanAnnotation != null) {
-                    extractComponentScanPackages(componentScanAnnotation, configModule.classSymbol)
-                } else {
-                    // @ComponentScan detected via predicate but annotation not readable - use module's package
-                    listOf(configModule.classSymbol.classId.packageFqName.asString())
-                }
-                log { "  Registering scan packages for $moduleName: $scanPkgs" }
-                KoinConfigurationRegistry.registerScanPackages(moduleName, scanPkgs)
-            }
-        }
         modules
     }
 
@@ -530,7 +482,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         // @Configuration uses vararg value: String
         val argumentList = annotation.argumentList.arguments
         if (argumentList.isEmpty()) {
-            return listOf(KoinConfigurationRegistry.DEFAULT_LABEL)
+            return listOf(KoinPluginConstants.DEFAULT_LABEL)
         }
 
         // The value parameter contains the labels
@@ -561,7 +513,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             }
         }
 
-        return labels.ifEmpty { listOf(KoinConfigurationRegistry.DEFAULT_LABEL) }
+        return labels.ifEmpty { listOf(KoinPluginConstants.DEFAULT_LABEL) }
     }
 
     // Predicate for @Module annotated classes
@@ -972,9 +924,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         }
     }
 
-    // Flag to track if we've already discovered modules from hints (to avoid re-discovery)
-    private var hasDiscoveredFromHints = false
-
     /**
      * Log a debug message for FIR phase.
      */
@@ -987,60 +936,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      */
     private inline fun logUser(message: () -> String) {
         KoinPluginLogger.userFir(message)
-    }
-
-    /**
-     * Discover @Configuration modules from hint functions in dependencies.
-     * Uses FIR's symbolProvider to query label-specific functions (configuration_<label>) in the hints package.
-     * Each function has a different parameter type representing the module class.
-     *
-     * Discovery strategy:
-     * 1. Query known labels from local @Configuration modules
-     * 2. Query the "default" label (always present for backward compatibility)
-     * 3. Extract module class and label from each hint function
-     */
-    private fun discoverModulesFromHintsIfNeeded() {
-        if (hasDiscoveredFromHints) return
-        hasDiscoveredFromHints = true
-
-        try {
-            log { "Discovering hints: checking for @Configuration modules in dependencies..." }
-
-            // Collect all labels we need to query:
-            // 1. Labels from local @Configuration modules
-            // 2. "default" label (always query for backward compatibility)
-            val labelsToQuery = mutableSetOf(KoinConfigurationRegistry.DEFAULT_LABEL)
-            configurationModules.forEach { configModule ->
-                labelsToQuery.addAll(configModule.labels)
-            }
-
-            log { "  -> Querying labels: $labelsToQuery" }
-
-            // Query hint functions for each label
-            for (label in labelsToQuery) {
-                val functionName = hintFunctionNameForLabel(label)
-                val hintFunctions = session.symbolProvider.getTopLevelFunctionSymbols(HINTS_PACKAGE, functionName)
-
-                log { "  -> Found ${hintFunctions.size} hint functions for label '$label' (function: $functionName)" }
-
-                // Extract module class from each hint function's parameter type
-                for (hintFunc in hintFunctions) {
-                    try {
-                        val paramType = hintFunc.fir.valueParameters.firstOrNull()?.returnTypeRef?.coneTypeOrNull
-                        val moduleClassId = paramType?.classId
-                        if (moduleClassId != null) {
-                            val moduleName = moduleClassId.asSingleFqName().asString()
-                            log { "  -> Discovered @Configuration module from hint: $moduleName (label=$label)" }
-                            KoinConfigurationRegistry.registerJarModule(moduleName, label)
-                        }
-                    } catch (e: Exception) {
-                        log { "  -> Error processing hint function: ${e.message}" }
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            log { "Error during hint discovery: ${e.message}" }
-        }
     }
 
     override fun FirDeclarationPredicateRegistrar.registerPredicates() {
@@ -1088,42 +983,33 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         // Generate hint functions for @Configuration modules (cross-module discovery)
         // One function per label per configuration module in the hints package
         // Example: @Configuration("test", "prod") generates configuration_test and configuration_prod
-        //
-        // SKIP on Native targets: hint functions in org.koin.plugin.hints create synthetic IrFiles
-        // that crash the ObjC export header generator (findSourceFile throws NotImplementedError).
-        // Cross-module discovery still works on Native because:
-        // - Module functions (.module()) are generated in all platforms
-        // - Hint functions from JVM/common compilations are available in the KLIB metadata
-        if (!isNativeTarget) {
-            val allLabels = mutableSetOf<String>()
-            configurationModules.forEach { configModule ->
-                allLabels.addAll(configModule.labels)
-            }
+        // Hint functions use @Deprecated(HIDDEN) to prevent ObjC export on Native targets
+        val allLabels = mutableSetOf<String>()
+        configurationModules.forEach { configModule ->
+            allLabels.addAll(configModule.labels)
+        }
 
-            for (label in allLabels) {
-                callableIds.add(CallableId(HINTS_PACKAGE, hintFunctionNameForLabel(label)))
-            }
+        for (label in allLabels) {
+            callableIds.add(CallableId(HINTS_PACKAGE, hintFunctionNameForLabel(label)))
+        }
 
-            // Always include hints package with "default" label to trigger generateFunctions()
-            // for hint discovery. This ensures cross-module discovery happens even when there are no local
-            // @Module classes (e.g., test source sets discovering modules from main source sets)
-            callableIds.add(CallableId(HINTS_PACKAGE, hintFunctionNameForLabel(KoinConfigurationRegistry.DEFAULT_LABEL)))
+        // Always include hints package with "default" label to trigger generateFunctions()
+        // for hint discovery. This ensures cross-module discovery happens even when there are no local
+        // @Module classes (e.g., test source sets discovering modules from main source sets)
+        callableIds.add(CallableId(HINTS_PACKAGE, hintFunctionNameForLabel(KoinPluginConstants.DEFAULT_LABEL)))
 
-            // Generate hint functions for definition classes and functions (cross-module discovery)
-            // Always include all definition types to trigger discovery from dependencies
-            for (defType in ALL_DEFINITION_TYPES) {
-                callableIds.add(CallableId(HINTS_PACKAGE, definitionHintFunctionName(defType)))
-                callableIds.add(CallableId(HINTS_PACKAGE, definitionFunctionHintFunctionName(defType)))
-            }
-        } else {
-            log { "Skipping hint function generation on Native target (ObjC export compatibility)" }
+        // Generate hint functions for definition classes and functions (cross-module discovery)
+        // Always include all definition types to trigger discovery from dependencies
+        for (defType in ALL_DEFINITION_TYPES) {
+            callableIds.add(CallableId(HINTS_PACKAGE, definitionHintFunctionName(defType)))
+            callableIds.add(CallableId(HINTS_PACKAGE, definitionFunctionHintFunctionName(defType)))
         }
 
         // Note: componentscan_* / componentscanfunc_* hints are now generated at IR time
         // using registerFunctionAsMetadataVisible (see KoinAnnotationProcessor.generateModuleScanHints).
         // This ensures complete discovery of @Inject constructor classes in subpackages.
 
-        log { "getTopLevelCallableIds() returning ${callableIds.size} callables (${moduleClasses.size} modules, definitions=${definitionClassInfos.size}, functionDefs=${definitionFunctionInfos.size}, native=$isNativeTarget)" }
+        log { "getTopLevelCallableIds() returning ${callableIds.size} callables (${moduleClasses.size} modules, definitions=${definitionClassInfos.size}, functionDefs=${definitionFunctionInfos.size})" }
         return callableIds
     }
 
@@ -1138,9 +1024,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         callableId: CallableId,
         context: MemberGenerationContext?
     ): List<FirNamedFunctionSymbol> {
-        // Trigger hint discovery from dependencies
-        discoverModulesFromHintsIfNeeded()
-
         // Generate hint functions for @Configuration modules
         // Function name is label-specific: configuration_<label>
         if (callableId.packageName == HINTS_PACKAGE) {

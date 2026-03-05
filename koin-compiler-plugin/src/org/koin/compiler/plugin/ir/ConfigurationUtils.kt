@@ -7,7 +7,7 @@ import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrVararg
 import org.jetbrains.kotlin.ir.types.classFqName
 import org.koin.compiler.plugin.KoinAnnotationFqNames
-import org.koin.compiler.plugin.KoinConfigurationRegistry
+import org.koin.compiler.plugin.KoinPluginConstants
 
 /**
  * Shared utilities for reading @Configuration annotation data from IR classes.
@@ -75,5 +75,5 @@ private fun parseAnnotationLabelArgs(annotation: IrConstructorCall): List<String
         else -> {}
     }
 
-    return labels.ifEmpty { listOf(KoinConfigurationRegistry.DEFAULT_LABEL) }
+    return labels.ifEmpty { listOf(KoinPluginConstants.DEFAULT_LABEL) }
 }
