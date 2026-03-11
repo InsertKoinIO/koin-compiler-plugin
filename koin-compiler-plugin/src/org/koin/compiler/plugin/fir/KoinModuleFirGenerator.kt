@@ -834,7 +834,11 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                     // Get return type ClassId — may not be resolved yet for implicit return types
                     val returnTypeClassId = try {
                         functionSymbol.resolvedReturnTypeRef.coneType.classId
-                    } catch (_: Exception) {
+                    } catch (e: IllegalStateException) {
+                        log { "  Could not resolve return type for ${callableId.callableName}: ${e.message}" }
+                        null
+                    } catch (e: ClassCastException) {
+                        log { "  Could not resolve return type for ${callableId.callableName}: ${e.message}" }
                         null
                     } ?: return@forEach
 
@@ -940,7 +944,11 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                     // Scan all classes in this file using PSI
                     foundCount += scanKtFileForInjectConstructorClasses(ktFile, existingClassIds, definitions)
                 }
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
+                log { "  Error scanning file for @Inject constructor: ${e.message}" }
+            } catch (e: ClassCastException) {
+                log { "  Error scanning file for @Inject constructor: ${e.message}" }
+            } catch (e: NullPointerException) {
                 log { "  Error scanning file for @Inject constructor: ${e.message}" }
             }
         }
@@ -967,7 +975,11 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                         foundCount += scanKtFileForInjectConstructorClasses(ktFile, existingClassIds, definitions)
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: IllegalStateException) {
+                log { "  Error in fallback @Inject constructor scanning: ${e.message}" }
+            } catch (e: ClassCastException) {
+                log { "  Error in fallback @Inject constructor scanning: ${e.message}" }
+            } catch (e: NullPointerException) {
                 log { "  Error in fallback @Inject constructor scanning: ${e.message}" }
             }
         }
@@ -1017,8 +1029,12 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                                 }
                             }
                         }
-                    } catch (_: Exception) {
-                        // Class might not be resolvable
+                    } catch (e: IllegalStateException) {
+                        log { "  Class not resolvable: ${e.message}" }
+                    } catch (e: ClassCastException) {
+                        log { "  Class not resolvable: ${e.message}" }
+                    } catch (e: NullPointerException) {
+                        log { "  Class not resolvable: ${e.message}" }
                     }
                 }
                 // Also scan nested classes

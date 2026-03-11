@@ -909,6 +909,9 @@ class KoinAnnotationProcessor(
         // Empty body (stub — hint functions are never called)
         function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
 
+        // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
+        function.addDeprecatedHiddenAnnotation(context)
+
         // Build deterministic file name from target class + hint name
         val fileName = buildHintFileName(targetClassId, hintName)
 

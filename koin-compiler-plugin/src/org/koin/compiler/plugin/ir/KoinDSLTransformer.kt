@@ -61,10 +61,6 @@ class KoinDSLTransformer(
     private val argumentGenerator = KoinArgumentGenerator(context, qualifierExtractor)
     private val lambdaBuilder = LambdaBuilder(context, qualifierExtractor, argumentGenerator)
 
-    // State for propagating qualifier from create(::ref) to enclosing definition
-    private var createFunctionQualifier: QualifierValue? = null
-    private var createFunctionReturnClass: IrClass? = null
-
     private val createName = Name.identifier("create")
     private val singleName = Name.identifier("single")
     private val factoryName = Name.identifier("factory")
@@ -100,7 +96,9 @@ class KoinDSLTransformer(
         val function: IrFunction? = null,
         val lambda: IrSimpleFunction? = null,
         val definitionCall: Name? = null,
-        val scopeTypeClass: IrClass? = null
+        val scopeTypeClass: IrClass? = null,
+        val createQualifier: QualifierValue? = null,
+        val createReturnClass: IrClass? = null
     )
 
     // Stack-based context management (thread-safe for single-threaded compiler)
@@ -173,6 +171,10 @@ class KoinDSLTransformer(
 
         val transformedCall = super.visitCall(expression) as IrCall
 
+        // Capture qualifier propagated from inner create(::T) before restoring context
+        val propagatedQualifier = transformContext.createQualifier
+        val propagatedReturnClass = transformContext.createReturnClass
+
         // Restore previous context
         transformContext = previousContext
 
@@ -199,11 +201,9 @@ class KoinDSLTransformer(
         // Propagate qualifier from create(::ref) to enclosing definition call
         // When single { create(::qualifiedFunc) } is used, the qualifier from the function
         // must be applied to the single definition registration
-        if (functionName in definitionNames && createFunctionQualifier != null) {
-            val qualifier = createFunctionQualifier!!
-            val returnClass = createFunctionReturnClass!!
-            createFunctionQualifier = null
-            createFunctionReturnClass = null
+        if (functionName in definitionNames && propagatedQualifier != null) {
+            val qualifier = propagatedQualifier
+            val returnClass = propagatedReturnClass!!
             return handleDefinitionWithCreateQualifier(
                 transformedCall, receiver, receiverClassifier, functionName, returnClass, qualifier
             )
@@ -374,8 +374,7 @@ class KoinDSLTransformer(
                 // Extract qualifier from class for propagation to enclosing definition
                 val classQualifier = qualifierExtractor.extractFromClass(targetClass)
                 if (classQualifier != null && currentDefinitionCall != null) {
-                    createFunctionQualifier = classQualifier
-                    createFunctionReturnClass = targetClass
+                    transformContext = transformContext.copy(createQualifier = classQualifier, createReturnClass = targetClass)
                 }
                 // Collect DSL definition from create(::T) based on enclosing definition call
                 val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] }
@@ -403,8 +402,10 @@ class KoinDSLTransformer(
                 // Extract qualifier from function for propagation to enclosing definition
                 val funcQualifier = qualifierExtractor.extractFromDeclaration(referencedFunction)
                 if (funcQualifier != null && currentDefinitionCall != null) {
-                    createFunctionQualifier = funcQualifier
-                    createFunctionReturnClass = referencedFunction.returnType.classifierOrNull?.owner as? IrClass
+                    transformContext = transformContext.copy(
+                        createQualifier = funcQualifier,
+                        createReturnClass = referencedFunction.returnType.classifierOrNull?.owner as? IrClass
+                    )
                 }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"

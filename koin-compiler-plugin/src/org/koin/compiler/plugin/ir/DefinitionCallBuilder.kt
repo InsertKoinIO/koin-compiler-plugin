@@ -74,7 +74,11 @@ class DefinitionCallBuilder(
             return null
         }
 
-        val kClass = kClassClass ?: return null
+        val kClass = kClassClass
+        if (kClass == null) {
+            KoinPluginLogger.debug { "Could not resolve kotlin.reflect.KClass - definition ${targetClass.name} skipped" }
+            return null
+        }
 
         val classQualifier = qualifierExtractor.extractFromClass(targetClass)
 
@@ -171,7 +175,11 @@ class DefinitionCallBuilder(
             return null
         }
 
-        val kClass = kClassClass ?: return null
+        val kClass = kClassClass
+        if (kClass == null) {
+            KoinPluginLogger.debug { "Could not resolve kotlin.reflect.KClass - function definition ${targetFunction.name} skipped" }
+            return null
+        }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
@@ -226,7 +234,11 @@ class DefinitionCallBuilder(
             return null
         }
 
-        val kClass = kClassClass ?: return null
+        val kClass = kClassClass
+        if (kClass == null) {
+            KoinPluginLogger.debug { "Could not resolve kotlin.reflect.KClass - top-level function definition ${targetFunction.name} skipped" }
+            return null
+        }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
@@ -301,7 +313,11 @@ class DefinitionCallBuilder(
             return null
         }
 
-        val kClass = kClassClass ?: return null
+        val kClass = kClassClass
+        if (kClass == null) {
+            KoinPluginLogger.debug { "Could not resolve kotlin.reflect.KClass - scoped definition ${targetClass.name} skipped" }
+            return null
+        }
 
         val classQualifier = qualifierExtractor.extractFromClass(targetClass)
 
@@ -363,7 +379,11 @@ class DefinitionCallBuilder(
             return null
         }
 
-        val kClass = kClassClass ?: return null
+        val kClass = kClassClass
+        if (kClass == null) {
+            KoinPluginLogger.debug { "Could not resolve kotlin.reflect.KClass - scoped function definition ${targetFunction.name} skipped" }
+            return null
+        }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
@@ -419,7 +439,11 @@ class DefinitionCallBuilder(
             return null
         }
 
-        val kClass = kClassClass ?: return null
+        val kClass = kClassClass
+        if (kClass == null) {
+            KoinPluginLogger.debug { "Could not resolve kotlin.reflect.KClass - scoped top-level function definition ${targetFunction.name} skipped" }
+            return null
+        }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 

@@ -1,6 +1,8 @@
 FILE fqName:org.koin.plugin.hints fileName:/myServiceDsl_factory.kt
   FUN name:dsl_factory visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.MyService
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:MyService modality:FINAL visibility:public superTypes:[kotlin.Any]

@@ -153,7 +153,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (scopeClass == null) {
+            KoinPluginLogger.debug { "Could not resolve scope class for getProperty(\"$propertyKey\") call" }
+            return builder.irNull()
+        }
 
         // Check if there's a @PropertyValue default for this key
         val defaultProperty = PropertyValueRegistry.getDefault(propertyKey)
@@ -226,6 +229,7 @@ class KoinArgumentGenerator(
             }
         }
 
+        KoinPluginLogger.debug { "Could not find getProperty function for key \"$propertyKey\" on scope class ${scopeClass.name}" }
         return builder.irNull()
     }
 
@@ -239,7 +243,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (scopeClass == null) {
+            KoinPluginLogger.debug { "Could not resolve scope class for getPropertyOrNull(\"$propertyKey\") call" }
+            return builder.irNull()
+        }
 
         // Find getPropertyOrNull function: getPropertyOrNull(key: String): T?
         val getPropertyOrNullFunction = scopeClass.declarations
@@ -276,6 +283,7 @@ class KoinArgumentGenerator(
             }
         }
 
+        KoinPluginLogger.debug { "Could not find getPropertyOrNull function for key \"$propertyKey\" on scope class ${scopeClass.name}" }
         return builder.irNull()
     }
 
@@ -288,7 +296,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (scopeClass == null) {
+            KoinPluginLogger.debug { "Could not resolve scope class for getAll<${elementType.classFqName}>() call" }
+            return builder.irNull()
+        }
 
         // Find getAll function in Scope
         val getAllFunction = scopeClass.declarations
@@ -306,6 +317,7 @@ class KoinArgumentGenerator(
         }
 
         // Fallback to empty list if getAll not found
+        KoinPluginLogger.debug { "Could not find getAll function on scope class ${scopeClass.name} for element type ${elementType.classFqName}" }
         return builder.irNull()
     }
 
@@ -316,7 +328,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (scopeClass == null) {
+            KoinPluginLogger.debug { "Could not resolve scope class for get<${type.classFqName}>() call" }
+            return builder.irNull()
+        }
 
         val getFunction = scopeClass.declarations
             .filterIsInstance<IrSimpleFunction>()
@@ -326,7 +341,10 @@ class KoinArgumentGenerator(
                 function.valueParameters.all { it.type.isMarkedNullable() }
             }
             .minByOrNull { it.valueParameters.size }
-            ?: return builder.irNull()
+        if (getFunction == null) {
+            KoinPluginLogger.debug { "Could not find get() function on scope class ${scopeClass.name} for type ${type.classFqName}" }
+            return builder.irNull()
+        }
 
         return builder.irCall(getFunction.symbol).apply {
             dispatchReceiver = scopeReceiver
@@ -350,7 +368,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (scopeClass == null) {
+            KoinPluginLogger.debug { "Could not resolve scope class for getOrNull<${type.classFqName}>() call" }
+            return builder.irNull()
+        }
 
         val getOrNullFunction = scopeClass.declarations
             .filterIsInstance<IrSimpleFunction>()
@@ -360,7 +381,10 @@ class KoinArgumentGenerator(
                 function.valueParameters.all { it.type.isMarkedNullable() }
             }
             .minByOrNull { it.valueParameters.size }
-            ?: return builder.irNull()
+        if (getOrNullFunction == null) {
+            KoinPluginLogger.debug { "Could not find getOrNull() function on scope class ${scopeClass.name} for type ${type.classFqName}" }
+            return builder.irNull()
+        }
 
         return builder.irCall(getOrNullFunction.symbol).apply {
             dispatchReceiver = scopeReceiver
@@ -384,7 +408,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (scopeClass == null) {
+            KoinPluginLogger.debug { "Could not resolve scope class for inject<${type.classFqName}>() call" }
+            return builder.irNull()
+        }
 
         val injectFunction = scopeClass.declarations
             .filterIsInstance<IrSimpleFunction>()
@@ -393,7 +420,10 @@ class KoinArgumentGenerator(
                 function.typeParameters.size == 1
             }
             .minByOrNull { it.valueParameters.size }
-            ?: return builder.irNull()
+        if (injectFunction == null) {
+            KoinPluginLogger.debug { "Could not find inject() function on scope class ${scopeClass.name} for type ${type.classFqName}" }
+            return builder.irNull()
+        }
 
         val lazyMode = lazyModeClass?.owner
         val synchronizedEntry = lazyMode?.declarations
@@ -433,7 +463,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val parametersHolderClass = (parametersHolderReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (parametersHolderClass == null) {
+            KoinPluginLogger.debug { "Could not resolve ParametersHolder class for get<${type.classFqName}>() call" }
+            return builder.irNull()
+        }
 
         val getFunction = parametersHolderClass.declarations
             .filterIsInstance<IrSimpleFunction>()
@@ -442,7 +475,10 @@ class KoinArgumentGenerator(
                 function.typeParameters.size == 1 &&
                 function.valueParameters.isEmpty()
             }
-            ?: return builder.irNull()
+        if (getFunction == null) {
+            KoinPluginLogger.debug { "Could not find get() function on ParametersHolder class for type ${type.classFqName}" }
+            return builder.irNull()
+        }
 
         return builder.irCall(getFunction.symbol).apply {
             dispatchReceiver = parametersHolderReceiver
@@ -456,7 +492,10 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val parametersHolderClass = (parametersHolderReceiver.type.classifierOrNull?.owner as? IrClass)
-            ?: return builder.irNull()
+        if (parametersHolderClass == null) {
+            KoinPluginLogger.debug { "Could not resolve ParametersHolder class for getOrNull<${type.classFqName}>() call" }
+            return builder.irNull()
+        }
 
         val getOrNullFunction = parametersHolderClass.declarations
             .filterIsInstance<IrSimpleFunction>()
@@ -465,7 +504,10 @@ class KoinArgumentGenerator(
                 function.typeParameters.size == 1 &&
                 function.valueParameters.isEmpty()
             }
-            ?: return builder.irNull()
+        if (getOrNullFunction == null) {
+            KoinPluginLogger.debug { "Could not find getOrNull() function on ParametersHolder class for type ${type.classFqName}" }
+            return builder.irNull()
+        }
 
         return builder.irCall(getOrNullFunction.symbol).apply {
             dispatchReceiver = parametersHolderReceiver
