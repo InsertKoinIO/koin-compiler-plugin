@@ -1390,8 +1390,9 @@ class KoinAnnotationProcessor(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
+                val params = hintFunc.valueParameters
                 // The first parameter type is the return type of the original function (what it provides)
-                val paramType = hintFunc.valueParameters.firstOrNull()?.type ?: continue
+                val paramType = params.firstOrNull()?.type ?: continue
                 val returnTypeClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
 
                 // Check if the class's package matches scan packages
@@ -1406,11 +1407,38 @@ class KoinAnnotationProcessor(
 
                 val definitionType = parseDefinitionType(defType) ?: continue
 
+                // Extract enriched metadata from hint parameters (C2: cross-module function hint metadata)
+                val bindings = params.filter { it.name.asString().startsWith("binding") }
+                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+
+                val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
+                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+
+                val qualifier: QualifierValue? = run {
+                    val qualifierParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
+                    if (qualifierParam != null) {
+                        val name = qualifierParam.name.asString().removePrefix("qualifier_")
+                        QualifierValue.StringQualifier(name)
+                    } else {
+                        val qualTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
+                        if (qualTypeParam != null) {
+                            val qualClass = (qualTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            if (qualClass != null) QualifierValue.TypeQualifier(qualClass) else null
+                        } else null
+                    }
+                }
+
                 KoinPluginLogger.debug { "    Discovered function def: ${returnTypeClass.name} ($defType) from package $defPackage" }
+                if (bindings.isNotEmpty()) KoinPluginLogger.debug { "      bindings: ${bindings.map { it.name }}" }
+                if (scopeClass != null) KoinPluginLogger.debug { "      scope: ${scopeClass.fqNameWhenAvailable}" }
+                if (qualifier != null) KoinPluginLogger.debug { "      qualifier: ${qualifier.debugString()}" }
 
                 discovered.add(Definition.ExternalFunctionDef(
                     definitionType = definitionType,
-                    returnTypeClass = returnTypeClass
+                    returnTypeClass = returnTypeClass,
+                    bindings = bindings,
+                    scopeClass = scopeClass,
+                    qualifier = qualifier
                 ))
             }
         }
@@ -1628,18 +1656,41 @@ class KoinAnnotationProcessor(
 
             for (hintFuncSymbol in funcHintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                val paramType = hintFunc.valueParameters.firstOrNull()?.type ?: continue
+                val funcParams = hintFunc.valueParameters
+                val paramType = funcParams.firstOrNull()?.type ?: continue
                 val returnTypeClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
 
                 if (definitions.any { it.returnTypeClass.fqNameWhenAvailable == returnTypeClass.fqNameWhenAvailable }) continue
 
                 val definitionType = parseDefinitionType(defType) ?: continue
 
+                // Extract enriched metadata from hint parameters (C2: cross-module function hint metadata)
+                val funcBindings = funcParams.filter { it.name.asString().startsWith("binding") }
+                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                val funcScopeClass = funcParams.firstOrNull { it.name.asString() == "scope" }
+                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                val funcQualifier: QualifierValue? = run {
+                    val qualifierParam = funcParams.firstOrNull { it.name.asString().startsWith("qualifier_") }
+                    if (qualifierParam != null) {
+                        val qName = qualifierParam.name.asString().removePrefix("qualifier_")
+                        QualifierValue.StringQualifier(qName)
+                    } else {
+                        val qualTypeParam = funcParams.firstOrNull { it.name.asString() == "qualifierType" }
+                        if (qualTypeParam != null) {
+                            val qualClass = (qualTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            if (qualClass != null) QualifierValue.TypeQualifier(qualClass) else null
+                        } else null
+                    }
+                }
+
                 KoinPluginLogger.debug { "        Found: ${returnTypeClass.name} ($defType) via module-scan function hint" }
 
                 definitions.add(Definition.ExternalFunctionDef(
                     definitionType = definitionType,
-                    returnTypeClass = returnTypeClass
+                    returnTypeClass = returnTypeClass,
+                    bindings = funcBindings,
+                    scopeClass = funcScopeClass,
+                    qualifier = funcQualifier
                 ))
             }
         }

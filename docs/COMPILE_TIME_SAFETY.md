@@ -455,7 +455,7 @@ Each diagnostic test has `.fir.txt` (FIR golden file) and `.errors.txt` (error m
 | A4 | Call-site validation (`get<T>()`, `inject<T>()`, `koinViewModel<T>()`) | Done |
 | B | DSL calls (`single<T>()`, `factory<T>()`) in safety graph | Done |
 | C | Cross-Gradle-module (definitions from dependency JARs via hints) | Done |
-| C2 | Cross-module function hint metadata (qualifier, scope, bindings) | Not started |
+| C2 | Cross-module function hint metadata (qualifier, scope, bindings) | Done |
 | D | `@Property`/`@PropertyValue` matching | Not started |
 
 **Phase B notes:** DSL definitions (`single<T>()`, `factory<T>()`, etc.) are collected as `DslDef` during Phase 2 and participate in the safety graph. Phase 3.1 validates their constructor parameters when no `startKoin<T>()` / `@KoinApplication` is present. Phase 2.5 generates DSL definition hints (`dsl_single`, `dsl_factory`, etc.) for cross-module discovery.
@@ -464,12 +464,12 @@ Each diagnostic test has `.fir.txt` (FIR golden file) and `.errors.txt` (error m
 
 ### Phase C: Known Limitations
 
-Cross-module **class** definitions have full metadata (annotations are available from JAR metadata). Cross-module **top-level function** definitions use `ExternalFunctionDef` which is provider-only — the hint carries only the return type. The following metadata is not yet propagated:
+Cross-module **class** definitions have full metadata (annotations are available from JAR metadata). Cross-module **top-level function** definitions use `ExternalFunctionDef` with metadata encoded in hint function parameters (C2):
 
-| Metadata | Effect | Consequence |
-|----------|--------|-------------|
-| `@Named`/`@Qualifier` | Always `null` | Qualified dependency may falsely pass (matches unqualified provider) |
-| `@Scope(MyScope::class)` | Always root-scope | Scoped function appears visible everywhere (false positive) |
-| `@Bind(Interface::class)` | Always empty | Consumers depending on the bound interface won't find it |
+| Metadata | Encoding | Status |
+|----------|----------|--------|
+| `@Named`/`@Qualifier` | `qualifier_<name>` or `qualifierType` hint param | Done |
+| `@Scope(MyScope::class)` | `scope` hint parameter | Done |
+| Bindings (supertypes) | `binding0`, `binding1`, ... hint params | Done |
 
-Additionally, package filtering for function hints is based on the **return type's package**, not the function's own package. If `@Singleton fun provideRepo(): Repository` is in package `infra` but `Repository` is in package `domain`, the `@ComponentScan` must match `domain`.
+**Remaining limitation:** Package filtering for function hints is based on the **return type's package**, not the function's own package. If `@Singleton fun provideRepo(): Repository` is in package `infra` but `Repository` is in package `domain`, the `@ComponentScan` must match `domain`.

@@ -357,17 +357,23 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      * Holds a top-level function with a definition annotation and its return type.
      * Used for cross-module discovery via function hint functions.
      * The return type ClassId is what this function provides to the DI container.
+     * Also carries qualifier, scope, and binding metadata for cross-module safety validation.
      */
     private data class DefinitionFunctionInfo(
         val functionSymbol: FirNamedFunctionSymbol,
         val definitionType: String, // single, factory, scoped, viewmodel, worker
         val containingFileName: String?,
-        val returnTypeClassId: ClassId
+        val returnTypeClassId: ClassId,
+        val qualifierName: String? = null,           // from @Named("x") or @Qualifier(name="x")
+        val qualifierTypeClassId: ClassId? = null,   // from @Qualifier(Type::class)
+        val scopeClassId: ClassId? = null,            // from @Scope(MyScope::class)
+        val bindingClassIds: List<ClassId> = emptyList() // auto-detected supertypes (interfaces/abstract classes)
     )
 
     /**
      * Holds a function definition inside a @Module class with its return type.
      * Used for per-function ABI tracking — each generates its own hint function.
+     * Also carries qualifier, scope, and binding metadata for cross-module safety validation.
      */
     private data class ModuleDefinitionFunctionInfo(
         val functionSymbol: FirNamedFunctionSymbol,
@@ -375,8 +381,199 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         val functionName: String,
         val definitionType: String,
         val containingFileName: String?,
-        val returnTypeClassId: ClassId
+        val returnTypeClassId: ClassId,
+        val qualifierName: String? = null,           // from @Named("x") or @Qualifier(name="x")
+        val qualifierTypeClassId: ClassId? = null,   // from @Qualifier(Type::class)
+        val scopeClassId: ClassId? = null,            // from @Scope(MyScope::class)
+        val bindingClassIds: List<ClassId> = emptyList() // auto-detected supertypes (interfaces/abstract classes)
     )
+
+    // ================================================================================
+    // FIR Annotation Extraction Helpers
+    // ================================================================================
+
+    /**
+     * Extract a string qualifier from @Named("x") or @Qualifier(name="x") on a FIR function symbol.
+     * Returns the qualifier string, or null if no string qualifier is present.
+     */
+    private fun extractQualifierName(functionSymbol: FirNamedFunctionSymbol): String? {
+        val annotations = functionSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>()
+
+        // Check for @Named("x")
+        val namedAnnotation = annotations.firstOrNull { annotation ->
+            val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+            val fqName = annotationClassId?.asSingleFqName()
+            fqName == KoinAnnotationFqNames.NAMED ||
+            fqName == KoinAnnotationFqNames.JAKARTA_NAMED ||
+            fqName == KoinAnnotationFqNames.JAVAX_NAMED
+        }
+        if (namedAnnotation != null) {
+            val value = extractStringArgument(namedAnnotation)
+            if (value != null) return value
+        }
+
+        // Check for @Qualifier(name = "x") — string-based
+        val qualifierAnnotation = annotations.firstOrNull { annotation ->
+            val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+            annotationClassId?.asSingleFqName() == KoinAnnotationFqNames.QUALIFIER
+        }
+        if (qualifierAnnotation != null) {
+            val value = extractStringArgument(qualifierAnnotation)
+            if (value != null) return value
+        }
+
+        return null
+    }
+
+    /**
+     * Extract a type-based qualifier ClassId from @Qualifier(Type::class) on a FIR function symbol.
+     * Returns the ClassId of the qualifier type, or null if no type qualifier is present.
+     */
+    private fun extractQualifierTypeClassId(functionSymbol: FirNamedFunctionSymbol): ClassId? {
+        val annotations = functionSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>()
+        val qualifierAnnotation = annotations.firstOrNull { annotation ->
+            val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+            annotationClassId?.asSingleFqName() == KoinAnnotationFqNames.QUALIFIER
+        } ?: return null
+
+        return extractClassIdArgument(qualifierAnnotation)
+    }
+
+    /**
+     * Extract scope ClassId from @Scope(MyScope::class) on a FIR function symbol.
+     */
+    private fun extractScopeClassId(functionSymbol: FirNamedFunctionSymbol): ClassId? {
+        val annotations = functionSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>()
+        val scopeAnnotation = annotations.firstOrNull { annotation ->
+            val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+            annotationClassId?.asSingleFqName() == KoinAnnotationFqNames.SCOPE
+        } ?: return null
+
+        return extractClassIdArgument(scopeAnnotation)
+    }
+
+    /**
+     * Detect auto-binding ClassIds from the return type's supertypes.
+     * Filters out kotlin.Any and only includes interfaces and abstract classes.
+     */
+    private fun detectBindingClassIds(returnTypeClassId: ClassId): List<ClassId> {
+        val classSymbol = session.symbolProvider.getClassLikeSymbolByClassId(returnTypeClassId) ?: return emptyList()
+        if (classSymbol !is FirClassSymbol<*>) return emptyList()
+
+        val bindings = mutableListOf<ClassId>()
+        try {
+            for (superTypeRef in classSymbol.resolvedSuperTypeRefs) {
+                val superClassId = superTypeRef.coneType.classId ?: continue
+                val superFqName = superClassId.asSingleFqName().asString()
+                if (superFqName == "kotlin.Any") continue
+
+                // Check if the supertype is an interface or abstract class
+                val superSymbol = session.symbolProvider.getClassLikeSymbolByClassId(superClassId)
+                if (superSymbol is FirClassSymbol<*>) {
+                    val classKind = superSymbol.classKind
+                    val isAbstract = superSymbol.rawStatus.modality == org.jetbrains.kotlin.descriptors.Modality.ABSTRACT
+                    if (classKind == org.jetbrains.kotlin.descriptors.ClassKind.INTERFACE || isAbstract) {
+                        bindings.add(superClassId)
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            log { "  Could not resolve supertypes for $returnTypeClassId: ${e.message}" }
+        }
+        return bindings
+    }
+
+    /**
+     * Extract the first string argument from a FIR annotation.
+     */
+    private fun extractStringArgument(annotation: FirAnnotationCall): String? {
+        for (argument in annotation.argumentList.arguments) {
+            when (argument) {
+                is FirLiteralExpression -> {
+                    val value = argument.value
+                    if (value is String && value.isNotEmpty()) return value
+                }
+                else -> {} // skip non-literal arguments
+            }
+        }
+        return null
+    }
+
+    /**
+     * Extract the first KClass argument's ClassId from a FIR annotation.
+     * Handles @Scope(MyScope::class) and @Qualifier(Type::class) patterns.
+     *
+     * In FIR, KClass arguments appear as FirGetClassCall wrapping a FirResolvedQualifier,
+     * but the resolved argument mapping provides classId access more reliably.
+     */
+    private fun extractClassIdArgument(annotation: FirAnnotationCall): ClassId? {
+        for (argument in annotation.argumentList.arguments) {
+            // In FIR, `Type::class` is a FirGetClassCall whose argument is a FirResolvedQualifier.
+            // We need to navigate through the expression tree to get the ClassId.
+            val classId = extractClassIdFromExpression(argument)
+            if (classId != null && classId.asSingleFqName().asString() != "kotlin.Unit") {
+                return classId
+            }
+        }
+        return null
+    }
+
+    /**
+     * Recursively extract a ClassId from a FIR expression.
+     * Handles FirGetClassCall and FirResolvedQualifier patterns.
+     */
+    private fun extractClassIdFromExpression(expression: org.jetbrains.kotlin.fir.expressions.FirExpression): ClassId? {
+        return when (expression) {
+            is org.jetbrains.kotlin.fir.expressions.FirGetClassCall -> {
+                // FirGetClassCall wraps a FirResolvedQualifier for Type::class
+                val arg = expression.argument
+                extractClassIdFromExpression(arg)
+            }
+            is org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier -> {
+                expression.classId
+            }
+            else -> null
+        }
+    }
+
+    /**
+     * Build the extra value parameters for binding, scope, and qualifier metadata
+     * inside a FIR function builder lambda.
+     * Returns a list of (Name, ConeType) pairs to add as value parameters.
+     */
+    private fun buildMetadataParams(
+        bindingClassIds: List<ClassId>,
+        scopeClassId: ClassId?,
+        qualifierName: String?,
+        qualifierTypeClassId: ClassId?
+    ): List<Pair<Name, org.jetbrains.kotlin.fir.types.ConeKotlinType>> {
+        val params = mutableListOf<Pair<Name, org.jetbrains.kotlin.fir.types.ConeKotlinType>>()
+
+        // Binding parameters: binding0, binding1, ... with the binding type
+        bindingClassIds.forEachIndexed { index, bindingClassId ->
+            val bindingType = bindingClassId.constructClassLikeType(emptyArray(), false)
+            params.add(Name.identifier("binding$index") to bindingType)
+        }
+
+        // Scope parameter: "scope" with the scope class type
+        if (scopeClassId != null) {
+            val scopeType = scopeClassId.constructClassLikeType(emptyArray(), false)
+            params.add(Name.identifier("scope") to scopeType)
+        }
+
+        // String qualifier: "qualifier_<name>" with Unit type
+        if (qualifierName != null) {
+            params.add(Name.identifier("qualifier_$qualifierName") to session.builtinTypes.unitType.coneType)
+        }
+
+        // Type qualifier: "qualifierType" with the qualifier class type
+        if (qualifierTypeClassId != null) {
+            val qualifierType = qualifierTypeClassId.constructClassLikeType(emptyArray(), false)
+            params.add(Name.identifier("qualifierType") to qualifierType)
+        }
+
+        return params
+    }
 
     // Platform info for logging
     private val platformInfo: String by lazy {
@@ -789,9 +986,22 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                     }
 
                     if (containingFileName != null) {
+                        // Extract metadata for cross-module safety validation
+                        val qualifierName = extractQualifierName(functionSymbol)
+                        val qualifierTypeClassId = extractQualifierTypeClassId(functionSymbol)
+                        val scopeClassId = extractScopeClassId(functionSymbol)
+                        val bindingClassIds = detectBindingClassIds(returnTypeClassId)
+
                         log { "  Found @$defType function: ${callableId.callableName}() -> $returnTypeClassId (orphan, needs hint)" }
+                        if (qualifierName != null) log { "    qualifier: @Named(\"$qualifierName\")" }
+                        if (qualifierTypeClassId != null) log { "    qualifierType: $qualifierTypeClassId" }
+                        if (scopeClassId != null) log { "    scope: $scopeClassId" }
+                        if (bindingClassIds.isNotEmpty()) log { "    bindings: $bindingClassIds" }
                         logUser { "Exporting @$defType function ${callableId.callableName}() for cross-module discovery" }
-                        functions.add(DefinitionFunctionInfo(functionSymbol, defType, containingFileName, returnTypeClassId))
+                        functions.add(DefinitionFunctionInfo(
+                            functionSymbol, defType, containingFileName, returnTypeClassId,
+                            qualifierName, qualifierTypeClassId, scopeClassId, bindingClassIds
+                        ))
                     }
                 }
         }
@@ -852,9 +1062,20 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                     val containingFileName = moduleInfo.containingFileName
 
                     if (containingFileName != null) {
+                        // Extract metadata for cross-module safety validation
+                        val qualifierName = extractQualifierName(functionSymbol)
+                        val qualifierTypeClassId = extractQualifierTypeClassId(functionSymbol)
+                        val scopeClassId = extractScopeClassId(functionSymbol)
+                        val bindingClassIds = detectBindingClassIds(returnTypeClassId)
+
                         log { "  Found @$defType module function: ${containingClassId.shortClassName}.$funcName() -> $returnTypeClassId" }
+                        if (qualifierName != null) log { "    qualifier: @Named(\"$qualifierName\")" }
+                        if (qualifierTypeClassId != null) log { "    qualifierType: $qualifierTypeClassId" }
+                        if (scopeClassId != null) log { "    scope: $scopeClassId" }
+                        if (bindingClassIds.isNotEmpty()) log { "    bindings: $bindingClassIds" }
                         results.add(ModuleDefinitionFunctionInfo(
-                            functionSymbol, containingClassId, funcName, defType, containingFileName, returnTypeClassId
+                            functionSymbol, containingClassId, funcName, defType, containingFileName, returnTypeClassId,
+                            qualifierName, qualifierTypeClassId, scopeClassId, bindingClassIds
                         ))
                     }
                 }
@@ -1303,7 +1524,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
             // Generate function definition hint functions for cross-module top-level function discovery
             // Function name format: definition_function_<type> (e.g., definition_function_single)
-            // The hint carries the return type as the parameter type (what the function provides)
+            // The hint carries the return type as the parameter type (what the function provides),
+            // plus additional parameters encoding bindings, scope, and qualifier metadata.
             val funcDefType = definitionTypeFromFunctionHintName(callableId.callableName.asString())
             if (funcDefType != null) {
                 val matchingFunctions = definitionFunctionInfos.filter { it.definitionType == funcDefType }
@@ -1321,14 +1543,20 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
                     log { "  -> Generating function definition hint for ${funcInfo.functionSymbol.callableId.callableName}() -> ${funcInfo.returnTypeClassId} (type=$funcDefType) in file $containingFile" }
 
+                    val metadataParams = buildMetadataParams(funcInfo.bindingClassIds, funcInfo.scopeClassId, funcInfo.qualifierName, funcInfo.qualifierTypeClassId)
+
                     createTopLevelFunction(
                         Key,
                         callableId,
                         session.builtinTypes.unitType.coneType,
                         containingFileName = containingFile
                     ) {
-                        // visibility stays public for cross-module discovery
+                        // First parameter: return type (contributed)
                         valueParameter(Name.identifier("contributed"), returnClassType)
+                        // Additional parameters: bindings, scope, qualifier metadata
+                        for ((paramName, paramType) in metadataParams) {
+                            valueParameter(paramName, paramType)
+                        }
                     }.apply { markAsDeprecatedHidden() }.symbol
                 }
             }
@@ -1346,6 +1574,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
                     log { "  -> Generating module definition hint for ${matchingFunc.moduleClassId.shortClassName}.$funcName() -> ${matchingFunc.returnTypeClassId} in file $containingFile" }
 
+                    val metadataParams = buildMetadataParams(matchingFunc.bindingClassIds, matchingFunc.scopeClassId, matchingFunc.qualifierName, matchingFunc.qualifierTypeClassId)
+
                     return listOf(
                         createTopLevelFunction(
                             Key,
@@ -1354,6 +1584,10 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                             containingFileName = containingFile
                         ) {
                             valueParameter(Name.identifier("contributed"), returnClassType)
+                            // Additional parameters: bindings, scope, qualifier metadata
+                            for ((paramName, paramType) in metadataParams) {
+                                valueParameter(paramName, paramType)
+                            }
                         }.apply { markAsDeprecatedHidden() }.symbol
                     )
                 }

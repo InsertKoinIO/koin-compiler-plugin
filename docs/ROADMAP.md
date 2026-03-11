@@ -122,10 +122,10 @@ Detect missing dependencies at compile time instead of runtime crashes.
 - [x] Cross-Gradle-module validation (C): definitions from dependency JARs via hint functions
 - [x] `@Provided` annotation: marks types as externally available, skips safety validation
 - [x] Android framework whitelist: `Context`, `Activity`, `Application`, `Fragment`, `SavedStateHandle`, `WorkerParameters`
-- [ ] Cross-module function hint metadata (C2): encode additional metadata in hint parameter names
-  - [ ] Qualifier propagation: `@Named`/`@Qualifier` (currently always `null`)
-  - [ ] Scope propagation: `@Scope(MyScope::class)` (currently appears as root-scope)
-  - [ ] Bindings propagation: explicit `@Bind(Interface::class)` (currently empty)
+- [x] Cross-module function hint metadata (C2): encode qualifier, scope, bindings in hint parameters
+  - [x] Qualifier propagation: `@Named`/`@Qualifier` via `qualifier_<name>` or `qualifierType` hint params
+  - [x] Scope propagation: `@Scope(MyScope::class)` via `scope` hint parameter
+  - [x] Bindings propagation: return type supertypes via `binding0`, `binding1`, ... hint params
   - [ ] Package filtering uses return type's package, not function's package
 - [x] DSL validation (B): validate `single<T>()`, `factory<T>()` in hand-written modules
 - [x] Call-site validation (A4): validates `get<T>()`, `inject<T>()`, `koinViewModel<T>()` call sites with deferred cross-module hints
