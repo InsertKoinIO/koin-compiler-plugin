@@ -1,3 +1,7 @@
+FILE fqName:org.koin.plugin.hints fileName:/myServiceDsl_single.kt
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.MyService
+    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:MyService modality:FINAL visibility:public superTypes:[kotlin.Any]
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.MyService

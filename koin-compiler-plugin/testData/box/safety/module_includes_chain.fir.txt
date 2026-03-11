@@ -78,12 +78,12 @@ FILE: /appModuleModule.kt
 FILE: org/koin/plugin/hints/infraModuleModule.kt
     package org.koin.plugin.hints
 
-    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_infraModule_provideDb(contributed: R|Database|): R|kotlin/Unit|
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_infraModule__provideDb(contributed: R|Database|): R|kotlin/Unit|
 FILE: org/koin/plugin/hints/dataModuleModule.kt
     package org.koin.plugin.hints
 
-    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_dataModule_provideRepo(contributed: R|Repository|): R|kotlin/Unit|
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_dataModule__provideRepo(contributed: R|Repository|): R|kotlin/Unit|
 FILE: org/koin/plugin/hints/appModuleModule.kt
     package org.koin.plugin.hints
 
-    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_appModule_provideService(contributed: R|AppService|): R|kotlin/Unit|
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_appModule__provideService(contributed: R|AppService|): R|kotlin/Unit|

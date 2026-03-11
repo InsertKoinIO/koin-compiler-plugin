@@ -80,6 +80,12 @@ object KoinPluginConstants {
     /** Prefix for per-function definition hints inside @Module classes (e.g., moduledef_comExampleDaosModule_providesTopicDao). */
     const val MODULE_DEFINITION_HINT_PREFIX = "moduledef_"
 
+    /** Prefix for DSL definition hints (e.g., dsl_single, dsl_factory). */
+    const val DSL_DEFINITION_HINT_PREFIX = "dsl_"
+
+    /** Function name for call-site hints (deferred validation across modules). */
+    const val CALLSITE_HINT_NAME = "callsite"
+
     /** Default label for @Configuration modules. */
     const val DEFAULT_LABEL = "default"
 

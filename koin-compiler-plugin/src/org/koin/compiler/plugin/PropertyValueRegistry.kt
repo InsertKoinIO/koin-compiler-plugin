@@ -1,6 +1,7 @@
 package org.koin.compiler.plugin
 
 import org.jetbrains.kotlin.ir.declarations.IrProperty
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Registry for @PropertyValue annotated properties.
@@ -21,7 +22,8 @@ import org.jetbrains.kotlin.ir.declarations.IrProperty
 object PropertyValueRegistry {
 
     // Map from property key to the IrProperty that provides the default value
-    private val propertyDefaults = mutableMapOf<String, IrProperty>()
+    // Thread-safe for Gradle daemon parallel builds
+    private val propertyDefaults = ConcurrentHashMap<String, IrProperty>()
 
     /**
      * Register a property default value.

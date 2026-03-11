@@ -1,5 +1,7 @@
 package org.koin.compiler.plugin
 
+import java.util.concurrent.ConcurrentHashMap
+
 /**
  * Registry for types marked with @Provided.
  *
@@ -18,8 +20,8 @@ package org.koin.compiler.plugin
  */
 object ProvidedTypeRegistry {
 
-    // Set of FQ names of types marked @Provided
-    private val providedTypes = mutableSetOf<String>()
+    // Set of FQ names of types marked @Provided (thread-safe for Gradle daemon parallel builds)
+    private val providedTypes: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /**
      * Register a type as @Provided.

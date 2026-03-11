@@ -72,6 +72,10 @@ class KoinStartTransformer(
 
     private var currentFile: IrFile? = null
 
+    /** True if a startKoin { } or koinApplication { } call was found (generic or non-generic). */
+    var hasKoinEntryPoint = false
+        private set
+
     override fun visitFile(declaration: IrFile): IrFile {
         currentFile = declaration
         return super.visitFile(declaration)
@@ -98,6 +102,14 @@ class KoinStartTransformer(
         // These get transformed to startKoinWith(modules, lambda), koinApplicationWith(modules, lambda),
         // koinConfigurationWith(modules), and withConfigurationWith(modules, lambda)
         val fqNameStr = calleeFqName?.asString()
+
+        // Detect non-generic startKoin { } or koinApplication { } (entry point signal)
+        if (fqNameStr == "org.koin.core.context.startKoin" ||
+            fqNameStr == "org.koin.core.context.GlobalContext.startKoin" ||
+            fqNameStr == "org.koin.core.KoinApplication.Companion.init") {
+            hasKoinEntryPoint = true
+        }
+
         val isStartKoin = fqNameStr == "org.koin.plugin.module.dsl.startKoin"
         val isKoinApplication = fqNameStr == "org.koin.plugin.module.dsl.koinApplication"
         val isKoinConfiguration = fqNameStr == "org.koin.plugin.module.dsl.koinConfiguration"
@@ -107,6 +119,9 @@ class KoinStartTransformer(
         if (!isStartKoin && !isKoinApplication && !isKoinConfiguration && !isWithConfiguration) {
             return super.visitCall(expression)
         }
+
+        // Mark generic versions as entry points too
+        hasKoinEntryPoint = true
 
         // Verify this is the generic version (has type parameter)
         // The implementation functions (startKoinWith, koinApplicationWith) have no type parameters
@@ -267,8 +282,9 @@ class KoinStartTransformer(
             annotation.type.classFqName?.asString() == "org.koin.core.annotation.KoinApplication"
         } ?: return listOf(KoinPluginConstants.DEFAULT_LABEL)
 
-        // configurations is the first parameter in @KoinApplication(configurations, modules)
-        val configurationsArg = koinAppAnnotation.getValueArgument(0)
+        // Look up configurations by name first, then fall back to positional index 0
+        val configurationsArg = koinAppAnnotation.getValueArgument(Name.identifier("configurations"))
+            ?: koinAppAnnotation.getValueArgument(0)
 
         val labels = mutableListOf<String>()
         when (configurationsArg) {
@@ -316,8 +332,10 @@ class KoinStartTransformer(
             annotation.type.classFqName?.asString() == "org.koin.core.annotation.KoinApplication"
         } ?: return emptyList()
 
-        // modules is the second parameter in @KoinApplication(configurations, modules)
-        val modulesArg = koinAppAnnotation.getValueArgument(1) ?: return emptyList()
+        // Look up modules by name first, then fall back to positional index 1
+        val modulesArg = koinAppAnnotation.getValueArgument(Name.identifier("modules"))
+            ?: koinAppAnnotation.getValueArgument(1)
+            ?: return emptyList()
 
         // The argument should be a vararg/array of KClass references
         return when (modulesArg) {

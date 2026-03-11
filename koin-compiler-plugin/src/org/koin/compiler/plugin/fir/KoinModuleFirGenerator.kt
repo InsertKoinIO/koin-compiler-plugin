@@ -45,7 +45,6 @@ import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isJs
 import org.jetbrains.kotlin.platform.isWasm
 import org.jetbrains.kotlin.platform.konan.isNative
-import org.jetbrains.kotlin.fir.symbols.impl.FirConstructorSymbol
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginConstants
 
@@ -184,6 +183,15 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             }
         }
 
+        // DSL definition hint prefix
+        private const val DSL_DEFINITION_HINT_PREFIX = KoinPluginConstants.DSL_DEFINITION_HINT_PREFIX
+
+        /**
+         * Get the hint function name for a DSL definition type.
+         * Example: "single" -> "dsl_single", "viewmodel" -> "dsl_viewmodel"
+         */
+        fun dslDefinitionHintFunctionName(type: String): Name = Name.identifier("$DSL_DEFINITION_HINT_PREFIX$type")
+
         // Module-scoped component scan hint prefixes
         private const val COMPONENT_SCAN_HINT_PREFIX = KoinPluginConstants.COMPONENT_SCAN_HINT_PREFIX
         private const val COMPONENT_SCAN_FUNCTION_HINT_PREFIX = KoinPluginConstants.COMPONENT_SCAN_FUNCTION_HINT_PREFIX
@@ -261,27 +269,27 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
         /**
          * Build hint function name for a per-function definition inside a @Module class.
-         * Example: ("com_example_DaosModule", "providesTopicDao") -> "moduledef_com_example_DaosModule_providesTopicDao"
+         * Uses "__" (double underscore) as separator between moduleId and functionName to avoid
+         * ambiguity with underscores in module IDs (package separators) and function names (snake_case).
+         * Example: ("com_example_DaosModule", "providesTopicDao") -> "moduledef_com_example_DaosModule__providesTopicDao"
          */
         fun moduleDefinitionHintFunctionName(moduleId: String, functionName: String): Name =
-            Name.identifier("$MODULE_DEFINITION_HINT_PREFIX${moduleId}_$functionName")
+            Name.identifier("$MODULE_DEFINITION_HINT_PREFIX${moduleId}__$functionName")
 
         /**
          * Parse a module definition hint function name back to (moduleId, functionName).
-         * Example: "moduledef_com_example_DaosModule_providesTopicDao" -> ("com_example_DaosModule", "providesTopicDao")
+         * Uses "__" (double underscore) as the separator between moduleId and functionName.
+         * Example: "moduledef_com_example_DaosModule__providesTopicDao" -> ("com_example_DaosModule", "providesTopicDao")
          * Returns null if the function name doesn't match the pattern.
          */
         fun moduleDefinitionInfoFromHintName(functionName: String): Pair<String, String>? {
             if (!functionName.startsWith(MODULE_DEFINITION_HINT_PREFIX)) return null
             val remainder = functionName.removePrefix(MODULE_DEFINITION_HINT_PREFIX)
-            // The function name is the last segment after the last underscore that follows the moduleId.
-            // Module IDs use underscores for package separators, so we need a different approach:
-            // We match against known module IDs from moduleDefinitionFunctionInfos.
-            // For parsing purposes, we just return the raw remainder — callers use direct map lookup.
-            val lastUnderscore = remainder.lastIndexOf('_')
-            if (lastUnderscore <= 0) return null
-            val moduleId = remainder.substring(0, lastUnderscore)
-            val funcName = remainder.substring(lastUnderscore + 1)
+            val separatorIndex = remainder.indexOf("__")
+            if (separatorIndex <= 0) return null
+            val moduleId = remainder.substring(0, separatorIndex)
+            val funcName = remainder.substring(separatorIndex + 2)
+            if (funcName.isEmpty()) return null
             return moduleId to funcName
         }
 
@@ -849,22 +857,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
         log { "Found ${results.size} @Module function definitions (per-function hints for IC)" }
         results
-    }
-
-    /**
-     * Check if a FIR class symbol has a constructor annotated with @Inject (jakarta or javax).
-     * Works for both KtPsiSourceElement and KtLightSourceElement sources.
-     */
-    private fun hasInjectConstructorFir(classSymbol: FirClassSymbol<*>): Boolean {
-        return classSymbol.declarationSymbols
-            .filterIsInstance<FirConstructorSymbol>()
-            .any { constructorSymbol ->
-                constructorSymbol.fir.annotations.any { annotation ->
-                    val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
-                    val fqName = annotationClassId?.asSingleFqName()
-                    fqName == JAVAX_INJECT_ANNOTATION || fqName == JAKARTA_INJECT_ANNOTATION
-                }
-            }
     }
 
     // Predicate to find ALL classes that might have @Inject constructor

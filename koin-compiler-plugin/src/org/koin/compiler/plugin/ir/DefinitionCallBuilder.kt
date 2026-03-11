@@ -281,9 +281,9 @@ class DefinitionCallBuilder(
         builder: DeclarationIrBuilder
     ): IrExpression? {
         val targetClass = definition.irClass
-        val constructor = targetClass.primaryConstructor
+        val constructor = findConstructorToUse(targetClass)
         if (constructor == null) {
-            KoinPluginLogger.debug { "No primary constructor for scoped ${targetClass.fqNameWhenAvailable} - definition skipped" }
+            KoinPluginLogger.debug { "No constructor found for scoped ${targetClass.fqNameWhenAvailable} - definition skipped" }
             return null
         }
 

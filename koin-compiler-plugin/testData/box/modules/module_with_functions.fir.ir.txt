@@ -232,14 +232,14 @@ FILE fqName:<root> fileName:/test.kt
                 CONST String type=kotlin.String value=", dependency="
                 GET_VAR 'val dependencyWorks: kotlin.Boolean declared in <root>.box' type=kotlin.Boolean origin=null
 FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/functionModuleModule.kt
-  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_functionModule_provideRepository visibility:public modality:FINAL returnType:kotlin.Unit
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_functionModule__provideRepository visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.Repository
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
-  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_functionModule_provideService visibility:public modality:FINAL returnType:kotlin.Unit
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_functionModule__provideService visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.Service
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)

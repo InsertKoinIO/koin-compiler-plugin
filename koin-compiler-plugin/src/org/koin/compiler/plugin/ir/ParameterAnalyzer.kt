@@ -101,11 +101,15 @@ class ParameterAnalyzer(
             if (className == "Lazy" && packageName == "kotlin") {
                 val innerType = (paramType as? IrSimpleType)?.arguments?.firstOrNull()?.typeOrNull
                 val innerTypeKey = if (innerType != null) typeKeyFromType(innerType) else typeKeyFromType(paramType)
-                KoinPluginLogger.debug { "    param '$paramName': Lazy<${innerTypeKey.render()}> (nullable=$isNullable, hasDefault=$hasDefault)" }
+                // For Lazy<T>, what matters for validation is whether the inner type T is nullable,
+                // not whether Lazy itself is nullable. Lazy<Foo?> means getOrNull() for Foo,
+                // while Lazy<Foo> means get() for Foo.
+                val innerNullable = innerType?.isMarkedNullable() ?: isNullable
+                KoinPluginLogger.debug { "    param '$paramName': Lazy<${innerTypeKey.render()}> (innerNullable=$innerNullable, hasDefault=$hasDefault)" }
                 return Requirement(
                     typeKey = innerTypeKey,
                     paramName = paramName,
-                    isNullable = isNullable,
+                    isNullable = innerNullable,
                     hasDefault = hasDefault,
                     isInjectedParam = false,
                     isLazy = true,
@@ -165,14 +169,21 @@ class ParameterAnalyzer(
         fun typeKeyFromType(type: org.jetbrains.kotlin.ir.types.IrType): TypeKey {
             val classifier = type.classifierOrNull?.owner as? IrClass
             val classId = classifier?.let {
-                val fqName = it.fqNameWhenAvailable
-                if (fqName != null) {
-                    ClassId.topLevel(fqName)
-                } else {
-                    null
-                }
+                classIdFromIrClass(it)
             }
             return TypeKey(classId, classifier?.fqNameWhenAvailable)
+        }
+
+        /**
+         * Build a ClassId from an IrClass, correctly handling nested classes.
+         * ClassId.topLevel() assumes no nesting, which produces wrong results for inner/nested classes.
+         */
+        fun classIdFromIrClass(irClass: IrClass): ClassId? {
+            val fqName = irClass.fqNameWhenAvailable ?: return null
+            val packageFqName = irClass.packageFqName ?: return ClassId.topLevel(fqName)
+            val relativeClassName = fqName.asString().removePrefix(packageFqName.asString() + ".")
+            if (relativeClassName.isEmpty()) return ClassId.topLevel(fqName)
+            return ClassId(packageFqName, FqName(relativeClassName), false)
         }
     }
 }

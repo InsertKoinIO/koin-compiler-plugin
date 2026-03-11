@@ -57,18 +57,6 @@ data class Requirement(
 }
 
 /**
- * A definition that provides a type to the DI container.
- */
-data class ProvidedBinding(
-    val typeKey: TypeKey,
-    val qualifier: QualifierValue?,
-    val scopeClass: IrClass?,
-    val bindings: List<TypeKey>,
-    val requirements: List<Requirement>,
-    val sourceName: String
-)
-
-/**
  * Registry of all provided bindings, with per-module validation.
  *
  * Collects all definitions during annotation processing Phase 1,
@@ -96,16 +84,6 @@ class BindingRegistry {
         )
 
         fun isWhitelistedType(fqName: String): Boolean = fqName in WHITELISTED_TYPES
-    }
-
-    private val allBindings = mutableListOf<ProvidedBinding>()
-
-    fun clear() {
-        allBindings.clear()
-    }
-
-    fun registerBinding(binding: ProvidedBinding) {
-        allBindings.add(binding)
     }
 
     /**
@@ -149,7 +127,7 @@ class BindingRegistry {
             // It also provides its bound interfaces
             for (binding in def.bindings) {
                 val bindingTypeKey = TypeKey(
-                    classId = binding.fqNameWhenAvailable?.let { ClassId.topLevel(it) },
+                    classId = ParameterAnalyzer.classIdFromIrClass(binding),
                     fqName = binding.fqNameWhenAvailable
                 )
                 providedTypes.add(ProviderKey(bindingTypeKey, qualifier, scopeClass))
@@ -182,16 +160,6 @@ class BindingRegistry {
                         else -> "unknown"
                     }
                     KoinPluginLogger.debug { "      skip '${req.paramName}': ${req.typeKey.render()} ($reason)" }
-                    continue
-                }
-
-                // Check @Property separately
-                if (req.isProperty && req.propertyKey != null) {
-                    if (PropertyValueRegistry.getDefault(req.propertyKey) == null) {
-                        KoinPluginLogger.debug {
-                            "  @Property(\"${req.propertyKey}\") on $defName.${req.paramName} has no @PropertyValue default"
-                        }
-                    }
                     continue
                 }
 
@@ -334,7 +302,7 @@ class BindingRegistry {
     private fun typeKeyFromDefinition(def: Definition): TypeKey {
         val irClass = def.returnTypeClass
         return TypeKey(
-            classId = irClass.fqNameWhenAvailable?.let { ClassId.topLevel(it) },
+            classId = ParameterAnalyzer.classIdFromIrClass(irClass),
             fqName = irClass.fqNameWhenAvailable
         )
     }
@@ -429,6 +397,11 @@ class BindingRegistry {
         for ((defName, consumerScopeFqName, req) in requirements) {
             if (!req.requiresValidation()) continue
             if (req.isProperty) continue
+
+            // Skip @Provided types and framework-provided types (same as real validation path)
+            val reqFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
+            if (reqFqName != null && ProvidedTypeRegistry.isProvided(reqFqName)) continue
+            if (reqFqName != null && isWhitelistedType(reqFqName)) continue
 
             val found = findProviderData(req, provided, consumerScopeFqName)
             if (!found) {

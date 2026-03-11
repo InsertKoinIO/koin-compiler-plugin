@@ -462,9 +462,9 @@ class KoinAnnotationProcessor(
             fqName == KoinAnnotationFqNames.SINGLETON.asString() || fqName == KoinAnnotationFqNames.SINGLE.asString()
         } ?: return false
 
-        // createdAtStart is usually the second parameter (index 1) after binds
-        val createdAtStartArg = annotation.getValueArgument(1)
-            ?: annotation.getValueArgument(Name.identifier("createdAtStart"))
+        // createdAtStart: look up by name first, then fall back to positional index 1
+        val createdAtStartArg = annotation.getValueArgument(Name.identifier("createdAtStart"))
+            ?: annotation.getValueArgument(1)
 
         return when (createdAtStartArg) {
             is IrConst -> createdAtStartArg.value as? Boolean ?: false
@@ -482,9 +482,9 @@ class KoinAnnotationProcessor(
             definitionAnnotations.any { it.asString() == annotation.type.classFqName?.asString() }
         } ?: return emptyList()
 
-        // binds is usually the first parameter (index 0)
-        val bindsArg = annotation.getValueArgument(0)
-            ?: annotation.getValueArgument(Name.identifier("binds"))
+        // binds: look up by name first, then fall back to positional index 0
+        val bindsArg = annotation.getValueArgument(Name.identifier("binds"))
+            ?: annotation.getValueArgument(0)
 
         if (bindsArg is IrVararg) {
             return bindsArg.elements.mapNotNull { element ->

@@ -1,5 +1,6 @@
 package org.koin.compiler.plugin
 
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.koin.compiler.plugin.ir.*
@@ -19,8 +20,13 @@ class BindingRegistryTest {
 
     @BeforeEach
     fun setUp() {
-        // Ensure skipDefaultValues is enabled (default)
-        // This is set in KoinPluginLogger, which is a singleton
+        // Ensure skipDefaultValues is enabled (default) by re-initializing the logger singleton
+        KoinPluginLogger.init(
+            collector = MessageCollector.NONE,
+            userLogs = false,
+            debugLogs = false,
+            skipDefaultValues = true
+        )
     }
 
     // ================================================================================

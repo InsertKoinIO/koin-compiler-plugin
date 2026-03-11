@@ -230,16 +230,53 @@ class KoinArgumentGenerator(
     }
 
     /**
-     * Create scope.getPropertyOrNull("key") call for nullable properties
+     * Create scope.getPropertyOrNull("key") call for nullable properties.
+     * Uses getPropertyOrNull() which returns null instead of throwing when the property is missing.
      */
     private fun createGetPropertyOrNullCall(
         scopeReceiver: IrExpression,
         propertyKey: String,
         builder: DeclarationIrBuilder
     ): IrExpression {
-        // For nullable, we use getProperty and let it return null naturally
-        // In Koin, getProperty can throw if not found, so we wrap in try-catch or use extension
-        return createGetPropertyCall(scopeReceiver, propertyKey, builder)
+        val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
+            ?: return builder.irNull()
+
+        // Find getPropertyOrNull function: getPropertyOrNull(key: String): T?
+        val getPropertyOrNullFunction = scopeClass.declarations
+            .filterIsInstance<IrSimpleFunction>()
+            .firstOrNull { function ->
+                function.name.asString() == "getPropertyOrNull" &&
+                function.typeParameters.size == 1 &&
+                function.valueParameters.size == 1 &&
+                function.valueParameters[0].type.classifierOrNull?.owner?.let {
+                    (it as? IrClass)?.name?.asString() == "String"
+                } == true
+            }
+
+        if (getPropertyOrNullFunction != null) {
+            return builder.irCall(getPropertyOrNullFunction.symbol).apply {
+                dispatchReceiver = scopeReceiver
+                putValueArgument(0, builder.irString(propertyKey))
+            }
+        }
+
+        // Fallback: try extension function from Koin
+        val koinPropertyOrNullFunction = context.referenceFunctions(
+            CallableId(FqName("org.koin.core.scope"), Name.identifier("getPropertyOrNull"))
+        ).firstOrNull()?.owner
+
+        if (koinPropertyOrNullFunction != null) {
+            return builder.irCall(koinPropertyOrNullFunction.symbol).apply {
+                if (koinPropertyOrNullFunction.dispatchReceiverParameter != null) {
+                    dispatchReceiver = scopeReceiver
+                } else if (koinPropertyOrNullFunction.extensionReceiverParameter != null) {
+                    extensionReceiver = scopeReceiver
+                }
+                putValueArgument(0, builder.irString(propertyKey))
+            }
+        }
+
+        return builder.irNull()
     }
 
     /**
