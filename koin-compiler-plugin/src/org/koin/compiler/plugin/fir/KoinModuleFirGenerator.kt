@@ -575,6 +575,15 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
     private val configurationPredicate = LookupPredicate.create { annotated(CONFIGURATION_ANNOTATION) }
     private val componentScanPredicate = LookupPredicate.create { annotated(COMPONENT_SCAN_ANNOTATION) }
 
+    // Predicate for custom qualifier annotations - annotation classes annotated with @Qualifier
+    // Used to generate qualifier hints for cross-module discovery, since @Qualifier meta-annotations
+    // may not be preserved in Kotlin metadata for deserialized annotation classes from dependencies.
+    private val qualifierAnnotationPredicate = LookupPredicate.create {
+        annotated(KoinAnnotationFqNames.QUALIFIER) or
+        annotated(KoinAnnotationFqNames.JAKARTA_QUALIFIER) or
+        annotated(KoinAnnotationFqNames.JAVAX_QUALIFIER)
+    }
+
     // Predicates for definition annotations - used for cross-module @ComponentScan discovery
     private val singletonPredicate = LookupPredicate.create { annotated(SINGLETON_ANNOTATION) }
     private val singlePredicate = LookupPredicate.create { annotated(SINGLE_ANNOTATION) }
@@ -859,6 +868,38 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         results
     }
 
+    // Cache of custom qualifier annotation classes (annotation classes annotated with @Qualifier/@Named)
+    // These generate qualifier hint functions for cross-module discovery
+    private data class QualifierAnnotationInfo(
+        val classSymbol: FirClassSymbol<*>,
+        val containingFileName: String?
+    )
+
+    private val qualifierAnnotationInfos: List<QualifierAnnotationInfo> by lazy {
+        val provider = session.predicateBasedProvider
+        val results = mutableListOf<QualifierAnnotationInfo>()
+
+        provider.getSymbolsByPredicate(qualifierAnnotationPredicate)
+            .filterIsInstance<FirRegularClassSymbol>()
+            .filter { classSymbol ->
+                classSymbol.classKind == org.jetbrains.kotlin.descriptors.ClassKind.ANNOTATION_CLASS &&
+                !classSymbol.rawStatus.isExpect
+            }
+            .forEach { classSymbol ->
+                val containingFileName = getContainingFileName(classSymbol)
+                if (containingFileName != null) {
+                    log { "  Found custom qualifier annotation: ${classSymbol.classId}" }
+                    results.add(QualifierAnnotationInfo(classSymbol, containingFileName))
+                }
+            }
+
+        log { "Found ${results.size} custom qualifier annotation classes" }
+        results
+    }
+
+    // Qualifier hint function name
+    private val QUALIFIER_HINT_NAME = Name.identifier(KoinPluginConstants.QUALIFIER_HINT_NAME)
+
     // Predicate to find ALL classes that might have @Inject constructor
     // This predicate matches ANY class - we filter in code for actual @Inject constructors
     // This is necessary because FIR predicates can't detect constructor annotations directly
@@ -1055,6 +1096,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         register(jakartaInjectPredicate)
         register(javaxSingletonPredicate)
         register(javaxInjectPredicate)
+        // Custom qualifier annotation discovery (for cross-module @Qualifier meta-annotation)
+        register(qualifierAnnotationPredicate)
         // Catch-all for @Inject constructor discovery (needed for modules with only @Inject constructor classes)
         register(anyClassPredicate)
         // Note: We can't trigger hint discovery here because symbolNamesProvider isn't ready yet
@@ -1097,6 +1140,12 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         for (defType in ALL_DEFINITION_TYPES) {
             callableIds.add(CallableId(HINTS_PACKAGE, definitionHintFunctionName(defType)))
             callableIds.add(CallableId(HINTS_PACKAGE, definitionFunctionHintFunctionName(defType)))
+        }
+
+        // Generate qualifier hint function for custom qualifier annotations
+        // This enables cross-module discovery of custom qualifier annotations
+        if (qualifierAnnotationInfos.isNotEmpty()) {
+            callableIds.add(CallableId(HINTS_PACKAGE, QUALIFIER_HINT_NAME))
         }
 
         // Note: componentscan_* / componentscanfunc_* hints are now generated at IR time
@@ -1296,6 +1345,25 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
             // Note: componentscan_* / componentscanfunc_* hints are now generated at IR time
             // using registerFunctionAsMetadataVisible (see KoinAnnotationProcessor.generateModuleScanHints).
+
+            // Generate qualifier hint functions for custom qualifier annotation classes
+            if (callableId.callableName == QUALIFIER_HINT_NAME) {
+                log { "generateFunctions: Generating qualifier hints for ${qualifierAnnotationInfos.size} custom qualifier annotations" }
+                return qualifierAnnotationInfos.mapNotNull { qualInfo ->
+                    val containingFile = qualInfo.containingFileName ?: return@mapNotNull null
+                    val classType = qualInfo.classSymbol.constructType(emptyArray(), false)
+                    log { "  -> Generating qualifier hint for ${qualInfo.classSymbol.classId} in file $containingFile" }
+
+                    createTopLevelFunction(
+                        Key,
+                        callableId,
+                        session.builtinTypes.unitType.coneType,
+                        containingFileName = containingFile
+                    ) {
+                        valueParameter(Name.identifier("contributed"), classType)
+                    }.apply { markAsDeprecatedHidden() }.symbol
+                }
+            }
         }
 
         return emptyList()
@@ -1305,7 +1373,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      * Claim ownership of the hints package for generated hint functions.
      */
     override fun hasPackage(packageFqName: FqName): Boolean {
-        if (packageFqName == HINTS_PACKAGE && (configurationModules.isNotEmpty() || definitionClassInfos.isNotEmpty() || definitionFunctionInfos.isNotEmpty() || moduleDefinitionFunctionInfos.isNotEmpty())) {
+        if (packageFqName == HINTS_PACKAGE && (configurationModules.isNotEmpty() || definitionClassInfos.isNotEmpty() || definitionFunctionInfos.isNotEmpty() || moduleDefinitionFunctionInfos.isNotEmpty() || qualifierAnnotationInfos.isNotEmpty())) {
             return true
         }
         return super.hasPackage(packageFqName)

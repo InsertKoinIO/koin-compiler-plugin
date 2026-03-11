@@ -61,6 +61,10 @@ class KoinDSLTransformer(
     private val argumentGenerator = KoinArgumentGenerator(context, qualifierExtractor)
     private val lambdaBuilder = LambdaBuilder(context, qualifierExtractor, argumentGenerator)
 
+    // State for propagating qualifier from create(::ref) to enclosing definition
+    private var createFunctionQualifier: QualifierValue? = null
+    private var createFunctionReturnClass: IrClass? = null
+
     private val createName = Name.identifier("create")
     private val singleName = Name.identifier("single")
     private val factoryName = Name.identifier("factory")
@@ -190,6 +194,19 @@ class KoinDSLTransformer(
         val receiverPackage = receiverClassifier.packageFqName?.asString()
         if (receiverPackage == null || (!receiverPackage.startsWith("org.koin.core") && !receiverPackage.startsWith("org.koin.dsl"))) {
             return transformedCall
+        }
+
+        // Propagate qualifier from create(::ref) to enclosing definition call
+        // When single { create(::qualifiedFunc) } is used, the qualifier from the function
+        // must be applied to the single definition registration
+        if (functionName in definitionNames && createFunctionQualifier != null) {
+            val qualifier = createFunctionQualifier!!
+            val returnClass = createFunctionReturnClass!!
+            createFunctionQualifier = null
+            createFunctionReturnClass = null
+            return handleDefinitionWithCreateQualifier(
+                transformedCall, receiver, receiverClassifier, functionName, returnClass, qualifier
+            )
         }
 
         // Handle reified type parameter syntax: single<T>(), factory<T>(), etc.
@@ -354,6 +371,12 @@ class KoinDSLTransformer(
                 val targetClass = referencedFunction.parent as IrClass
                 // IC: file containing create(::T) depends on the target class
                 trackClassLookup(lookupTracker, currentFile, targetClass)
+                // Extract qualifier from class for propagation to enclosing definition
+                val classQualifier = qualifierExtractor.extractFromClass(targetClass)
+                if (classQualifier != null && currentDefinitionCall != null) {
+                    createFunctionQualifier = classQualifier
+                    createFunctionReturnClass = targetClass
+                }
                 // Collect DSL definition from create(::T) based on enclosing definition call
                 val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] }
                 if (enclosingDefType != null && compileSafetyEnabled) {
@@ -377,6 +400,12 @@ class KoinDSLTransformer(
                 }
             }
             is IrSimpleFunction -> {
+                // Extract qualifier from function for propagation to enclosing definition
+                val funcQualifier = qualifierExtractor.extractFromDeclaration(referencedFunction)
+                if (funcQualifier != null && currentDefinitionCall != null) {
+                    createFunctionQualifier = funcQualifier
+                    createFunctionReturnClass = referencedFunction.returnType.classifierOrNull?.owner as? IrClass
+                }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${referencedFunction.name}) } -> $returnTypeName" }
@@ -390,6 +419,57 @@ class KoinDSLTransformer(
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Handle single/factory/etc { create(::ref) } where ::ref has a qualifier annotation.
+     * Replaces the definition call with buildSingle/buildFactory/etc.(KClass, qualifier) { body }
+     * so the qualifier is properly registered with the definition.
+     */
+    private fun handleDefinitionWithCreateQualifier(
+        call: IrCall,
+        receiver: IrExpression,
+        receiverClassifier: IrClass,
+        functionName: Name,
+        returnClass: IrClass,
+        qualifier: QualifierValue
+    ): IrExpression {
+        val receiverClassName = receiverClassifier.name.asString()
+        val targetFunction = findTargetFunction(functionName, receiverClassName)
+        if (targetFunction == null) {
+            KoinPluginLogger.debug { "$functionName target function not found for $receiverClassName (qualifier propagation)" }
+            return call
+        }
+
+        // Find the lambda argument from the original call
+        val existingLambda = (0 until call.valueArgumentsCount)
+            .mapNotNull { call.getValueArgument(it) }
+            .firstOrNull { it is IrFunctionExpression }
+            ?: return call
+
+        KoinPluginLogger.user { "Applying qualifier ${qualifier.debugString()} to $functionName { create(::${returnClass.name}) }" }
+
+        val builder = DeclarationIrBuilder(context, call.symbol, call.startOffset, call.endOffset)
+
+        return builder.irCall(targetFunction.symbol).apply {
+            this.extensionReceiver = receiver
+            putTypeArgument(0, returnClass.defaultType)
+
+            // Arg 0: KClass<T>
+            val kClassClassOwner = kClassClass ?: return call
+            putValueArgument(0, IrClassReferenceImpl(
+                UNDEFINED_OFFSET, UNDEFINED_OFFSET,
+                kClassClassOwner.typeWith(returnClass.defaultType),
+                returnClass.symbol,
+                returnClass.defaultType
+            ))
+
+            // Arg 1: Qualifier
+            putValueArgument(1, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
+
+            // Arg 2: Existing definition lambda (already transformed by super.visitCall)
+            putValueArgument(2, existingLambda)
         }
     }
 

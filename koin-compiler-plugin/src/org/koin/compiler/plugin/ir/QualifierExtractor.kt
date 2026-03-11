@@ -14,6 +14,7 @@ import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.impl.IrGetEnumValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.types.classifierOrNull
@@ -25,7 +26,9 @@ import org.jetbrains.kotlin.ir.util.getValueArgument
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.name.FqName
 import org.koin.compiler.plugin.KoinAnnotationFqNames
+import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 
 /**
@@ -207,6 +210,62 @@ class QualifierExtractor(private val context: IrPluginContext) {
     }
 
     /**
+     * Check if a meta-annotation matches a known qualifier FQ name.
+     * Uses symbol-based resolution (constructor parent class) which is more reliable
+     * than type-based resolution for cross-module deserialized annotation classes.
+     */
+    private fun isQualifierMetaAnnotation(metaAnnotation: IrConstructorCall): Boolean {
+        // Primary: check via type (works for same-module classes)
+        val metaFqName = metaAnnotation.type.classFqName?.asString()
+        if (metaFqName != null) {
+            return metaFqName == KoinAnnotationFqNames.QUALIFIER.asString() ||
+                metaFqName == KoinAnnotationFqNames.NAMED.asString() ||
+                metaFqName == KoinAnnotationFqNames.JAKARTA_QUALIFIER.asString() ||
+                metaFqName == KoinAnnotationFqNames.JAVAX_QUALIFIER.asString()
+        }
+        // Fallback: check via constructor symbol's parent class (works for cross-module deserialized classes)
+        val parentFqName = (metaAnnotation.symbol.owner.parent as? IrClass)?.fqNameWhenAvailable?.asString()
+        return parentFqName == KoinAnnotationFqNames.QUALIFIER.asString() ||
+            parentFqName == KoinAnnotationFqNames.NAMED.asString() ||
+            parentFqName == KoinAnnotationFqNames.JAKARTA_QUALIFIER.asString() ||
+            parentFqName == KoinAnnotationFqNames.JAVAX_QUALIFIER.asString()
+    }
+
+    // Instance-level registry of known custom qualifier annotation FQ names
+    // Populated from FIR-generated hint functions from dependencies
+    private val knownCustomQualifiers: Set<String> by lazy { discoverQualifierHints() }
+
+    /**
+     * Discover custom qualifier annotations from dependency hint functions.
+     *
+     * FIR generates `fun qualifier(contributed: MyQualifierAnnotation)` in `org.koin.plugin.hints`.
+     * The parameter type encodes the annotation class FQ name.
+     */
+    private fun discoverQualifierHints(): Set<String> {
+        val qualifiers = mutableSetOf<String>()
+        try {
+            val hintFunctions = context.referenceFunctions(
+                CallableId(FqName(KoinPluginConstants.HINTS_PACKAGE), Name.identifier(KoinPluginConstants.QUALIFIER_HINT_NAME))
+            )
+            for (funcSymbol in hintFunctions) {
+                val func = funcSymbol.owner
+                for (param in func.valueParameters) {
+                    val paramClass = param.type.classifierOrNull?.owner as? IrClass ?: continue
+                    val fqName = paramClass.fqNameWhenAvailable?.asString() ?: continue
+                    qualifiers.add(fqName)
+                    KoinPluginLogger.debug { "  Discovered custom qualifier from hint: $fqName" }
+                }
+            }
+        } catch (e: Exception) {
+            KoinPluginLogger.debug { "  Could not discover qualifier hints: ${e.message}" }
+        }
+        if (qualifiers.isNotEmpty()) {
+            KoinPluginLogger.debug { "  Found ${qualifiers.size} custom qualifier annotations from dependency hints" }
+        }
+        return qualifiers
+    }
+
+    /**
      * Find a custom qualifier annotation (an annotation annotated with @Qualifier or @Named).
      * Returns the simple name of the annotation class as the qualifier name.
      *
@@ -220,18 +279,50 @@ class QualifierExtractor(private val context: IrPluginContext) {
     ): QualifierValue? {
         for (annotation in annotations) {
             val annotationClass = annotation.type.classifierOrNull?.owner as? IrClass ?: continue
+            val annotationFqName = annotationClass.fqNameWhenAvailable?.asString()
+
+            // Skip standard Kotlin/Android annotations that can't be custom qualifiers
+            if (annotationFqName != null && (
+                annotationFqName.startsWith("kotlin.") ||
+                annotationFqName.startsWith("java.") ||
+                annotationFqName.startsWith("android.") ||
+                annotationFqName.startsWith("androidx.")
+            )) continue
 
             // Check if this annotation is itself annotated with @Qualifier or @Named (making it a custom qualifier)
-            val isCustomQualifier = annotationClass.annotations.any { metaAnnotation ->
-                val metaFqName = metaAnnotation.type.classFqName?.asString()
-                metaFqName == KoinAnnotationFqNames.QUALIFIER.asString() ||
-                metaFqName == KoinAnnotationFqNames.NAMED.asString() ||
-                metaFqName == KoinAnnotationFqNames.JAKARTA_QUALIFIER.asString() ||
-                metaFqName == KoinAnnotationFqNames.JAVAX_QUALIFIER.asString()
+            var isCustomQualifier = annotationClass.annotations.any { isQualifierMetaAnnotation(it) }
+
+            // Fallback for cross-module: @Qualifier meta-annotation may not be preserved in Kotlin metadata
+            // for deserialized annotation classes from dependencies. Check qualifier hints from dependencies.
+            if (!isCustomQualifier && annotationFqName != null && annotationFqName in knownCustomQualifiers) {
+                isCustomQualifier = true
+                KoinPluginLogger.debug { "  @$annotationFqName confirmed as custom qualifier via dependency hint" }
             }
 
             if (isCustomQualifier) {
                 val qualifierName = annotationClass.name.asString()
+
+                // Check if the annotation has a value argument (e.g., @Dispatcher(NiaDispatchers.IO))
+                // Use the argument value as the qualifier to differentiate instances
+                val valueArg = annotation.getValueArgument(0)
+                if (valueArg is IrGetEnumValueImpl) {
+                    val enumEntry = valueArg.symbol.owner
+                    val enumClass = enumEntry.parent as? IrClass
+                    val enumFqName = enumClass?.fqNameWhenAvailable?.asString()
+                    val enumEntryName = enumEntry.name.asString()
+                    val qualifierString = if (enumFqName != null) "$enumFqName.$enumEntryName" else enumEntryName
+                    logContext?.let { KoinPluginLogger.debug { "  @$qualifierName($enumEntryName) (custom qualifier) on $it -> named(\"$qualifierString\")" } }
+                    return QualifierValue.StringQualifier(qualifierString)
+                }
+                if (valueArg is IrConst) {
+                    val value = valueArg.value
+                    if (value is String && value.isNotEmpty()) {
+                        logContext?.let { KoinPluginLogger.debug { "  @$qualifierName(\"$value\") (custom qualifier) on $it" } }
+                        return QualifierValue.StringQualifier(value)
+                    }
+                }
+
+                // Fallback: use annotation class name
                 logContext?.let { KoinPluginLogger.debug { "  @$qualifierName (custom qualifier) on $it" } }
                 return QualifierValue.StringQualifier(qualifierName)
             }

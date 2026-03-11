@@ -13,6 +13,7 @@ import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 
@@ -50,10 +51,12 @@ class KoinHintTransformer(
             KoinModuleFirGenerator.definitionTypeFromFunctionHintName(functionName) != null
         val isModuleDefinitionHint = parentPackage == hintsPackage &&
             KoinModuleFirGenerator.moduleDefinitionInfoFromHintName(functionName) != null
+        val isQualifierHint = parentPackage == hintsPackage &&
+            functionName == KoinPluginConstants.QUALIFIER_HINT_NAME
         // Note: componentscan_* / componentscanfunc_* hints are generated in IR (KoinAnnotationProcessor)
         // with non-null bodies, so they don't need processing here.
 
-        if ((isConfigurationHint || isDefinitionHint || isFunctionDefinitionHint || isModuleDefinitionHint) && declaration.body == null) {
+        if ((isConfigurationHint || isDefinitionHint || isFunctionDefinitionHint || isModuleDefinitionHint || isQualifierHint) && declaration.body == null) {
             // Generate body for hint function: error("Stub!")
             declaration.body = generateHintFunctionBody(declaration)
 

@@ -83,6 +83,9 @@ object KoinPluginConstants {
     /** Prefix for DSL definition hints (e.g., dsl_single, dsl_factory). */
     const val DSL_DEFINITION_HINT_PREFIX = "dsl_"
 
+    /** Function name for qualifier annotation hint functions (e.g., qualifier). */
+    const val QUALIFIER_HINT_NAME = "qualifier"
+
     /** Function name for call-site hints (deferred validation across modules). */
     const val CALLSITE_HINT_NAME = "callsite"
 
