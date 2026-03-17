@@ -96,6 +96,12 @@ class KoinAnnotationProcessor(
     private val definitionClasses = mutableListOf<DefinitionClass>()
     private val definitionTopLevelFunctions = mutableListOf<DefinitionTopLevelFunction>()
 
+    // Cache for referenceFunctions results to avoid repeated expensive lookups
+    private val referenceFunctionsCache = mutableMapOf<CallableId, Collection<org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol>>()
+
+    // Cache for configuration module discovery (A2 sibling resolution)
+    private val configurationModulesCache = mutableMapOf<List<String>, List<IrClass>>()
+
     /** Exposed for cross-phase validation (A3: startKoin full-graph). */
     val collectedModuleClasses: List<ModuleClass> get() = moduleClasses
 
@@ -822,25 +828,27 @@ class KoinAnnotationProcessor(
 
             KoinPluginLogger.debug { "  Module ${moduleClassId}: generating ${definitions.size} scan hints" }
 
+            // Collect all hint functions for this module, then batch them into a single IrFile
+            val hintFunctions = mutableListOf<IrSimpleFunction>()
+
             for (definition in definitions) {
                 val defTypeStr = definitionTypeToString(definition.definitionType)
                 val targetClass = definition.returnTypeClass
                 val targetClassId = targetClass.classId ?: continue
 
-                // Use module class as fallback for FIR metadata when targetClass is external (e.g., HttpClient from ktor)
-                val fallback = moduleClass.irClass
-
                 when (definition) {
                     is Definition.ClassDef, is Definition.ExternalFunctionDef -> {
                         // Class definition hint: componentscan_<moduleId>_<defType>
                         val hintName = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedModuleId, defTypeStr)
-                        generateSingleHint(moduleFragment, hintsPackage, hintName, targetClass, targetClassId, fallback)
+                        val func = createHintFunction(hintName, targetClass)
+                        if (func != null) hintFunctions.add(func)
                         KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr)" }
                     }
                     is Definition.TopLevelFunctionDef -> {
                         // Function definition hint: componentscanfunc_<moduleId>_<defType>
                         val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
-                        generateSingleHint(moduleFragment, hintsPackage, hintName, targetClass, targetClassId, fallback)
+                        val func = createHintFunction(hintName, targetClass)
+                        if (func != null) hintFunctions.add(func)
                         KoinPluginLogger.debug { "    + componentscanfunc hint: ${targetClass.name} ($defTypeStr)" }
                     }
                     is Definition.DslDef -> continue // DSL definitions don't generate hints
@@ -850,27 +858,65 @@ class KoinAnnotationProcessor(
                     }
                 }
             }
+
+            if (hintFunctions.isEmpty()) continue
+
+            // Batch: create a single IrFile per module containing all hint functions
+            val firModuleData = extractFirModuleData(moduleClass.irClass)
+            if (firModuleData == null) {
+                KoinPluginLogger.debug { "    WARN: No FIR module data for ${moduleClass.irClass.name}, skipping hints" }
+                continue
+            }
+
+            val batchFileName = "koin_hints_${sanitizedModuleId}.kt"
+            val firFile = buildFile {
+                moduleData = firModuleData
+                origin = FirDeclarationOrigin.Synthetic.PluginFile
+                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+                name = batchFileName
+            }
+
+            val sourceFileEntry = try {
+                moduleClass.irClass.fileEntry
+            } catch (_: NotImplementedError) {
+                null
+            }
+
+            if (sourceFileEntry == null) {
+                KoinPluginLogger.debug { "    WARN: No file entry for ${moduleClass.irClass.name}, skipping hints" }
+                continue
+            }
+
+            val fakeNewPath = Path(sourceFileEntry.name).parent.resolve(batchFileName)
+            val hintFile = IrFileImpl(
+                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
+                    moduleFragment.descriptor,
+                    hintsPackage
+                ),
+                module = moduleFragment
+            ).also { it.metadata = FirMetadataSource.File(firFile) }
+
+            moduleFragment.addFile(hintFile)
+
+            for (func in hintFunctions) {
+                hintFile.addChild(func)
+                func.parent = hintFile
+                context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(func)
+            }
+
+            KoinPluginLogger.debug { "    Batched ${hintFunctions.size} hints into single file: $batchFileName" }
         }
     }
 
     /**
-     * Generate a single hint function in a synthetic IR file and register it for metadata visibility.
-     *
-     * Creates a synthetic FirFile + IrFileImpl with a deterministic path, adds a simple function
-     * with the target class type as parameter, and calls registerFunctionAsMetadataVisible to
-     * ensure downstream compilations can discover it.
-     *
-     * Based on Metro's HintGenerator pattern.
+     * Create a hint function (without adding to any file).
+     * Returns null if the target class type cannot be resolved.
      */
-    private fun generateSingleHint(
-        moduleFragment: IrModuleFragment,
-        hintsPackage: FqName,
+    private fun createHintFunction(
         hintName: Name,
-        targetClass: IrClass,
-        targetClassId: ClassId,
-        fallbackMetadataSource: IrClass? = null
-    ) {
-        // Build the IR function
+        targetClass: IrClass
+    ): IrSimpleFunction? {
         val function = context.irFactory.createSimpleFunction(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
@@ -909,58 +955,13 @@ class KoinAnnotationProcessor(
         valueParam.parent = function
         function.valueParameters = listOf(valueParam)
 
-        // Empty body (stub — hint functions are never called)
+        // Empty body (stub — hint functions are never called at runtime)
         function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
 
         // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
         function.addDeprecatedHiddenAnnotation(context)
 
-        // Build deterministic file name from target class + hint name
-        val fileName = buildHintFileName(targetClassId, hintName)
-
-        // Create synthetic FirFile for metadata
-        // Try targetClass first, then fallback (e.g., module class) for external return types
-        val firModuleData = extractFirModuleData(targetClass)
-            ?: fallbackMetadataSource?.let { extractFirModuleData(it) }
-
-        if (firModuleData == null) {
-            KoinPluginLogger.debug { "    WARN: No FIR module data for ${targetClass.name}, skipping hint" }
-            return
-        }
-
-        val firFile = buildFile {
-            moduleData = firModuleData
-            origin = FirDeclarationOrigin.Synthetic.PluginFile
-            packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-            name = fileName
-        }
-
-        // Create synthetic IrFile with a deterministic fake path
-        // (same approach as Metro — kotlinc IC needs an absolute-looking path)
-        // Use fallback class's file entry when targetClass is external (no real file path)
-        val sourceFileEntry = try {
-            val entry = targetClass.fileEntry
-            if (entry.name.contains("/") || entry.name.contains("\\")) entry
-            else fallbackMetadataSource?.fileEntry ?: entry
-        } catch (_: NotImplementedError) {
-            fallbackMetadataSource?.fileEntry ?: throw IllegalStateException("No file entry for hint $hintName")
-        }
-        val fakeNewPath = Path(sourceFileEntry.name).parent.resolve(fileName)
-        val hintFile = IrFileImpl(
-            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-            packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
-                moduleFragment.descriptor,
-                hintsPackage
-            ),
-            module = moduleFragment
-        ).also { it.metadata = FirMetadataSource.File(firFile) }
-
-        moduleFragment.addFile(hintFile)
-        hintFile.addChild(function)
-
-        // Register for downstream visibility — this is the key API that makes hints visible
-        // to downstream compilations via Kotlin metadata in the compiled artifact.
-        context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+        return function
     }
 
     /** Extract FIR module data from an IR class's metadata. */
@@ -971,23 +972,6 @@ class KoinAnnotationProcessor(
             is FirMetadataSource.File -> src.fir.moduleData
             else -> null
         }
-    }
-
-    /**
-     * Build a deterministic file name for a hint function.
-     * Uses the target class package + class name + hint name to avoid collisions.
-     */
-    private fun buildHintFileName(targetClassId: ClassId, hintName: Name): String {
-        val parts = sequence {
-            yieldAll(targetClassId.packageFqName.pathSegments().map { it.asString() })
-            yield(targetClassId.shortClassName.asString())
-            yield(hintName.asString())
-        }
-        val fileName = parts
-            .map { segment -> segment.replaceFirstChar { it.uppercaseChar() } }
-            .joinToString(separator = "")
-            .replaceFirstChar { it.lowercaseChar() }
-        return "$fileName.kt"
     }
 
     /**
@@ -1323,7 +1307,7 @@ class KoinAnnotationProcessor(
         // Query each definition type
         for (defType in KoinModuleFirGenerator.ALL_DEFINITION_TYPES) {
             val functionName = KoinModuleFirGenerator.definitionHintFunctionName(defType)
-            val hintFunctions = context.referenceFunctions(
+            val hintFunctions = cachedReferenceFunctions(
                 CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, functionName)
             )
 
@@ -1385,7 +1369,7 @@ class KoinAnnotationProcessor(
 
         for (defType in KoinModuleFirGenerator.ALL_DEFINITION_TYPES) {
             val functionName = KoinModuleFirGenerator.definitionFunctionHintFunctionName(defType)
-            val hintFunctions = context.referenceFunctions(
+            val hintFunctions = cachedReferenceFunctions(
                 CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, functionName)
             )
 
@@ -1627,7 +1611,7 @@ class KoinAnnotationProcessor(
         for (defType in KoinModuleFirGenerator.ALL_DEFINITION_TYPES) {
             // Class definition hints: componentscan_<moduleId>_<defType>
             val className = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedId, defType)
-            val hintFunctions = context.referenceFunctions(
+            val hintFunctions = cachedReferenceFunctions(
                 CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, className)
             )
 
@@ -1659,7 +1643,7 @@ class KoinAnnotationProcessor(
 
             // Function definition hints: componentscanfunc_<moduleId>_<defType>
             val funcName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedId, defType)
-            val funcHintFunctions = context.referenceFunctions(
+            val funcHintFunctions = cachedReferenceFunctions(
                 CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, funcName)
             )
 
@@ -1752,13 +1736,20 @@ class KoinAnnotationProcessor(
      * Build the full set of definitions visible to a module for validation.
      * Includes: own definitions + included modules + @Configuration siblings (local + cross-module).
      */
+    // Cached lookup map for O(1) module resolution by FQ name
+    private var modulesByFqNameCache: Map<String?, ModuleClass>? = null
+    private fun getModulesByFqName(): Map<String?, ModuleClass> {
+        return modulesByFqNameCache ?: moduleClasses.associateBy { it.irClass.fqNameWhenAvailable?.asString() }.also {
+            modulesByFqNameCache = it
+        }
+    }
+
     private fun buildVisibleDefinitions(
         moduleClass: ModuleClass,
         ownDefinitions: List<Definition>,
         allModuleDefinitions: Map<ModuleClass, List<Definition>>
     ): VisibilityResult {
-        // Pre-build lookup map for O(1) sibling resolution
-        val modulesByFqName = moduleClasses.associateBy { it.irClass.fqNameWhenAvailable?.asString() }
+        val modulesByFqName = getModulesByFqName()
         var allComplete = true
 
         val definitions = buildList {
@@ -1815,12 +1806,19 @@ class KoinAnnotationProcessor(
      * which sees both local FIR-generated hints and dependency hints from klib/JAR metadata.
      */
     private fun discoverConfigurationModulesFromHints(labels: List<String>): List<IrClass> {
+        // Cache by sorted labels to avoid redundant discovery across modules with same configuration labels
+        val cacheKey = labels.sorted()
+        configurationModulesCache[cacheKey]?.let { cached ->
+            KoinPluginLogger.debug { "A2: Returning cached ${cached.size} @Configuration siblings for labels $labels" }
+            return cached
+        }
+
         val modules = mutableListOf<IrClass>()
         val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
 
         for (label in labels) {
             val callableId = CallableId(hintsPackage, KoinModuleFirGenerator.hintFunctionNameForLabel(label))
-            val hintFunctions = context.referenceFunctions(callableId)
+            val hintFunctions = cachedReferenceFunctions(callableId)
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
@@ -1833,8 +1831,29 @@ class KoinAnnotationProcessor(
         }
 
         KoinPluginLogger.debug { "A2: Discovered ${modules.size} @Configuration siblings from hints for labels $labels" }
+        configurationModulesCache[cacheKey] = modules
         return modules
     }
+
+    /**
+     * Cached wrapper around context.referenceFunctions() to avoid repeated expensive lookups.
+     * The same CallableId is often queried multiple times across different modules during
+     * A2 validation and definition discovery.
+     */
+    private fun cachedReferenceFunctions(callableId: CallableId): Collection<org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol> {
+        return referenceFunctionsCache.getOrPut(callableId) {
+            context.referenceFunctions(callableId).toList()
+        }
+    }
+
+    /**
+     * Maximum number of root-scope definition statements to emit per method body.
+     * When exceeded, definitions are split into private helper functions to avoid
+     * the JVM 64KB method bytecode limit (MethodTooLargeException).
+     * Set high enough to avoid splitting small @Configuration modules (<20 @Single methods)
+     * while catching large @ComponentScan modules (25+ scanned definitions).
+     */
+    private val maxDefinitionsPerMethod = 20
 
     private fun buildModuleCall(
         moduleDslFunction: IrSimpleFunction,
@@ -1901,17 +1920,60 @@ class KoinAnnotationProcessor(
         val scopeGroups = scopedDefinitions.groupBy { it.scopeClass!! }
         val archetypeGroups = archetypeDefinitions.groupBy { it.scopeArchetype!! }
 
-        // Generate root-scope definitions
-        for (definition in rootDefinitions) {
-            val definitionCall = when (definition) {
-                is Definition.ClassDef -> definitionCallBuilder.buildClassDefinitionCall(definition, moduleReceiverParam, lambdaFunction, lambdaBuilder)
-                is Definition.FunctionDef -> definitionCallBuilder.buildFunctionDefinitionCall(definition, moduleClass, moduleReceiverParam, lambdaFunction, lambdaBuilder, parentFunction)
-                is Definition.TopLevelFunctionDef -> definitionCallBuilder.buildTopLevelFunctionDefinitionCall(definition, moduleReceiverParam, lambdaFunction, lambdaBuilder)
-                is Definition.DslDef -> continue // DSL definitions are handled separately in Phase 2
-                is Definition.ExternalFunctionDef -> continue // Provider-only, no code to generate
+        // Generate root-scope definitions — split into helper functions if too many
+        if (rootDefinitions.size > maxDefinitionsPerMethod) {
+            KoinPluginLogger.debug { "    -> Splitting ${rootDefinitions.size} root definitions into chunks of $maxDefinitionsPerMethod to avoid MethodTooLargeException" }
+            val chunks = rootDefinitions.chunked(maxDefinitionsPerMethod)
+
+            // Check if any FunctionDef exists — if so, we need the module class instance
+            val hasFunctionDefs = rootDefinitions.any { it is Definition.FunctionDef }
+            val moduleClassExtReceiver = if (hasFunctionDefs) parentFunction.extensionReceiverParameter else null
+
+            for ((chunkIndex, chunk) in chunks.withIndex()) {
+                // Place chunk helpers in separate synthetic IrFiles when possible to avoid
+                // "Class too large" (constant pool overflow). Only ClassDef-only chunks can go
+                // into separate files; FunctionDef chunks reference private module class members
+                // which require same-file placement.
+                val isClassDefOnly = chunk.all { it is Definition.ClassDef || it is Definition.TopLevelFunctionDef || it is Definition.DslDef || it is Definition.ExternalFunctionDef }
+                val helperFn = buildDefinitionChunkHelper(
+                    chunkIndex, chunk, moduleClass, koinModuleIrClass, parentFunction, moduleClassExtReceiver,
+                    useSeparateFile = isClassDefOnly
+                )
+                val placed = if (isClassDefOnly) {
+                    placeChunkHelperInSyntheticFile(helperFn, moduleClass, chunkIndex)
+                } else false
+                if (!placed) {
+                    val parentContainer = parentFunction.parent as? IrDeclarationContainer
+                    if (parentContainer != null) {
+                        parentContainer.addChild(helperFn)
+                        helperFn.parent = parentContainer
+                    }
+                }
+                // Call helper from lambda
+                statements.add(lambdaBuilder.irCall(helperFn.symbol).apply {
+                    if (moduleClassExtReceiver != null) {
+                        // Helper is: fun ModuleClass.helper(koinModule: Module)
+                        extensionReceiver = lambdaBuilder.irGet(moduleClassExtReceiver)
+                        putValueArgument(0, lambdaBuilder.irGet(moduleReceiverParam))
+                    } else {
+                        // Helper is: fun helper(koinModule: Module)
+                        putValueArgument(0, lambdaBuilder.irGet(moduleReceiverParam))
+                    }
+                })
             }
-            if (definitionCall != null) {
-                statements.add(definitionCall)
+        } else {
+            // Small enough — inline directly in the lambda
+            for (definition in rootDefinitions) {
+                val definitionCall = when (definition) {
+                    is Definition.ClassDef -> definitionCallBuilder.buildClassDefinitionCall(definition, moduleReceiverParam, lambdaFunction, lambdaBuilder)
+                    is Definition.FunctionDef -> definitionCallBuilder.buildFunctionDefinitionCall(definition, moduleClass, moduleReceiverParam, lambdaFunction, lambdaBuilder, parentFunction)
+                    is Definition.TopLevelFunctionDef -> definitionCallBuilder.buildTopLevelFunctionDefinitionCall(definition, moduleReceiverParam, lambdaFunction, lambdaBuilder)
+                    is Definition.DslDef -> continue // DSL definitions are handled separately in Phase 2
+                    is Definition.ExternalFunctionDef -> continue // Provider-only, no code to generate
+                }
+                if (definitionCall != null) {
+                    statements.add(definitionCall)
+                }
             }
         }
 
@@ -1963,6 +2025,167 @@ class KoinAnnotationProcessor(
                 }
             }
         }
+    }
+
+    /**
+     * Creates a private top-level helper function that registers a chunk of definitions.
+     * This prevents the main module lambda from exceeding the JVM 64KB method limit.
+     *
+     * Generated signature depends on whether the module has FunctionDef definitions:
+     * - ClassDef only:  `private fun _koin_chunk_X_N(koinModule: Module)`
+     * - With FunctionDef: `private fun ModuleClass._koin_chunk_X_N(koinModule: Module)`
+     *   The extension receiver provides the @Configuration class instance needed by FunctionDef.
+     *
+     * @param moduleClassExtReceiver if non-null, the helper becomes an extension function on the
+     *   module class so that FunctionDef definitions can call methods on the @Configuration class.
+     */
+    private fun buildDefinitionChunkHelper(
+        chunkIndex: Int,
+        definitions: List<Definition>,
+        moduleClass: ModuleClass,
+        koinModuleIrClass: IrClass,
+        originalParentFunction: IrFunction,
+        moduleClassExtReceiver: IrValueParameter?,
+        useSeparateFile: Boolean = false
+    ): IrSimpleFunction {
+        val moduleName = moduleClass.irClass.name.asString()
+        val helperName = "_koin_chunk_${moduleName}_$chunkIndex"
+
+        // Use internal visibility for helpers in separate files to avoid SyntheticAccessorLowering
+        // assertion errors. Private functions can't be called cross-file on JVM.
+        val visibility = if (useSeparateFile) DescriptorVisibilities.INTERNAL else DescriptorVisibilities.PRIVATE
+
+        val helperFn = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = Name.identifier(helperName),
+            visibility = visibility,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
+
+        // If module has FunctionDef, make the helper an extension function on the module class.
+        // This allows createFunctionDefinitionLambda to find the module instance via
+        // getterFunction.extensionReceiverParameter (see DefinitionCallBuilder line 568).
+        if (moduleClassExtReceiver != null) {
+            val extReceiverParam = context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.special("<this>"),
+                type = moduleClassExtReceiver.type,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                index = -1,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            )
+            extReceiverParam.parent = helperFn
+            helperFn.extensionReceiverParameter = extReceiverParam
+        }
+
+        // Value parameter 0: Koin Module (used as extension receiver in buildSingle/buildFactory calls)
+        val moduleParam = context.irFactory.createValueParameter(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = Name.identifier("koinModule"),
+            type = koinModuleIrClass.defaultType,
+            isAssignable = false,
+            symbol = IrValueParameterSymbolImpl(),
+            index = 0,
+            varargElementType = null,
+            isCrossinline = false,
+            isNoinline = false,
+            isHidden = false
+        )
+        moduleParam.parent = helperFn
+        helperFn.valueParameters = listOf(moduleParam)
+
+        val helperBuilder = DeclarationIrBuilder(context, helperFn.symbol, UNDEFINED_OFFSET, UNDEFINED_OFFSET)
+        val helperStatements = mutableListOf<IrStatement>()
+
+        for (definition in definitions) {
+            val definitionCall = when (definition) {
+                is Definition.ClassDef -> definitionCallBuilder.buildClassDefinitionCall(definition, moduleParam, helperFn, helperBuilder)
+                is Definition.FunctionDef -> definitionCallBuilder.buildFunctionDefinitionCall(definition, moduleClass, moduleParam, helperFn, helperBuilder, helperFn)
+                is Definition.TopLevelFunctionDef -> definitionCallBuilder.buildTopLevelFunctionDefinitionCall(definition, moduleParam, helperFn, helperBuilder)
+                is Definition.DslDef -> continue // DSL definitions are handled separately in Phase 2
+                is Definition.ExternalFunctionDef -> continue // Provider-only, no code to generate
+            }
+            if (definitionCall != null) {
+                helperStatements.add(definitionCall)
+            }
+        }
+
+        helperFn.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, helperStatements)
+        return helperFn
+    }
+
+    /**
+     * Places a chunk helper function in its own synthetic IrFile to avoid "Class too large"
+     * (JVM constant pool limit). Each IrFile compiles to a separate .class file, distributing
+     * the constant pool entries across files.
+     *
+     * @return true if successfully placed in a synthetic file, false if caller should use fallback
+     */
+    @OptIn(DeprecatedForRemovalCompilerApi::class)
+    private fun placeChunkHelperInSyntheticFile(
+        helperFn: IrSimpleFunction,
+        moduleClass: ModuleClass,
+        chunkIndex: Int
+    ): Boolean {
+        val moduleFragment = currentModuleFragment ?: return false
+        val firModuleData = extractFirModuleData(moduleClass.irClass) ?: return false
+
+        val sourceFileEntry = try {
+            moduleClass.irClass.fileEntry
+        } catch (_: NotImplementedError) {
+            return false
+        }
+
+        val moduleName = moduleClass.irClass.name.asString()
+        val chunkFileName = "koin_chunk_${moduleName}_$chunkIndex.kt"
+        val chunkPackage = (moduleClass.irClass.parent as? IrFile)?.packageFqName
+            ?: moduleClass.irClass.fqNameWhenAvailable?.parent()
+            ?: return false
+
+        val firFile = buildFile {
+            moduleData = firModuleData
+            origin = FirDeclarationOrigin.Synthetic.PluginFile
+            packageDirective = buildPackageDirective { packageFqName = chunkPackage }
+            name = chunkFileName
+        }
+
+        val fakeNewPath = Path(sourceFileEntry.name).parent.resolve(chunkFileName)
+        val chunkFile = IrFileImpl(
+            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+            packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
+                moduleFragment.descriptor,
+                chunkPackage
+            ),
+            module = moduleFragment
+        ).also { it.metadata = FirMetadataSource.File(firFile) }
+
+        moduleFragment.addFile(chunkFile)
+        chunkFile.addChild(helperFn)
+        helperFn.parent = chunkFile
+
+        KoinPluginLogger.debug { "    Placed chunk helper $chunkIndex for $moduleName in separate file: $chunkFileName" }
+        return true
     }
 
     /**
