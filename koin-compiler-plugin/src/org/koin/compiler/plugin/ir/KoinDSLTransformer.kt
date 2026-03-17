@@ -110,27 +110,26 @@ class KoinDSLTransformer(
     private val currentDefinitionCall: Name? get() = transformContext.definitionCall
 
     override fun visitFunctionExpression(expression: IrFunctionExpression): IrExpression {
-        val previousContext = transformContext
-        transformContext = transformContext.copy(lambda = expression.function)
-        val result = super.visitFunctionExpression(expression)
-        // Preserve qualifier propagation from inner create(::T) across lambda boundary
-        val innerQualifier = transformContext.createQualifier
-        val innerReturnClass = transformContext.createReturnClass
-        transformContext = previousContext
-        if (innerQualifier != null) {
-            transformContext = transformContext.copy(
-                createQualifier = innerQualifier,
-                createReturnClass = innerReturnClass
-            )
+        return withContext(transformContext.copy(lambda = expression.function)) {
+            super.visitFunctionExpression(expression)
         }
-        return result
     }
 
     override fun visitFunction(declaration: IrFunction): IrStatement {
+        return withContext(transformContext.copy(function = declaration)) {
+            super.visitFunction(declaration)
+        }
+    }
+
+    /**
+     * Run [block] with a scoped [TransformContext], restoring the previous context afterward.
+     * Qualifier propagation from inner create(::T) is preserved across the boundary so that
+     * the enclosing definition call (single/factory/etc.) can pick it up.
+     */
+    private inline fun <T> withContext(newContext: TransformContext, block: () -> T): T {
         val previousContext = transformContext
-        transformContext = transformContext.copy(function = declaration)
-        val result = super.visitFunction(declaration)
-        // Preserve qualifier propagation from inner create(::T) across function boundary
+        transformContext = newContext
+        val result = block()
         val innerQualifier = transformContext.createQualifier
         val innerReturnClass = transformContext.createReturnClass
         transformContext = previousContext
