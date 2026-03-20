@@ -98,6 +98,7 @@ class KoinIrExtension(
         KoinPluginLogger.debug { "Phase 4: Processing @Monitor annotations" }
         val monitorTransformer = KoinMonitorTransformer(pluginContext)
         moduleFragment.transform(monitorTransformer, null)
+        monitorTransformer.logSummary()
 
         KoinPluginLogger.debug { "IR Phase completed" }
     }

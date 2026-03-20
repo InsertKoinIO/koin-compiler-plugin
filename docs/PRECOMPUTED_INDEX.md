@@ -525,6 +525,70 @@ Phase B: Compiler — annotations          Phase C: Compiler — DSL
 
 Phase A is the blocker. B and C can be developed in parallel once A is released. D is the final validation pass.
 
+## Known Issues & Notes
+
+### 1. `includes()` lost when emptying `module { }` body ⚠️
+
+When the compiler generates `module { }.also { it.index = ... }`, any `includes()` calls in the original body are lost:
+
+```kotlin
+val base = module { single<Repository>() }
+val app = module { includes(base); single<Service>() }
+startKoin { modules(app) }  // only app is listed — base never loaded!
+```
+
+**For the annotation path** this is not an issue — the compiler discovers all modules (explicit + `@Configuration` + includes) at the `startKoin<T>()` site and generates the full merged index.
+
+**For the DSL path** this needs to be handled. Options:
+- (a) Keep `includes()` calls in the `module { }` body, only skip definition calls. The `Module` still carries includes for runtime flattening, but definitions come from `.index`.
+- (b) Compiler resolves `includes()` at compile time: detect `includes(base)` in the lambda, track `base` as a dependency, and add it to the `modulesIndex()` merge at the `modules()` call site.
+- (c) `KoinIndex` gains an `includes: List<KoinIndex>` field for nested composition.
+
+Option (a) is simplest for V1 — keep `includes` working via the existing `Module` path, only optimize definition loading via `.index`. Module flattening still happens but is cheap.
+
+### 2. Null safety on `.index` access ⚠️
+
+Generated code like `m1.index!! + m2.index!!` crashes if any module has `.index = null` (e.g., from a dependency compiled without the plugin, or an older koin-core).
+
+**Mitigation**: The compiler should generate safe fallback logic:
+- For `startKoin<T>()`: the compiler generates all `.module()` calls itself, so `.index` is guaranteed non-null. `!!` is safe here.
+- For `modules(m1, m2)` transformation: the compiler can only guarantee `.index` for modules it transforms in the current compilation. For external modules, generate a fallback that checks `.index` and falls back to `loadModule()` if null:
+
+```kotlin
+// Instead of: modulesIndex(m1.index!! + m2.index!!)
+// Generate:
+if (m1.index != null && m2.index != null) {
+    modulesIndex(m1.index!! + m2.index!!)
+} else {
+    modules(m1, m2)  // existing path
+}
+```
+
+Or simpler: only transform `modules()` calls where all module variables are locally defined (compiler knows it set `.index` on them).
+
+### 3. Empty `module { }` allocation overhead ⚠️
+
+`module { }` still allocates a `Module` object with `LinkedHashMap`, `LinkedHashSet`, etc. — all unused when `.index` carries the definitions.
+
+**V1 mitigation**: Use `Module()` constructor directly instead of `module { }` DSL function. Avoids the lambda allocation and DSL setup.
+
+```kotlin
+// Instead of: module { }.also { it.index = ... }
+// Generate: Module().also { it.index = ... }
+```
+
+**V2+**: Eliminate `Module` wrapper entirely — generate `KoinIndex` directly.
+
+### 4. Performance claim precision 📝
+
+The "3 × M × N" framing in the doc assumes each of M modules has N definitions. More precisely:
+
+- **N_total** = total definitions across all M modules
+- **Today**: N_total `createDefinition()` calls + N_total `Module.mappings` insertions + N_total copies to `_instances` + O(M) flattening = **~3 × N_total**
+- **With index**: N_total `BeanDefinition` + `InstanceFactory` allocations + N_total `saveMapping` calls = **~2 × N_total**
+
+The win is **3 × N_total → 2 × N_total**, plus eliminating DSL call dispatch overhead, Module allocation, and the O(M) flattening pass. The real-world improvement depends on N_total and the per-call overhead of `createDefinition()` vs direct `saveMapping()`.
+
 ## Open Questions
 
 1. **`@Monitor` interaction** — Monitor wrapping happens at the InstanceFactory level. `loadIndex()` needs to apply monitoring when configured.
@@ -533,6 +597,4 @@ Phase A is the blocker. B and C can be developed in parallel once A is released.
 
 3. **Koin version alignment** — `KoinIndex` + `IndexEntry` + `Module.index` must exist in koin-core before the compiler plugin can target them. Coordinate koin-core release first.
 
-4. **Empty `module { }` body** — The compiler generates `module { }.also { it.index = ... }`. Could optimize with a dedicated `Module()` constructor that skips DSL setup entirely.
-
-5. **Index merging cost** — `index1 + index2 + index3` creates intermediate lists. Could use `buildList { addAll(i1.entries); addAll(i2.entries); ... }` for a single allocation. Or the compiler generates one flat `koinIndex(e1, e2, ..., eN)` with all entries inline.
+4. **Index merging cost** — `index1 + index2 + index3` creates intermediate lists. Could use `buildList { addAll(i1.entries); addAll(i2.entries); ... }` for a single allocation. Or the compiler generates one flat `koinIndex(e1, e2, ..., eN)` with all entries inline.
