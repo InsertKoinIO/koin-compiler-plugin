@@ -37,7 +37,8 @@ data class Requirement(
     val isList: Boolean,
     val isProperty: Boolean,
     val propertyKey: String?,
-    val qualifier: QualifierValue?
+    val qualifier: QualifierValue?,
+    val isProvided: Boolean = false
 ) {
     /**
      * Whether this requirement must be validated (must have a matching provider).
@@ -165,7 +166,7 @@ class BindingRegistry {
 
                 // Skip @Provided types and framework-provided types (always available at runtime)
                 val reqFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
-                if (reqFqName != null && ProvidedTypeRegistry.isProvided(reqFqName)) {
+                if (req.isProvided || (reqFqName != null && ProvidedTypeRegistry.isProvided(reqFqName))) {
                     KoinPluginLogger.debug { "      skip '${req.paramName}': ${req.typeKey.render()} (@Provided)" }
                     continue
                 }
@@ -400,7 +401,7 @@ class BindingRegistry {
 
             // Skip @Provided types and framework-provided types (same as real validation path)
             val reqFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
-            if (reqFqName != null && ProvidedTypeRegistry.isProvided(reqFqName)) continue
+            if (req.isProvided || (reqFqName != null && ProvidedTypeRegistry.isProvided(reqFqName))) continue
             if (reqFqName != null && isWhitelistedType(reqFqName)) continue
 
             val found = findProviderData(req, provided, consumerScopeFqName)
