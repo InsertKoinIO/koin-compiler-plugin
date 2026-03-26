@@ -7,7 +7,7 @@ Project status, completed work, and future plans.
 - [x] Implement reified type parameter syntax `single<T>()`, `factory<T>()`, etc.
 - [x] Implement `Scope.create(::T)` constructor reference syntax
 - [x] Implement `worker<T>()` DSL for Android WorkManager
-- [x] Make `plugin-support` a full KMP library (all Koin targets, requires Koin 4.2.0-beta3+)
+- [x] Make `plugin-support` a full KMP library (all Koin targets, requires Koin 4.2.0+)
 - [x] Create stub classes for ViewModel and ListenableWorker (avoid runtime dependencies)
 - [ ] Gradle plugin auto-injects `koin-annotations` dependency (needs KMP support)
 - [x] Move samples to separate folder for independent Kotlin version

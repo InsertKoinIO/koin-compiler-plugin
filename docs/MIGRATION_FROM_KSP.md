@@ -9,7 +9,7 @@ This guide helps you migrate from **Koin Annotations 2.x** (using KSP) to the **
 | **Processing** | KSP code generation | Kotlin compiler plugin (FIR + IR) |
 | **Generated files** | `*Module.kt` files in `build/generated` | Inline transformation, no generated files |
 | **Kotlin version** | K1 and K2 | K2 only (2.3.x+) |
-| **Koin version** | 3.x, 4.x | 4.2.0-RC1+ |
+| **Koin version** | 3.x, 4.x | 4.2.0+ |
 
 ## Step 1: Update Build Configuration
 
@@ -88,8 +88,8 @@ plugins {
 }
 
 dependencies {
-    implementation("io.insert-koin:koin-core:4.2.0-RC1")
-    implementation("io.insert-koin:koin-annotations:4.2.0-RC1")
+    implementation("io.insert-koin:koin-core:4.2.0")
+    implementation("io.insert-koin:koin-annotations:4.2.0")
 }
 ```
 
@@ -366,7 +366,7 @@ actual class PlatformModule {
 
 ### "Unresolved reference: module"
 
-Make sure you're using Koin 4.2.0-RC1 or later and that you have the `koin-annotations` dependency. The `module` extension property is provided by `koin-annotations`.
+Make sure you're using Koin 4.2.0 or later and that you have the `koin-annotations` dependency. The `module` extension property is provided by `koin-annotations`.
 
 ### Compile errors with K1
 
@@ -400,7 +400,7 @@ koinCompiler {
 ## Quick Migration Checklist
 
 - [ ] Update Kotlin to 2.3.x+
-- [ ] Update Koin to 4.2.0-RC1+
+- [ ] Update Koin to 4.2.0+
 - [ ] Remove KSP plugin from build.gradle.kts
 - [ ] Remove `koin-ksp-compiler` dependency (keep `koin-annotations`)
 - [ ] Add `io.insert-koin.compiler.plugin` plugin

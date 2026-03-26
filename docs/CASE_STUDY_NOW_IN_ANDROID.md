@@ -10,8 +10,8 @@ Migration of the [Now in Android](https://github.com/android/nowinandroid) app f
 | **Files modified** | - | 44 files | Simplified |
 | **Build config per module** | ~10 lines | 1 line | **-90%** |
 | **KSP dependencies** | 5+ per module | 0 | Eliminated |
-| **Kotlin version** | 2.2.20 | 2.3.20-Beta1 | Upgraded |
-| **Koin version** | 4.2.0-beta2 | 4.2.0-beta3 | Upgraded |
+| **Kotlin version** | 2.2.20 | 2.3.20 | Upgraded |
+| **Koin version** | 4.2.0-beta2 | 4.2.0 | Upgraded |
 
 ## Build Configuration Changes
 
@@ -85,7 +85,7 @@ class KoinConventionPlugin : Plugin<Project> {
 + koin-compiler = { id = "io.insert-koin.compiler.plugin", version.ref = "koinCompilerPlugin" }
 ```
 
-**Key change:** `koin-annotations` version now follows `koin` version (4.2.0-beta3), not a separate version.
+**Key change:** `koin-annotations` version now follows `koin` version (4.2.0), not a separate version.
 
 ## Code Changes
 

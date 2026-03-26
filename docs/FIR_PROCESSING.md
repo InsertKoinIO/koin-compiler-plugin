@@ -673,7 +673,7 @@ classSymbol.rawStatus.isActual
 | Version | Feature |
 |---------|---------|
 | 2.3.0+ | `containingFileName` parameter in `createTopLevelFunction` |
-| 2.3.20-Beta1 | ObjC export still fails with synthetic files (requires skip on Native) |
+| 2.3.20 | ObjC export still fails with synthetic files (requires skip on Native) |
 | All K2 | FIR + IR phases required |
 
 ### Platform-Specific Behavior

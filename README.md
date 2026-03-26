@@ -89,7 +89,7 @@ koinCompiler {
 
 ## Compatibility
 
-- **Koin**: 4.2.0-RC1+
+- **Koin**: 4.2.0+
 - **Kotlin**: K2 compiler required (2.3.x+)
 
 ## Documentation

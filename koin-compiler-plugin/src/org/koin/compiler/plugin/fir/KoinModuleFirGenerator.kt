@@ -49,7 +49,7 @@ import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginConstants
 
 // Note: Prior to Kotlin 2.3.20, KLIB-based targets (Native, JS, Wasm) could not handle
-// FIR-generated top-level declarations (KT-58886, KT-75865). Starting from 2.3.20-Beta1,
+// FIR-generated top-level declarations (KT-58886, KT-75865). Starting from 2.3.20,
 // all platforms support FIR-generated declarations with synthetic file names.
 
 /**
