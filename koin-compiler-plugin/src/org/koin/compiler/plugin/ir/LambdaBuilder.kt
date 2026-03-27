@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.name.ClassId
@@ -75,14 +76,14 @@ class LambdaBuilder(
      * - scopeParam: The Scope extension receiver parameter
      * - paramsParam: The ParametersHolder value parameter
      *
-     * @param returnTypeClass The return type of the lambda
+     * @param returnType The return type of the lambda
      * @param builder The outer declaration builder
      * @param parentFunction The parent function containing this lambda
      * @param bodyBuilder Callback to create the body expression
      * @return The lambda expression, or irNull() if required classes are not found
      */
     fun create(
-        returnTypeClass: IrClass,
+        returnType: IrType,
         builder: DeclarationIrBuilder,
         parentFunction: IrFunction,
         bodyBuilder: (
@@ -108,7 +109,7 @@ class LambdaBuilder(
             visibility = DescriptorVisibilities.LOCAL,
             isInline = false,
             isExpect = false,
-            returnType = returnTypeClass.defaultType,
+            returnType = returnType,
             modality = Modality.FINAL,
             symbol = IrSimpleFunctionSymbolImpl(),
             isTailrec = false,
@@ -172,7 +173,7 @@ class LambdaBuilder(
         val lambdaType = func2Class.typeWith(
             scopeClassLocal.defaultType,
             paramsHolderClass.defaultType,
-            returnTypeClass.defaultType
+            returnType
         )
 
         return IrFunctionExpressionImpl(

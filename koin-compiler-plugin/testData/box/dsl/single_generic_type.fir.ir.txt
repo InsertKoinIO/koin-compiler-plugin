@@ -1,22 +1,35 @@
-FILE fqName:org.koin.plugin.hints fileName:/repositoryDsl_single.kt
+FILE fqName:org.koin.plugin.hints fileName:/genericServiceDsl_single.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Repository
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.GenericService<T of <root>.GenericService>
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/serviceDsl_single.kt
+FILE fqName:org.koin.plugin.hints fileName:/myServiceDsl_single.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Service
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.MyService
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
-  CLASS CLASS name:Repository modality:FINAL visibility:public superTypes:[kotlin.Any]
-    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Repository
-    CONSTRUCTOR visibility:public returnType:<root>.Repository [primary]
+  CLASS CLASS name:GenericService modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.GenericService<T of <root>.GenericService>
+    TYPE_PARAMETER name:T index:0 variance: superTypes:[kotlin.Any?] reified:false
+    PROPERTY name:service visibility:public modality:FINAL [val]
+      FIELD PROPERTY_BACKING_FIELD name:service type:<root>.MyService visibility:private [final]
+        EXPRESSION_BODY
+          GET_VAR 'service: <root>.MyService declared in <root>.GenericService.<init>' type=<root>.MyService origin=INITIALIZE_PROPERTY_FROM_PARAMETER
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-service> visibility:public modality:FINAL returnType:<root>.MyService
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.GenericService<T of <root>.GenericService>
+        correspondingProperty: PROPERTY name:service visibility:public modality:FINAL [val]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-service> (): <root>.MyService declared in <root>.GenericService'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:service type:<root>.MyService visibility:private [final]' type=<root>.MyService origin=null
+              receiver: GET_VAR '<this>: <root>.GenericService<T of <root>.GenericService> declared in <root>.GenericService.<get-service>' type=<root>.GenericService<T of <root>.GenericService> origin=null
+    CONSTRUCTOR visibility:public returnType:<root>.GenericService<T of <root>.GenericService> [primary]
+      VALUE_PARAMETER kind:Regular name:service index:0 type:<root>.MyService
       BLOCK_BODY
         DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
-        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Repository modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:GenericService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
     FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
       VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
       VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
@@ -30,24 +43,12 @@ FILE fqName:<root> fileName:/test.kt
       VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
       overridden:
         public open fun toString (): kotlin.String declared in kotlin.Any
-  CLASS CLASS name:Service modality:FINAL visibility:public superTypes:[kotlin.Any]
-    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Service
-    PROPERTY name:repository visibility:public modality:FINAL [val]
-      FIELD PROPERTY_BACKING_FIELD name:repository type:<root>.Repository visibility:private [final]
-        EXPRESSION_BODY
-          GET_VAR 'repository: <root>.Repository declared in <root>.Service.<init>' type=<root>.Repository origin=INITIALIZE_PROPERTY_FROM_PARAMETER
-      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-repository> visibility:public modality:FINAL returnType:<root>.Repository
-        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.Service
-        correspondingProperty: PROPERTY name:repository visibility:public modality:FINAL [val]
-        BLOCK_BODY
-          RETURN type=kotlin.Nothing from='public final fun <get-repository> (): <root>.Repository declared in <root>.Service'
-            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:repository type:<root>.Repository visibility:private [final]' type=<root>.Repository origin=null
-              receiver: GET_VAR '<this>: <root>.Service declared in <root>.Service.<get-repository>' type=<root>.Service origin=null
-    CONSTRUCTOR visibility:public returnType:<root>.Service [primary]
-      VALUE_PARAMETER kind:Regular name:repository index:0 type:<root>.Repository
+  CLASS CLASS name:MyService modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.MyService
+    CONSTRUCTOR visibility:public returnType:<root>.MyService [primary]
       BLOCK_BODY
         DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
-        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Service modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:MyService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
     FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
       VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
       VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
@@ -71,32 +72,33 @@ FILE fqName:<root> fileName:/test.kt
               BLOCK_BODY
                 TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
                   CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
-                    TYPE_ARG T: <root>.Repository
+                    TYPE_ARG T: <root>.MyService
                     ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in <root>.box.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
-                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Repository modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.Repository>
+                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:MyService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.MyService>
                     ARG qualifier: CONST Null type=kotlin.Nothing? value=null
-                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, <root>.Repository> origin=LAMBDA
-                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:<root>.Repository
+                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, <root>.MyService> origin=LAMBDA
+                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:<root>.MyService
                         VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
                         VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
                         BLOCK_BODY
-                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.Repository declared in <root>.box.<anonymous>'
-                            CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.Repository' type=<root>.Repository origin=null
+                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.MyService declared in <root>.box.<anonymous>'
+                            CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.MyService' type=<root>.MyService origin=null
                 TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
                   CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
-                    TYPE_ARG T: <root>.Service
+                    TYPE_ARG T: <root>.GenericService<kotlin.String>
                     ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in <root>.box.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
-                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Service modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.Service>
+                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:GenericService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.GenericService<kotlin.Any?>>
                     ARG qualifier: CONST Null type=kotlin.Nothing? value=null
-                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, <root>.Service> origin=LAMBDA
-                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:<root>.Service
+                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, <root>.GenericService<kotlin.String>> origin=LAMBDA
+                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:<root>.GenericService<kotlin.String>
                         VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
                         VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
                         BLOCK_BODY
-                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.Service declared in <root>.box.<anonymous>'
-                            CONSTRUCTOR_CALL 'public constructor <init> (repository: <root>.Repository) declared in <root>.Service' type=<root>.Service origin=null
-                              ARG repository: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=<root>.Repository origin=null
-                                TYPE_ARG T: <root>.Repository
+                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.GenericService<kotlin.String> declared in <root>.box.<anonymous>'
+                            CONSTRUCTOR_CALL 'public constructor <init> (service: <root>.MyService) declared in <root>.GenericService' type=<root>.GenericService<T of <root>.GenericService> origin=null
+                              TYPE_ARG (of class) T: kotlin.String
+                              ARG service: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=<root>.MyService origin=null
+                                TYPE_ARG T: <root>.MyService
                                 ARG <this>: GET_VAR '<this>: org.koin.core.scope.Scope declared in <root>.box.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=null
                                 ARG qualifier: CONST Null type=kotlin.Nothing? value=null
                                 ARG parameters: CONST Null type=kotlin.Nothing? value=null
@@ -111,22 +113,36 @@ FILE fqName:<root> fileName:/test.kt
                     CALL 'public final fun modules (modules: org.koin.core.module.Module): org.koin.core.KoinApplication declared in org.koin.core.KoinApplication' type=org.koin.core.KoinApplication origin=null
                       ARG <this>: GET_VAR '$this$koinApplication: org.koin.core.KoinApplication declared in <root>.box.<anonymous>' type=org.koin.core.KoinApplication origin=IMPLICIT_ARGUMENT
                       ARG modules: GET_VAR 'val m: org.koin.core.module.Module declared in <root>.box' type=org.koin.core.module.Module origin=null
-      VAR name:repo type:<root>.Repository [val]
-        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.Repository origin=null
-          TYPE_ARG T: <root>.Repository
+      VAR name:g1 type:<root>.GenericService<kotlin.String> [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.GenericService<kotlin.String> origin=null
+          TYPE_ARG T: <root>.GenericService<kotlin.String>
           ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
-      VAR name:service type:<root>.Service [val]
-        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.Service origin=null
-          TYPE_ARG T: <root>.Service
+      VAR name:g2 type:<root>.GenericService<kotlin.String> [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.GenericService<kotlin.String> origin=null
+          TYPE_ARG T: <root>.GenericService<kotlin.String>
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+      VAR name:s type:<root>.MyService [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.MyService origin=null
+          TYPE_ARG T: <root>.MyService
           ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
       RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
         WHEN type=kotlin.String origin=IF
           BRANCH
-            if: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EQEQEQ
-              ARG arg0: CALL 'public final fun <get-repository> (): <root>.Repository declared in <root>.Service' type=<root>.Repository origin=GET_PROPERTY
-                ARG <this>: GET_VAR 'val service: <root>.Service declared in <root>.box' type=<root>.Service origin=null
-              ARG arg1: GET_VAR 'val repo: <root>.Repository declared in <root>.box' type=<root>.Repository origin=null
-            then: CONST String type=kotlin.String value="OK"
+            if: WHEN type=kotlin.Boolean origin=ANDAND
+              BRANCH
+                if: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EQEQEQ
+                  ARG arg0: GET_VAR 'val g1: <root>.GenericService<kotlin.String> declared in <root>.box' type=<root>.GenericService<kotlin.String> origin=null
+                  ARG arg1: GET_VAR 'val g2: <root>.GenericService<kotlin.String> declared in <root>.box' type=<root>.GenericService<kotlin.String> origin=null
+                then: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EQEQEQ
+                  ARG arg0: CALL 'public final fun <get-service> (): <root>.MyService declared in <root>.GenericService' type=<root>.MyService origin=GET_PROPERTY
+                    ARG <this>: GET_VAR 'val g1: <root>.GenericService<kotlin.String> declared in <root>.box' type=<root>.GenericService<kotlin.String> origin=null
+                  ARG arg1: GET_VAR 'val s: <root>.MyService declared in <root>.box' type=<root>.MyService origin=null
+              BRANCH
+                if: CONST Boolean type=kotlin.Boolean value=true
+                then: CONST Boolean type=kotlin.Boolean value=false
+            then: BLOCK type=kotlin.String origin=null
+              CONST String type=kotlin.String value="OK"
           BRANCH
             if: CONST Boolean type=kotlin.Boolean value=true
-            then: CONST String type=kotlin.String value="FAIL: dependency not injected correctly"
+            then: BLOCK type=kotlin.String origin=null
+              CONST String type=kotlin.String value="FAIL: generic singleton resolution not working"

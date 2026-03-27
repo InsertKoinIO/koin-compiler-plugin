@@ -101,7 +101,7 @@ FILE fqName:<root> fileName:/test.kt
                                 BLOCK_BODY
                                   RETURN type=kotlin.Nothing from='local final fun <anonymous> ($this$scoped: org.koin.core.scope.Scope, it: org.koin.core.parameter.ParametersHolder): <root>.Service declared in <root>.box.<anonymous>.<anonymous>'
                                     CONSTRUCTOR_CALL 'public constructor <init> (repository: <root>.Repository) declared in <root>.Service' type=<root>.Service origin=null
-                                      ARG repository: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=T of org.koin.core.scope.Scope.get origin=null
+                                      ARG repository: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=<root>.Repository origin=null
                                         TYPE_ARG T: <root>.Repository
                                         ARG <this>: GET_VAR '$this$scoped: org.koin.core.scope.Scope declared in <root>.box.<anonymous>.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=IMPLICIT_ARGUMENT
                                         ARG qualifier: CONST Null type=kotlin.Nothing? value=null

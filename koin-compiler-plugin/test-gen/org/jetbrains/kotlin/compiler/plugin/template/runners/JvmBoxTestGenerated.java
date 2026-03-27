@@ -93,6 +93,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("single_generic_type.kt")
+    public void testSingle_generic_type() {
+      runTest("koin-compiler-plugin/testData/box/dsl/single_generic_type.kt");
+    }
+
+    @Test
     @TestMetadata("single_with_default_value.kt")
     public void testSingle_with_default_value() {
       runTest("koin-compiler-plugin/testData/box/dsl/single_with_default_value.kt");

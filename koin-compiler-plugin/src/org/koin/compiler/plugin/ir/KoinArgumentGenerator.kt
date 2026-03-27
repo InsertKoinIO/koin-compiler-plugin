@@ -47,6 +47,8 @@ class KoinArgumentGenerator(
 
     private val propertyAnnotationFqName = KoinAnnotationFqNames.PROPERTY
     private val lazyModeClass by lazy { context.referenceClass(ClassId.topLevel(FqName("kotlin.LazyThreadSafetyMode"))) }
+    private val listClass by lazy { context.referenceClass(ClassId.topLevel(FqName("kotlin.collections.List")))?.owner }
+    private val lazyClass by lazy { context.referenceClass(ClassId.topLevel(FqName("kotlin.Lazy")))?.owner }
 
     override fun generateForParameter(
         param: IrValueParameter,
@@ -310,7 +312,10 @@ class KoinArgumentGenerator(
             }
 
         if (getAllFunction != null) {
+            val listType = listClass?.typeWith(elementType)
             return builder.irCall(getAllFunction.symbol).apply {
+                // Explicitly actualize return type to avoid leaking unbound function type parameter.
+                if (listType != null) type = listType
                 dispatchReceiver = scopeReceiver
                 putTypeArgument(0, elementType)
             }
@@ -346,9 +351,12 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getFunction.symbol).apply {
+            // Explicitly actualize return type to avoid leaking unbound function type parameter.
+            this.type = requestedType
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
 
             getFunction.valueParameters.forEachIndexed { index, param ->
                 val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
@@ -386,9 +394,12 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getOrNullFunction.symbol).apply {
+            // Explicitly actualize return type to avoid leaking unbound function type parameter.
+            this.type = requestedType.makeNullable()
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
 
             getOrNullFunction.valueParameters.forEachIndexed { index, param ->
                 val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
@@ -430,9 +441,15 @@ class KoinArgumentGenerator(
             ?.filterIsInstance<IrEnumEntry>()
             ?.firstOrNull { it.name.asString() == "SYNCHRONIZED" }
 
+        val requestedType = type
         return builder.irCall(injectFunction.symbol).apply {
+            // Explicitly actualize return type to avoid leaking unbound function type parameter.
+            val lazyType = lazyClass?.typeWith(requestedType)
+            if (lazyType != null) {
+                this.type = lazyType
+            }
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
 
             injectFunction.valueParameters.forEachIndexed { index, param ->
                 val paramType = param.type
@@ -480,9 +497,11 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getFunction.symbol).apply {
+            this.type = requestedType
             dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
         }
     }
 
@@ -509,9 +528,11 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getOrNullFunction.symbol).apply {
+            this.type = requestedType.makeNullable()
             dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
         }
     }
 }
