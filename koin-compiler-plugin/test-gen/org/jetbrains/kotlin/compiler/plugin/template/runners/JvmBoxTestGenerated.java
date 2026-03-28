@@ -195,6 +195,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("list_injection.kt")
+    public void testList_injection() {
+      runTest("koin-compiler-plugin/testData/box/params/list_injection.kt");
+    }
+
+    @Test
     @TestMetadata("property_basic.kt")
     public void testProperty_basic() {
       runTest("koin-compiler-plugin/testData/box/params/property_basic.kt");

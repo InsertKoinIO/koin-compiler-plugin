@@ -1,0 +1,61 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public abstract interface Plugin : R|kotlin/Any| {
+        public abstract fun name(): R|kotlin/String|
+
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(plugin1)) public final class Plugin1 : R|Plugin| {
+        public constructor(): R|Plugin1| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun name(): R|kotlin/String| {
+            ^name String(Plugin1)
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(plugin2)) public final class Plugin2 : R|Plugin| {
+        public constructor(): R|Plugin2| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun name(): R|kotlin/String| {
+            ^name String(Plugin2)
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class PluginManager : R|kotlin/Any| {
+        public constructor(plugins: R|kotlin/collections/List<Plugin>|): R|PluginManager| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val plugins: R|kotlin/collections/List<Plugin>| = R|<local>/plugins|
+            public get(): R|kotlin/collections/List<Plugin>|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval pluginNames: R|kotlin/collections/List<kotlin/String>| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|PluginManager|>().R|/PluginManager.plugins|.R|kotlin/collections/map|<R|Plugin|, R|kotlin/String|>(<L> = map@fun <anonymous>(it: R|Plugin|): R|kotlin/String| <inline=Inline, kind=UNKNOWN>  {
+            ^ R|<local>/it|.R|/Plugin.name|()
+        }
+        ).R|kotlin/collections/sorted|<R|kotlin/String|>()
+        ^box when () {
+            ==(R|<local>/pluginNames|, R|kotlin/collections/listOf|<R|kotlin/String|>(vararg(String(Plugin1), String(Plugin2)))) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: expected [Plugin1, Plugin2], got ), R|<local>/pluginNames|)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

@@ -119,6 +119,6 @@ FILE fqName:<root> fileName:/testModuleModule.kt
                       BLOCK_BODY
                         RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.PluginManager declared in <root>.module.<anonymous>'
                           CONSTRUCTOR_CALL 'public constructor <init> (plugins: kotlin.collections.List<<root>.Plugin>) declared in <root>.PluginManager' type=<root>.PluginManager origin=null
-                            ARG plugins: CALL 'public final fun getAll <T> (): kotlin.collections.List<T of org.koin.core.scope.Scope.getAll> declared in org.koin.core.scope.Scope' type=kotlin.collections.List<T of org.koin.core.scope.Scope.getAll> origin=null
+                            ARG plugins: CALL 'public final fun getAll <T> (): kotlin.collections.List<T of org.koin.core.scope.Scope.getAll> declared in org.koin.core.scope.Scope' type=kotlin.collections.List<<root>.Plugin> origin=null
                               TYPE_ARG T: <root>.Plugin
                               ARG <this>: GET_VAR '<this>: org.koin.core.scope.Scope declared in <root>.module.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=null
