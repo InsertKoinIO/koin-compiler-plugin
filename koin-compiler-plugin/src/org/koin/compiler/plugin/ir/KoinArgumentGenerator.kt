@@ -298,31 +298,67 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-        if (scopeClass == null) {
-            KoinPluginLogger.debug { "Could not resolve scope class for getAll<${elementType.classFqName}>() call" }
-            return builder.irNull()
-        }
+        val listType = listClass?.typeWith(elementType)
+        if (scopeClass != null) {
+            // Prefer the member function when available, but fall back to the top-level extension
+            // so List<T> injection keeps working across Koin API shapes.
+            val getAllFunction = scopeClass.declarations
+                .filterIsInstance<IrSimpleFunction>()
+                .firstOrNull { function ->
+                    function.name.asString() == "getAll" &&
+                    function.typeParameters.size == 1 &&
+                    function.valueParameters.isEmpty()
+                }
+                ?: context.referenceFunctions(
+                    CallableId(FqName("org.koin.core.scope"), Name.identifier("getAll"))
+                ).map { it.owner }
+                    .filterIsInstance<IrSimpleFunction>()
+                    .firstOrNull { function ->
+                        function.name.asString() == "getAll" &&
+                        function.typeParameters.size == 1 &&
+                        function.valueParameters.isEmpty() &&
+                        (
+                            function.dispatchReceiverParameter?.type?.classifierOrNull?.owner == scopeClass ||
+                                function.extensionReceiverParameter?.type?.classifierOrNull?.owner == scopeClass
+                            )
+                    }
 
-        // Find getAll function in Scope
-        val getAllFunction = scopeClass.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .firstOrNull { function ->
-                function.name.asString() == "getAll" &&
-                function.typeParameters.size == 1
+            if (getAllFunction != null) {
+                return builder.irCall(getAllFunction.symbol).apply {
+                    // Explicitly actualize return type to avoid leaking unbound function type parameter.
+                    if (listType != null) type = listType
+                    if (getAllFunction.dispatchReceiverParameter != null) {
+                        dispatchReceiver = scopeReceiver
+                    } else if (getAllFunction.extensionReceiverParameter != null) {
+                        extensionReceiver = scopeReceiver
+                    }
+                    putTypeArgument(0, elementType)
+                }
             }
 
-        if (getAllFunction != null) {
-            val listType = listClass?.typeWith(elementType)
-            return builder.irCall(getAllFunction.symbol).apply {
-                // Explicitly actualize return type to avoid leaking unbound function type parameter.
+            KoinPluginLogger.debug {
+                "Could not find getAll function on scope class ${scopeClass.name} for element type ${elementType.classFqName}; using emptyList() fallback"
+            }
+        } else {
+            KoinPluginLogger.debug {
+                "Could not resolve scope class for getAll<${elementType.classFqName}>() call; using emptyList() fallback"
+            }
+        }
+
+        val emptyListFunction = context.referenceFunctions(
+            CallableId(FqName("kotlin.collections"), Name.identifier("emptyList"))
+        ).firstOrNull()?.owner
+
+        if (emptyListFunction != null) {
+            return builder.irCall(emptyListFunction.symbol).apply {
                 if (listType != null) type = listType
-                dispatchReceiver = scopeReceiver
                 putTypeArgument(0, elementType)
             }
         }
 
-        // Fallback to empty list if getAll not found
-        KoinPluginLogger.debug { "Could not find getAll function on scope class ${scopeClass.name} for element type ${elementType.classFqName}" }
+        KoinPluginLogger.debug {
+            "Could not resolve emptyList<${elementType.classFqName}>() fallback for List injection"
+        }
         return builder.irNull()
     }
 
