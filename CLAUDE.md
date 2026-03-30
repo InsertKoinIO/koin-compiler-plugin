@@ -110,9 +110,11 @@ fun provideHttpClient(): NetworkClient = OkHttpClient()
 | `@Qualifier(name = "x")` | String qualifier → `named("x")` |
 | `@Qualifier(MyType::class)` | Type qualifier → `typeQualifier<MyType>()` |
 | `@InjectedParam` | Uses `ParametersHolder.get()` |
-| `@Property("key")` | Injects property value |
+| `@Property("key")` | Injects property value (warns if no `@PropertyValue` default) |
 | `@PropertyValue("key")` | Provides default value for `@Property` |
-| `@Provided` | Marks type as externally available (skips safety validation) |
+| `@Provided` | Marks type/parameter as externally available (skips safety validation) |
+| `@ScopeId(name = "x")` | Resolves from named scope → `getScope("x").get<T>()` |
+| `@ScopeId(MyScope::class)` | Resolves from typed scope → `getScope("fqName").get<T>()` |
 
 ## Build Commands
 

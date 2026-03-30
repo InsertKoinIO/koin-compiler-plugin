@@ -60,10 +60,33 @@ class ParameterAnalyzer(
                 hasDefault = param.defaultValue != null,
                 isInjectedParam = false,
                 isProvided = false,
+                isScopeId = false,
+                scopeIdName = null,
                 isLazy = false,
                 isList = false,
                 isProperty = true,
                 propertyKey = propertyKey,
+                qualifier = null
+            )
+        }
+
+        // @ScopeId("name") → resolved from a named Koin scope at runtime
+        val scopeIdName = qualifierExtractor.getScopeIdAnnotationName(param)
+        if (scopeIdName != null) {
+            KoinPluginLogger.debug { "    param '$paramName': @ScopeId(\"$scopeIdName\")" }
+            return Requirement(
+                typeKey = typeKeyFromType(paramType),
+                paramName = paramName,
+                isNullable = paramType.isMarkedNullable(),
+                hasDefault = param.defaultValue != null,
+                isInjectedParam = false,
+                isProvided = false,
+                isScopeId = true,
+                scopeIdName = scopeIdName,
+                isLazy = false,
+                isList = false,
+                isProperty = false,
+                propertyKey = null,
                 qualifier = null
             )
         }
@@ -79,6 +102,8 @@ class ParameterAnalyzer(
                 hasDefault = param.defaultValue != null,
                 isInjectedParam = true,
                 isProvided = false,
+                isScopeId = false,
+                scopeIdName = null,
                 isLazy = false,
                 isList = false,
                 isProperty = false,
@@ -98,6 +123,8 @@ class ParameterAnalyzer(
                 hasDefault = param.defaultValue != null,
                 isInjectedParam = false,
                 isProvided = true,
+                isScopeId = false,
+                scopeIdName = null,
                 isLazy = false,
                 isList = false,
                 isProperty = false,
@@ -118,6 +145,26 @@ class ParameterAnalyzer(
             val className = classifier.name.asString()
             val packageName = classifier.packageFqName?.asString()
 
+            // Scope parameter → injected as the scope receiver itself, skip validation
+            if (className == "Scope" && packageName == "org.koin.core.scope") {
+                KoinPluginLogger.debug { "    param '$paramName': Scope (scope receiver injection)" }
+                return Requirement(
+                    typeKey = typeKeyFromType(paramType),
+                    paramName = paramName,
+                    isNullable = isNullable,
+                    hasDefault = hasDefault,
+                    isInjectedParam = false,
+                    isProvided = true, // Scope is always available — treat as @Provided
+                    isScopeId = false,
+                    scopeIdName = null,
+                    isLazy = false,
+                    isList = false,
+                    isProperty = false,
+                    propertyKey = null,
+                    qualifier = null
+                )
+            }
+
             // Lazy<T>
             if (className == "Lazy" && packageName == "kotlin") {
                 val innerType = (paramType as? IrSimpleType)?.arguments?.firstOrNull()?.typeOrNull
@@ -134,6 +181,8 @@ class ParameterAnalyzer(
                     hasDefault = hasDefault,
                     isInjectedParam = false,
                     isProvided = false,
+                    isScopeId = false,
+                    scopeIdName = null,
                     isLazy = true,
                     isList = false,
                     isProperty = false,
@@ -154,6 +203,8 @@ class ParameterAnalyzer(
                     hasDefault = hasDefault,
                     isInjectedParam = false,
                     isProvided = false,
+                    isScopeId = false,
+                    scopeIdName = null,
                     isLazy = false,
                     isList = true,
                     isProperty = false,
@@ -178,6 +229,8 @@ class ParameterAnalyzer(
             hasDefault = hasDefault,
             isInjectedParam = false,
             isProvided = false,
+            isScopeId = false,
+            scopeIdName = null,
             isLazy = false,
             isList = false,
             isProperty = false,

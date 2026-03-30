@@ -121,9 +121,9 @@ Detect missing dependencies at compile time instead of runtime crashes.
 - [x] Package filtering: scan now matches both function's package and return type's package
 
 **Remaining for 1.0:**
-- [ ] Property validation (D): `@Property`/`@PropertyValue` matching — see §2.7
-- [ ] `@ScopeId` support — see §2.8
-- [ ] `Scope` parameter injection — see §2.9
+- [x] Property validation (D): `@Property`/`@PropertyValue` matching — see §2.7
+- [x] `@ScopeId` support — see §2.8
+- [x] `Scope` parameter injection — see §2.9
 
 ### 2.4 `@Monitor` Annotation Support ✅
 Function interception for logging and performance capture:
@@ -169,55 +169,43 @@ Generate pre-populated HashMap for instant startup — see [PREBUILT_INDEX.md](P
 - [ ] Unsafe DSL detection (hand-written lambdas → compiler error when `prebuiltIndex = true`)
 - [ ] `prebuiltIndex` Gradle option (default: `false` in 1.x, `true` in 2.x)
 
-### 2.7 Property Validation (D): `@Property`/`@PropertyValue` Matching
-Validate that `@Property("key")` parameters have a corresponding `@PropertyValue("key")` default.
-- [ ] Collect all `@PropertyValue("key")` registrations (already in `PropertyValueRegistry`)
-- [ ] In `BindingRegistry` / `ParameterAnalyzer`: for `@Property("key")` params, check key exists in registry
-- [ ] Cross-module: generate hint for `@PropertyValue` keys so downstream modules can validate
-- [ ] Error message: `Missing property default: "api.timeout" — no @PropertyValue("api.timeout") found`
-- [ ] Skip validation if property has a default value in `@PropertyValue`
+### 2.7 Property Validation (D): `@Property`/`@PropertyValue` Matching ✅
+Validates that `@Property("key")` parameters have a corresponding `@PropertyValue("key")` default.
+Emits a warning (not error) since properties can be set at runtime via `properties()`.
+
+- [x] `PropertyValueRegistry` already collects `@PropertyValue("key")` registrations
+- [x] `BindingRegistry.validatePropertyKeys()`: warns for `@Property("key")` without matching `@PropertyValue`
+- [x] Called from `CompileSafetyValidator.validate()` after module validation
+- [x] Box test: `property_value_ok` — @PropertyValue matches @Property key
+
+### 2.8 `@ScopeId` Parameter Support ✅
+Supports `@ScopeId` annotation for injecting values from a named Koin scope.
+Generates `getScope("scopeId").get<T>()`. Validation skips `@ScopeId` parameters.
+
+- [x] `KoinAnnotationFqNames.SCOPE_ID` registered
+- [x] `QualifierExtractor.getScopeIdAnnotationName()`: handles `@ScopeId(MyScope::class)` and `@ScopeId(name = "id")`
+- [x] `ParameterAnalyzer`: classifies as `isScopeId = true`
+- [x] `KoinArgumentGenerator.createGetFromNamedScopeCall()`: generates `scope.getScope("id").get<T>()`
+- [x] `Requirement.requiresValidation()`: returns false for `isScopeId`
+- [x] Box test: `scope_id_ok`
 
 ```kotlin
-// Should compile-error if no @PropertyValue("api.timeout") exists anywhere:
 @Factory
-class ApiClient(@Property("api.timeout") val timeout: Int)
+class ProfileService(@ScopeId(name = "user_session") val session: UserSession)
+// Generates: ProfileService(scope.getScope("user_session").get<UserSession>())
 ```
 
-### 2.8 `@ScopeId` Parameter Support
-Support `@ScopeId` annotation for injecting values from a named Koin scope.
-Currently **not recognized** by the compiler plugin — treated as a regular dependency, generating wrong code.
+### 2.9 `Scope` Parameter Injection ✅
+Constructor parameters of type `org.koin.core.scope.Scope` are injected with the scope receiver itself.
+Compile safety validation automatically skips `Scope` parameters (can't statically validate dynamic lookups).
 
-- [ ] Add `SCOPE_ID` to `KoinAnnotationFqNames.kt`
-- [ ] `ParameterAnalyzer`: detect `@ScopeId` → classify as `isScopeId = true`, extract scope name
-- [ ] `KoinArgumentGenerator`: generate `getKoin().getScope("scopeId").get<T>()` for `@ScopeId` params
-- [ ] `BindingRegistry`: skip validation for `@ScopeId` params (runtime scope, can't validate statically)
-- [ ] Add tests: box test + diagnostic test
+- [x] `KoinArgumentGenerator`: detect param type `org.koin.core.scope.Scope` → pass `scopeReceiver` directly
+- [x] `ParameterAnalyzer`: detect Scope type → skip validation (treated as implicitly `@Provided`)
+- [x] Add tests (`scope_param_ok` box test)
 
 ```kotlin
-// Today: generates scope.get<UserSession>() — WRONG
-// Target: generates getKoin().getScope("user_session").get<UserSession>()
-@Factory
-class ProfileService(@ScopeId("user_session") val session: UserSession)
-```
-
-### 2.9 `Scope` Parameter Injection
-In previous Koin Annotations (KSP), constructor parameters of type `org.koin.core.scope.Scope`
-were injected with the current scope instance. Currently **not supported** — generates `scope.get<Scope>()`
-which fails (tries to look up Scope as a dependency).
-
-**Decision: require `@Provided` on Scope parameters.** This skips safety validation (correct, since
-injecting Scope enables dynamic `scope.get<Anything>()` which can't be statically validated).
-
-- [ ] `KoinArgumentGenerator`: detect param type `org.koin.core.scope.Scope` → generate `scope` (the extension receiver itself)
-- [ ] `ParameterAnalyzer`: detect Scope type → skip validation (or require `@Provided`)
-- [ ] Document: `@Provided` on `Scope` params is required, warn that it bypasses compile safety
-- [ ] Consider: emit a warning when `Scope` is injected (encourages explicit deps instead)
-- [ ] Add tests
-
-```kotlin
-// User must annotate with @Provided to acknowledge safety bypass:
 @Scoped
-class ScopedService(@Provided val scope: Scope) {
+class ScopedService(val scope: Scope) {
     fun dynamicLookup() = scope.get<SomeDep>()  // Not validated at compile time
 }
 ```

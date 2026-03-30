@@ -96,6 +96,9 @@ object KoinAnnotationFqNames {
     /** @Provided annotation - marks a type as externally provided (skips safety validation). */
     val PROVIDED = FqName("org.koin.core.annotation.Provided")
 
+    /** @ScopeId annotation - injects a value from a named Koin scope. */
+    val SCOPE_ID = FqName("org.koin.core.annotation.ScopeId")
+
     // ================================================================================
     // Application Annotations
     // ================================================================================

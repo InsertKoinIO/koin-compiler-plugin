@@ -62,6 +62,9 @@ class CompileSafetyValidator(
             ownDefinitions
         )
 
+        // Validate @Property/@PropertyValue matching
+        registry.validatePropertyKeys(ownDefinitions, parameterAnalyzer, moduleName)
+
         // Mark as validated regardless of errors to prevent duplicate error reporting
         // at A3. If A2 already reported missing dependencies, re-reporting at A3 would
         // produce duplicates since the same error is still present in the full graph.

@@ -34,6 +34,8 @@ data class Requirement(
     val hasDefault: Boolean,
     val isInjectedParam: Boolean,
     val isProvided: Boolean,
+    val isScopeId: Boolean,
+    val scopeIdName: String?,
     val isLazy: Boolean,
     val isList: Boolean,
     val isProperty: Boolean,
@@ -47,6 +49,7 @@ data class Requirement(
     fun requiresValidation(): Boolean {
         if (isInjectedParam) return false  // Provided at runtime via parametersOf()
         if (isProvided) return false       // @Provided — externally available at runtime
+        if (isScopeId) return false        // @ScopeId — resolved from named scope at runtime
         if (isNullable) return false        // getOrNull() handles missing
         if (isList) return false            // getAll() returns empty if none
         if (isProperty) return false        // Property injection (validated separately)
@@ -156,6 +159,7 @@ class BindingRegistry {
                     val reason = when {
                         req.isInjectedParam -> "@InjectedParam"
                         req.isProvided -> "@Provided"
+                        req.isScopeId -> "@ScopeId(\"${req.scopeIdName}\")"
                         req.isNullable -> "nullable"
                         req.isList -> "List (getAll)"
                         req.isProperty -> "@Property"
@@ -196,6 +200,35 @@ class BindingRegistry {
         }
 
         return errorCount
+    }
+
+    /**
+     * Validate that @Property("key") parameters have a matching @PropertyValue("key") default.
+     * Emits warnings for missing property defaults (not errors, since properties can be set at runtime).
+     */
+    fun validatePropertyKeys(
+        definitions: List<Definition>,
+        parameterAnalyzer: ParameterAnalyzer,
+        moduleName: String
+    ) {
+        for (def in definitions) {
+            val requirements = extractRequirements(def, parameterAnalyzer)
+            val defName = definitionDisplayName(def)
+
+            for (req in requirements) {
+                if (!req.isProperty || req.propertyKey == null) continue
+
+                if (!PropertyValueRegistry.hasDefault(req.propertyKey)) {
+                    val message = buildString {
+                        append("[Koin] Missing @PropertyValue default: \"${req.propertyKey}\"")
+                        append(" — no @PropertyValue(\"${req.propertyKey}\") found for $defName")
+                        append(" in module $moduleName.")
+                        append(" Property must be provided at runtime via properties().")
+                    }
+                    KoinPluginLogger.warn(message)
+                }
+            }
+        }
     }
 
     /**

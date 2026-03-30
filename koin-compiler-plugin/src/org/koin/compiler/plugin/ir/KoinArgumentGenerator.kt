@@ -78,6 +78,12 @@ class KoinArgumentGenerator(
             }
         }
 
+        // Check for @ScopeId("name") — resolve from named Koin scope: getKoin().getScope("name").get<T>()
+        val scopeIdName = qualifierExtractor.getScopeIdAnnotationName(param)
+        if (scopeIdName != null) {
+            return createGetFromNamedScopeCall(scopeReceiver, scopeIdName, paramType, builder)
+        }
+
         // Check for @InjectedParam - use ParametersHolder.get()
         if (qualifierExtractor.hasInjectedParamAnnotation(param) && parametersHolderReceiver != null) {
             if (paramType.isMarkedNullable()) {
@@ -86,6 +92,9 @@ class KoinArgumentGenerator(
             }
             return createParametersHolderGetCall(parametersHolderReceiver, paramType, builder)
         }
+
+        // Check for @Provided — type is externally available, still resolved via scope.get()
+        // No special codegen needed — just generates normal get() call.
 
         val qualifier = qualifierExtractor.extractFromParameter(param)
 
@@ -101,6 +110,12 @@ class KoinArgumentGenerator(
         if (classifier is IrClass) {
             val className = classifier.name.asString()
             val packageName = classifier.packageFqName?.asString()
+
+            // Handle Scope parameter → pass the scope receiver itself (not scope.get<Scope>())
+            if (className == "Scope" && packageName == "org.koin.core.scope") {
+                KoinPluginLogger.user { "  Injecting Scope receiver for parameter '${param.name}'" }
+                return scopeReceiver
+            }
 
             // Handle Lazy<T> -> inject()
             if (className == "Lazy" && packageName == "kotlin") {
@@ -285,6 +300,43 @@ class KoinArgumentGenerator(
 
         KoinPluginLogger.debug { "Could not find getPropertyOrNull function for key \"$propertyKey\" on scope class ${scopeClass.name}" }
         return builder.irNull()
+    }
+
+    /**
+     * Create scope.getScope("scopeId").get<T>() call for @ScopeId parameters.
+     * Generates: getScope("scopeId").get<T>()
+     */
+    private fun createGetFromNamedScopeCall(
+        scopeReceiver: IrExpression,
+        scopeId: String,
+        type: IrType,
+        builder: DeclarationIrBuilder
+    ): IrExpression {
+        val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
+        if (scopeClass == null) {
+            KoinPluginLogger.debug { "Could not resolve scope class for @ScopeId(\"$scopeId\") call" }
+            return builder.irNull()
+        }
+
+        // scope.getScope("scopeId") → returns a named Scope
+        // Scope.getScope(id: String): Scope
+        val getScopeFunction = scopeClass.declarations
+            .filterIsInstance<IrSimpleFunction>()
+            .filter { it.name.asString() == "getScope" && it.valueParameters.size == 1 }
+            .firstOrNull { it.valueParameters[0].type.isStringClassType() }
+        if (getScopeFunction == null) {
+            KoinPluginLogger.debug { "Could not find getScope(String) on scope class ${scopeClass.name}" }
+            return builder.irNull()
+        }
+
+        val getScopeCall = builder.irCall(getScopeFunction.symbol).apply {
+            dispatchReceiver = scopeReceiver
+            putValueArgument(0, builder.irString(scopeId))
+        }
+
+        // namedScope.get<T>() → reuse existing get call logic
+        KoinPluginLogger.user { "  @ScopeId(\"$scopeId\"): generating getScope(\"$scopeId\").get<${type.classFqName}>()" }
+        return createScopeGetCall(getScopeCall, type, null, builder)
     }
 
     /**

@@ -412,6 +412,8 @@ class BindingRegistryTest {
             hasDefault = hasDefault,
             isInjectedParam = isInjectedParam,
             isProvided = false,
+            isScopeId = false,
+            scopeIdName = null,
             isLazy = isLazy,
             isList = isList,
             isProperty = isProperty,
