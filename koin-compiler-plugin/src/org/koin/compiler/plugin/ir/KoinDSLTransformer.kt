@@ -462,6 +462,8 @@ class KoinDSLTransformer(
     ): IrExpression {
         val typeArg = call.getTypeArgument(0) ?: return call
         val targetClass = typeArg.classifierOrNull?.owner as? IrClass ?: return call
+        val erasedTargetType = erasedTypeForClass(targetClass)
+        val constructorTypeArguments = extractConstructorTypeArguments(typeArg, targetClass)
         val constructor = targetClass.primaryConstructor
         if (constructor == null) {
             KoinPluginLogger.debug { "$functionName<${targetClass.name}>() skipped - no primary constructor" }
@@ -511,15 +513,15 @@ class KoinDSLTransformer(
         // Build the transformed call
         return builder.irCall(targetFunction.symbol).apply {
             this.extensionReceiver = extensionReceiver
-            putTypeArgument(0, targetClass.defaultType)
+            putTypeArgument(0, typeArg)
 
             // Arg 0: KClass<T>
             val kClassClassOwner = kClassClass ?: return call
             putValueArgument(0, IrClassReferenceImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                kClassClassOwner.typeWith(targetClass.defaultType),
+                kClassClassOwner.typeWith(erasedTargetType),
                 targetClass.symbol,
-                targetClass.defaultType
+                erasedTargetType
             ))
 
             // Arg 1: Qualifier? (for workers, always use class name as qualifier)
@@ -527,8 +529,8 @@ class KoinDSLTransformer(
 
             // Arg 2: Definition lambda { T(get(), get(), ...) }
             val parentFunc = currentFunction ?: return call
-            putValueArgument(2, lambdaBuilder.create(targetClass, builder, parentFunc) { lb, scopeParam, paramsParam ->
-                lb.irCallConstructor(constructor.symbol, emptyList()).apply {
+            putValueArgument(2, lambdaBuilder.create(typeArg, builder, parentFunc) { lb, scopeParam, paramsParam ->
+                lb.irCallConstructor(constructor.symbol, constructorTypeArguments).apply {
                     constructor.valueParameters.forEachIndexed { index, param ->
                         val scopeGet = lb.irGet(scopeParam)
                         val paramsGet = lb.irGet(paramsParam)
@@ -661,18 +663,19 @@ class KoinDSLTransformer(
         KoinPluginLogger.user { "Applying qualifier ${qualifier.debugString()} to $functionName { create(::${returnClass.name}) }" }
 
         val builder = DeclarationIrBuilder(context, call.symbol, call.startOffset, call.endOffset)
+        val erasedReturnType = erasedTypeForClass(returnClass)
 
         return builder.irCall(targetFunction.symbol).apply {
             this.extensionReceiver = receiver
-            putTypeArgument(0, returnClass.defaultType)
+            putTypeArgument(0, erasedReturnType)
 
             // Arg 0: KClass<T>
             val kClassClassOwner = kClassClass ?: return call
             putValueArgument(0, IrClassReferenceImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
-                kClassClassOwner.typeWith(returnClass.defaultType),
+                kClassClassOwner.typeWith(erasedReturnType),
                 returnClass.symbol,
-                returnClass.defaultType
+                erasedReturnType
             ))
 
             // Arg 1: Qualifier
@@ -725,6 +728,34 @@ class KoinDSLTransformer(
      */
     private fun isCreateCall(expr: IrExpression?, targetCall: IrCall): Boolean {
         return expr === targetCall
+    }
+
+    /**
+     * Runtime KClass registration in Koin is erased, so generic type arguments are replaced
+     * with Any? when emitting class literals (Foo::class).
+     */
+    private fun erasedTypeForClass(targetClass: IrClass): IrType {
+        if (targetClass.typeParameters.isEmpty()) return targetClass.defaultType
+        val erasedArguments = Array(targetClass.typeParameters.size) { context.irBuiltIns.anyNType }
+        return targetClass.typeWith(*erasedArguments)
+    }
+
+    /**
+     * Preserve concrete type arguments for constructor calls when the user wrote single<Foo<Bar>>().
+     */
+    private fun extractConstructorTypeArguments(typeArg: IrType, targetClass: IrClass): List<IrType> {
+        val simpleType = typeArg as? IrSimpleType ?: return emptyList()
+        if (simpleType.classifierOrNull?.owner != targetClass) return emptyList()
+        if (simpleType.arguments.size != targetClass.typeParameters.size) return emptyList()
+
+        val concreteArguments = simpleType.arguments
+            .mapNotNull { (it as? IrTypeProjection)?.type }
+
+        return if (concreteArguments.size == targetClass.typeParameters.size) {
+            concreteArguments
+        } else {
+            emptyList()
+        }
     }
 
     private fun findTargetFunction(functionName: Name, receiverClassName: String): IrSimpleFunction? {

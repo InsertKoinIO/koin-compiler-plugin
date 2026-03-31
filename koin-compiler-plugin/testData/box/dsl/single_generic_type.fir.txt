@@ -1,0 +1,39 @@
+FILE: test.kt
+    public final class MyService : R|kotlin/Any| {
+        public constructor(): R|MyService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class GenericService<T> : R|kotlin/Any| {
+        public constructor<T>(service: R|MyService|): R|GenericService<T>| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val service: R|MyService| = R|<local>/service|
+            public get(): R|MyService|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|MyService|>()
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|GenericService<kotlin/String>|>()
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval g1: R|GenericService<kotlin/String>| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|GenericService<kotlin/String>|>()
+        lval g2: R|GenericService<kotlin/String>| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|GenericService<kotlin/String>|>()
+        lval s: R|MyService| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|MyService|>()
+        ^box when () {
+            ===(R|<local>/g1|, R|<local>/g2|) && ===(R|<local>/g1|.R|SubstitutionOverride</GenericService.service: R|MyService|>|, R|<local>/s|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: generic singleton resolution not working)
+            }
+        }
+
+    }

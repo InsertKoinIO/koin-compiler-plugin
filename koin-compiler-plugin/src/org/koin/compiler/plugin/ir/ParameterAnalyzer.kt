@@ -9,11 +9,13 @@ import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.isMarkedNullable
 import org.jetbrains.kotlin.ir.types.typeOrNull
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.hasAnnotation
 import org.jetbrains.kotlin.ir.util.packageFqName
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.plugin.KoinAnnotationFqNames
 
 /**
  * Analyzes constructor/function parameters to extract dependency requirements
@@ -66,7 +68,8 @@ class ParameterAnalyzer(
                 isList = false,
                 isProperty = true,
                 propertyKey = propertyKey,
-                qualifier = null
+                qualifier = null,
+                isProvided = isProvidedType(paramType)
             )
         }
 
@@ -129,7 +132,8 @@ class ParameterAnalyzer(
                 isList = false,
                 isProperty = false,
                 propertyKey = null,
-                qualifier = null
+                qualifier = null,
+                isProvided = isProvidedType(paramType)
             )
         }
 
@@ -187,7 +191,8 @@ class ParameterAnalyzer(
                     isList = false,
                     isProperty = false,
                     propertyKey = null,
-                    qualifier = qualifier
+                    qualifier = qualifier,
+                    isProvided = innerType?.let { isProvidedType(it) } ?: isProvidedType(paramType)
                 )
             }
 
@@ -209,7 +214,8 @@ class ParameterAnalyzer(
                     isList = true,
                     isProperty = false,
                     propertyKey = null,
-                    qualifier = qualifier
+                    qualifier = qualifier,
+                    isProvided = elementType?.let { isProvidedType(it) } ?: isProvidedType(paramType)
                 )
             }
         }
@@ -235,8 +241,14 @@ class ParameterAnalyzer(
             isList = false,
             isProperty = false,
             propertyKey = null,
-            qualifier = qualifier
+            qualifier = qualifier,
+            isProvided = isProvidedType(paramType)
         )
+    }
+
+    private fun isProvidedType(type: org.jetbrains.kotlin.ir.types.IrType): Boolean {
+        val classifier = type.classifierOrNull?.owner as? IrClass ?: return false
+        return classifier.hasAnnotation(KoinAnnotationFqNames.PROVIDED)
     }
 
     companion object {

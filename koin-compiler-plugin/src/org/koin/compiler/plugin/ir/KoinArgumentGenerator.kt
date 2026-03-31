@@ -47,6 +47,8 @@ class KoinArgumentGenerator(
 
     private val propertyAnnotationFqName = KoinAnnotationFqNames.PROPERTY
     private val lazyModeClass by lazy { context.referenceClass(ClassId.topLevel(FqName("kotlin.LazyThreadSafetyMode"))) }
+    private val listClass by lazy { context.referenceClass(ClassId.topLevel(FqName("kotlin.collections.List")))?.owner }
+    private val lazyClass by lazy { context.referenceClass(ClassId.topLevel(FqName("kotlin.Lazy")))?.owner }
 
     override fun generateForParameter(
         param: IrValueParameter,
@@ -348,28 +350,67 @@ class KoinArgumentGenerator(
         builder: DeclarationIrBuilder
     ): IrExpression {
         val scopeClass = (scopeReceiver.type.classifierOrNull?.owner as? IrClass)
-        if (scopeClass == null) {
-            KoinPluginLogger.debug { "Could not resolve scope class for getAll<${elementType.classFqName}>() call" }
-            return builder.irNull()
-        }
+        val listType = listClass?.typeWith(elementType)
+        if (scopeClass != null) {
+            // Prefer the member function when available, but fall back to the top-level extension
+            // so List<T> injection keeps working across Koin API shapes.
+            val getAllFunction = scopeClass.declarations
+                .filterIsInstance<IrSimpleFunction>()
+                .firstOrNull { function ->
+                    function.name.asString() == "getAll" &&
+                    function.typeParameters.size == 1 &&
+                    function.valueParameters.isEmpty()
+                }
+                ?: context.referenceFunctions(
+                    CallableId(FqName("org.koin.core.scope"), Name.identifier("getAll"))
+                ).map { it.owner }
+                    .filterIsInstance<IrSimpleFunction>()
+                    .firstOrNull { function ->
+                        function.name.asString() == "getAll" &&
+                        function.typeParameters.size == 1 &&
+                        function.valueParameters.isEmpty() &&
+                        (
+                            function.dispatchReceiverParameter?.type?.classifierOrNull?.owner == scopeClass ||
+                                function.extensionReceiverParameter?.type?.classifierOrNull?.owner == scopeClass
+                            )
+                    }
 
-        // Find getAll function in Scope
-        val getAllFunction = scopeClass.declarations
-            .filterIsInstance<IrSimpleFunction>()
-            .firstOrNull { function ->
-                function.name.asString() == "getAll" &&
-                function.typeParameters.size == 1
+            if (getAllFunction != null) {
+                return builder.irCall(getAllFunction.symbol).apply {
+                    // Explicitly actualize return type to avoid leaking unbound function type parameter.
+                    if (listType != null) type = listType
+                    if (getAllFunction.dispatchReceiverParameter != null) {
+                        dispatchReceiver = scopeReceiver
+                    } else if (getAllFunction.extensionReceiverParameter != null) {
+                        extensionReceiver = scopeReceiver
+                    }
+                    putTypeArgument(0, elementType)
+                }
             }
 
-        if (getAllFunction != null) {
-            return builder.irCall(getAllFunction.symbol).apply {
-                dispatchReceiver = scopeReceiver
+            KoinPluginLogger.debug {
+                "Could not find getAll function on scope class ${scopeClass.name} for element type ${elementType.classFqName}; using emptyList() fallback"
+            }
+        } else {
+            KoinPluginLogger.debug {
+                "Could not resolve scope class for getAll<${elementType.classFqName}>() call; using emptyList() fallback"
+            }
+        }
+
+        val emptyListFunction = context.referenceFunctions(
+            CallableId(FqName("kotlin.collections"), Name.identifier("emptyList"))
+        ).firstOrNull()?.owner
+
+        if (emptyListFunction != null) {
+            return builder.irCall(emptyListFunction.symbol).apply {
+                if (listType != null) type = listType
                 putTypeArgument(0, elementType)
             }
         }
 
-        // Fallback to empty list if getAll not found
-        KoinPluginLogger.debug { "Could not find getAll function on scope class ${scopeClass.name} for element type ${elementType.classFqName}" }
+        KoinPluginLogger.debug {
+            "Could not resolve emptyList<${elementType.classFqName}>() fallback for List injection"
+        }
         return builder.irNull()
     }
 
@@ -398,9 +439,12 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getFunction.symbol).apply {
+            // Explicitly actualize return type to avoid leaking unbound function type parameter.
+            this.type = requestedType
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
 
             getFunction.valueParameters.forEachIndexed { index, param ->
                 val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
@@ -438,9 +482,12 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getOrNullFunction.symbol).apply {
+            // Explicitly actualize return type to avoid leaking unbound function type parameter.
+            this.type = requestedType.makeNullable()
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
 
             getOrNullFunction.valueParameters.forEachIndexed { index, param ->
                 val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
@@ -482,9 +529,15 @@ class KoinArgumentGenerator(
             ?.filterIsInstance<IrEnumEntry>()
             ?.firstOrNull { it.name.asString() == "SYNCHRONIZED" }
 
+        val requestedType = type
         return builder.irCall(injectFunction.symbol).apply {
+            // Explicitly actualize return type to avoid leaking unbound function type parameter.
+            val lazyType = lazyClass?.typeWith(requestedType)
+            if (lazyType != null) {
+                this.type = lazyType
+            }
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
 
             injectFunction.valueParameters.forEachIndexed { index, param ->
                 val paramType = param.type
@@ -532,9 +585,11 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getFunction.symbol).apply {
+            this.type = requestedType
             dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
         }
     }
 
@@ -561,9 +616,11 @@ class KoinArgumentGenerator(
             return builder.irNull()
         }
 
+        val requestedType = type
         return builder.irCall(getOrNullFunction.symbol).apply {
+            this.type = requestedType.makeNullable()
             dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
+            putTypeArgument(0, requestedType)
         }
     }
 }

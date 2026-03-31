@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.KoinPluginConstants
+import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
@@ -82,7 +83,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         for (callSite in callSites) {
             // Skip @Provided types
-            if (ProvidedTypeRegistry.isProvided(callSite.targetFqName)) {
+            if (ProvidedTypeRegistry.isProvided(callSite.targetFqName) || callSite.targetClass.hasAnnotation(KoinAnnotationFqNames.PROVIDED)) {
                 KoinPluginLogger.debug { "A4: Skip ${callSite.targetFqName} (@Provided)" }
                 continue
             }
@@ -299,7 +300,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             val targetFqName = targetClass.fqNameWhenAvailable?.asString() ?: continue
 
             // Skip @Provided types
-            if (ProvidedTypeRegistry.isProvided(targetFqName)) {
+            if (ProvidedTypeRegistry.isProvided(targetFqName) || targetClass.hasAnnotation(KoinAnnotationFqNames.PROVIDED)) {
                 KoinPluginLogger.debug { "A4-deferred: Skip $targetFqName (@Provided)" }
                 continue
             }

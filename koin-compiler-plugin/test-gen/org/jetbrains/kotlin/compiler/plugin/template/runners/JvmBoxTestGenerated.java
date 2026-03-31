@@ -93,6 +93,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("single_generic_type.kt")
+    public void testSingle_generic_type() {
+      runTest("koin-compiler-plugin/testData/box/dsl/single_generic_type.kt");
+    }
+
+    @Test
     @TestMetadata("single_with_default_value.kt")
     public void testSingle_with_default_value() {
       runTest("koin-compiler-plugin/testData/box/dsl/single_with_default_value.kt");
@@ -186,6 +192,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @TestMetadata("lazy_injection.kt")
     public void testLazy_injection() {
       runTest("koin-compiler-plugin/testData/box/params/lazy_injection.kt");
+    }
+
+    @Test
+    @TestMetadata("list_injection.kt")
+    public void testList_injection() {
+      runTest("koin-compiler-plugin/testData/box/params/list_injection.kt");
     }
 
     @Test

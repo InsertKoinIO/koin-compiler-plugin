@@ -540,7 +540,7 @@ class DefinitionCallBuilder(
         builder: DeclarationIrBuilder,
         parentFunction: IrFunction
     ): IrExpression {
-        return lambdaBuilder.create(returnTypeClass, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
+        return lambdaBuilder.create(returnTypeClass.defaultType, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
             irBuilder.irCallConstructor(constructor.symbol, emptyList()).apply {
                 constructor.valueParameters.forEachIndexed { index, param ->
                     val scopeGet = irBuilder.irGet(scopeParam)
@@ -571,7 +571,7 @@ class DefinitionCallBuilder(
             return builder.irNull()
         }
 
-        return lambdaBuilder.create(returnTypeClass, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
+        return lambdaBuilder.create(returnTypeClass.defaultType, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
             irBuilder.irCall(targetFunction.symbol).apply {
                 dispatchReceiver = irBuilder.irGet(moduleInstanceReceiver)
 
@@ -596,7 +596,7 @@ class DefinitionCallBuilder(
         builder: DeclarationIrBuilder,
         parentFunction: IrFunction
     ): IrExpression {
-        return lambdaBuilder.create(returnTypeClass, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
+        return lambdaBuilder.create(returnTypeClass.defaultType, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
             irBuilder.irCall(targetFunction.symbol).apply {
                 targetFunction.valueParameters.forEachIndexed { index, param ->
                     val scopeGet = irBuilder.irGet(scopeParam)
