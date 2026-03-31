@@ -7,7 +7,7 @@ A native Kotlin Compiler Plugin for [Koin](https://insert-koin.io/) dependency i
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("io.insert-koin.compiler.plugin") version "0.6.1"
+    id("io.insert-koin.compiler.plugin") version "0.6.2"
 }
 
 dependencies {
