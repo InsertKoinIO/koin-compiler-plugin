@@ -1,0 +1,53 @@
+FILE: test.kt
+    public abstract interface MyService : R|kotlin/Any| {
+        public abstract fun doWork(): R|kotlin/String|
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class RealService : R|MyService| {
+        public constructor(): R|RealService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun doWork(): R|kotlin/String| {
+            ^doWork String(real)
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|(binds = <collectionLiteralCall>()) public final class DecoratedService : R|MyService| {
+        public constructor(delegate: R|MyService|): R|DecoratedService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val delegate: R|MyService| = R|<local>/delegate|
+            public get(): R|MyService|
+
+        public open override fun doWork(): R|kotlin/String| {
+            ^doWork <strcat>(String(decorated:), this@R|/DecoratedService|.R|/DecoratedService.delegate|.R|/MyService.doWork|())
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|MyService| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|MyService|>()
+        lval decorated: R|DecoratedService| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|DecoratedService|>()
+        ^box when () {
+            ==(R|<local>/service|.R|/MyService.doWork|(), String(real)) && ==(R|<local>/decorated|.R|/DecoratedService.doWork|(), String(decorated:real)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|
