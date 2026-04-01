@@ -345,19 +345,14 @@ class CallSiteValidator(private val context: IrPluginContext) {
         dslDefinitions: List<Definition.DslDef>,
         annotationProcessor: KoinAnnotationProcessor?,
         safetyValidator: CompileSafetyValidator,
-        dslHintGenerator: DslHintGenerator
+        dslHintGenerator: DslHintGenerator,
+        startKoinModules: List<String> = emptyList(),
+        moduleIncludes: Map<String, List<String>> = emptyMap()
     ) {
-        // Collect all known definitions (providers)
         val allDefinitions = mutableListOf<Definition>()
-
-        // Local DSL definitions
         allDefinitions.addAll(dslDefinitions)
-
-        // DSL definitions from dependency hints
         val dependencyDslDefs = dslHintGenerator.discoverDslDefinitionsFromHints()
         allDefinitions.addAll(dependencyDslDefs)
-
-        // Annotation definitions (local)
         if (annotationProcessor != null) {
             allDefinitions.addAll(annotationProcessor.getAllKnownDefinitions())
         }
@@ -366,20 +361,35 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         if (allDefinitions.isEmpty()) return
 
-        // Validate local DSL definitions' constructor parameters against all providers
+        val reachableModuleIds = computeReachableModules(startKoinModules, moduleIncludes)
+        val allDslDefs = dslDefinitions + dependencyDslDefs.filterIsInstance<Definition.DslDef>()
+        val (reachableDefs, unreachableDefs) = partitionByReachability(allDslDefs, reachableModuleIds)
+
+        val providerDefinitions = mutableListOf<Definition>()
+        providerDefinitions.addAll(reachableDefs)
+        if (annotationProcessor != null) {
+            providerDefinitions.addAll(annotationProcessor.getAllKnownDefinitions())
+        }
+
+        KoinPluginLogger.debug { "  reachable providers: ${providerDefinitions.size} (reachable DSL=${reachableDefs.size}, unreachable DSL=${unreachableDefs.size})" }
+
+        val defsToValidate = reachableDefs.filter { !(it is Definition.DslDef && it.providerOnly) }
         val registry = BindingRegistry()
         val qualifierExtractor = safetyValidator.qualifierExtractor
         val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
         val errorCount = registry.validateModule(
             "DSL graph",
-            allDefinitions,
+            providerDefinitions,
             parameterAnalyzer,
             qualifierExtractor,
-            dslDefinitions // only validate local definitions' parameters
+            defsToValidate
         )
 
-        // Populate assembledGraphTypes so Phase 3.5 knows we have a graph
-        for (def in allDefinitions) {
+        if (unreachableDefs.isNotEmpty()) {
+            reportUnreachableModules(unreachableDefs, reachableModuleIds)
+        }
+
+        for (def in providerDefinitions) {
             def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { safetyValidator.addAssembledGraphType(it) }
             for (binding in def.bindings) {
                 binding.fqNameWhenAvailable?.asString()?.let { safetyValidator.addAssembledGraphType(it) }
@@ -390,6 +400,58 @@ class CallSiteValidator(private val context: IrPluginContext) {
             KoinPluginLogger.debug { "  -> DONE: $errorCount errors found" }
         } else {
             KoinPluginLogger.debug { "  -> DONE: all dependencies satisfied" }
+        }
+    }
+
+    private fun computeReachableModules(
+        startKoinModules: List<String>,
+        moduleIncludes: Map<String, List<String>>
+    ): Set<String> {
+        if (startKoinModules.isEmpty()) return emptySet()
+        val reachable = mutableSetOf<String>()
+        val queue = ArrayDeque(startKoinModules)
+        while (queue.isNotEmpty()) {
+            val moduleId = queue.removeFirst()
+            if (reachable.add(moduleId)) {
+                moduleIncludes[moduleId]?.forEach { included ->
+                    if (included !in reachable) queue.add(included)
+                }
+            }
+        }
+        KoinPluginLogger.debug { "  Reachable modules: $reachable (from entry: $startKoinModules)" }
+        return reachable
+    }
+
+    private fun partitionByReachability(
+        dslDefinitions: List<Definition.DslDef>,
+        reachableModuleIds: Set<String>
+    ): Pair<List<Definition.DslDef>, List<Definition.DslDef>> {
+        if (reachableModuleIds.isEmpty()) return dslDefinitions to emptyList()
+        val reachable = mutableListOf<Definition.DslDef>()
+        val unreachable = mutableListOf<Definition.DslDef>()
+        for (def in dslDefinitions) {
+            val moduleId = def.modulePropertyId
+            if (moduleId == null || moduleId in reachableModuleIds) {
+                reachable.add(def)
+            } else {
+                unreachable.add(def)
+            }
+        }
+        return reachable to unreachable
+    }
+
+    private fun reportUnreachableModules(
+        unreachableDefs: List<Definition.DslDef>,
+        reachableModuleIds: Set<String>
+    ) {
+        val byModule = unreachableDefs.groupBy { it.modulePropertyId ?: "<unknown>" }
+        for ((moduleId, defs) in byModule) {
+            val typeNames = defs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable?.shortName()?.asString() }
+            val shortModuleName = moduleId.substringAfterLast('.')
+            KoinPluginLogger.error(
+                "Module '$shortModuleName' is not loaded at startKoin — ${defs.size} definitions unreachable: ${typeNames.joinToString()}\n" +
+                "  Add it to modules() or includes() to make these definitions available"
+            )
         }
     }
 }

@@ -33,6 +33,9 @@ data class Requirement(
     val isNullable: Boolean,
     val hasDefault: Boolean,
     val isInjectedParam: Boolean,
+    val isProvided: Boolean,
+    val isScopeId: Boolean,
+    val scopeIdName: String?,
     val isLazy: Boolean,
     val isList: Boolean,
     val isProperty: Boolean,
@@ -45,6 +48,8 @@ data class Requirement(
      */
     fun requiresValidation(): Boolean {
         if (isInjectedParam) return false  // Provided at runtime via parametersOf()
+        if (isProvided) return false       // @Provided — externally available at runtime
+        if (isScopeId) return false        // @ScopeId — resolved from named scope at runtime
         if (isNullable) return false        // getOrNull() handles missing
         if (isList) return false            // getAll() returns empty if none
         if (isProperty) return false        // Property injection (validated separately)
@@ -153,6 +158,8 @@ class BindingRegistry {
                 if (!req.requiresValidation()) {
                     val reason = when {
                         req.isInjectedParam -> "@InjectedParam"
+                        req.isProvided -> "@Provided"
+                        req.isScopeId -> "@ScopeId(\"${req.scopeIdName}\")"
                         req.isNullable -> "nullable"
                         req.isList -> "List (getAll)"
                         req.isProperty -> "@Property"
@@ -160,6 +167,12 @@ class BindingRegistry {
                         else -> "unknown"
                     }
                     KoinPluginLogger.debug { "      skip '${req.paramName}': ${req.typeKey.render()} ($reason)" }
+
+                    // Validate @Property/@PropertyValue matching inline (no second pass)
+                    if (req.isProperty && req.propertyKey != null && !PropertyValueRegistry.hasDefault(req.propertyKey)) {
+                        KoinPluginLogger.warn("[Koin] Missing @PropertyValue default: \"${req.propertyKey}\" — no @PropertyValue(\"${req.propertyKey}\") found for $defName in module $moduleName. Property must be provided at runtime via properties().")
+                    }
+
                     continue
                 }
 
@@ -313,7 +326,7 @@ class BindingRegistry {
             is Definition.ClassDef -> qualifierExtractor.extractFromClass(def.irClass)
             is Definition.FunctionDef -> qualifierExtractor.extractFromDeclaration(def.irFunction)
             is Definition.TopLevelFunctionDef -> qualifierExtractor.extractFromDeclaration(def.irFunction)
-            is Definition.DslDef -> qualifierExtractor.extractFromClass(def.irClass)
+            is Definition.DslDef -> def.qualifier ?: qualifierExtractor.extractFromClass(def.irClass)
             is Definition.ExternalFunctionDef -> def.qualifier
         }
     }

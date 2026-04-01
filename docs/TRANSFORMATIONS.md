@@ -341,7 +341,37 @@ buildSingle(Config::class, null) { scope, params ->
 }
 ```
 
-### 3.5 Nullable Parameters
+### 3.5 @ScopeId
+
+**Input**:
+```kotlin
+@Factory
+class ProfileService(@ScopeId(name = "user_session") val session: UserSession)
+```
+
+**Output**:
+```kotlin
+buildFactory(ProfileService::class, null) { scope, params ->
+    ProfileService(scope.getScope("user_session").get())
+}
+```
+
+### 3.6 Scope Parameter
+
+**Input**:
+```kotlin
+@Scoped
+class ScopedService(val scope: Scope)
+```
+
+**Output**:
+```kotlin
+buildScoped(ScopedService::class, null) { scope, params ->
+    ScopedService(scope)  // passes the scope receiver directly
+}
+```
+
+### 3.7 Nullable Parameters
 
 **Input**:
 ```kotlin
@@ -436,6 +466,10 @@ buildSingle(ServiceWithDefault::class, null) { scope, params ->
 | `Lazy<T>` | `@Named("x")` | No | `scope.inject(named("x"))` |
 | `Lazy<T>` | `@Qualifier(X::class)` | No | `scope.inject(typeQualifier<X>())` |
 | `List<T>` | - | No | `scope.getAll()` |
+| `T` | `@ScopeId(name = "x")` | No | `scope.getScope("x").get()` |
+| `T` | `@ScopeId(X::class)` | No | `scope.getScope("fqName").get()` |
+| `T` | `@Provided` | No | `scope.get()` *(validation skipped)* |
+| `Scope` | *(auto-detected)* | No | `scope` *(receiver passed directly)* |
 
 > **Note**: The "Default Value = Yes, skipped" behavior requires `skipDefaultValues = true` (the default). When disabled, all parameters are injected regardless of default values.
 
@@ -577,7 +611,44 @@ object TestApp
 
 **Result**: `startKoin<TestApp>()` discovers `TestModule` and `SharedModule` (both have "test" label).
 
-### 4.7 JSR-330 Support
+### 4.7 module\<T\>() — Load Individual Modules
+
+**Input**:
+```kotlin
+@Module @ComponentScan("com.app.network")
+class NetworkModule
+
+startKoin {
+    module<NetworkModule>()
+}
+```
+
+**Output**:
+```kotlin
+startKoin {
+    modules(NetworkModule().module())
+}
+```
+
+### 4.8 modules(vararg KClass) — Load Multiple Modules
+
+**Input**:
+```kotlin
+startKoin {
+    modules(DataModule::class, CacheModule::class)
+}
+```
+
+**Output**:
+```kotlin
+startKoin {
+    modules(DataModule().module(), CacheModule().module())
+}
+```
+
+**Note**: `module<T>()` and `modules(vararg KClass)` are intercepted by `KoinStartTransformer`. They cannot be used inside `startKoin<T> { }` (which is itself intercepted) — use them inside plain `startKoin { }` or `koinApplication { }` instead.
+
+### 4.9 JSR-330 Support
 
 The plugin supports JSR-330 (Jakarta/Javax) annotations as alternatives to Koin annotations:
 

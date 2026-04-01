@@ -34,7 +34,7 @@ koin-compiler-plugin/
 | File | Purpose |
 |------|---------|
 | `ir/KoinDSLTransformer.kt` | Transforms `single<T>()`, `factory<T>()`, `viewModel<T>()`, `worker<T>()`, `scoped<T>()`, `create(::T)` |
-| `ir/KoinStartTransformer.kt` | Transforms `startKoin<T>()`, `koinApplication<T>()`, `koinConfiguration<T>()`, `withConfiguration<T>()` |
+| `ir/KoinStartTransformer.kt` | Transforms `startKoin<T>()`, `koinApplication<T>()`, `koinConfiguration<T>()`, `withConfiguration<T>()`, `module<T>()`, `modules(vararg KClass)` |
 | `ir/KoinAnnotationProcessor.kt` | Processes `@Module`, `@ComponentScan`, `@Singleton`, `@PropertyValue`, `@Provided` annotations |
 | `ir/KoinIrExtension.kt` | Plugin entry point, orchestrates IR phases |
 | `ir/LambdaBuilder.kt` | Creates lambda expressions with proper scope/parameter handling |
@@ -64,6 +64,8 @@ koin-compiler-plugin/
 | `worker<T>()` | `Module` | Worker using primary constructor |
 | `scoped<T>()` | `ScopeDSL` | Scoped using primary constructor |
 | `create(::T)` | `Scope` | Create instance in scope |
+| `module<T>()` | `KoinApplication` | Load a single `@Module` class |
+| `modules(vararg KClass)` | `KoinApplication` | Load multiple `@Module` classes |
 
 ## Annotations
 
@@ -110,9 +112,11 @@ fun provideHttpClient(): NetworkClient = OkHttpClient()
 | `@Qualifier(name = "x")` | String qualifier → `named("x")` |
 | `@Qualifier(MyType::class)` | Type qualifier → `typeQualifier<MyType>()` |
 | `@InjectedParam` | Uses `ParametersHolder.get()` |
-| `@Property("key")` | Injects property value |
+| `@Property("key")` | Injects property value (warns if no `@PropertyValue` default) |
 | `@PropertyValue("key")` | Provides default value for `@Property` |
-| `@Provided` | Marks type as externally available (skips safety validation) |
+| `@Provided` | Marks type/parameter as externally available (skips safety validation) |
+| `@ScopeId(name = "x")` | Resolves from named scope → `getScope("x").get<T>()` |
+| `@ScopeId(MyScope::class)` | Resolves from typed scope → `getScope("fqName").get<T>()` |
 
 ## Build Commands
 

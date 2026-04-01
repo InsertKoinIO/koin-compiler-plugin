@@ -414,6 +414,24 @@ class QualifierExtractor(private val context: IrPluginContext) {
     }
 
     /**
+     * Check if a parameter has the @Provided annotation.
+     * When present, the parameter's type is considered externally provided
+     * and skips compile-time safety validation.
+     *
+     * @param param The parameter to check
+     * @return True if the parameter has @Provided
+     */
+    fun hasProvidedAnnotation(param: IrValueParameter): Boolean {
+        val hasAnnotation = param.annotations.any { annotation ->
+            annotation.type.classFqName?.asString() == KoinAnnotationFqNames.PROVIDED.asString()
+        }
+        if (hasAnnotation) {
+            KoinPluginLogger.debug { "  @Provided on parameter ${param.name}" }
+        }
+        return hasAnnotation
+    }
+
+    /**
      * Get the property key from @Property annotation on a parameter.
      *
      * @param param The parameter to check
@@ -430,5 +448,41 @@ class QualifierExtractor(private val context: IrPluginContext) {
             KoinPluginLogger.debug { "  @Property(\"$key\") on parameter ${param.name}" }
         }
         return key
+    }
+
+    /**
+     * Get the scope ID from @ScopeId annotation on a parameter.
+     * Supports two forms:
+     * - @ScopeId(MyScope::class) → scope ID is the FQ class name
+     * - @ScopeId(name = "my_scope") → scope ID is the string value
+     *
+     * @param param The parameter to check
+     * @return The scope ID string, or null if @ScopeId is not present
+     */
+    fun getScopeIdAnnotationName(param: IrValueParameter): String? {
+        val scopeIdAnnotation = param.annotations.firstOrNull { annotation ->
+            annotation.type.classFqName?.asString() == KoinAnnotationFqNames.SCOPE_ID.asString()
+        } ?: return null
+
+        // Check for type-based: @ScopeId(MyScope::class) — arg 0 is KClass
+        val valueArg = scopeIdAnnotation.getValueArgument(0)
+        if (valueArg is IrClassReference) {
+            val scopeClassName = (valueArg.classType.classifierOrNull?.owner as? IrClass)
+                ?.fqNameWhenAvailable?.asString()
+            if (scopeClassName != null) {
+                KoinPluginLogger.debug { "  @ScopeId(${scopeClassName}::class) on parameter ${param.name}" }
+                return scopeClassName
+            }
+        }
+
+        // Check for string-based: @ScopeId(name = "my_scope")
+        val nameArg = scopeIdAnnotation.getValueArgument(Name.identifier("name"))
+        val name = (nameArg as? IrConst)?.value as? String
+        if (!name.isNullOrEmpty()) {
+            KoinPluginLogger.debug { "  @ScopeId(name = \"$name\") on parameter ${param.name}" }
+            return name
+        }
+
+        return null
     }
 }

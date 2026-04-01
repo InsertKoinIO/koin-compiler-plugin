@@ -1,0 +1,31 @@
+FILE: test.kt
+    public final class ScopeAwareRepository : R|kotlin/Any| {
+        public constructor(scope: R|org/koin/core/scope/Scope|): R|ScopeAwareRepository| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val scope: R|org/koin/core/scope/Scope| = R|<local>/scope|
+            public get(): R|org/koin/core/scope/Scope|
+
+    }
+    public final val testModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|ScopeAwareRepository|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/testModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval repo: R|ScopeAwareRepository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ScopeAwareRepository|>()
+        ^box when () {
+            !=(R|<local>/repo|.R|/ScopeAwareRepository.scope|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

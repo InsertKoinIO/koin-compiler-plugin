@@ -27,6 +27,18 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_module_not_loaded.kt")
+  public void testDsl_module_not_loaded() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_not_loaded.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_unreachable.kt")
+  public void testDsl_module_unreachable() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_unreachable.kt");
+  }
+
+  @Test
   @TestMetadata("lazy_missing.kt")
   public void testLazy_missing() {
     runTest("koin-compiler-plugin/testData/diagnostics/lazy_missing.kt");

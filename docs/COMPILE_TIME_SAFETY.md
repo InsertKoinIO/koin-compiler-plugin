@@ -146,18 +146,22 @@ Two mechanisms prevent this:
 
 ### `@Provided` Annotation
 
-Mark a type as externally available at runtime. The safety checker skips it during validation.
+Mark a type or parameter as externally available at runtime. The safety checker skips it during validation.
+
+Can be used on a **class** (all usages of that type are skipped) or on a **parameter** (only that specific parameter is skipped):
 
 ```kotlin
+// Class-level: all usages of SavedStateHandle skip validation
 @Provided
-class SavedStateHandle  // always available via Android framework
+class SavedStateHandle
 
+// Parameter-level: only this specific parameter is skipped
 @Singleton
-class MyViewModel(val handle: SavedStateHandle)
-// No error — SavedStateHandle is @Provided
+class MyService(@Provided val ctx: PlatformContext)
 ```
 
-`@Provided` is collected during Phase 1 annotation scanning and stored in `ProvidedTypeRegistry`.
+Class-level `@Provided` is collected during Phase 1 annotation scanning and stored in `ProvidedTypeRegistry`.
+Parameter-level `@Provided` is detected in `ParameterAnalyzer` and marks the `Requirement` as not requiring validation.
 
 ### Hardcoded Framework Whitelist
 
@@ -175,6 +179,51 @@ Common Android framework types are always skipped, without requiring `@Provided`
 The whitelist is defined in `BindingRegistry.WHITELISTED_TYPES`.
 
 Both `@Provided` and the whitelist are checked before reporting a missing dependency. If either matches, the type is considered satisfied.
+
+## Special Parameter Handling
+
+### `Scope` Parameter Injection
+
+Parameters of type `org.koin.core.scope.Scope` are injected with the scope receiver itself (not resolved via `scope.get<Scope>()`). Validation is automatically skipped.
+
+```kotlin
+@Scoped
+class ScopedService(val scope: Scope) {
+    fun dynamicLookup() = scope.get<SomeDep>()  // Not validated at compile time
+}
+// Generates: ScopedService(scope)  — passes the scope receiver directly
+```
+
+### `@ScopeId` — Named Scope Resolution
+
+Parameters annotated with `@ScopeId` are resolved from a named Koin scope. Validation is skipped since the scope is resolved at runtime.
+
+Supports two forms:
+- `@ScopeId(name = "my_scope")` — string-based scope ID
+- `@ScopeId(MyScope::class)` — type-based scope ID (uses FQ class name)
+
+```kotlin
+@Factory
+class ProfileService(@ScopeId(name = "user_session") val session: UserSession)
+// Generates: ProfileService(scope.getScope("user_session").get<UserSession>())
+```
+
+### `@Property`/`@PropertyValue` Validation
+
+The compiler warns when `@Property("key")` has no matching `@PropertyValue("key")` default in the same compilation unit. This is a **warning** (not error) since properties can be set at runtime via `properties()`.
+
+```kotlin
+@PropertyValue("api.timeout")
+val defaultTimeout = 30
+
+@Factory
+class ApiClient(@Property("api.timeout") val timeout: Int)
+// OK — @PropertyValue("api.timeout") provides a default
+
+@Factory
+class Other(@Property("missing.key") val value: String)
+// WARNING — no @PropertyValue("missing.key") found
+```
 
 ## Configuration
 
@@ -456,7 +505,7 @@ Each diagnostic test has `.fir.txt` (FIR golden file) and `.errors.txt` (error m
 | B | DSL calls (`single<T>()`, `factory<T>()`) in safety graph | Done |
 | C | Cross-Gradle-module (definitions from dependency JARs via hints) | Done |
 | C2 | Cross-module function hint metadata (qualifier, scope, bindings) | Done |
-| D | `@Property`/`@PropertyValue` matching | Not started |
+| D | `@Property`/`@PropertyValue` matching | Done |
 
 **Phase B notes:** DSL definitions (`single<T>()`, `factory<T>()`, etc.) are collected as `DslDef` during Phase 2 and participate in the safety graph. Phase 3.1 validates their constructor parameters when no `startKoin<T>()` / `@KoinApplication` is present. Phase 2.5 generates DSL definition hints (`dsl_single`, `dsl_factory`, etc.) for cross-module discovery.
 

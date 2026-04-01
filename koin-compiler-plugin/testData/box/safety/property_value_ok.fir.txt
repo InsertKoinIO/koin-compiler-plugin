@@ -1,0 +1,27 @@
+FILE: test.kt
+    field:@R|org/koin/core/annotation/PropertyValue|(value = String(api.timeout)) public final val defaultApiTimeout: R|kotlin/Int| = Int(30)
+        public get(): R|kotlin/Int|
+    @R|org/koin/core/annotation/Factory|() public final class ApiClient : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Property|(value = String(api.timeout)) timeout: R|kotlin/Int|): R|ApiClient| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val timeout: R|kotlin/Int| = R|<local>/timeout|
+            public get(): R|kotlin/Int|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval app: R|org/koin/core/KoinApplication| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        )
+        ^box String(OK)
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|
