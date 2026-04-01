@@ -116,6 +116,91 @@ class DslHintGenerator(private val context: IrPluginContext) {
                 params.add(bindingParam)
             }
 
+            // Encode modulePropertyId as a Unit-typed parameter (cross-module reachability)
+            val moduleId = def.modulePropertyId
+            if (moduleId != null) {
+                val moduleParam = context.irFactory.createValueParameter(
+                    startOffset = UNDEFINED_OFFSET,
+                    endOffset = UNDEFINED_OFFSET,
+                    origin = IrDeclarationOrigin.DEFINED,
+                    name = Name.identifier("${KoinPluginConstants.DSL_MODULE_PARAM_PREFIX}${moduleId.replace('.', '$')}"),
+                    type = context.irBuiltIns.unitType,
+                    isAssignable = false,
+                    symbol = IrValueParameterSymbolImpl(),
+                    index = params.size,
+                    varargElementType = null,
+                    isCrossinline = false,
+                    isNoinline = false,
+                    isHidden = false
+                )
+                moduleParam.parent = function
+                params.add(moduleParam)
+            }
+
+            // Encode providerOnly flag (create(::function) definitions)
+            if (def.providerOnly) {
+                val providerOnlyParam = context.irFactory.createValueParameter(
+                    startOffset = UNDEFINED_OFFSET,
+                    endOffset = UNDEFINED_OFFSET,
+                    origin = IrDeclarationOrigin.DEFINED,
+                    name = Name.identifier("providerOnly"),
+                    type = context.irBuiltIns.unitType,
+                    isAssignable = false,
+                    symbol = IrValueParameterSymbolImpl(),
+                    index = params.size,
+                    varargElementType = null,
+                    isCrossinline = false,
+                    isNoinline = false,
+                    isHidden = false
+                )
+                providerOnlyParam.parent = function
+                params.add(providerOnlyParam)
+            }
+
+            // Encode qualifier (same pattern as annotation hints)
+            val defQualifier = def.qualifier
+            when (defQualifier) {
+                is QualifierValue.StringQualifier -> {
+                    // String qualifier: "qualifier_<name>" with Unit type
+                    val qualifierParam = context.irFactory.createValueParameter(
+                        startOffset = UNDEFINED_OFFSET,
+                        endOffset = UNDEFINED_OFFSET,
+                        origin = IrDeclarationOrigin.DEFINED,
+                        name = Name.identifier("qualifier_${defQualifier.name.replace('.', '$')}"),
+                        type = context.irBuiltIns.unitType,
+                        isAssignable = false,
+                        symbol = IrValueParameterSymbolImpl(),
+                        index = params.size,
+                        varargElementType = null,
+                        isCrossinline = false,
+                        isNoinline = false,
+                        isHidden = false
+                    )
+                    qualifierParam.parent = function
+                    params.add(qualifierParam)
+                }
+                is QualifierValue.TypeQualifier -> {
+                    // Type qualifier: "qualifierType" with the qualifier class type
+                    val qualifierParam = context.irFactory.createValueParameter(
+                        startOffset = UNDEFINED_OFFSET,
+                        endOffset = UNDEFINED_OFFSET,
+                        origin = IrDeclarationOrigin.DEFINED,
+                        name = Name.identifier("qualifierType"),
+                        type = defQualifier.irClass.defaultType,
+                        isAssignable = false,
+                        symbol = IrValueParameterSymbolImpl(),
+                        index = params.size,
+                        varargElementType = null,
+                        isCrossinline = false,
+                        isNoinline = false,
+                        isHidden = false
+                    )
+                    qualifierParam.parent = function
+                    params.add(qualifierParam)
+                }
+                null -> {}
+            }
+
             function.valueParameters = params
 
             // Empty body (stub — hint functions are never called)
@@ -129,6 +214,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
 
             // Create synthetic FirFile for metadata
             val firModuleData = extractFirModuleData(targetClass)
+                ?: extractFirModuleDataFromModule(moduleFragment)
             if (firModuleData == null) {
                 KoinPluginLogger.debug { "  WARN: No FIR module data for ${targetClass.name}, skipping DSL hint" }
                 continue
@@ -184,6 +270,16 @@ class DslHintGenerator(private val context: IrPluginContext) {
             is FirMetadataSource.Function -> src.fir.moduleData
             is FirMetadataSource.File -> src.fir.moduleData
             else -> null
+        }
+    }
+
+    private fun extractFirModuleDataFromModule(moduleFragment: IrModuleFragment): org.jetbrains.kotlin.fir.FirModuleData? {
+        return moduleFragment.files.firstNotNullOfOrNull { file ->
+            when (val meta = file.metadata) {
+                is FirMetadataSource.File -> meta.fir.moduleData
+                is FirMetadataSource.Class -> meta.fir.moduleData
+                else -> null
+            }
         }
     }
 
@@ -256,14 +352,43 @@ class DslHintGenerator(private val context: IrPluginContext) {
 
                 // First param is the concrete type, remaining are bindings
                 val targetClass = (params[0].type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
-                val bindings = params.drop(1).mapNotNull { param ->
-                    (param.type.classifierOrNull as? IrClassSymbol)?.owner
+                val modulePrefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
+                val qualifierPrefix = "qualifier_"
+                val metaParamNames = setOf("providerOnly", "qualifierType")
+                val bindings = params.drop(1)
+                    .filter { val name = it.name.asString()
+                        !name.startsWith(modulePrefix) && !name.startsWith(qualifierPrefix) && name !in metaParamNames
+                    }
+                    .mapNotNull { param ->
+                        (param.type.classifierOrNull as? IrClassSymbol)?.owner
+                    }
+                val modulePropertyId = params
+                    .firstOrNull { it.name.asString().startsWith(modulePrefix) }
+                    ?.name?.asString()
+                    ?.removePrefix(modulePrefix)
+                    ?.replace('$', '.')
+                val providerOnly = params.any { it.name.asString() == "providerOnly" }
+                // Decode qualifier: string qualifier (qualifier_<name>) or type qualifier (qualifierType with class type)
+                val stringQualifierParam = params.firstOrNull { it.name.asString().startsWith(qualifierPrefix) }
+                val typeQualifierParam = params.firstOrNull { it.name.asString() == "qualifierType" }
+                val qualifier = when {
+                    stringQualifierParam != null -> QualifierValue.StringQualifier(
+                        stringQualifierParam.name.asString().removePrefix(qualifierPrefix).replace('$', '.')
+                    )
+                    typeQualifierParam != null -> {
+                        val qualifierClass = (typeQualifierParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                        qualifierClass?.let { QualifierValue.TypeQualifier(it) }
+                    }
+                    else -> null
                 }
 
                 definitions.add(Definition.DslDef(
                     irClass = targetClass,
                     definitionType = defType,
-                    bindings = bindings
+                    bindings = bindings,
+                    modulePropertyId = modulePropertyId,
+                    providerOnly = providerOnly,
+                    qualifier = qualifier
                 ))
             }
         }

@@ -1,0 +1,34 @@
+FILE: test.kt
+    public final class UserSession : R|kotlin/Any| {
+        public constructor(name: R|kotlin/String|): R|UserSession| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val name: R|kotlin/String| = R|<local>/name|
+            public get(): R|kotlin/String|
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class ProfileService : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/ScopeId|(name = String(user_session)) session: R|UserSession|): R|ProfileService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val session: R|UserSession| = R|<local>/session|
+            public get(): R|UserSession|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        ^box String(OK)
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

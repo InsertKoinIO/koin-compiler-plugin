@@ -89,3 +89,28 @@ class DataRepository(
     @Named("local") val localSource: Repository,
     @Named("remote") val remoteSource: Repository
 )
+
+// ============================================================================
+// Test: @Provided on parameter — type is provided by hand (e.g., androidContext(), manual single{})
+// ============================================================================
+
+class PlatformContext
+
+@Factory
+class PlatformService(@Provided val ctx: PlatformContext)
+
+// ============================================================================
+// Test: Scope parameter injection — scope receiver passed directly, not resolved via get()
+// ============================================================================
+
+@Singleton
+class ScopeAwareService(val scope: org.koin.core.scope.Scope)
+
+// ============================================================================
+// Test: @ScopeId — resolve dependency from a named Koin scope
+// ============================================================================
+
+class ExternalSession
+
+@Factory
+class ScopedService(@org.koin.core.annotation.ScopeId(name = "my_session") val session: ExternalSession)

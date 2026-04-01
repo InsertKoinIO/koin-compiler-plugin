@@ -251,6 +251,24 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_create_function.kt")
+    public void testDsl_create_function() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_create_function.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_includes.kt")
+    public void testDsl_module_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_transitive_includes.kt")
+    public void testDsl_transitive_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_transitive_includes.kt");
+    }
+
+    @Test
     @TestMetadata("injected_param_ok.kt")
     public void testInjected_param_ok() {
       runTest("koin-compiler-plugin/testData/box/safety/injected_param_ok.kt");
@@ -287,6 +305,24 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("property_value_ok.kt")
+    public void testProperty_value_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/property_value_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("provided_param_dsl_ok.kt")
+    public void testProvided_param_dsl_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/provided_param_dsl_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("provided_param_ok.kt")
+    public void testProvided_param_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/provided_param_ok.kt");
+    }
+
+    @Test
     @TestMetadata("provided_type_ok.kt")
     public void testProvided_type_ok() {
       runTest("koin-compiler-plugin/testData/box/safety/provided_type_ok.kt");
@@ -296,6 +332,24 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @TestMetadata("qualifier_match.kt")
     public void testQualifier_match() {
       runTest("koin-compiler-plugin/testData/box/safety/qualifier_match.kt");
+    }
+
+    @Test
+    @TestMetadata("scope_id_ok.kt")
+    public void testScope_id_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/scope_id_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("scope_param_dsl_ok.kt")
+    public void testScope_param_dsl_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/scope_param_dsl_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("scope_param_ok.kt")
+    public void testScope_param_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/scope_param_ok.kt");
     }
 
     @Test

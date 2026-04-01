@@ -1,0 +1,46 @@
+FILE: test.kt
+    public final class ExternalContext : R|kotlin/Any| {
+        public constructor(): R|ExternalContext| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class Service : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Provided|() ctx: R|ExternalContext|): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val ctx: R|ExternalContext| = R|<local>/ctx|
+            public get(): R|ExternalContext|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|/TestModule.TestModule|().R|/module|(), Q|org/koin/dsl|.R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|ExternalContext|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|ExternalContext| <inline=NoInline>  {
+                    ^ R|/ExternalContext.ExternalContext|()
+                }
+                )
+            }
+            )))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        ^box when () {
+            !=(R|<local>/service|.R|/Service.ctx|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

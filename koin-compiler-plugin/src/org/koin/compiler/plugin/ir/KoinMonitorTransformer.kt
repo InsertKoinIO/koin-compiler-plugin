@@ -107,6 +107,9 @@ class KoinMonitorTransformer(
     // Track transformed functions to avoid double-transformation
     private val transformedFunctions = mutableSetOf<IrSimpleFunction>()
 
+    // Track monitored classes for summary logging: className -> function count
+    private val monitoredClasses = mutableMapOf<String, Int>()
+
     // Track if we've already logged the SDK missing warning
     private var sdkMissingWarningLogged = false
 
@@ -115,7 +118,7 @@ class KoinMonitorTransformer(
         if (kotzillaCoreClass == null || getDefaultInstanceFunction == null) {
             // Only log once per compilation to avoid spam
             if (!sdkMissingWarningLogged && shouldMonitorFunction(declaration)) {
-                KoinPluginLogger.user { "@Monitor: Kotzilla SDK not found on classpath - monitoring disabled" }
+                KoinPluginLogger.warn("@Monitor: Kotzilla SDK not found on classpath - monitoring disabled")
                 sdkMissingWarningLogged = true
             }
             return super.visitSimpleFunction(declaration)
@@ -151,9 +154,23 @@ class KoinMonitorTransformer(
         val wrappedBody = wrapBodyWithTrace(declaration, originalBody, label)
         if (wrappedBody != null) {
             declaration.body = wrappedBody
+
+            // Track class-level monitoring for summary
+            val parentClass = declaration.parent as? IrClass
+            val className = parentClass?.name?.asString() ?: "<top-level>"
+            monitoredClasses[className] = (monitoredClasses[className] ?: 0) + 1
         }
 
         return super.visitSimpleFunction(declaration)
+    }
+
+    /**
+     * Log a summary of monitored classes. Always emitted so users know tracing is active.
+     */
+    fun logSummary() {
+        for ((className, count) in monitoredClasses) {
+            KoinPluginLogger.warn("@Monitor: $className - tracing enabled ($count functions)")
+        }
     }
 
     private fun shouldMonitorFunction(function: IrSimpleFunction): Boolean {

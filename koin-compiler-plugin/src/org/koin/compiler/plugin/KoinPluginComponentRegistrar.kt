@@ -100,6 +100,14 @@ object KoinPluginLogger {
     }
 
     /**
+     * Log a warning that is always emitted regardless of userLogs/debugLogs settings.
+     * Use for critical messages that should never be silenced (e.g., @Monitor without SDK).
+     */
+    fun warn(message: String) {
+        messageCollector.report(CompilerMessageSeverity.WARNING, "[Koin] $message")
+    }
+
+    /**
      * Log a user-facing message in FIR phase.
      * Adds [FIR] prefix to distinguish phase.
      *

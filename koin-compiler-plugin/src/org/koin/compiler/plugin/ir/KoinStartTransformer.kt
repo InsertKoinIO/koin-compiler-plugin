@@ -116,6 +116,22 @@ class KoinStartTransformer(
         val isWithConfiguration = fqNameStr == "org.koin.plugin.module.dsl.withConfiguration" &&
             callee.extensionReceiverParameter?.type?.classFqName?.asString() == "org.koin.core.KoinApplication"
 
+        // KoinApplication.module<T>() — load a single @Module class
+        val isModuleLoad = fqNameStr == "org.koin.plugin.module.dsl.module" &&
+            callee.extensionReceiverParameter?.type?.classFqName?.asString() == "org.koin.core.KoinApplication"
+        if (isModuleLoad) {
+            return transformModuleLoad(expression, callee)
+        }
+
+        // KoinApplication.modules(vararg KClass) — load multiple @Module classes
+        val isModulesLoad = fqNameStr == "org.koin.plugin.module.dsl.modules" &&
+            callee.extensionReceiverParameter?.type?.classFqName?.asString() == "org.koin.core.KoinApplication" &&
+            callee.valueParameters.size == 1 &&
+            callee.valueParameters[0].varargElementType != null
+        if (isModulesLoad) {
+            return transformModulesLoad(expression)
+        }
+
         if (!isStartKoin && !isKoinApplication && !isKoinConfiguration && !isWithConfiguration) {
             return super.visitCall(expression)
         }
@@ -432,6 +448,112 @@ class KoinStartTransformer(
             is IrClassReference -> (expression.classType.classifierOrNull as? IrClassSymbol)?.owner
             is IrGetClass -> (expression.argument.type.classifierOrNull as? IrClassSymbol)?.owner
             else -> null
+        }
+    }
+
+    /**
+     * Transform KoinApplication.module<T>() → KoinApplication.modules(T().module())
+     *
+     * Resolves the type argument T to a @Module class and calls the generated module() function.
+     */
+    private fun transformModuleLoad(expression: IrCall, callee: IrSimpleFunction): IrExpression {
+        // Get type argument T
+        val typeArg = expression.getTypeArgument(0) ?: return super.visitCall(expression)
+        val moduleClass = (typeArg.classifierOrNull as? IrClassSymbol)?.owner
+            ?: return super.visitCall(expression)
+
+        KoinPluginLogger.user { "Intercepting KoinApplication.module<${moduleClass.name}>()" }
+
+        val builder = DeclarationIrBuilder(context, expression.symbol, expression.startOffset, expression.endOffset)
+
+        // Build: ModuleClass().module()
+        val moduleExpression = moduleFunctionResolver.buildModuleGetCall(moduleClass, builder)
+            ?: return super.visitCall(expression)
+
+        // Find the real KoinApplication.modules(Module) function
+        val koinAppClass = (expression.extensionReceiver?.type?.classifierOrNull as? IrClassSymbol)?.owner
+            ?: return super.visitCall(expression)
+
+        val modulesFunction = koinAppClass.declarations
+            .filterIsInstance<IrSimpleFunction>()
+            .firstOrNull { func ->
+                func.name.asString() == "modules" &&
+                func.valueParameters.size == 1 &&
+                func.valueParameters[0].varargElementType != null
+            }
+            ?: return super.visitCall(expression)
+
+        val koinModuleClass = context.referenceClass(koinModuleClassId)?.owner
+            ?: return super.visitCall(expression)
+
+        // Generate: this.modules(T().module())
+        return builder.irCall(modulesFunction.symbol).apply {
+            dispatchReceiver = expression.extensionReceiver
+            putValueArgument(0, builder.irVararg(
+                koinModuleClass.defaultType,
+                listOf(moduleExpression)
+            ))
+        }
+    }
+
+    /**
+     * Transform KoinApplication.modules(ModuleA::class, ModuleB::class)
+     * → KoinApplication.modules(ModuleA().module(), ModuleB().module())
+     *
+     * Resolves each KClass argument to a @Module class and calls the generated module() function.
+     */
+    private fun transformModulesLoad(expression: IrCall): IrExpression {
+        val varargArg = expression.getValueArgument(0) as? IrVararg
+            ?: return super.visitCall(expression)
+
+        // Extract module classes from KClass references
+        val moduleClasses = varargArg.elements.mapNotNull { element ->
+            when (element) {
+                is IrClassReference -> (element.classType.classifierOrNull as? IrClassSymbol)?.owner
+                is IrExpression -> extractClassFromKClassExpression(element)
+                else -> null
+            }
+        }
+
+        if (moduleClasses.isEmpty()) return super.visitCall(expression)
+
+        if (KoinPluginLogger.userLogsEnabled) {
+            val names = moduleClasses.mapNotNull { it.fqNameWhenAvailable?.asString() }.joinToString(", ")
+            KoinPluginLogger.user { "Intercepting KoinApplication.modules($names)" }
+        }
+
+        val builder = DeclarationIrBuilder(context, expression.symbol, expression.startOffset, expression.endOffset)
+
+        // Build module expressions: ModuleA().module(), ModuleB().module(), ...
+        val moduleExpressions = moduleClasses.mapNotNull { moduleClass ->
+            moduleFunctionResolver.buildModuleGetCall(moduleClass, builder)
+        }
+
+        if (moduleExpressions.isEmpty()) return super.visitCall(expression)
+
+        // Find the real KoinApplication.modules(vararg Module) function
+        val koinAppClass = (expression.extensionReceiver?.type?.classifierOrNull as? IrClassSymbol)?.owner
+            ?: return super.visitCall(expression)
+
+        val modulesFunction = koinAppClass.declarations
+            .filterIsInstance<IrSimpleFunction>()
+            .firstOrNull { func ->
+                func.name.asString() == "modules" &&
+                func.valueParameters.size == 1 &&
+                func.valueParameters[0].varargElementType != null
+            }
+            ?: return super.visitCall(expression)
+
+        val koinModuleClass = context.referenceClass(koinModuleClassId)?.owner
+            ?: return super.visitCall(expression)
+
+        // Generate: this.modules(ModuleA().module(), ModuleB().module())
+        return builder.irCall(modulesFunction.symbol).apply {
+            dispatchReceiver = expression.extensionReceiver
+            putValueArgument(0, builder.irVararg(
+                koinModuleClass.defaultType,
+                moduleExpressions
+            ))
         }
     }
 

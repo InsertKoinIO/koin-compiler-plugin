@@ -1,0 +1,34 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Singleton|() public final class ScopeAwareService : R|kotlin/Any| {
+        public constructor(scope: R|org/koin/core/scope/Scope|): R|ScopeAwareService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val scope: R|org/koin/core/scope/Scope| = R|<local>/scope|
+            public get(): R|org/koin/core/scope/Scope|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|ScopeAwareService| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ScopeAwareService|>()
+        ^box when () {
+            !=(R|<local>/service|.R|/ScopeAwareService.scope|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|
