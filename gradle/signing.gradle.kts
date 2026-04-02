@@ -1,15 +1,14 @@
-apply(plugin = "signing")
-
 fun isReleaseBuild(): Boolean = System.getenv("IS_RELEASE") == "true" || false
 
-fun getSigningKeyId(): String = findProperty("SIGNING_KEY_ID")?.toString() ?: System.getenv("SIGNING_KEY_ID") ?: ""
-
-fun getSigningKey(): String = findProperty("SIGNING_KEY")?.toString() ?: System.getenv("SIGNING_KEY") ?: ""
-
-fun getSigningPassword(): String =
-    findProperty("SIGNING_PASSWORD")?.toString() ?: System.getenv("SIGNING_PASSWORD") ?: ""
-
 if (isReleaseBuild()) {
+    apply(plugin = "signing")
+
+    fun getSigningKeyId(): String = findProperty("SIGNING_KEY_ID")?.toString() ?: System.getenv("SIGNING_KEY_ID") ?: ""
+
+    fun getSigningKey(): String = findProperty("SIGNING_KEY")?.toString() ?: System.getenv("SIGNING_KEY") ?: ""
+
+    fun getSigningPassword(): String =
+        findProperty("SIGNING_PASSWORD")?.toString() ?: System.getenv("SIGNING_PASSWORD") ?: ""
 
     tasks.withType<PublishToMavenLocal>().configureEach {
         dependsOn(tasks.withType<Sign>())
