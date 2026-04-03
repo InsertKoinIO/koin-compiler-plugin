@@ -1,6 +1,6 @@
 [versions]
 kotlin = "2.3.20"
-koin = "4.2.1-beta-1"
+koin = "4.2.1-RC1"
 koin-plugin = "0.6.2"
 
 [libraries]
