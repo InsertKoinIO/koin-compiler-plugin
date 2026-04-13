@@ -580,9 +580,10 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             params.add(Name.identifier("scope") to scopeType)
         }
 
-        // String qualifier: "qualifier_<name>" with Unit type
+        // String qualifier: "qualifier_<sanitized-name>" with Unit type
         if (qualifierName != null) {
-            params.add(Name.identifier("qualifier_$qualifierName") to session.builtinTypes.unitType.coneType)
+            val sanitized = KoinPluginConstants.sanitizeQualifierName(qualifierName)
+            params.add(Name.identifier("qualifier_$sanitized") to session.builtinTypes.unitType.coneType)
         }
 
         // Type qualifier: "qualifierType" with the qualifier class type

@@ -166,7 +166,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                         startOffset = UNDEFINED_OFFSET,
                         endOffset = UNDEFINED_OFFSET,
                         origin = IrDeclarationOrigin.DEFINED,
-                        name = Name.identifier("qualifier_${defQualifier.name.replace('.', '$')}"),
+                        name = Name.identifier("qualifier_${KoinPluginConstants.sanitizeQualifierName(defQualifier.name)}"),
                         type = context.irBuiltIns.unitType,
                         isAssignable = false,
                         symbol = IrValueParameterSymbolImpl(),
@@ -373,7 +373,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                 val typeQualifierParam = params.firstOrNull { it.name.asString() == "qualifierType" }
                 val qualifier = when {
                     stringQualifierParam != null -> QualifierValue.StringQualifier(
-                        stringQualifierParam.name.asString().removePrefix(qualifierPrefix).replace('$', '.')
+                        KoinPluginConstants.unsanitizeQualifierName(stringQualifierParam.name.asString().removePrefix(qualifierPrefix))
                     )
                     typeQualifierParam != null -> {
                         val qualifierClass = (typeQualifierParam.type.classifierOrNull as? IrClassSymbol)?.owner

@@ -347,6 +347,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("qualifier_dotted_name.kt")
+    public void testQualifier_dotted_name() {
+      runTest("koin-compiler-plugin/testData/box/safety/qualifier_dotted_name.kt");
+    }
+
+    @Test
     @TestMetadata("qualifier_match.kt")
     public void testQualifier_match() {
       runTest("koin-compiler-plugin/testData/box/safety/qualifier_match.kt");

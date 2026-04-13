@@ -101,4 +101,64 @@ object KoinPluginConstants {
 
     /** Name of the generated module extension function. */
     const val MODULE_FUNCTION_NAME = "module"
+
+    // ================================================================================
+    // Qualifier Name Encoding — for embedding qualifier strings in Kotlin identifiers
+    // ================================================================================
+
+    /**
+     * Sanitize a qualifier name for use in a Kotlin identifier (hint parameter name).
+     *
+     * Characters not valid in Kotlin identifiers are escaped as `$XX` where XX is
+     * the lowercase 2-digit hex code of the character. Literal `$` is escaped as `$$`.
+     *
+     * Example: `"my.service-1"` → `"my$2eservice$2d1"`
+     */
+    fun sanitizeQualifierName(name: String): String = buildString(name.length) {
+        for (ch in name) {
+            when {
+                ch == '$' -> append("$$")
+                ch.isLetterOrDigit() || ch == '_' -> append(ch)
+                else -> {
+                    append('$')
+                    append(ch.code.toString(16).padStart(2, '0'))
+                }
+            }
+        }
+    }
+
+    /**
+     * Reverse [sanitizeQualifierName]: decode a sanitized identifier back to the original
+     * qualifier name.
+     *
+     * Example: `"my$2eservice$2d1"` → `"my.service-1"`
+     */
+    fun unsanitizeQualifierName(encoded: String): String = buildString(encoded.length) {
+        var i = 0
+        while (i < encoded.length) {
+            val ch = encoded[i]
+            if (ch == '$' && i + 1 < encoded.length) {
+                if (encoded[i + 1] == '$') {
+                    append('$')
+                    i += 2
+                } else if (i + 2 < encoded.length) {
+                    val hex = encoded.substring(i + 1, i + 3)
+                    val code = hex.toIntOrNull(16)
+                    if (code != null) {
+                        append(code.toChar())
+                        i += 3
+                    } else {
+                        append(ch)
+                        i++
+                    }
+                } else {
+                    append(ch)
+                    i++
+                }
+            } else {
+                append(ch)
+                i++
+            }
+        }
+    }
 }

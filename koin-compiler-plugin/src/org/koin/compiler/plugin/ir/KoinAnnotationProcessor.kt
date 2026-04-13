@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.KoinAnnotationFqNames
+import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.PropertyValueRegistry
@@ -1034,7 +1035,7 @@ class KoinAnnotationProcessor(
                     startOffset = UNDEFINED_OFFSET,
                     endOffset = UNDEFINED_OFFSET,
                     origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier("qualifier_${qualifier.name}"),
+                    name = Name.identifier("qualifier_${KoinPluginConstants.sanitizeQualifierName(qualifier.name)}"),
                     type = context.irBuiltIns.unitType,
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
@@ -1486,7 +1487,7 @@ class KoinAnnotationProcessor(
                 val qualifier: QualifierValue? = run {
                     val qParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
                     if (qParam != null) {
-                        QualifierValue.StringQualifier(qParam.name.asString().removePrefix("qualifier_"))
+                        QualifierValue.StringQualifier(KoinPluginConstants.unsanitizeQualifierName(qParam.name.asString().removePrefix("qualifier_")))
                     } else {
                         val qTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qTypeParam != null) {
@@ -1572,7 +1573,7 @@ class KoinAnnotationProcessor(
                 val qualifier: QualifierValue? = run {
                     val qualifierParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
                     if (qualifierParam != null) {
-                        val name = qualifierParam.name.asString().removePrefix("qualifier_")
+                        val name = KoinPluginConstants.unsanitizeQualifierName(qualifierParam.name.asString().removePrefix("qualifier_"))
                         QualifierValue.StringQualifier(name)
                     } else {
                         val qualTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
@@ -1809,7 +1810,7 @@ class KoinAnnotationProcessor(
                 val classQualifier: QualifierValue? = run {
                     val qParam = classParams.firstOrNull { it.name.asString().startsWith("qualifier_") }
                     if (qParam != null) {
-                        QualifierValue.StringQualifier(qParam.name.asString().removePrefix("qualifier_"))
+                        QualifierValue.StringQualifier(KoinPluginConstants.unsanitizeQualifierName(qParam.name.asString().removePrefix("qualifier_")))
                     } else {
                         val qTypeParam = classParams.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qTypeParam != null) {
@@ -1858,7 +1859,7 @@ class KoinAnnotationProcessor(
                 val funcQualifier: QualifierValue? = run {
                     val qualifierParam = funcParams.firstOrNull { it.name.asString().startsWith("qualifier_") }
                     if (qualifierParam != null) {
-                        val qName = qualifierParam.name.asString().removePrefix("qualifier_")
+                        val qName = KoinPluginConstants.unsanitizeQualifierName(qualifierParam.name.asString().removePrefix("qualifier_"))
                         QualifierValue.StringQualifier(qName)
                     } else {
                         val qualTypeParam = funcParams.firstOrNull { it.name.asString() == "qualifierType" }

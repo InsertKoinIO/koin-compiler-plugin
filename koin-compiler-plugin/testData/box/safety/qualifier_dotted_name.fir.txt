@@ -1,0 +1,76 @@
+FILE: Services.kt
+    package data
+
+    public abstract interface DataSource : R|kotlin/Any| {
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(com.example.local)) public final class LocalDataSource : R|data/DataSource| {
+        public constructor(): R|data/LocalDataSource| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(com.example.remote)) public final class RemoteDataSource : R|data/DataSource| {
+        public constructor(): R|data/RemoteDataSource| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: Repository.kt
+    package ui
+
+    @R|org/koin/core/annotation/Singleton|() public final class Repository : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(com.example.local)) local: R|data/DataSource|, @R|org/koin/core/annotation/Named|(value = String(com.example.remote)) remote: R|data/DataSource|): R|ui/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val local: R|data/DataSource| = R|<local>/local|
+            public get(): R|data/DataSource|
+
+        public final val remote: R|data/DataSource| = R|<local>/remote|
+            public get(): R|data/DataSource|
+
+    }
+FILE: modules.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(data))) @R|org/koin/core/annotation/Configuration|() public final class DataModule : R|kotlin/Any| {
+        public constructor(): R|DataModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(ui))) @R|org/koin/core/annotation/Configuration|() public final class UiModule : R|kotlin/Any| {
+        public constructor(): R|UiModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: test.kt
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|/DataModule.DataModule|().R|/module|(), R|/UiModule.UiModule|().R|/module|()))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval repo: R|ui/Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|ui/Repository|>()
+        lval localOk: R|kotlin/Boolean| = (R|<local>/repo|.R|ui/Repository.local| is R|data/LocalDataSource|)
+        lval remoteOk: R|kotlin/Boolean| = (R|<local>/repo|.R|ui/Repository.remote| is R|data/RemoteDataSource|)
+        ^box when () {
+            R|<local>/localOk| && R|<local>/remoteOk| ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: local=), R|<local>/localOk|, String(, remote=), R|<local>/remoteOk|)
+            }
+        }
+
+    }
+FILE: /dataModuleModule.kt
+    public final fun R|DataModule|.module(): R|org/koin/core/module/Module|
+FILE: /uiModuleModule.kt
+    public final fun R|UiModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/dataModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|DataModule|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/uiModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|UiModule|): R|kotlin/Unit|
