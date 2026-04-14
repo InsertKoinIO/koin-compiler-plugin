@@ -14,7 +14,11 @@ import org.koin.core.annotation.Singleton
 @Module
 @ComponentScan
 @Configuration
-class FeatureModule
+class FeatureModule {
+
+    @Singleton(binds = [FeatureLogger::class])
+    internal fun provideFeatureLogger(): FeatureLoggerImpl = FeatureLoggerImpl()
+}
 
 // --- Definitions in this module ---
 
@@ -61,4 +65,18 @@ class PremiumFeatureService {
 @Singleton
 class PremiumConsumer(@Named("premium") val premiumService: PremiumFeatureService) {
     fun consume(): String = premiumService.getPremiumMessage()
+}
+
+/**
+ * A logger defined using binding
+ */
+interface FeatureLogger {
+    fun message(): String
+}
+
+/**
+ * A logger implementation to be bound using supertype
+ */
+internal class FeatureLoggerImpl : FeatureLogger {
+    override fun message(): String = "feature logger"
 }

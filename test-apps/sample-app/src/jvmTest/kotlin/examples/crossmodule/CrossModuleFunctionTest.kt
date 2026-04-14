@@ -21,8 +21,13 @@ class CrossModuleFunctionTest {
         // 1. FIR generated a definition_function_single hint for provideFeatureConfig()
         // 2. IR discovered the hint during CrossModuleFunctionModule's collectAllDefinitions()
         // 3. BindingRegistry validated CrossModuleConsumer's dependency on FeatureConfig as satisfied
+        // 4. FeatureModule is explicitly included from sample-feature-module.
+        // 5. FeatureModule's @Singleton(binds = [FeatureLogger::class]) provider function
+        //    exported its binding metadata for CrossModuleBoundFunctionConsumer.
         // If any of these steps failed, compilation would have produced:
         //   "[Koin] Missing dependency: featureutil.FeatureConfig"
+        // or:
+        //   "[Koin] Missing dependency: feature.FeatureLogger"
         println("Cross-module function hint compile-time validation: OK")
     }
 }

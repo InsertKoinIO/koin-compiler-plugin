@@ -63,6 +63,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     public void testDelegation_no_autobind() {
       runTest("koin-compiler-plugin/testData/box/bindings/delegation_no_autobind.kt");
     }
+
+    @Test
+    @TestMetadata("provider_function_binds.kt")
+    public void testProvider_function_binds() {
+      runTest("koin-compiler-plugin/testData/box/bindings/provider_function_binds.kt");
+    }
   }
 
   @Nested
