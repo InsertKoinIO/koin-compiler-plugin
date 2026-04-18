@@ -37,7 +37,7 @@ afterEvaluate {
     }
 }
 
-allprojects {
+subprojects {
     group = "io.insert-koin"
     version = pluginVersion
 }
