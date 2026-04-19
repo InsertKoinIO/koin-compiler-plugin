@@ -23,7 +23,7 @@ FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:SessionData modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
       Scoped(binds = <null>)
-      Scope(value = CLASS_REFERENCE 'CLASS CLASS name:SessionScope modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.SessionScope>, name = <null>)
+      Scope(value = SessionScope::class, name = <null>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.SessionData
     PROPERTY name:auth visibility:public modality:FINAL [val]
       FIELD PROPERTY_BACKING_FIELD name:auth type:<root>.AuthService visibility:private [final]

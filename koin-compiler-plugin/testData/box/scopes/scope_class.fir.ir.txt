@@ -21,7 +21,7 @@ FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:ScopedService modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
       Scoped(binds = <null>)
-      Scope(value = CLASS_REFERENCE 'CLASS CLASS name:MyScope modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.MyScope>, name = <null>)
+      Scope(value = MyScope::class, name = <null>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.ScopedService
     CONSTRUCTOR visibility:public returnType:<root>.ScopedService [primary]
       BLOCK_BODY

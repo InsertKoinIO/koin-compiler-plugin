@@ -1,8 +1,8 @@
 FILE: test.kt
-    field:@R|org/koin/core/annotation/PropertyValue|(value = String(api.timeout)) public final val defaultApiTimeout: R|kotlin/Int| = Int(30)
+    field:@R|org/koin/core/annotation/PropertyValue|(value = String(api.timeout) [evaluated = String(api.timeout)]) public final val defaultApiTimeout: R|kotlin/Int| = Int(30)
         public get(): R|kotlin/Int|
     @R|org/koin/core/annotation/Factory|() public final class ApiClient : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/Property|(value = String(api.timeout)) timeout: R|kotlin/Int|): R|ApiClient| {
+        public constructor(@R|org/koin/core/annotation/Property|(value = String(api.timeout) [evaluated = String(api.timeout)]) timeout: R|kotlin/Int|): R|ApiClient| {
             super<R|kotlin/Any|>()
         }
 

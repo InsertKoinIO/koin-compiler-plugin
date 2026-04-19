@@ -15,6 +15,10 @@ import java.util.regex.Pattern;
 @TestMetadata("koin-compiler-plugin/testData/diagnostics")
 @TestDataPath("$PROJECT_ROOT")
 public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
+  private void run(String fileName) {
+    runTest("koin-compiler-plugin/testData/diagnostics/" + fileName);
+  }
+
   @Test
   public void testAllFilesPresentInDiagnostics() {
     KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/diagnostics"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -23,54 +27,54 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @Test
   @TestMetadata("configuration_label_mismatch.kt")
   public void testConfiguration_label_mismatch() {
-    runTest("koin-compiler-plugin/testData/diagnostics/configuration_label_mismatch.kt");
+    run("configuration_label_mismatch.kt");
   }
 
   @Test
   @TestMetadata("dsl_module_not_loaded.kt")
   public void testDsl_module_not_loaded() {
-    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_not_loaded.kt");
+    run("dsl_module_not_loaded.kt");
   }
 
   @Test
   @TestMetadata("dsl_module_unreachable.kt")
   public void testDsl_module_unreachable() {
-    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_unreachable.kt");
+    run("dsl_module_unreachable.kt");
   }
 
   @Test
   @TestMetadata("lazy_missing.kt")
   public void testLazy_missing() {
-    runTest("koin-compiler-plugin/testData/diagnostics/lazy_missing.kt");
+    run("lazy_missing.kt");
   }
 
   @Test
   @TestMetadata("missing_dependency.kt")
   public void testMissing_dependency() {
-    runTest("koin-compiler-plugin/testData/diagnostics/missing_dependency.kt");
+    run("missing_dependency.kt");
   }
 
   @Test
   @TestMetadata("provided_missing.kt")
   public void testProvided_missing() {
-    runTest("koin-compiler-plugin/testData/diagnostics/provided_missing.kt");
+    run("provided_missing.kt");
   }
 
   @Test
   @TestMetadata("qualifier_mismatch.kt")
   public void testQualifier_mismatch() {
-    runTest("koin-compiler-plugin/testData/diagnostics/qualifier_mismatch.kt");
+    run("qualifier_mismatch.kt");
   }
 
   @Test
   @TestMetadata("scoped_cross_scope.kt")
   public void testScoped_cross_scope() {
-    runTest("koin-compiler-plugin/testData/diagnostics/scoped_cross_scope.kt");
+    run("scoped_cross_scope.kt");
   }
 
   @Test
   @TestMetadata("startkoin_missing.kt")
   public void testStartkoin_missing() {
-    runTest("koin-compiler-plugin/testData/diagnostics/startkoin_missing.kt");
+    run("startkoin_missing.kt");
   }
 }

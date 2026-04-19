@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrEnumEntry
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.expressions.IrAnnotation
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
@@ -27,16 +28,19 @@ import org.jetbrains.kotlin.name.StandardClassIds
  * Mirrors the FIR-phase annotation added by [org.koin.compiler.plugin.fir.KoinModuleFirGenerator.markAsDeprecatedHidden].
  */
 fun IrSimpleFunction.addDeprecatedHiddenAnnotation(context: IrPluginContext) {
-    val annotation = buildDeprecatedHiddenAnnotation(context) ?: return
-    annotations = annotations + annotation
+    val deprecatedHiddenAnnotation = buildDeprecatedHiddenAnnotation(context) ?: return
+    // In Kotlin version 2.3.20, annotations is a List<IrConstructorCall>
+    // In version 2.4.0,it is a List<IrAnnotation> so we have to make sure
+    // that the cast is correct.
+    annotations = annotations + deprecatedHiddenAnnotation
 }
 
 /**
- * Build an `IrConstructorCall` representing `@Deprecated(message = "...", level = DeprecationLevel.HIDDEN)`.
+ * Build an `IrAnnotation` representing `@Deprecated(message = "...", level = DeprecationLevel.HIDDEN)`.
  * Returns null if the Deprecated class cannot be resolved.
  */
 @OptIn(DeprecatedForRemovalCompilerApi::class)
-private fun buildDeprecatedHiddenAnnotation(context: IrPluginContext): IrConstructorCall? {
+private fun buildDeprecatedHiddenAnnotation(context: IrPluginContext): IrAnnotation? {
     // Resolve kotlin.Deprecated class
     val deprecatedClassSymbol = context.referenceClass(StandardClassIds.Annotations.Deprecated) ?: return null
     val deprecatedClass = deprecatedClassSymbol.owner

@@ -17,7 +17,7 @@ FILE fqName:<root> fileName:/test.kt
     CONSTRUCTOR visibility:public returnType:<root>.Consumer [primary]
       VALUE_PARAMETER kind:Regular name:service index:0 type:<root>.QualifiedService
         annotations:
-          Qualifier(value = CLASS_REFERENCE 'CLASS INTERFACE name:ProdQualifier modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.ProdQualifier>, name = <null>)
+          Qualifier(value = ProdQualifier::class, name = <null>)
       BLOCK_BODY
         DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
         INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Consumer modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
@@ -37,7 +37,7 @@ FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:QualifiedService modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
       Singleton(binds = <null>, createdAtStart = <null>)
-      Qualifier(value = CLASS_REFERENCE 'CLASS INTERFACE name:ProdQualifier modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.ProdQualifier>, name = <null>)
+      Qualifier(value = ProdQualifier::class, name = <null>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.QualifiedService
     CONSTRUCTOR visibility:public returnType:<root>.QualifiedService [primary]
       BLOCK_BODY

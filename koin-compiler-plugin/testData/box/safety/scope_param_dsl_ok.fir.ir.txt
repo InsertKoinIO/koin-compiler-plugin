@@ -3,7 +3,7 @@ FILE fqName:org.koin.plugin.hints fileName:/scopeAwareRepositoryDsl_single.kt
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ScopeAwareRepository
     VALUE_PARAMETER kind:Regular name:module_testModule index:1 type:kotlin.Unit
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   PROPERTY name:testModule visibility:public modality:FINAL [val]
