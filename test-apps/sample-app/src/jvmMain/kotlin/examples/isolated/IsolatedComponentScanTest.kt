@@ -1,6 +1,7 @@
 package examples.isolated
 
 import org.koin.core.annotation.ComponentScan
+import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
@@ -13,7 +14,10 @@ import org.koin.core.annotation.Singleton
 
 // --- @Module without @ComponentScan ---
 // Should NOT scan any packages, only uses function definitions
-@Module
+@Module(
+    includes = []
+)
+@Configuration("isolated-no-scan")
 class IsolatedNoScanModule {
     @Singleton
     fun provideIsolatedFunctionService(): IsolatedFunctionService = IsolatedFunctionService()
@@ -28,6 +32,7 @@ class IsolatedClassNotScanned
 // --- @Module @ComponentScan (scans this package) ---
 @Module
 @ComponentScan
+@Configuration("isolated-scan")
 class IsolatedScanModule
 
 // This class IS picked up by IsolatedScanModule
