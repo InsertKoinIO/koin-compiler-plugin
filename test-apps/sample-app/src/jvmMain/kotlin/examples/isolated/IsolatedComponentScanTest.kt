@@ -14,9 +14,7 @@ import org.koin.core.annotation.Singleton
 
 // --- @Module without @ComponentScan ---
 // Should NOT scan any packages, only uses function definitions
-@Module(
-    includes = []
-)
+@Module
 @Configuration("isolated-no-scan")
 class IsolatedNoScanModule {
     @Singleton
