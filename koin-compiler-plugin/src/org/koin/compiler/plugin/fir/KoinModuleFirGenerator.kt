@@ -90,6 +90,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         private val CONFIGURATION_ANNOTATION = KoinAnnotationFqNames.CONFIGURATION
 
         // Definition annotations
+        private val ALL_DEFINITION_ANNOTATIONS = KoinAnnotationFqNames.KOIN_DEFINITION_ANNOTATIONS.toSet()
         private val SINGLETON_ANNOTATION = KoinAnnotationFqNames.SINGLETON
         private val SINGLE_ANNOTATION = KoinAnnotationFqNames.SINGLE
         private val FACTORY_ANNOTATION = KoinAnnotationFqNames.FACTORY
@@ -470,6 +471,41 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
     private fun extractScopeClassId(classSymbol: FirClassSymbol<*>): ClassId? =
         extractScopeClassIdFromAnnotations(classSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>())
+
+    /**
+     * Extract explicit binding ClassIds from @Single(binds = [...]) and related definition annotations.
+     * Null means the binds parameter was omitted, while an empty list means it was explicitly present
+     * but empty/defaulted, so auto-binding should be suppressed.
+     */
+    private fun extractExplicitBindingClassIdsFromAnnotations(annotations: List<FirAnnotationCall>): List<ClassId>? {
+        val annotation = annotations.firstOrNull { annotation ->
+            val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
+            annotationClassId?.asSingleFqName() in ALL_DEFINITION_ANNOTATIONS
+        } ?: return null
+
+        val bindings = mutableListOf<ClassId>()
+        var foundBindsArgument = false
+
+        for (argument in annotation.argumentList.arguments) {
+            if (argument is FirVarargArgumentsExpression) {
+                foundBindsArgument = true
+                for (element in argument.arguments) {
+                    val classId = extractClassIdFromExpression(element)
+                    if (classId != null && classId.asSingleFqName().asString() != "kotlin.Unit") {
+                        bindings.add(classId)
+                    }
+                }
+            }
+        }
+
+        return if (foundBindsArgument) bindings else null
+    }
+
+    private fun extractExplicitBindingClassIds(functionSymbol: FirNamedFunctionSymbol): List<ClassId>? =
+        extractExplicitBindingClassIdsFromAnnotations(functionSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>())
+
+    private fun extractExplicitBindingClassIds(classSymbol: FirClassSymbol<*>): List<ClassId>? =
+        extractExplicitBindingClassIdsFromAnnotations(classSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>())
 
     /**
      * Detect auto-binding ClassIds from the return type's supertypes.
@@ -933,7 +969,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                             val qualifierName = extractQualifierName(classSymbol)
                             val qualifierTypeClassId = extractQualifierTypeClassId(classSymbol)
                             val scopeClassId = extractScopeClassId(classSymbol)
-                            val bindingClassIds = detectBindingClassIds(classSymbol.classId)
+                            val bindingClassIds = extractExplicitBindingClassIds(classSymbol)
+                                ?: detectBindingClassIds(classSymbol.classId)
 
                             log { "  Found @$defType class: ${classSymbol.classId} (orphan, needs hint)" }
                             if (qualifierName != null) log { "    qualifier: @Named(\"$qualifierName\")" }
@@ -1023,7 +1060,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                         val qualifierName = extractQualifierName(functionSymbol)
                         val qualifierTypeClassId = extractQualifierTypeClassId(functionSymbol)
                         val scopeClassId = extractScopeClassId(functionSymbol)
-                        val bindingClassIds = detectBindingClassIds(returnTypeClassId)
+                        val bindingClassIds = extractExplicitBindingClassIds(functionSymbol)
+                            ?: detectBindingClassIds(returnTypeClassId)
 
                         log { "  Found @$defType function: ${callableId.callableName}() -> $returnTypeClassId (orphan, needs hint)" }
                         if (qualifierName != null) log { "    qualifier: @Named(\"$qualifierName\")" }
@@ -1102,7 +1140,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                         val qualifierName = extractQualifierName(functionSymbol)
                         val qualifierTypeClassId = extractQualifierTypeClassId(functionSymbol)
                         val scopeClassId = extractScopeClassId(functionSymbol)
-                        val bindingClassIds = detectBindingClassIds(returnTypeClassId)
+                        val bindingClassIds = extractExplicitBindingClassIds(functionSymbol)
+                            ?: detectBindingClassIds(returnTypeClassId)
 
                         log { "  Found @$defType module function: ${containingClassId.shortClassName}.$funcName() -> $returnTypeClassId" }
                         if (qualifierName != null) log { "    qualifier: @Named(\"$qualifierName\")" }

@@ -554,10 +554,11 @@ class KoinAnnotationProcessor(
                 val defType = getDefinitionType(function) ?: return@mapNotNull null
                 val returnType = function.returnType
                 val returnTypeClass = (returnType.classifierOrNull?.owner as? IrClass) ?: return@mapNotNull null
+                val bindings = getExplicitBindings(function) ?: emptyList()
                 val scopeClass = getScopeClass(function)
                 val scopeArchetype = getScopeArchetype(function)
                 val createdAtStart = getCreatedAtStart(function)
-                DefinitionFunction(function, defType, returnTypeClass, scopeClass, scopeArchetype, createdAtStart)
+                DefinitionFunction(function, defType, returnTypeClass, bindings, scopeClass, scopeArchetype, createdAtStart)
             }
     }
 
@@ -1322,7 +1323,7 @@ class KoinAnnotationProcessor(
                 moduleClass.irClass,
                 defFunc.definitionType,
                 defFunc.returnTypeClass,
-                emptyList(), // bindings — function definitions don't yet support explicit binds
+                defFunc.bindings,
                 defFunc.scopeClass, // Scope class from @Scope annotation
                 defFunc.scopeArchetype, // Scope archetype from @ViewModelScope, @ActivityScope, etc.
                 defFunc.createdAtStart
@@ -1654,12 +1655,14 @@ class KoinAnnotationProcessor(
         val moduleFunctions = collectDefinitionFunctions(moduleIrClass)
         KoinPluginLogger.debug { "      Module functions: ${moduleFunctions.size} (${moduleFunctions.joinToString { it.irFunction.name.asString() }})" }
         for (defFunc in moduleFunctions) {
+            val hintBindings = discoverModuleFunctionBindingsFromHint(moduleIrClass, defFunc)
+            val bindings = if (hintBindings.isNotEmpty()) hintBindings else defFunc.bindings
             definitions.add(Definition.FunctionDef(
                 defFunc.irFunction,
                 moduleIrClass,
                 defFunc.definitionType,
                 defFunc.returnTypeClass,
-                emptyList(), // bindings — function definitions don't yet support explicit binds
+                bindings,
                 defFunc.scopeClass,
                 defFunc.scopeArchetype,
                 defFunc.createdAtStart
@@ -1737,6 +1740,41 @@ class KoinAnnotationProcessor(
             KoinPluginLogger.debug { "    -> WARNING: $moduleFqName has @ComponentScan but no scan hints found (hint functions unavailable)" }
         }
         return DependencyModuleResult(definitions, isComplete = isComplete)
+    }
+
+    private fun discoverModuleFunctionBindingsFromHint(
+        moduleIrClass: IrClass,
+        defFunc: DefinitionFunction
+    ): List<IrClass> {
+        val moduleClassId = moduleIrClass.classId ?: return emptyList()
+        val moduleId = KoinModuleFirGenerator.sanitizeModuleIdForHint(moduleClassId)
+        val hintName = KoinModuleFirGenerator.moduleDefinitionHintFunctionName(
+            moduleId,
+            defFunc.irFunction.name.asString()
+        )
+        val hintFunctions = cachedReferenceFunctions(
+            CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
+        )
+        val returnTypeFqName = defFunc.returnTypeClass.fqNameWhenAvailable
+
+        for (hintFuncSymbol in hintFunctions) {
+            val hintFunc = hintFuncSymbol.owner
+            val contributedType = hintFunc.valueParameters.firstOrNull()?.type
+            val contributedClass = (contributedType?.classifierOrNull as? IrClassSymbol)?.owner
+            if (returnTypeFqName != null && contributedClass?.fqNameWhenAvailable != returnTypeFqName) continue
+
+            val bindings = hintFunc.valueParameters
+                .filter { it.name.asString().startsWith("binding") }
+                .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+            if (bindings.isNotEmpty()) {
+                KoinPluginLogger.debug {
+                    "      Module function hint bindings for ${moduleIrClass.name}.${defFunc.irFunction.name}(): ${bindings.map { it.fqNameWhenAvailable }}"
+                }
+                return bindings
+            }
+        }
+
+        return emptyList()
     }
 
     /**

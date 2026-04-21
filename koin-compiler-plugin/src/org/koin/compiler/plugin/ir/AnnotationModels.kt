@@ -43,6 +43,7 @@ data class DefinitionFunction(
     val irFunction: IrSimpleFunction,
     val definitionType: DefinitionType,
     val returnTypeClass: IrClass,
+    val bindings: List<IrClass> = emptyList(),
     val scopeClass: IrClass? = null,
     val scopeArchetype: ScopeArchetype? = null,
     val createdAtStart: Boolean = false

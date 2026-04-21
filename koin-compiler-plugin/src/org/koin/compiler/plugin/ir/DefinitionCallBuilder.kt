@@ -183,7 +183,7 @@ class DefinitionCallBuilder(
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
-        return builder.irCall(koinFunction.symbol).apply {
+        val definitionCall = builder.irCall(koinFunction.symbol).apply {
             extensionReceiver = builder.irGet(moduleReceiver)
             putTypeArgument(0, returnTypeClass.defaultType)
 
@@ -204,6 +204,12 @@ class DefinitionCallBuilder(
                 targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
             )
             putValueArgument(2, definitionLambda)
+        }
+
+        return if (definition.bindings.isNotEmpty()) {
+            addBindings(definitionCall, definition.bindings, builder)
+        } else {
+            definitionCall
         }
     }
 
