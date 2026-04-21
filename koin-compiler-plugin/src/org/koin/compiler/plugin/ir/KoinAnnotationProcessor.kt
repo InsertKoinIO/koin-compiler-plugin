@@ -838,6 +838,7 @@ class KoinAnnotationProcessor(
         // hint visibility. Without this, a @Module + @ComponentScan (no @Configuration) in a
         // library module produced zero hints (orphan path skips scan-covered defs, scan path was
         // filtered out), breaking compileSafety validation in consumers.
+        // Fix contributed by @wjz2001 (PR #25 — https://github.com/InsertKoinIO/koin-compiler-plugin/pull/25)
         val modulesWithScan = moduleClasses.filter { it.hasComponentScan }
         if (modulesWithScan.isEmpty()) return
 
