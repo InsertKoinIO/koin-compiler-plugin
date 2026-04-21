@@ -269,6 +269,28 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         }
 
         /**
+         * Per-qualifier entry hint name for a top-level @ComponentScan-discovered function that has
+         * a qualifier. Unique per (moduleId, defType, qualifier), so IR signatures never clash even
+         * when target types coincide (e.g. two Unit-returning @Named @Singleton init functions).
+         *
+         * Example: ("com_example_AppModule", "single", "initFlagsAndLogging")
+         *   -> "componentscanfunc_com_example_AppModule_single__q_initFlagsAndLogging"
+         */
+        fun moduleScanFunctionEntryHintName(moduleId: String, defType: String, sanitizedQualifier: String): Name =
+            Name.identifier("$COMPONENT_SCAN_FUNCTION_HINT_PREFIX${moduleId}_${defType}__q_$sanitizedQualifier")
+
+        /**
+         * Roster hint name for a given (moduleId, defType). The roster's parameter names enumerate
+         * the sanitized qualifiers that have per-qualifier entry hints. Consumer reads this to
+         * discover what qualified definitions the module contributes, then looks up each entry.
+         *
+         * Example: ("com_example_AppModule", "single")
+         *   -> "componentscanfunc_com_example_AppModule_single__roster"
+         */
+        fun moduleScanFunctionRosterHintName(moduleId: String, defType: String): Name =
+            Name.identifier("$COMPONENT_SCAN_FUNCTION_HINT_PREFIX${moduleId}_${defType}__roster")
+
+        /**
          * Build hint function name for a per-function definition inside a @Module class.
          * Uses "__" (double underscore) as separator between moduleId and functionName to avoid
          * ambiguity with underscores in module IDs (package separators) and function names (snake_case).

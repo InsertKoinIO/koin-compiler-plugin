@@ -347,6 +347,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("qualified_function_cross_module.kt")
+    public void testQualified_function_cross_module() {
+      runTest("koin-compiler-plugin/testData/box/safety/qualified_function_cross_module.kt");
+    }
+
+    @Test
     @TestMetadata("qualifier_cross_module.kt")
     public void testQualifier_cross_module() {
       runTest("koin-compiler-plugin/testData/box/safety/qualifier_cross_module.kt");
@@ -464,6 +470,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     public void testAllFilesPresentInToplevel() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/toplevel"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("qualified_unit_singletons.kt")
+    public void testQualified_unit_singletons() {
+      runTest("koin-compiler-plugin/testData/box/toplevel/qualified_unit_singletons.kt");
     }
 
     @Test

@@ -1,0 +1,91 @@
+FILE: Services.kt
+    package service
+
+    public abstract interface Url : R|kotlin/Any| {
+        public abstract val value: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(baseUrl)) public final fun provideBaseUrl(): R|service/Url| {
+        ^provideBaseUrl object : R|service/Url| {
+            private constructor(): R|service/<anonymous>| {
+                super<R|kotlin/Any|>()
+            }
+
+            public open override val value: R|kotlin/String| = String(https://api.example.com)
+                public get(): R|kotlin/String|
+
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(authUrl)) public final fun provideAuthUrl(): R|service/Url| {
+        ^provideAuthUrl object : R|service/Url| {
+            private constructor(): R|service/<anonymous>| {
+                super<R|kotlin/Any|>()
+            }
+
+            public open override val value: R|kotlin/String| = String(https://auth.example.com)
+                public get(): R|kotlin/String|
+
+        }
+
+    }
+FILE: UrlClient.kt
+    package consumer
+
+    @R|org/koin/core/annotation/Singleton|() public final class UrlClient : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(baseUrl)) base: R|service/Url|, @R|org/koin/core/annotation/Named|(value = String(authUrl)) auth: R|service/Url|): R|consumer/UrlClient| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val base: R|service/Url| = R|<local>/base|
+            public get(): R|service/Url|
+
+        public final val auth: R|service/Url| = R|<local>/auth|
+            public get(): R|service/Url|
+
+    }
+FILE: modules.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(service))) @R|org/koin/core/annotation/Configuration|() public final class ServiceModule : R|kotlin/Any| {
+        public constructor(): R|ServiceModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(consumer))) @R|org/koin/core/annotation/Configuration|() public final class ConsumerModule : R|kotlin/Any| {
+        public constructor(): R|ConsumerModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: test.kt
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|/ServiceModule.ServiceModule|().R|/module|(), R|/ConsumerModule.ConsumerModule|().R|/module|()))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval client: R|consumer/UrlClient| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|consumer/UrlClient|>()
+        lval baseOk: R|kotlin/Boolean| = ==(R|<local>/client|.R|consumer/UrlClient.base|.R|service/Url.value|, String(https://api.example.com))
+        lval authOk: R|kotlin/Boolean| = ==(R|<local>/client|.R|consumer/UrlClient.auth|.R|service/Url.value|, String(https://auth.example.com))
+        ^box when () {
+            R|<local>/baseOk| && R|<local>/authOk| ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: base=), R|<local>/client|.R|consumer/UrlClient.base|.R|service/Url.value|, String( auth=), R|<local>/client|.R|consumer/UrlClient.auth|.R|service/Url.value|)
+            }
+        }
+
+    }
+FILE: /serviceModuleModule.kt
+    public final fun R|ServiceModule|.module(): R|org/koin/core/module/Module|
+FILE: /consumerModuleModule.kt
+    public final fun R|ConsumerModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/serviceModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|ServiceModule|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/consumerModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|ConsumerModule|): R|kotlin/Unit|

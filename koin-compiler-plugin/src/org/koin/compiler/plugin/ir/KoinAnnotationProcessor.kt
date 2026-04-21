@@ -854,6 +854,11 @@ class KoinAnnotationProcessor(
             // Collect all hint functions for this module, then batch into a single IrFile
             val hintFunctions = mutableListOf<IrSimpleFunction>()
 
+            // Track qualified top-level function entries per defType so we can emit a roster per (moduleId, defType).
+            // The roster lets cross-module consumers enumerate qualifiers they'd otherwise have no way to discover.
+            // LinkedHashSet: O(1) duplicate check + preserved insertion order for deterministic debug logs.
+            val qualifiedEntriesByDefType = mutableMapOf<String, LinkedHashSet<String>>()
+
             for (definition in definitions) {
                 val defTypeStr = definitionTypeToString(definition.definitionType)
                 val targetClass = definition.returnTypeClass
@@ -874,16 +879,45 @@ class KoinAnnotationProcessor(
                         KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr) bindings=${definition.bindings.map { it.name.asString() }}" }
                     }
                     is Definition.TopLevelFunctionDef -> {
-                        val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
                         // Top-level functions extract qualifier from the function declaration
                         val funcQualifier = qualifierExtractor.extractFromDeclaration(definition.irFunction)
-                        val func = createHintFunction(hintName, targetClass, definition.bindings, definition.scopeClass, funcQualifier)
-                        if (func != null) hintFunctions.add(func)
-                        KoinPluginLogger.debug { "    + componentscanfunc hint: ${targetClass.name} ($defTypeStr) bindings=${definition.bindings.map { it.name.asString() }} qualifier=${funcQualifier?.debugString()}" }
+                        if (funcQualifier == null) {
+                            // Unqualified: legacy shared-name overload keyed on target type (today's behavior)
+                            val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
+                            val func = createHintFunction(hintName, targetClass, definition.bindings, definition.scopeClass, null)
+                            if (func != null) hintFunctions.add(func)
+                            KoinPluginLogger.debug { "    + componentscanfunc hint (unqualified): ${targetClass.name} ($defTypeStr)" }
+                        } else {
+                            // Qualified: per-qualifier entry under unique name to avoid signature clashes
+                            // when multiple functions share the same target type (e.g., Unit-returning initializers).
+                            val discriminator = qualifierDiscriminator(funcQualifier)
+                            val existing = qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }
+                            if (!existing.add(discriminator)) {
+                                // Two source funcs with the same (target, qualifier) — Koin-level duplicate binding.
+                                // Silent-skip here; runtime will still raise if both are actually needed.
+                                KoinPluginLogger.debug { "    ! duplicate qualifier '$discriminator' for $defTypeStr in ${moduleClass.irClass.name} — skipping second entry" }
+                            } else {
+                                val entryName = KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
+                                val func = createHintFunction(entryName, targetClass, definition.bindings, definition.scopeClass, funcQualifier)
+                                if (func != null) hintFunctions.add(func)
+                                KoinPluginLogger.debug { "    + componentscanfunc entry: ${targetClass.name} ($defTypeStr) qualifier=${funcQualifier.debugString()} -> $entryName" }
+                            }
+                        }
                     }
                     is Definition.DslDef -> continue
                     is Definition.FunctionDef -> {} // Resolved from module class, not via hints
                 }
+            }
+
+            // Emit one roster per (moduleId, defType) that had any qualified top-level entries.
+            // Roster param names (q_<discriminator>) enumerate the per-qualifier entries for the consumer.
+            for ((defTypeStr, discriminators) in qualifiedEntriesByDefType) {
+                val rosterName = KoinModuleFirGenerator.moduleScanFunctionRosterHintName(sanitizedModuleId, defTypeStr)
+                // Sort discriminators for stable roster param ordering across recompilations
+                // (otherwise golden-file tests would be sensitive to source iteration order).
+                val rosterFunc = createRosterHintFunction(rosterName, discriminators.sorted())
+                hintFunctions.add(rosterFunc)
+                KoinPluginLogger.debug { "    + componentscanfunc roster: $defTypeStr lists ${discriminators.size} qualifier(s) -> $rosterName" }
             }
 
             if (hintFunctions.isEmpty()) continue
@@ -1068,6 +1102,68 @@ class KoinAnnotationProcessor(
                 params.add(qParam)
             }
             null -> {}
+        }
+
+        function.valueParameters = params
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+        function.addDeprecatedHiddenAnnotation(context)
+
+        return function
+    }
+
+    /**
+     * Stable string discriminator for a qualifier. Used both in the per-qualifier entry hint name
+     * (`componentscanfunc_..._single__q_<discriminator>`) and as the roster's parameter name
+     * (`q_<discriminator>`). Must be reversible and produce a valid Kotlin identifier.
+     */
+    private fun qualifierDiscriminator(qualifier: QualifierValue): String = when (qualifier) {
+        is QualifierValue.StringQualifier -> KoinPluginConstants.sanitizeQualifierName(qualifier.name)
+        is QualifierValue.TypeQualifier -> KoinPluginConstants.sanitizeQualifierName(
+            qualifier.irClass.fqNameWhenAvailable?.asString() ?: qualifier.irClass.name.asString()
+        )
+    }
+
+    /**
+     * Create a roster hint function whose parameter names enumerate the per-qualifier entry
+     * discriminators for a given (moduleId, defType). All parameters are `Unit`-typed; the names
+     * are the payload. Consumer reads the names to find which per-qualifier entries to look up.
+     */
+    private fun createRosterHintFunction(hintName: Name, sanitizedQualifiers: List<String>): IrSimpleFunction {
+        val function = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = hintName,
+            visibility = DescriptorVisibilities.PUBLIC,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
+
+        val params = sanitizedQualifiers.mapIndexed { index, sanitized ->
+            context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier("${KoinPluginConstants.COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX}$sanitized"),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                index = index,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
         }
 
         function.valueParameters = params
@@ -1873,50 +1969,45 @@ class KoinAnnotationProcessor(
                 ))
             }
 
-            // Function definition hints: componentscanfunc_<moduleId>_<defType>
-            val funcName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedId, defType)
-            val funcHintFunctions = cachedReferenceFunctions(
-                CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, funcName)
+            val definitionType = parseDefinitionType(defType) ?: continue
+
+            // Dedupe key: (returnType fqName, qualifier debug string). Covers both
+            // (a) class-vs-function same-type collisions (today's behavior) and
+            // (b) multiple same-type function entries discriminated by qualifier.
+            val seenKeys = definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }
+
+            // (1) Legacy shared-name hint overloads. Handles unqualified top-level function entries
+            //     (current producer) and, for backward compat, qualified entries produced by older
+            //     plugin versions that didn't use per-qualifier entry hints yet.
+            val legacyName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedId, defType)
+            val legacyHints = cachedReferenceFunctions(
+                CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, legacyName)
             )
+            for (hintFuncSymbol in legacyHints) {
+                addExternalFunctionDefFromHint(hintFuncSymbol.owner, definitionType, defType, definitions, seenKeys)
+            }
 
-            for (hintFuncSymbol in funcHintFunctions) {
-                val hintFunc = hintFuncSymbol.owner
-                val funcParams = hintFunc.valueParameters
-                val paramType = funcParams.firstOrNull()?.type ?: continue
-                val returnTypeClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
-
-                if (definitions.any { it.returnTypeClass.fqNameWhenAvailable == returnTypeClass.fqNameWhenAvailable }) continue
-
-                val definitionType = parseDefinitionType(defType) ?: continue
-
-                // Extract enriched metadata from hint parameters (C2: cross-module function hint metadata)
-                val funcBindings = funcParams.filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
-                val funcScopeClass = funcParams.firstOrNull { it.name.asString() == "scope" }
-                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
-                val funcQualifier: QualifierValue? = run {
-                    val qualifierParam = funcParams.firstOrNull { it.name.asString().startsWith("qualifier_") }
-                    if (qualifierParam != null) {
-                        val qName = KoinPluginConstants.unsanitizeQualifierName(qualifierParam.name.asString().removePrefix("qualifier_"))
-                        QualifierValue.StringQualifier(qName)
-                    } else {
-                        val qualTypeParam = funcParams.firstOrNull { it.name.asString() == "qualifierType" }
-                        if (qualTypeParam != null) {
-                            val qualClass = (qualTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
-                            if (qualClass != null) QualifierValue.TypeQualifier(qualClass) else null
-                        } else null
+            // (2) Per-qualifier entries discovered via roster. Roster's param names (q_<discriminator>)
+            //     tell us which per-qualifier entry hints to look up. Fixes the klib signature clash for
+            //     multiple same-target-type qualified top-level functions (e.g., Unit-returning inits).
+            val rosterName = KoinModuleFirGenerator.moduleScanFunctionRosterHintName(sanitizedId, defType)
+            val rosterHints = cachedReferenceFunctions(
+                CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, rosterName)
+            )
+            for (rosterSymbol in rosterHints) {
+                val discriminators = rosterSymbol.owner.valueParameters
+                    .map { it.name.asString() }
+                    .filter { it.startsWith(KoinPluginConstants.COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX) }
+                    .map { it.removePrefix(KoinPluginConstants.COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX) }
+                for (sanitized in discriminators) {
+                    val entryName = KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedId, defType, sanitized)
+                    val entryHints = cachedReferenceFunctions(
+                        CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, entryName)
+                    )
+                    for (entrySymbol in entryHints) {
+                        addExternalFunctionDefFromHint(entrySymbol.owner, definitionType, defType, definitions, seenKeys)
                     }
                 }
-
-                KoinPluginLogger.debug { "        Found: ${returnTypeClass.name} ($defType) via module-scan function hint" }
-
-                definitions.add(Definition.ExternalFunctionDef(
-                    definitionType = definitionType,
-                    returnTypeClass = returnTypeClass,
-                    bindings = funcBindings,
-                    scopeClass = funcScopeClass,
-                    qualifier = funcQualifier
-                ))
             }
         }
 
@@ -1925,6 +2016,78 @@ class KoinAnnotationProcessor(
         }
 
         return definitions
+    }
+
+    /**
+     * Dedupe key for module-scan definitions: (returnType FQ name, qualifier discriminator).
+     * Uses the same encoding as [qualifierDiscriminator] so TypeQualifier entries are keyed on
+     * FQ name (not simple name) — matches producer-side hint naming and avoids collisions
+     * between same-named qualifier annotations in different packages.
+     */
+    private fun definitionDedupeKey(definition: Definition): String {
+        val returnFq = definition.returnTypeClass.fqNameWhenAvailable?.asString() ?: "?"
+        val qualifier = when (definition) {
+            is Definition.ClassDef -> definition.qualifier
+            is Definition.DslDef -> definition.qualifier
+            is Definition.ExternalFunctionDef -> definition.qualifier
+            is Definition.FunctionDef, is Definition.TopLevelFunctionDef -> null
+        }
+        return "$returnFq#${qualifier?.let { qualifierDiscriminator(it) } ?: ""}"
+    }
+
+    /**
+     * Extract an [Definition.ExternalFunctionDef] from a function-definition hint (either legacy
+     * shared-name overload or per-qualifier entry under roster scheme). Adds it to [definitions]
+     * unless a same-(type, qualifier) entry is already known.
+     *
+     * Hint parameter shape produced by [createHintFunction]:
+     *   - param[0]: contributed (target type)
+     *   - binding* : bound supertypes (optional)
+     *   - scope    : scope class (optional)
+     *   - qualifier_<sanitized> : Unit  (StringQualifier; name carries value)
+     *     OR qualifierType     : TheAnnotation (TypeQualifier)
+     */
+    private fun addExternalFunctionDefFromHint(
+        hintFunc: IrSimpleFunction,
+        definitionType: DefinitionType,
+        defTypeLabel: String,
+        definitions: MutableList<Definition>,
+        seenKeys: MutableSet<String>,
+    ) {
+        val params = hintFunc.valueParameters
+        val contributedType = params.firstOrNull()?.type ?: return
+        val returnTypeClass = (contributedType.classifierOrNull as? IrClassSymbol)?.owner ?: return
+
+        val bindings = params.filter { it.name.asString().startsWith("binding") }
+            .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+        val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
+            ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+        val qualifier: QualifierValue? = run {
+            val qStringParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
+            if (qStringParam != null) {
+                val raw = KoinPluginConstants.unsanitizeQualifierName(qStringParam.name.asString().removePrefix("qualifier_"))
+                QualifierValue.StringQualifier(raw)
+            } else {
+                val qTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
+                val qClass = (qTypeParam?.type?.classifierOrNull as? IrClassSymbol)?.owner
+                if (qClass != null) QualifierValue.TypeQualifier(qClass) else null
+            }
+        }
+
+        val candidate = Definition.ExternalFunctionDef(
+            definitionType = definitionType,
+            returnTypeClass = returnTypeClass,
+            bindings = bindings,
+            scopeClass = scopeClass,
+            qualifier = qualifier,
+        )
+        val key = definitionDedupeKey(candidate)
+        if (!seenKeys.add(key)) {
+            KoinPluginLogger.debug { "        (skip dup) ${returnTypeClass.name} ($defTypeLabel) qualifier=${qualifier?.debugString()}" }
+            return
+        }
+        KoinPluginLogger.debug { "        Found: ${returnTypeClass.name} ($defTypeLabel) via module-scan function hint, qualifier=${qualifier?.debugString()}" }
+        definitions.add(candidate)
     }
 
     /** Convert a hint definition type string to [DefinitionType]. */

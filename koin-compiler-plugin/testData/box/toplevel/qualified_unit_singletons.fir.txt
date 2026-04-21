@@ -1,0 +1,30 @@
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) @R|org/koin/core/annotation/Configuration|() public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Named|(value = String(initFlagsAndLogging)) @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true)) public final fun initFlagsAndLogging(): R|kotlin/Unit| {
+    }
+    @R|org/koin/core/annotation/Named|(value = String(initNotifier)) @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true)) public final fun initNotifier(): R|kotlin/Unit| {
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/AppModule.AppModule|().R|testpkg/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval a: R|kotlin/Unit| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|kotlin/Unit|>(R|org/koin/core/qualifier/named|(String(initFlagsAndLogging)))
+        lval b: R|kotlin/Unit| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|kotlin/Unit|>(R|org/koin/core/qualifier/named|(String(initNotifier)))
+        ^box String(OK)
+    }
+FILE: testpkg/testpkgAppModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/AppModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/testpkgAppModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|testpkg/AppModule|): R|kotlin/Unit|
