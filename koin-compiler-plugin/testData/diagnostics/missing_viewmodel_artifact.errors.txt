@@ -1,0 +1,1 @@
+[Koin] @KoinViewModel definition 'testpkg.MyViewModel' cannot be generated: 'buildViewModel' is not on classpath. Add dependency: io.insert-koin:koin-core-viewmodel

@@ -1,0 +1,19 @@
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinViewModel|() public final class MyViewModel : R|kotlin/Any| {
+        public constructor(): R|testpkg/MyViewModel| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: testpkg/testpkgAppModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/AppModule|.module(): R|org/koin/core/module/Module|

@@ -51,6 +51,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("missing_viewmodel_artifact.kt")
+  public void testMissing_viewmodel_artifact() {
+    runTest("koin-compiler-plugin/testData/diagnostics/missing_viewmodel_artifact.kt");
+  }
+
+  @Test
   @TestMetadata("provided_missing.kt")
   public void testProvided_missing() {
     runTest("koin-compiler-plugin/testData/diagnostics/provided_missing.kt");
