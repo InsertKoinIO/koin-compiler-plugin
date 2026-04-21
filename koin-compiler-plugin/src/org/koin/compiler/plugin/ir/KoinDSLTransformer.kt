@@ -104,6 +104,10 @@ class KoinDSLTransformer(
         val function: IrFunction? = null,
         val lambda: IrSimpleFunction? = null,
         val definitionCall: Name? = null,
+        // Type argument of the enclosing typed DSL call (e.g., `single<T> { }` → T).
+        // When set, an inner `create(::Impl)` provides T, not Impl — Impl is the
+        // construction detail, T is what runtime Koin actually registers.
+        val definitionCallTypeArg: IrClass? = null,
         val scopeTypeClass: IrClass? = null,
         val createQualifier: QualifierValue? = null,
         val createReturnClass: IrClass? = null,
@@ -249,7 +253,16 @@ class KoinDSLTransformer(
         val previousContext = transformContext
 
         if (functionName in definitionNames) {
-            transformContext = transformContext.copy(definitionCall = functionName)
+            // Capture the outer typed DSL call's type argument (e.g., `single<T> { ... }` → T).
+            // Used by handleScopeCreate so `single<T> { create(::Impl) }` registers T as the
+            // provided type instead of Impl.
+            val outerTypeArg = if (expression.typeArgumentsCount >= 1) {
+                (expression.getTypeArgument(0)?.classifierOrNull as? IrClassSymbol)?.owner
+            } else null
+            transformContext = transformContext.copy(
+                definitionCall = functionName,
+                definitionCallTypeArg = outerTypeArg
+            )
         }
 
         // Detect scope<ScopeType> { } — push scope type into context
@@ -569,11 +582,15 @@ class KoinDSLTransformer(
                 if (classQualifier != null && currentDefinitionCall != null) {
                     transformContext = transformContext.copy(createQualifier = classQualifier, createReturnClass = targetClass)
                 }
-                // Collect DSL definition from create(::T) based on enclosing definition call
+                // Collect DSL definition from create(::T) based on enclosing definition call.
+                // When the enclosing call is typed (e.g. `single<Interface> { create(::Impl) }`),
+                // the provided type is the outer `<T>`, not the create target — runtime Koin
+                // registers `T` and the impl is just a construction detail.
                 val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] }
+                val providedClass = transformContext.definitionCallTypeArg ?: targetClass
                 if (enclosingDefType != null && compileSafetyEnabled) {
                     _dslDefinitions.add(Definition.DslDef(
-                        irClass = targetClass,
+                        irClass = providedClass,
                         definitionType = enclosingDefType,
                         bindings = emptyList(), // DSL: only explicit bind() adds bindings (no auto-bind like annotations)
                         scopeClass = if (enclosingDefType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
@@ -582,7 +599,7 @@ class KoinDSLTransformer(
                     ))
                 }
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
-                KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${targetClass.name}" }
+                KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${providedClass.name}" }
                 builder.irCallConstructor(referencedFunction.symbol, emptyList()).apply {
                     referencedFunction.valueParameters.forEachIndexed { index, param ->
                         val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeReceiver, null, builder)
@@ -604,10 +621,13 @@ class KoinDSLTransformer(
                     )
                 }
                 val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] }
-                if (enclosingDefType != null && compileSafetyEnabled && returnTypeClass != null) {
-                    trackClassLookup(lookupTracker, currentFile, returnTypeClass)
+                // Same typed-enclosing rule as the constructor branch: `single<T> { create(::func) }`
+                // registers T, not the function's return type.
+                val providedClass = transformContext.definitionCallTypeArg ?: returnTypeClass
+                if (enclosingDefType != null && compileSafetyEnabled && providedClass != null) {
+                    trackClassLookup(lookupTracker, currentFile, providedClass)
                     _dslDefinitions.add(Definition.DslDef(
-                        irClass = returnTypeClass,
+                        irClass = providedClass,
                         definitionType = enclosingDefType,
                         bindings = emptyList(), // DSL: only explicit bind() adds bindings
                         scopeClass = if (enclosingDefType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
