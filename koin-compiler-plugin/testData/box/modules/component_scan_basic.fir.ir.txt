@@ -1,3 +1,14 @@
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_ScanModule.kt
+  FUN name:componentscan_testpkg_ScanModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.ServiceB
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_testpkg_ScanModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.ServiceA
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:testpkg fileName:/test.kt
   CLASS CLASS name:ScanModule modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:

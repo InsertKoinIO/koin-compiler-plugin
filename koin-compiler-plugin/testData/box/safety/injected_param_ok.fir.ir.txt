@@ -1,3 +1,9 @@
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testModule.kt
+  FUN name:componentscan_testModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Greeter
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:Greeter modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:

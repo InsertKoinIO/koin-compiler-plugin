@@ -109,6 +109,18 @@ FILE fqName:<root> fileName:/modules.kt
       VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
       overridden:
         public open fun toString (): kotlin.String declared in kotlin.Any
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_coreModule.kt
+  FUN name:componentscan_coreModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:core.Repository
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_serviceModule.kt
+  FUN name:componentscan_serviceModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:service.Service
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:service fileName:/service/Service.kt
   CLASS CLASS name:Service modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:

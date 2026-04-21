@@ -1,3 +1,9 @@
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_TestModule.kt
+  FUN name:componentscanfunc_testpkg_TestModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.DataSource
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:testpkg fileName:/test.kt
   CLASS CLASS name:DatabaseDataSource modality:FINAL visibility:public superTypes:[testpkg.DataSource]
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:testpkg.DatabaseDataSource

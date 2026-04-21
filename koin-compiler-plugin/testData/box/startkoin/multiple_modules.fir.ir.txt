@@ -76,6 +76,28 @@ FILE fqName:<root> fileName:/moduleBModule.kt
                               ARG <this>: GET_VAR '<this>: org.koin.core.scope.Scope declared in <root>.module.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=null
                               ARG qualifier: CONST Null type=kotlin.Nothing? value=null
                               ARG parameters: CONST Null type=kotlin.Nothing? value=null
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_moduleA.kt
+  FUN name:componentscan_moduleA_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ServiceA
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_moduleA_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ServiceB
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_moduleB.kt
+  FUN name:componentscan_moduleB_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ServiceA
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_moduleB_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ServiceB
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:ModuleA modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
