@@ -1,0 +1,74 @@
+FILE: test.kt
+    @R|org/koin/core/annotation/Qualifier|() public final annotation class BaseUrl : R|kotlin/Annotation| {
+        public constructor(): R|BaseUrl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Qualifier|() public final annotation class AuthUrl : R|kotlin/Annotation| {
+        public constructor(): R|AuthUrl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|BaseUrl|() public final fun provideBaseUrl(): R|kotlin/String| {
+        ^provideBaseUrl String(https://api.example.com)
+    }
+    @R|org/koin/core/annotation/Singleton|() @R|AuthUrl|() public final fun provideAuthUrl(): R|kotlin/String| {
+        ^provideAuthUrl String(https://auth.example.com)
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class UrlConsumer : R|kotlin/Any| {
+        public constructor(@R|BaseUrl|() base: R|kotlin/String|, @R|AuthUrl|() auth: R|kotlin/String|): R|UrlConsumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val base: R|kotlin/String| = R|<local>/base|
+            public get(): R|kotlin/String|
+
+        public final val auth: R|kotlin/String| = R|<local>/auth|
+            public get(): R|kotlin/String|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval base: R|kotlin/String| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|kotlin/String|>(R|org/koin/core/qualifier/named|<R|BaseUrl|>())
+        lval auth: R|kotlin/String| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|kotlin/String|>(R|org/koin/core/qualifier/named|<R|AuthUrl|>())
+        lval consumer: R|UrlConsumer| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|UrlConsumer|>()
+        ^box when () {
+            !=(R|<local>/base|, String(https://api.example.com)) ->  {
+                <strcat>(String(FAIL: named<BaseUrl>() resolved to ), R|<local>/base|)
+            }
+            !=(R|<local>/auth|, String(https://auth.example.com)) ->  {
+                <strcat>(String(FAIL: named<AuthUrl>() resolved to ), R|<local>/auth|)
+            }
+            !=(R|<local>/consumer|.R|/UrlConsumer.base|, R|<local>/base|) ->  {
+                String(FAIL: consumer.base mismatch)
+            }
+            !=(R|<local>/consumer|.R|/UrlConsumer.auth|, R|<local>/auth|) ->  {
+                String(FAIL: consumer.auth mismatch)
+            }
+            else ->  {
+                String(OK)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/baseUrlDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun qualifier(contributed: R|BaseUrl|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/authUrlDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun qualifier(contributed: R|AuthUrl|): R|kotlin/Unit|

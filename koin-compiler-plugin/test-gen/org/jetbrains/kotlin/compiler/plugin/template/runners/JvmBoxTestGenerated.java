@@ -217,6 +217,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("custom_qualifier_type.kt")
+    public void testCustom_qualifier_type() {
+      runTest("koin-compiler-plugin/testData/box/qualifiers/custom_qualifier_type.kt");
+    }
+
+    @Test
     @TestMetadata("named_on_class.kt")
     public void testNamed_on_class() {
       runTest("koin-compiler-plugin/testData/box/qualifiers/named_on_class.kt");

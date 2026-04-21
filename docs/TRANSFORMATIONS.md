@@ -303,7 +303,56 @@ buildSingle(Consumer::class, null) { scope, params ->
 }
 ```
 
-### 3.4 @InjectedParam
+### 3.4 Custom `@Qualifier` Annotation
+
+An annotation class meta-annotated with `@Qualifier` (or `@Named`) becomes a reusable qualifier. When the annotation carries **no value**, the plugin emits a **type qualifier** keyed on the annotation class, so it resolves the same way as `named<TheAnnotation>()` at runtime.
+
+**Input**:
+```kotlin
+@Qualifier
+annotation class BaseUrl
+
+@Singleton
+@BaseUrl
+fun provideBaseUrl(): String = "https://api.example.com"
+
+@Singleton
+class Client(@BaseUrl val url: String)
+```
+
+**Output**:
+```kotlin
+buildSingle(String::class, typeQualifier<BaseUrl>()) { scope, params ->
+    provideBaseUrl()
+}
+
+buildSingle(Client::class, null) { scope, params ->
+    Client(scope.get(typeQualifier<BaseUrl>()))
+}
+```
+
+**Runtime lookup** — either form works:
+```kotlin
+koin.get<String>(named<BaseUrl>())          // reified TypeQualifier
+koin.get<String>(typeQualifier<BaseUrl>())  // explicit TypeQualifier
+```
+
+**With a discriminating value** — custom qualifiers that carry an enum or string arg stay string-keyed (the value is what differentiates instances):
+
+```kotlin
+@Qualifier
+annotation class Dispatcher(val kind: Dispatchers)
+enum class Dispatchers { IO, DEFAULT }
+
+@Singleton
+@Dispatcher(Dispatchers.IO)
+fun provideIo(): CoroutineDispatcher = Dispatchers.IO
+// → buildSingle(CoroutineDispatcher::class, named("pkg.Dispatchers.IO")) { ... }
+```
+
+Resolved at runtime with `named("pkg.Dispatchers.IO")`.
+
+### 3.5 @InjectedParam
 
 **Input**:
 ```kotlin
@@ -781,7 +830,8 @@ val myModule = module {
 | `@Named("x")` on parameter | `get(named("x"))` |
 | `@Qualifier(name = "x")` | String qualifier → `named("x")` |
 | `@Qualifier(MyType::class)` | Type qualifier → `typeQualifier<MyType>()` |
-| Custom `@Qualifier` annotation | Uses annotation name as qualifier |
+| Custom `@Qualifier` annotation (no value) | Type qualifier → `typeQualifier<TheAnnotation>()` — matches runtime `named<TheAnnotation>()` |
+| Custom `@Qualifier` annotation (enum/string value) | String qualifier using the value (e.g. `@Dispatcher(IO)` → `named("pkg.NiaDispatchers.IO")`) |
 
 ### Parameter Annotations
 

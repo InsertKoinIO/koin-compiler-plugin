@@ -38,7 +38,9 @@ import org.koin.compiler.plugin.KoinPluginLogger
  * - @Named("qualifier-name") -> StringQualifier
  * - @Qualifier(SomeType::class) -> TypeQualifier
  * - @Qualifier(name = "string") -> StringQualifier
- * - Custom qualifiers (annotations annotated with @Qualifier) -> StringQualifier
+ * - Custom qualifier annotation without value (e.g. @BaseUrl) -> TypeQualifier(annotationClass)
+ *   so it matches runtime `named<BaseUrl>()` / `typeQualifier<BaseUrl>()`
+ * - Custom qualifier annotation with enum/string value (e.g. @Dispatcher(IO)) -> StringQualifier
  */
 sealed class QualifierValue {
     data class StringQualifier(val name: String) : QualifierValue()
@@ -267,7 +269,12 @@ class QualifierExtractor(private val context: IrPluginContext) {
 
     /**
      * Find a custom qualifier annotation (an annotation annotated with @Qualifier or @Named).
-     * Returns the simple name of the annotation class as the qualifier name.
+     *
+     * Resolution:
+     * - Annotation has an enum value arg (e.g. `@Dispatcher(IO)`) → `StringQualifier("<fq>.IO")`
+     * - Annotation has a string value arg (e.g. `@MyQual("foo")`) → `StringQualifier("foo")`
+     * - Plain annotation with no value arg (e.g. `@BaseUrl`) → `TypeQualifier(annotationClass)`,
+     *   so it matches runtime `named<BaseUrl>()` / `typeQualifier<BaseUrl>()`.
      *
      * @param annotations List of annotations to search
      * @param logContext Optional context string for debug logging
@@ -325,9 +332,11 @@ class QualifierExtractor(private val context: IrPluginContext) {
                     }
                 }
 
-                // Fallback: use annotation class name
-                logContext?.let { KoinPluginLogger.debug { "  @$qualifierName (custom qualifier) on $it" } }
-                return QualifierValue.StringQualifier(qualifierName)
+                // Fallback: plain custom qualifier annotation (no value arg) -> TypeQualifier
+                // so it matches runtime `named<T>()` / `typeQualifier<T>()`, which key on the
+                // annotation class. Avoids simple-name collisions across packages too.
+                logContext?.let { KoinPluginLogger.debug { "  @$qualifierName (custom qualifier) on $it -> typeQualifier<$qualifierName>()" } }
+                return QualifierValue.TypeQualifier(annotationClass)
             }
         }
         return null
