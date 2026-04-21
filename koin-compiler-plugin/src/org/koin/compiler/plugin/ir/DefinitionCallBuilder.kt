@@ -525,22 +525,25 @@ class DefinitionCallBuilder(
 
     /**
      * Emit a compile error (once per DefinitionType) when the DSL helper for a given
-     * annotation type cannot be resolved on the classpath. This fires when a user
-     * declares e.g. `@KoinViewModel` (the annotation is in `koin-annotations`, always
-     * available via `koin-core`) but forgets to add the satellite artifact that
-     * provides the runtime DSL (`koin-core-viewmodel` for ViewModels, `koin-android-workmanager`
-     * for Workers). Without this check the plugin would silently skip the definition
-     * and the user would hit `NoDefinitionFoundException` only at runtime.
+     * annotation type cannot be resolved on the classpath. Fires only for annotations
+     * whose DSL lives in a satellite artifact (`@KoinViewModel` → `koin-core-viewmodel`,
+     * `@KoinWorker` → `koin-android-workmanager`). Without this, a user who has
+     * `koin-annotations` but forgot the matching runtime artifact would silently get
+     * skipped definitions and hit `NoDefinitionFoundException` only at runtime.
+     *
+     * Not emitted for SINGLE/FACTORY/SCOPED: their DSL lives in `koin-core`, which is
+     * a hard prerequisite for the annotations themselves resolving, so "missing"
+     * is degenerate. Also, `buildScoped` exists only on `ScopeDSL` — a null lookup for
+     * SCOPED on `Module` receiver is a structural dispatch fallthrough, not a missing
+     * artifact.
      */
     private fun reportMissingDslArtifact(definitionType: DefinitionType, skippedTarget: String) {
-        if (!reportedMissingArtifacts.add(definitionType)) return
         val (annotation, dslFunction, artifact) = when (definitionType) {
             DefinitionType.VIEW_MODEL -> Triple("@KoinViewModel", "buildViewModel", "io.insert-koin:koin-core-viewmodel")
             DefinitionType.WORKER -> Triple("@KoinWorker", "buildWorker", "io.insert-koin:koin-android-workmanager")
-            DefinitionType.SINGLE -> Triple("@Single/@Singleton", "buildSingle", "io.insert-koin:koin-core")
-            DefinitionType.FACTORY -> Triple("@Factory", "buildFactory", "io.insert-koin:koin-core")
-            DefinitionType.SCOPED -> Triple("@Scoped", "buildScoped", "io.insert-koin:koin-core")
+            else -> return
         }
+        if (!reportedMissingArtifacts.add(definitionType)) return
         KoinPluginLogger.error(
             "$annotation definition '$skippedTarget' cannot be generated: '$dslFunction' is not on classpath. " +
                 "Add dependency: $artifact"
