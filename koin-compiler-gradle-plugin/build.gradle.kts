@@ -21,6 +21,16 @@ sourceSets {
     }
 }
 
+kotlin {
+    // Pin JDK 17 — Gradle 8.x supports JDK 17 as the minimum for compiled plugins,
+    // and keeping bytecode stable across developer machines means consumers always
+    // get a loadable jar regardless of whose JDK built it.
+    jvmToolchain(17)
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
 dependencies {
     implementation(kotlin("gradle-plugin-api"))
 
