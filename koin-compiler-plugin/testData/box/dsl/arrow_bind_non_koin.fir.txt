@@ -1,0 +1,55 @@
+FILE: test.kt
+    public final class Boxed<out T> : R|kotlin/Any| {
+        public constructor<out T>(value: R|T|): R|Boxed<T>| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val value: R|T| = R|<local>/value|
+            public get(): R|T|
+
+    }
+    public final class Raise : R|kotlin/Any| {
+        public constructor(): R|Raise| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final fun <T> R|Boxed<T>|.bind(): R|T| {
+            ^bind this@R|/Raise.bind|.R|SubstitutionOverride</Boxed.value: R|T|>|
+        }
+
+    }
+    public final fun <T> runRaise(block: R|Raise.() -> T|): R|T| {
+        ^runRaise R|<local>/block|.R|SubstitutionOverride<kotlin/Function1.invoke: R|T|>|(R|/Raise.Raise|())
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final fun compute(): R|kotlin/Int| {
+            ^compute R|/runRaise|<R|kotlin/Int|>(<L> = runRaise@fun R|Raise|.<anonymous>(): R|kotlin/Int| <inline=NoInline>  {
+                ^ (this@R|special/anonymous|, R|/Boxed.Boxed|<R|kotlin/Int|>(Int(42))).R|/Raise.bind|<R|kotlin/Int|>()
+            }
+            )
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Service|>()
+            }
+            ))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval svc: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        ^box when () {
+            ==(R|<local>/svc|.R|/Service.compute|(), Int(42)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: non-Koin bind interaction broke)
+            }
+        }
+
+    }

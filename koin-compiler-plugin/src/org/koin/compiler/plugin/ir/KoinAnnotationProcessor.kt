@@ -1009,13 +1009,13 @@ class KoinAnnotationProcessor(
 
         val params = mutableListOf<IrValueParameter>()
 
-        // Primary parameter: contributed target type
+        // Primary parameter: contributed target type (erased to raw form for generics — see #18)
         val contributedParam = context.irFactory.createValueParameter(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             origin = IrDeclarationOrigin.DEFINED,
             name = Name.identifier("contributed"),
-            type = targetClass.defaultType,
+            type = targetClass.hintParameterType(context),
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
             index = 0,
@@ -1034,7 +1034,7 @@ class KoinAnnotationProcessor(
                 endOffset = UNDEFINED_OFFSET,
                 origin = IrDeclarationOrigin.DEFINED,
                 name = Name.identifier("binding$index"),
-                type = binding.defaultType,
+                type = binding.hintParameterType(context),
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
                 index = params.size,

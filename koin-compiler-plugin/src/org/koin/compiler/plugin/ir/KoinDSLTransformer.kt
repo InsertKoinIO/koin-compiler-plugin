@@ -186,6 +186,13 @@ class KoinDSLTransformer(
     // DSL definition function names to track
     private val definitionNames = setOf(singleName, factoryName, scopedName, viewModelName, workerName)
 
+    // FqNames of Koin's bind DSL functions. Anything named `bind` from outside this set
+    // is not ours (Arrow Raise.bind, ktor resourceScope bind, etc.) and must be ignored.
+    private val KOIN_BIND_FQNAMES = setOf(
+        "org.koin.plugin.module.dsl.bind",
+        "org.koin.dsl.bind",
+    )
+
     // Mapping from function names to DefinitionType
     private val definitionTypeMap = mapOf(
         singleName to DefinitionType.SINGLE,
@@ -283,8 +290,12 @@ class KoinDSLTransformer(
         // Restore previous context
         transformContext = previousContext
 
-        // Detect .bind(Interface::class) — add the bound type to the last collected DslDef
-        if (compileSafetyEnabled && functionName.asString() == "bind") {
+        // Detect Koin's .bind(Interface::class) — add the bound type to the last collected DslDef.
+        // Match by full FqName so we don't trip on unrelated `bind` functions from other libraries
+        // (e.g., Arrow `Raise.bind()`, ktor `resourceScope { bind() }`) — those crashed the IR
+        // transformer by shape-mismatching KoinDefinition.bind's signature (issue #17).
+        if (compileSafetyEnabled && functionName.asString() == "bind" &&
+            callee.fqNameWhenAvailable?.asString() in KOIN_BIND_FQNAMES) {
             collectBindType(transformedCall)
         }
 

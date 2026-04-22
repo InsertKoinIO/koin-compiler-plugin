@@ -168,6 +168,15 @@ class CallSiteValidator(private val context: IrPluginContext) {
         // Deduplicate by target FQ name
         val uniqueCallSites = unresolvedCallSites.distinctBy { it.targetFqName }
 
+        // Module-specific prefix for hint filenames so two Gradle modules that both
+        // koinInject<SameType>() don't produce identical class names — which otherwise
+        // trips the Android dex merger (issue #20). The FIR module data name reflects
+        // the Kotlin compilation unit and is unique per Gradle module variant.
+        val moduleIdForFilename = firModuleData.name.asString()
+            .removePrefix("<").removeSuffix(">")
+            .replace(Regex("[^A-Za-z0-9]"), "_")
+            .ifEmpty { "module" }
+
         for (callSite in uniqueCallSites) {
             val targetClass = callSite.targetClass
 
@@ -192,13 +201,13 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 isFakeOverride = false
             )
 
-            // Add parameter with the required type
+            // Add parameter with the required type (erased to raw form for generics — see #18)
             val requiredParam = context.irFactory.createValueParameter(
                 startOffset = UNDEFINED_OFFSET,
                 endOffset = UNDEFINED_OFFSET,
                 origin = IrDeclarationOrigin.DEFINED,
                 name = Name.identifier("required"),
-                type = targetClass.defaultType,
+                type = targetClass.hintParameterType(context),
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
                 index = 0,
@@ -216,11 +225,12 @@ class CallSiteValidator(private val context: IrPluginContext) {
             // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
             function.addDeprecatedHiddenAnnotation(context)
 
-            // Build deterministic file name
+            // Build deterministic file name, prefixed by module identifier to keep
+            // hint class names unique across Gradle modules (see above — issue #20).
             val sanitizedName = callSite.targetFqName.split(".")
                 .joinToString("") { it.replaceFirstChar { c -> c.uppercaseChar() } }
                 .replaceFirstChar { it.lowercaseChar() }
-            val fileName = "${sanitizedName}_callsite.kt"
+            val fileName = "${moduleIdForFilename}_${sanitizedName}_callsite.kt"
 
             val firFile = buildFile {
                 moduleData = firModuleData

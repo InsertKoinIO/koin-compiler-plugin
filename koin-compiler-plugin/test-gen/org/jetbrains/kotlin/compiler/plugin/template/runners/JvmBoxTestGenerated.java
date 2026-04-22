@@ -81,6 +81,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("arrow_bind_non_koin.kt")
+    public void testArrow_bind_non_koin() {
+      runTest("koin-compiler-plugin/testData/box/dsl/arrow_bind_non_koin.kt");
+    }
+
+    @Test
     @TestMetadata("create_constructor.kt")
     public void testCreate_constructor() {
       runTest("koin-compiler-plugin/testData/box/dsl/create_constructor.kt");
@@ -251,6 +257,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("callsite_hint_module_prefix.kt")
+    public void testCallsite_hint_module_prefix() {
+      runTest("koin-compiler-plugin/testData/box/safety/callsite_hint_module_prefix.kt");
+    }
+
+    @Test
     @TestMetadata("complete_graph.kt")
     public void testComplete_graph() {
       runTest("koin-compiler-plugin/testData/box/safety/complete_graph.kt");
@@ -284,6 +296,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @TestMetadata("dsl_transitive_includes.kt")
     public void testDsl_transitive_includes() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_transitive_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("generic_dsl_type_no_crash.kt")
+    public void testGeneric_dsl_type_no_crash() {
+      runTest("koin-compiler-plugin/testData/box/safety/generic_dsl_type_no_crash.kt");
     }
 
     @Test

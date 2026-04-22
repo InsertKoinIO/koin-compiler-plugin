@@ -1,0 +1,16 @@
+FILE: test.kt
+    public abstract interface MyService : R|kotlin/Any| {
+    }
+    public final class LibraryConsumer : R|kotlin/Any| {
+        public constructor(): R|LibraryConsumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final fun doWork(koin: R|org/koin/core/Koin|): R|MyService| {
+            ^doWork R|<local>/koin|.R|org/koin/core/Koin.get|<R|MyService|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        ^box String(OK)
+    }

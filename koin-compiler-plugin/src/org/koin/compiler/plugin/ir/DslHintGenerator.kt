@@ -77,14 +77,14 @@ class DslHintGenerator(private val context: IrPluginContext) {
                 isFakeOverride = false
             )
 
-            // Add parameter with the target class type (concrete type)
+            // Add parameter with the target class type (erased to raw form for generics — see #18)
             val params = mutableListOf<IrValueParameter>()
             val contributedParam = context.irFactory.createValueParameter(
                 startOffset = UNDEFINED_OFFSET,
                 endOffset = UNDEFINED_OFFSET,
                 origin = IrDeclarationOrigin.DEFINED,
                 name = Name.identifier("contributed"),
-                type = targetClass.defaultType,
+                type = targetClass.hintParameterType(context),
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
                 index = 0,
@@ -103,7 +103,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     endOffset = UNDEFINED_OFFSET,
                     origin = IrDeclarationOrigin.DEFINED,
                     name = Name.identifier("binding$bindingIndex"),
-                    type = binding.defaultType,
+                    type = binding.hintParameterType(context),
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
                     index = bindingIndex + 1,
