@@ -281,11 +281,24 @@ class KoinStartTransformer(
         // Discover modules filtered by configuration labels
         val discoveredModules = discoverConfigurationModules(configurationLabels)
 
-        // Combine explicit modules with auto-discovered @Configuration modules
-        val allModules = (explicitModules + discoveredModules)
-            .distinctBy { it.fqNameWhenAvailable }
+        // Koin is last-wins at runtime, so load order determines override precedence.
+        //
+        // Rule (#2402): auto-discovered @Configuration modules first, explicit
+        // @KoinApplication(modules = [...]) last. That way an app module listing a
+        // feature override wins over the discovered dependency, which matches the
+        // typical intent of "the app customises the libraries, not the other way round".
+        //
+        // Within each half we preserve the user's declaration order so they can still
+        // control fine-grained order via an explicit list (modules = [A, B, C] loads
+        // A then B then C, and C wins among those three).
+        //
+        // Dedupe discovered AGAINST explicit (not the other way round) so a module the
+        // user re-declares in the explicit list keeps its explicit position — and
+        // therefore its explicit override priority.
+        val explicitFqNames = explicitModules.mapNotNull { it.fqNameWhenAvailable }.toSet()
+        val uniqueDiscovered = discoveredModules.filterNot { it.fqNameWhenAvailable in explicitFqNames }
 
-        return allModules
+        return uniqueDiscovered + explicitModules
     }
 
     /**

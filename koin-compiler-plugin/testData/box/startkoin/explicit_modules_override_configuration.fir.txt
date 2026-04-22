@@ -1,0 +1,76 @@
+FILE: test.kt
+    public abstract interface Feature : R|kotlin/Any| {
+        public abstract fun name(): R|kotlin/String|
+
+    }
+    public final class DefaultFeature : R|Feature| {
+        public constructor(): R|DefaultFeature| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun name(): R|kotlin/String| {
+            ^name String(default)
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() public final class CoreConfiguration : R|kotlin/Any| {
+        public constructor(): R|CoreConfiguration| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Singleton|() public final fun defaultFeature(): R|Feature| {
+            ^defaultFeature R|/DefaultFeature.DefaultFeature|()
+        }
+
+    }
+    public final class AppFeature : R|Feature| {
+        public constructor(): R|AppFeature| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun name(): R|kotlin/String| {
+            ^name String(app-override)
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Singleton|() public final fun appFeature(): R|Feature| {
+            ^appFeature R|/AppFeature.AppFeature|()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|AppModule|))) public abstract interface MyApp : R|kotlin/Any| {
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/plugin/module/dsl/startKoin|<R|MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval feature: R|Feature| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Feature|>()
+        ^box when () {
+            ==(R|<local>/feature|.R|/Feature.name|(), String(app-override)) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: expected app-override, got ), R|<local>/feature|.R|/Feature.name|())
+            }
+        }
+
+    }
+FILE: /coreConfigurationModule.kt
+    public final fun R|CoreConfiguration|.module(): R|org/koin/core/module/Module|
+FILE: /appModuleModule.kt
+    public final fun R|AppModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/coreConfigurationModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|CoreConfiguration|): R|kotlin/Unit|
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_coreConfiguration__defaultFeature(contributed: R|Feature|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/appModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_appModule__appFeature(contributed: R|Feature|): R|kotlin/Unit|

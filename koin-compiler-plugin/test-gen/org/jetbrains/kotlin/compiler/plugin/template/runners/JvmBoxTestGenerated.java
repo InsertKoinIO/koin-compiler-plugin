@@ -463,6 +463,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("explicit_modules_override_configuration.kt")
+    public void testExplicit_modules_override_configuration() {
+      runTest("koin-compiler-plugin/testData/box/startkoin/explicit_modules_override_configuration.kt");
+    }
+
+    @Test
     @TestMetadata("koin_application.kt")
     public void testKoin_application() {
       runTest("koin-compiler-plugin/testData/box/startkoin/koin_application.kt");
