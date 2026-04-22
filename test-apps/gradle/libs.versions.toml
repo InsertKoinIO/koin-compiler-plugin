@@ -1,7 +1,7 @@
 [versions]
 kotlin = "2.3.20"
 koin = "4.2.1"
-koin-plugin = "1.0.0-RC2.4"
+koin-plugin = "1.0.0-RC2"
 
 [libraries]
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }

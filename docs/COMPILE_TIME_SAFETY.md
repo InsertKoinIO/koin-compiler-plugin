@@ -225,6 +225,83 @@ class Other(@Property("missing.key") val value: String)
 // WARNING — no @PropertyValue("missing.key") found
 ```
 
+## Module Load Order and Overrides
+
+Koin is **last-wins** at runtime: when two modules define the same type, the one loaded last takes precedence. The compiler plugin assembles the module list at the `@KoinApplication` root in this order:
+
+1. **Auto-discovered `@Configuration` modules** (this compilation + dependency JARs) — load first
+2. **Explicit `@KoinApplication(modules = [A, B, C])`** — load last, **in declaration order**
+
+The rationale: apps customise libraries, not the other way round. So the app's explicit list wins over dependency-provided defaults.
+
+```kotlin
+// Dependency JAR — default implementation
+@Module @Configuration
+class CoreModule {
+    @Singleton fun feature(): Feature = DefaultFeature()
+}
+
+// App — custom override
+@Module
+class AppModule {
+    @Singleton fun feature(): Feature = AppFeature()
+}
+
+@KoinApplication(modules = [AppModule::class])
+class MyApp
+// Load order: CoreModule (DefaultFeature) → AppModule (AppFeature wins)
+```
+
+Within the explicit list, declaration order is preserved:
+
+```kotlin
+@KoinApplication(modules = [A::class, B::class, C::class])
+// Load order: (@Configuration deps) → A → A.includes → B → B.includes → C → C.includes
+// Winner among A/B/C: C (declared last)
+```
+
+If a module re-appears in both the explicit list and is also discovered via `@Configuration`, it is loaded once — at its **explicit position** — so the user's declaration order always controls override precedence.
+
+**Escape hatch for fine-grained ordering**: list all participating modules explicitly in `@KoinApplication(modules = [...])` in the desired order. This bypasses classpath-dependent discovery order for `@Configuration` modules.
+
+## Generic DSL Types
+
+Runtime Koin resolves definitions on the **erased raw class** — type parameters are not part of the lookup key. Compile-safety honours that: a `get<Box<X>>()` call is validated against any `Box<*>` provider in the graph, and two `single<Box<A>>()` / `single<Box<B>>()` declarations collide on the same raw class.
+
+```kotlin
+val appModule = module {
+    single<Navigator<AppKey>>()     // validated as Navigator (raw)
+    single<Navigator<MenuKey>>()    // treated as the same definition
+}
+```
+
+Validating on the raw class is also what makes iOS/Native builds work — emitting the generic type with its free parameter into hint functions used to crash the Kotlin/Native klib signature mangler.
+
+### Discriminating generic instances — use `named<T>()`
+
+When multiple instances of the same generic class must coexist, register a **concrete wrapper type** and key each instance with a type qualifier derived from the generic parameter. This is the pattern used internally by `koin-compose-navigation3`:
+
+```kotlin
+// From koin-compose-navigation3
+inline fun <reified T : Any> Module.navigation(
+    noinline definition: @Composable Scope.(T) -> Unit,
+): KoinDefinition<EntryProviderInstaller> {
+    // Concrete type EntryProviderInstaller + type qualifier derived from T.
+    return _singleInstanceFactory<EntryProviderInstaller>(named<T>(), { ... })
+}
+
+// Caller side
+module {
+    navigation<HomeRoute> { ... }      // keyed by named<HomeRoute>()
+    navigation<SettingsRoute> { ... }  // keyed by named<SettingsRoute>()
+}
+
+// Resolution uses the same type qualifier
+koin.get<EntryProviderInstaller>(named<HomeRoute>())
+```
+
+Runtime Koin matches on (raw class + qualifier), and the compile-safety validator respects qualifier matching — so the plugin sees these as two distinct definitions, as expected. Prefer `named<T>()` qualifier-on-concrete-type over `single<Box<X>>()` directly whenever you need to distinguish generic instantiations.
+
 ## Configuration
 
 ```kotlin

@@ -969,6 +969,32 @@ val instanceExpression = if (includedModuleClass.isObject) {
 
 **Prevention**: When actively developing the plugin, consider keeping `test-apps` in a separate IntelliJ window and refreshing Gradle after each `./install.sh`.
 
+### 7.13 "'buildViewModel' is not on classpath. Add dependency: io.insert-koin:koin-core-viewmodel"
+
+**Symptom**: Compile error at an `@KoinViewModel`-annotated class:
+```
+[Koin] @KoinViewModel definition 'com.app.MyViewModel' cannot be generated:
+  'buildViewModel' is not on classpath. Add dependency: io.insert-koin:koin-core-viewmodel
+```
+
+Same shape for `@KoinWorker` → `io.insert-koin:koin-android-workmanager`.
+
+**Cause**: `@KoinViewModel` / `@KoinWorker` annotations live in `koin-annotations` (always available via `koin-core`), but the runtime DSL that backs them (`Module.buildViewModel` / `Module.buildWorker`) ships in a separate artifact. If you only have `koin-core` + `koin-annotations`, the plugin can't generate a working definition for those annotations.
+
+Before the check existed (pre-RC2.3), the plugin silently skipped the definition; you got `NoDefinitionFoundException` at runtime. RC2.3+ fails loudly with the fix instruction.
+
+**Fix**:
+
+```kotlin
+// build.gradle.kts
+dependencies {
+    implementation("io.insert-koin:koin-core-viewmodel:4.2.1")   // for @KoinViewModel
+    implementation("io.insert-koin:koin-android-workmanager:4.2.1") // for @KoinWorker (Android)
+}
+```
+
+The error fires once per annotation type per compilation — if you see it for `@KoinViewModel`, all ViewModel definitions in that compilation are blocked until the artifact is added.
+
 ---
 
 ## 8. Development Workflow
