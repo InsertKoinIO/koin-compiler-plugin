@@ -17,13 +17,13 @@ FILE: Service.kt
 
     }
 FILE: modules.kt
-    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(service))) public final class ServiceModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(service)) [evaluated = vararg(String(service))]) public final class ServiceModule : R|kotlin/Any| {
         public constructor(): R|ServiceModule| {
             super<R|kotlin/Any|>()
         }
 
     }
-    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|ServiceModule|))) public final object MyApp : R|kotlin/Any| {
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|ServiceModule|)) [evaluated = <collectionLiteralCall>(<getClass>(Q|ServiceModule|))]) public final object MyApp : R|kotlin/Any| {
         private constructor(): R|MyApp| {
             super<R|kotlin/Any|>()
         }

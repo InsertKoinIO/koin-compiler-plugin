@@ -7,14 +7,14 @@ FILE: test.kt
     }
     public abstract interface ProdQualifier : R|kotlin/Any| {
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Qualifier|(value = <getClass>(Q|ProdQualifier|)) public final class QualifiedService : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Qualifier|(value = <getClass>(Q|ProdQualifier|) [evaluated = <getClass>(Q|ProdQualifier|)]) public final class QualifiedService : R|kotlin/Any| {
         public constructor(): R|QualifiedService| {
             super<R|kotlin/Any|>()
         }
 
     }
     @R|org/koin/core/annotation/Singleton|() public final class Consumer : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/Qualifier|(value = <getClass>(Q|ProdQualifier|)) service: R|QualifiedService|): R|Consumer| {
+        public constructor(@R|org/koin/core/annotation/Qualifier|(value = <getClass>(Q|ProdQualifier|) [evaluated = <getClass>(Q|ProdQualifier|)]) service: R|QualifiedService|): R|Consumer| {
             super<R|kotlin/Any|>()
         }
 

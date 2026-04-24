@@ -7,20 +7,20 @@ FILE: test.kt
     }
     public abstract interface Cache : R|kotlin/Any| {
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(local)) public final class LocalCache : R|Cache| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(local) [evaluated = String(local)]) public final class LocalCache : R|Cache| {
         public constructor(): R|LocalCache| {
             super<R|kotlin/Any|>()
         }
 
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(remote)) public final class RemoteCache : R|Cache| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(remote) [evaluated = String(remote)]) public final class RemoteCache : R|Cache| {
         public constructor(): R|RemoteCache| {
             super<R|kotlin/Any|>()
         }
 
     }
     @R|org/koin/core/annotation/Singleton|() public final class CacheManager : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/Named|(value = String(local)) local: R|Cache|, @R|org/koin/core/annotation/Named|(value = String(remote)) remote: R|Cache|): R|CacheManager| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(local) [evaluated = String(local)]) local: R|Cache|, @R|org/koin/core/annotation/Named|(value = String(remote) [evaluated = String(remote)]) remote: R|Cache|): R|CacheManager| {
             super<R|kotlin/Any|>()
         }
 

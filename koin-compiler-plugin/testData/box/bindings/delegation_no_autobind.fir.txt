@@ -13,7 +13,7 @@ FILE: test.kt
         }
 
     }
-    @R|org/koin/core/annotation/Singleton|(binds = <collectionLiteralCall>()) public final class DecoratedService : R|MyService| {
+    @R|org/koin/core/annotation/Singleton|(binds = <collectionLiteralCall>() [evaluated = <collectionLiteralCall>()]) public final class DecoratedService : R|MyService| {
         public constructor(delegate: R|MyService|): R|DecoratedService| {
             super<R|kotlin/Any|>()
         }

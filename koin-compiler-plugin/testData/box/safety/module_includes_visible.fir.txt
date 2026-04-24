@@ -15,7 +15,7 @@ FILE: test.kt
         }
 
     }
-    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|InfraModule|))) public final class AppModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|InfraModule|)) [evaluated = <collectionLiteralCall>(<getClass>(Q|InfraModule|))]) public final class AppModule : R|kotlin/Any| {
         public constructor(): R|AppModule| {
             super<R|kotlin/Any|>()
         }

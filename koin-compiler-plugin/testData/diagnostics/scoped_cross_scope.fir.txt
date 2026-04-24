@@ -17,7 +17,7 @@ FILE: test.kt
         }
 
     }
-    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|SessionScope|)) public final class Service : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|SessionScope|) [evaluated = <getClass>(Q|SessionScope|)]) public final class Service : R|kotlin/Any| {
         public constructor(auth: R|AuthData|): R|Service| {
             super<R|kotlin/Any|>()
         }
@@ -26,7 +26,7 @@ FILE: test.kt
             public get(): R|AuthData|
 
     }
-    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|UserScope|)) public final class AuthData : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|UserScope|) [evaluated = <getClass>(Q|UserScope|)]) public final class AuthData : R|kotlin/Any| {
         public constructor(): R|AuthData| {
             super<R|kotlin/Any|>()
         }

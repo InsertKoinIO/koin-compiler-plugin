@@ -16,6 +16,10 @@ import java.util.regex.Pattern;
 @TestMetadata("koin-compiler-plugin/testData/box")
 @TestDataPath("$PROJECT_ROOT")
 public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
+  private void run(String fileName) {
+    runTest("koin-compiler-plugin/testData/box/" + fileName);
+  }
+
   @Test
   public void testAllFilesPresentInBox() {
     KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -25,6 +29,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/annotations")
   @TestDataPath("$PROJECT_ROOT")
   public class Annotations {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/annotations/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInAnnotations() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/annotations"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -33,13 +41,13 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("factory_class.kt")
     public void testFactory_class() {
-      runTest("koin-compiler-plugin/testData/box/annotations/factory_class.kt");
+      run("factory_class.kt");
     }
 
     @Test
     @TestMetadata("singleton_class.kt")
     public void testSingleton_class() {
-      runTest("koin-compiler-plugin/testData/box/annotations/singleton_class.kt");
+      run("singleton_class.kt");
     }
   }
 
@@ -47,6 +55,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/bindings")
   @TestDataPath("$PROJECT_ROOT")
   public class Bindings {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/bindings/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInBindings() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/bindings"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -55,13 +67,13 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("auto_interface_binding.kt")
     public void testAuto_interface_binding() {
-      runTest("koin-compiler-plugin/testData/box/bindings/auto_interface_binding.kt");
+      run("auto_interface_binding.kt");
     }
 
     @Test
     @TestMetadata("delegation_no_autobind.kt")
     public void testDelegation_no_autobind() {
-      runTest("koin-compiler-plugin/testData/box/bindings/delegation_no_autobind.kt");
+      run("delegation_no_autobind.kt");
     }
 
     @Test
@@ -75,6 +87,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/dsl")
   @TestDataPath("$PROJECT_ROOT")
   public class Dsl {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/dsl/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInDsl() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/dsl"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -89,49 +105,49 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("create_constructor.kt")
     public void testCreate_constructor() {
-      runTest("koin-compiler-plugin/testData/box/dsl/create_constructor.kt");
+      run("create_constructor.kt");
     }
 
     @Test
     @TestMetadata("factory_basic.kt")
     public void testFactory_basic() {
-      runTest("koin-compiler-plugin/testData/box/dsl/factory_basic.kt");
+      run("factory_basic.kt");
     }
 
     @Test
     @TestMetadata("scoped_basic.kt")
     public void testScoped_basic() {
-      runTest("koin-compiler-plugin/testData/box/dsl/scoped_basic.kt");
+      run("scoped_basic.kt");
     }
 
     @Test
     @TestMetadata("single_basic.kt")
     public void testSingle_basic() {
-      runTest("koin-compiler-plugin/testData/box/dsl/single_basic.kt");
+      run("single_basic.kt");
     }
 
     @Test
     @TestMetadata("single_with_default_value.kt")
     public void testSingle_with_default_value() {
-      runTest("koin-compiler-plugin/testData/box/dsl/single_with_default_value.kt");
+      run("single_with_default_value.kt");
     }
 
     @Test
     @TestMetadata("single_with_dependency.kt")
     public void testSingle_with_dependency() {
-      runTest("koin-compiler-plugin/testData/box/dsl/single_with_dependency.kt");
+      run("single_with_dependency.kt");
     }
 
     @Test
     @TestMetadata("single_with_lazy.kt")
     public void testSingle_with_lazy() {
-      runTest("koin-compiler-plugin/testData/box/dsl/single_with_lazy.kt");
+      run("single_with_lazy.kt");
     }
 
     @Test
     @TestMetadata("single_with_nullable.kt")
     public void testSingle_with_nullable() {
-      runTest("koin-compiler-plugin/testData/box/dsl/single_with_nullable.kt");
+      run("single_with_nullable.kt");
     }
   }
 
@@ -139,6 +155,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/modules")
   @TestDataPath("$PROJECT_ROOT")
   public class Modules {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/modules/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInModules() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/modules"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -147,19 +167,19 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("component_scan_basic.kt")
     public void testComponent_scan_basic() {
-      runTest("koin-compiler-plugin/testData/box/modules/component_scan_basic.kt");
+      run("component_scan_basic.kt");
     }
 
     @Test
     @TestMetadata("module_extension.kt")
     public void testModule_extension() {
-      runTest("koin-compiler-plugin/testData/box/modules/module_extension.kt");
+      run("module_extension.kt");
     }
 
     @Test
     @TestMetadata("module_with_functions.kt")
     public void testModule_with_functions() {
-      runTest("koin-compiler-plugin/testData/box/modules/module_with_functions.kt");
+      run("module_with_functions.kt");
     }
   }
 
@@ -167,6 +187,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/monitor")
   @TestDataPath("$PROJECT_ROOT")
   public class Monitor {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/monitor/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInMonitor() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/monitor"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -175,13 +199,13 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("monitor_class.kt")
     public void testMonitor_class() {
-      runTest("koin-compiler-plugin/testData/box/monitor/monitor_class.kt");
+      run("monitor_class.kt");
     }
 
     @Test
     @TestMetadata("monitor_function.kt")
     public void testMonitor_function() {
-      runTest("koin-compiler-plugin/testData/box/monitor/monitor_function.kt");
+      run("monitor_function.kt");
     }
   }
 
@@ -189,6 +213,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/params")
   @TestDataPath("$PROJECT_ROOT")
   public class Params {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/params/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInParams() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/params"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -197,19 +225,19 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("injected_param.kt")
     public void testInjected_param() {
-      runTest("koin-compiler-plugin/testData/box/params/injected_param.kt");
+      run("injected_param.kt");
     }
 
     @Test
     @TestMetadata("lazy_injection.kt")
     public void testLazy_injection() {
-      runTest("koin-compiler-plugin/testData/box/params/lazy_injection.kt");
+      run("lazy_injection.kt");
     }
 
     @Test
     @TestMetadata("property_basic.kt")
     public void testProperty_basic() {
-      runTest("koin-compiler-plugin/testData/box/params/property_basic.kt");
+      run("property_basic.kt");
     }
   }
 
@@ -217,6 +245,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/qualifiers")
   @TestDataPath("$PROJECT_ROOT")
   public class Qualifiers {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/qualifiers/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInQualifiers() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/qualifiers"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -231,19 +263,19 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("named_on_class.kt")
     public void testNamed_on_class() {
-      runTest("koin-compiler-plugin/testData/box/qualifiers/named_on_class.kt");
+      run("named_on_class.kt");
     }
 
     @Test
     @TestMetadata("named_on_parameter.kt")
     public void testNamed_on_parameter() {
-      runTest("koin-compiler-plugin/testData/box/qualifiers/named_on_parameter.kt");
+      run("named_on_parameter.kt");
     }
 
     @Test
     @TestMetadata("qualifier_type.kt")
     public void testQualifier_type() {
-      runTest("koin-compiler-plugin/testData/box/qualifiers/qualifier_type.kt");
+      run("qualifier_type.kt");
     }
   }
 
@@ -251,6 +283,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/safety")
   @TestDataPath("$PROJECT_ROOT")
   public class Safety {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/safety/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInSafety() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/safety"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -265,37 +301,37 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("complete_graph.kt")
     public void testComplete_graph() {
-      runTest("koin-compiler-plugin/testData/box/safety/complete_graph.kt");
+      run("complete_graph.kt");
     }
 
     @Test
     @TestMetadata("configuration_group.kt")
     public void testConfiguration_group() {
-      runTest("koin-compiler-plugin/testData/box/safety/configuration_group.kt");
+      run("configuration_group.kt");
     }
 
     @Test
     @TestMetadata("default_value_ok.kt")
     public void testDefault_value_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/default_value_ok.kt");
+      run("default_value_ok.kt");
     }
 
     @Test
     @TestMetadata("dsl_create_function.kt")
     public void testDsl_create_function() {
-      runTest("koin-compiler-plugin/testData/box/safety/dsl_create_function.kt");
+      run("dsl_create_function.kt");
     }
 
     @Test
     @TestMetadata("dsl_module_includes.kt")
     public void testDsl_module_includes() {
-      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_includes.kt");
+      run("dsl_module_includes.kt");
     }
 
     @Test
     @TestMetadata("dsl_transitive_includes.kt")
     public void testDsl_transitive_includes() {
-      runTest("koin-compiler-plugin/testData/box/safety/dsl_transitive_includes.kt");
+      run("dsl_transitive_includes.kt");
     }
 
     @Test
@@ -307,61 +343,61 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("injected_param_ok.kt")
     public void testInjected_param_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/injected_param_ok.kt");
+      run("injected_param_ok.kt");
     }
 
     @Test
     @TestMetadata("lazy_valid.kt")
     public void testLazy_valid() {
-      runTest("koin-compiler-plugin/testData/box/safety/lazy_valid.kt");
+      run("lazy_valid.kt");
     }
 
     @Test
     @TestMetadata("list_ok.kt")
     public void testList_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/list_ok.kt");
+      run("list_ok.kt");
     }
 
     @Test
     @TestMetadata("module_includes_chain.kt")
     public void testModule_includes_chain() {
-      runTest("koin-compiler-plugin/testData/box/safety/module_includes_chain.kt");
+      run("module_includes_chain.kt");
     }
 
     @Test
     @TestMetadata("module_includes_visible.kt")
     public void testModule_includes_visible() {
-      runTest("koin-compiler-plugin/testData/box/safety/module_includes_visible.kt");
+      run("module_includes_visible.kt");
     }
 
     @Test
     @TestMetadata("nullable_ok.kt")
     public void testNullable_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/nullable_ok.kt");
+      run("nullable_ok.kt");
     }
 
     @Test
     @TestMetadata("property_value_ok.kt")
     public void testProperty_value_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/property_value_ok.kt");
+      run("property_value_ok.kt");
     }
 
     @Test
     @TestMetadata("provided_param_dsl_ok.kt")
     public void testProvided_param_dsl_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/provided_param_dsl_ok.kt");
+      run("provided_param_dsl_ok.kt");
     }
 
     @Test
     @TestMetadata("provided_param_ok.kt")
     public void testProvided_param_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/provided_param_ok.kt");
+      run("provided_param_ok.kt");
     }
 
     @Test
     @TestMetadata("provided_type_ok.kt")
     public void testProvided_type_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/provided_type_ok.kt");
+      run("provided_type_ok.kt");
     }
 
     @Test
@@ -373,61 +409,61 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("qualifier_cross_module.kt")
     public void testQualifier_cross_module() {
-      runTest("koin-compiler-plugin/testData/box/safety/qualifier_cross_module.kt");
+      run("qualifier_cross_module.kt");
     }
 
     @Test
     @TestMetadata("qualifier_cross_module_type.kt")
     public void testQualifier_cross_module_type() {
-      runTest("koin-compiler-plugin/testData/box/safety/qualifier_cross_module_type.kt");
+      run("qualifier_cross_module_type.kt");
     }
 
     @Test
     @TestMetadata("qualifier_dotted_name.kt")
     public void testQualifier_dotted_name() {
-      runTest("koin-compiler-plugin/testData/box/safety/qualifier_dotted_name.kt");
+      run("qualifier_dotted_name.kt");
     }
 
     @Test
     @TestMetadata("qualifier_match.kt")
     public void testQualifier_match() {
-      runTest("koin-compiler-plugin/testData/box/safety/qualifier_match.kt");
+      run("qualifier_match.kt");
     }
 
     @Test
     @TestMetadata("scope_id_ok.kt")
     public void testScope_id_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/scope_id_ok.kt");
+      run("scope_id_ok.kt");
     }
 
     @Test
     @TestMetadata("scope_param_dsl_ok.kt")
     public void testScope_param_dsl_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/scope_param_dsl_ok.kt");
+      run("scope_param_dsl_ok.kt");
     }
 
     @Test
     @TestMetadata("scope_param_ok.kt")
     public void testScope_param_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/scope_param_ok.kt");
+      run("scope_param_ok.kt");
     }
 
     @Test
     @TestMetadata("scoped_visibility.kt")
     public void testScoped_visibility() {
-      runTest("koin-compiler-plugin/testData/box/safety/scoped_visibility.kt");
+      run("scoped_visibility.kt");
     }
 
     @Test
     @TestMetadata("startkoin_full_graph.kt")
     public void testStartkoin_full_graph() {
-      runTest("koin-compiler-plugin/testData/box/safety/startkoin_full_graph.kt");
+      run("startkoin_full_graph.kt");
     }
 
     @Test
     @TestMetadata("toplevel_function_ok.kt")
     public void testToplevel_function_ok() {
-      runTest("koin-compiler-plugin/testData/box/safety/toplevel_function_ok.kt");
+      run("toplevel_function_ok.kt");
     }
   }
 
@@ -435,6 +471,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/scopes")
   @TestDataPath("$PROJECT_ROOT")
   public class Scopes {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/scopes/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInScopes() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/scopes"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -443,7 +483,7 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("scope_class.kt")
     public void testScope_class() {
-      runTest("koin-compiler-plugin/testData/box/scopes/scope_class.kt");
+      run("scope_class.kt");
     }
   }
 
@@ -451,6 +491,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/startkoin")
   @TestDataPath("$PROJECT_ROOT")
   public class Startkoin {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/startkoin/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInStartkoin() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/startkoin"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -459,7 +503,7 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("configuration_discovery.kt")
     public void testConfiguration_discovery() {
-      runTest("koin-compiler-plugin/testData/box/startkoin/configuration_discovery.kt");
+      run("configuration_discovery.kt");
     }
 
     @Test
@@ -471,19 +515,19 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("koin_application.kt")
     public void testKoin_application() {
-      runTest("koin-compiler-plugin/testData/box/startkoin/koin_application.kt");
+      run("koin_application.kt");
     }
 
     @Test
     @TestMetadata("multiple_modules.kt")
     public void testMultiple_modules() {
-      runTest("koin-compiler-plugin/testData/box/startkoin/multiple_modules.kt");
+      run("multiple_modules.kt");
     }
 
     @Test
     @TestMetadata("startkoin_basic.kt")
     public void testStartkoin_basic() {
-      runTest("koin-compiler-plugin/testData/box/startkoin/startkoin_basic.kt");
+      run("startkoin_basic.kt");
     }
   }
 
@@ -491,6 +535,10 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   @TestMetadata("koin-compiler-plugin/testData/box/toplevel")
   @TestDataPath("$PROJECT_ROOT")
   public class Toplevel {
+    private void run(String fileName) {
+      runTest("koin-compiler-plugin/testData/box/toplevel/" + fileName);
+    }
+
     @Test
     public void testAllFilesPresentInToplevel() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/toplevel"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -505,7 +553,7 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     @TestMetadata("singleton_function.kt")
     public void testSingleton_function() {
-      runTest("koin-compiler-plugin/testData/box/toplevel/singleton_function.kt");
+      run("singleton_function.kt");
     }
   }
 }
