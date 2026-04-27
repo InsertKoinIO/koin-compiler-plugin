@@ -13,6 +13,7 @@ import org.junit.After
 import org.junit.Test
 import org.koin.core.context.stopKoin
 import org.koin.core.logger.Level
+import org.koin.mp.KoinPlatform
 import org.koin.plugin.module.dsl.startKoin
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
