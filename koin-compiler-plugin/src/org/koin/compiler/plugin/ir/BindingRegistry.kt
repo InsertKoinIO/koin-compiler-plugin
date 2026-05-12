@@ -90,6 +90,78 @@ class BindingRegistry {
         )
 
         fun isWhitelistedType(fqName: String): Boolean = fqName in WHITELISTED_TYPES
+
+        /**
+         * Pure-graph DFS cycle detector. Generic on node type so it can be unit-tested with
+         * `String` keys without standing up IR. Returns each detected cycle as a closed path
+         * `[A, ..., A]` in DFS-discovery order.
+         *
+         * Iterative DFS with three-color marking: WHITE (unseen), GRAY (on current DFS stack),
+         * BLACK (fully explored). A back-edge `node -> next` where `next` is GRAY closes a
+         * cycle; we reconstruct the path by walking the [parent] map from `node` up to `next`.
+         *
+         * One cycle is reported per back-edge discovered. Callers that want one report per
+         * topologically distinct cycle should canonicalize and dedup (see [canonicalizeCycle]).
+         */
+        fun <N> findCyclesInGraph(nodes: Iterable<N>, adjacency: Map<N, List<N>>): List<List<N>> {
+            val gray = 1
+            val black = 2
+            val color = HashMap<N, Int>()
+            val parent = HashMap<N, N>()
+            val results = mutableListOf<List<N>>()
+
+            for (root in nodes) {
+                if (color[root] != null) continue
+                val stack = ArrayDeque<Pair<N, Iterator<N>>>()
+                color[root] = gray
+                stack.addLast(root to (adjacency[root] ?: emptyList()).iterator())
+
+                while (stack.isNotEmpty()) {
+                    val (node, it) = stack.last()
+                    if (!it.hasNext()) {
+                        color[node] = black
+                        stack.removeLast()
+                        continue
+                    }
+                    val next = it.next()
+                    when (color[next]) {
+                        null -> {
+                            color[next] = gray
+                            parent[next] = node
+                            stack.addLast(next to (adjacency[next] ?: emptyList()).iterator())
+                        }
+                        gray -> {
+                            val path = mutableListOf<N>()
+                            var cur: N? = node
+                            while (cur != null && cur != next) {
+                                path.add(cur)
+                                cur = parent[cur]
+                            }
+                            if (cur == next) {
+                                path.add(next)
+                                path.reverse()
+                                results.add(path + next)
+                            }
+                        }
+                        black -> { /* fully explored — no new cycle via this edge */ }
+                    }
+                }
+            }
+            return results
+        }
+
+        /**
+         * Canonicalize a closed cycle `[A, B, C, A]` to a stable string by dropping the trailing
+         * duplicate and rotating to start at the lexicographically smallest node. So
+         * `[A, B, C, A]`, `[B, C, A, B]`, and `[C, A, B, C]` all produce `"A→B→C"`.
+         */
+        fun canonicalizeCycle(cycle: List<String>): String {
+            if (cycle.size <= 1) return cycle.joinToString("→")
+            val open = cycle.dropLast(1) // strip trailing duplicate
+            val minIdx = open.indices.minByOrNull { open[it] } ?: 0
+            val rotated = open.drop(minIdx) + open.take(minIdx)
+            return rotated.joinToString("→")
+        }
     }
 
     /**
@@ -110,7 +182,8 @@ class BindingRegistry {
         definitions: List<Definition>,
         parameterAnalyzer: ParameterAnalyzer,
         qualifierExtractor: QualifierExtractor,
-        definitionsToValidate: List<Definition>? = null
+        definitionsToValidate: List<Definition>? = null,
+        reportedCycles: MutableSet<String>? = null,
     ): Int {
         // Build the set of provided types from ALL definitions
         val providedTypes = mutableSetOf<ProviderKey>()
@@ -206,6 +279,12 @@ class BindingRegistry {
             }
         }
 
+        // Cycle detection runs over the full provider set (not just toValidate) so a back-edge
+        // through an already-validated definition still surfaces. Dedup happens via [reportedCycles]
+        // so the same cycle isn't reported at both A2 and A3.
+        val cycleErrors = detectCycles(definitions, parameterAnalyzer, qualifierExtractor, reportedCycles)
+        errorCount += cycleErrors
+
         if (errorCount == 0) {
             KoinPluginLogger.debug { "  result: OK - all dependencies satisfied for $moduleName" }
         } else {
@@ -214,6 +293,100 @@ class BindingRegistry {
 
         return errorCount
     }
+
+    /**
+     * Detect constructor-injection cycles in the assembled graph and report KOIN-D004 per cycle.
+     *
+     * Nodes are each definition's "primary" ProviderKey (typeKey of its own return type + qualifier
+     * + scope). Bindings (interface ProviderKeys) collapse to their owning definition's primary key,
+     * so two providers sharing an interface don't appear as separate nodes.
+     *
+     * Edges come from constructor/function parameters whose requirement resolves to another
+     * provider. Non-edges (do not contribute to cycles):
+     *  - `Lazy<T>` — canonical runtime cycle breaker
+     *  - `@InjectedParam`, `@Provided`, `@ScopeId` — not constructor-time DI edges
+     *  - nullable / `List<T>` / `@Property` / default-valued — already non-fatal at runtime
+     *  - `@Provided` types and framework-whitelisted types
+     *
+     * Algorithm: iterative DFS with three-color marking. On a back-edge to a GRAY ancestor,
+     * walk the parent chain to reconstruct the cycle path, canonicalize (rotate to start at the
+     * lexicographically smallest node) and dedup via [reportedCycles].
+     *
+     * @return number of NEW cycles reported (after dedup).
+     */
+    private fun detectCycles(
+        definitions: List<Definition>,
+        parameterAnalyzer: ParameterAnalyzer,
+        qualifierExtractor: QualifierExtractor,
+        reportedCycles: MutableSet<String>?,
+    ): Int {
+        if (definitions.isEmpty()) return 0
+
+        // primary key (own type) -> definition; binding keys -> primary (so a binding requirement
+        // routes to the owning definition).
+        val primaryToDef = mutableMapOf<ProviderKey, Definition>()
+        val keyToPrimary = mutableMapOf<ProviderKey, ProviderKey>()
+
+        for (def in definitions) {
+            val typeKey = typeKeyFromDefinition(def)
+            val qualifier = extractQualifierFromDefinition(def, qualifierExtractor)
+            val scopeClass = def.scopeClass
+            val primary = ProviderKey(typeKey, qualifier, scopeClass)
+            if (primaryToDef.putIfAbsent(primary, def) == null) {
+                keyToPrimary[primary] = primary
+                for (binding in def.bindings) {
+                    val bindingKey = ProviderKey(
+                        TypeKey(
+                            classId = ParameterAnalyzer.classIdFromIrClass(binding),
+                            fqName = binding.fqNameWhenAvailable,
+                        ),
+                        qualifier,
+                        scopeClass,
+                    )
+                    keyToPrimary.putIfAbsent(bindingKey, primary)
+                }
+            }
+        }
+
+        if (primaryToDef.size < 1) return 0
+
+        // Adjacency: primary -> set of primary keys reachable in one step.
+        val allKeys = keyToPrimary.keys
+        val adj = HashMap<ProviderKey, List<ProviderKey>>(primaryToDef.size)
+        for ((primary, def) in primaryToDef) {
+            val edges = LinkedHashSet<ProviderKey>()
+            for (req in extractRequirements(def, parameterAnalyzer)) {
+                if (!req.requiresValidation()) continue
+                if (req.isLazy) continue
+                val reqFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
+                if (reqFqName != null && ProvidedTypeRegistry.isProvided(reqFqName)) continue
+                if (reqFqName != null && isWhitelistedType(reqFqName)) continue
+                val matchedKey = findMatchingProvider(req, allKeys, def.scopeClass) ?: continue
+                val target = keyToPrimary[matchedKey] ?: continue
+                edges += target
+            }
+            adj[primary] = edges.toList()
+        }
+
+        val cycles = findCyclesInGraph(primaryToDef.keys, adj)
+        var newCycles = 0
+        for (cycle in cycles) {
+            val rendered = cycle.map { key ->
+                primaryToDef[key]?.let { definitionDisplayName(it) } ?: key.typeKey.render()
+            }
+            val canonical = canonicalizeCycle(rendered)
+            if (reportedCycles == null || reportedCycles.add(canonical)) {
+                KoinPluginLogger.report(KoinDiagnostic.CircularDependency(rendered))
+                newCycles++
+            }
+        }
+
+        if (newCycles > 0) {
+            KoinPluginLogger.debug { "  cycle detection: $newCycles new cycle(s) reported" }
+        }
+        return newCycles
+    }
+
 
     /**
      * Search for a provider matching the requirement.
@@ -258,6 +431,37 @@ class BindingRegistry {
         }
 
         return false
+    }
+
+    /**
+     * Search for a provider matching the requirement and return the matched [ProviderKey], or
+     * `null` if none matches. Used by cycle detection to map a requirement to its resolving node
+     * in the graph. Mirrors [findProvider] but without debug logging (cycle scan walks every
+     * edge — extra spam would drown the build log).
+     */
+    private fun findMatchingProvider(
+        req: Requirement,
+        providedTypes: Set<ProviderKey>,
+        consumerScopeClass: IrClass?,
+    ): ProviderKey? {
+        val reqFqName = req.typeKey.fqName
+        val reqClassId = req.typeKey.classId
+
+        for (provider in providedTypes) {
+            val typeMatch = when {
+                reqFqName != null && provider.typeKey.fqName != null -> reqFqName == provider.typeKey.fqName
+                reqClassId != null && provider.typeKey.classId != null -> reqClassId == provider.typeKey.classId
+                else -> false
+            }
+            if (!typeMatch) continue
+            if (!qualifiersMatch(req.qualifier, provider.qualifier)) continue
+            val providerScope = provider.scopeClass
+            if (providerScope == null) return provider
+            if (consumerScopeClass != null && providerScope.fqNameWhenAvailable == consumerScopeClass.fqNameWhenAvailable) {
+                return provider
+            }
+        }
+        return null
     }
 
     private fun qualifiersMatch(required: QualifierValue?, provided: QualifierValue?): Boolean {

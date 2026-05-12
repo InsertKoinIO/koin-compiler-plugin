@@ -21,6 +21,24 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
   }
 
   @Test
+  @TestMetadata("circular_dependency_broken_by_lazy.kt")
+  public void testCircular_dependency_broken_by_lazy() {
+    runTest("koin-compiler-plugin/testData/diagnostics/circular_dependency_broken_by_lazy.kt");
+  }
+
+  @Test
+  @TestMetadata("circular_dependency_direct.kt")
+  public void testCircular_dependency_direct() {
+    runTest("koin-compiler-plugin/testData/diagnostics/circular_dependency_direct.kt");
+  }
+
+  @Test
+  @TestMetadata("circular_dependency_transitive.kt")
+  public void testCircular_dependency_transitive() {
+    runTest("koin-compiler-plugin/testData/diagnostics/circular_dependency_transitive.kt");
+  }
+
+  @Test
   @TestMetadata("configuration_label_mismatch.kt")
   public void testConfiguration_label_mismatch() {
     runTest("koin-compiler-plugin/testData/diagnostics/configuration_label_mismatch.kt");

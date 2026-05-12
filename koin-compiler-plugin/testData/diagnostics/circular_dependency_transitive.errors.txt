@@ -1,0 +1,3 @@
+[Koin][KOIN-D004] Circular dependency detected:
+  testpkg.A → testpkg.B → testpkg.C → testpkg.A
+  Break with Lazy<T> injection or refactor to remove the cycle.

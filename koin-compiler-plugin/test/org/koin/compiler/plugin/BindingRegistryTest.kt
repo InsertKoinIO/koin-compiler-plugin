@@ -380,6 +380,150 @@ class BindingRegistryTest {
     }
 
     // ================================================================================
+    // Cycle detection (pure-graph DFS, no IR)
+    // ================================================================================
+
+    @Test
+    fun `DAG has no cycles`() {
+        // A -> B -> C (no back-edge)
+        val adj = mapOf(
+            "A" to listOf("B"),
+            "B" to listOf("C"),
+            "C" to emptyList(),
+        )
+        val cycles = BindingRegistry.findCyclesInGraph(adj.keys, adj)
+        assertTrue(cycles.isEmpty(), "unexpected cycles: $cycles")
+    }
+
+    @Test
+    fun `self-cycle is detected`() {
+        // A -> A
+        val adj = mapOf("A" to listOf("A"))
+        val cycles = BindingRegistry.findCyclesInGraph(adj.keys, adj)
+        assertEquals(1, cycles.size)
+        assertEquals(listOf("A", "A"), cycles[0])
+    }
+
+    @Test
+    fun `direct mutual cycle is detected`() {
+        // A <-> B
+        val adj = mapOf(
+            "A" to listOf("B"),
+            "B" to listOf("A"),
+        )
+        val cycles = BindingRegistry.findCyclesInGraph(adj.keys, adj)
+        assertEquals(1, cycles.size)
+        // Closed path back to the same starting node
+        assertEquals(cycles[0].first(), cycles[0].last())
+        assertEquals(2, cycles[0].toSet().size) // two distinct nodes
+    }
+
+    @Test
+    fun `transitive cycle is detected`() {
+        // A -> B -> C -> A
+        val adj = mapOf(
+            "A" to listOf("B"),
+            "B" to listOf("C"),
+            "C" to listOf("A"),
+        )
+        val cycles = BindingRegistry.findCyclesInGraph(adj.keys, adj)
+        assertEquals(1, cycles.size)
+        val cycle = cycles[0]
+        assertEquals(cycle.first(), cycle.last())
+        assertEquals(3, cycle.toSet().size) // A, B, C
+        assertTrue(cycle.containsAll(listOf("A", "B", "C")))
+    }
+
+    @Test
+    fun `cycle in branched subtree is detected without falsing the acyclic branch`() {
+        //       A
+        //      / \
+        //     B   C
+        //     |   |
+        //     D   E -> C  (cycle: C -> E -> C)
+        //     |
+        //     F  (no cycle on the B branch)
+        val adj = mapOf(
+            "A" to listOf("B", "C"),
+            "B" to listOf("D"),
+            "D" to listOf("F"),
+            "F" to emptyList(),
+            "C" to listOf("E"),
+            "E" to listOf("C"),
+        )
+        val cycles = BindingRegistry.findCyclesInGraph(adj.keys, adj)
+        assertEquals(1, cycles.size)
+        val cycle = cycles[0]
+        assertTrue("C" in cycle && "E" in cycle, "expected C-E cycle, got $cycle")
+    }
+
+    @Test
+    fun `two disjoint cycles are both detected`() {
+        // A <-> B,  C <-> D  (two separate connected components, each cyclic)
+        val adj = mapOf(
+            "A" to listOf("B"),
+            "B" to listOf("A"),
+            "C" to listOf("D"),
+            "D" to listOf("C"),
+        )
+        val cycles = BindingRegistry.findCyclesInGraph(adj.keys, adj)
+        assertEquals(2, cycles.size)
+    }
+
+    @Test
+    fun `cross-edge into already-finished subtree does not report a phantom cycle`() {
+        // A -> B -> C   and   D -> C   (D's edge to C is a cross-edge, NOT a back-edge)
+        // No cycle exists; algorithm must not confuse cross-edges with back-edges.
+        val adj = mapOf(
+            "A" to listOf("B"),
+            "B" to listOf("C"),
+            "C" to emptyList(),
+            "D" to listOf("C"),
+        )
+        val cycles = BindingRegistry.findCyclesInGraph(adj.keys, adj)
+        assertTrue(cycles.isEmpty(), "cross-edge misidentified as cycle: $cycles")
+    }
+
+    @Test
+    fun `empty graph has no cycles`() {
+        val cycles = BindingRegistry.findCyclesInGraph(emptyList<String>(), emptyMap())
+        assertTrue(cycles.isEmpty())
+    }
+
+    @Test
+    fun `canonicalizeCycle drops trailing duplicate and rotates to lex-smallest`() {
+        // Closed cycles starting at each rotation should canonicalize identically.
+        val k1 = BindingRegistry.canonicalizeCycle(listOf("A", "B", "C", "A"))
+        val k2 = BindingRegistry.canonicalizeCycle(listOf("B", "C", "A", "B"))
+        val k3 = BindingRegistry.canonicalizeCycle(listOf("C", "A", "B", "C"))
+        assertEquals("A→B→C", k1)
+        assertEquals(k1, k2)
+        assertEquals(k1, k3)
+    }
+
+    @Test
+    fun `canonicalizeCycle handles direct cycle`() {
+        assertEquals(
+            BindingRegistry.canonicalizeCycle(listOf("A", "B", "A")),
+            BindingRegistry.canonicalizeCycle(listOf("B", "A", "B")),
+        )
+    }
+
+    @Test
+    fun `canonicalizeCycle handles self-cycle`() {
+        // [A, A] -> open [A] -> canonical "A"
+        assertEquals("A", BindingRegistry.canonicalizeCycle(listOf("A", "A")))
+    }
+
+    @Test
+    fun `canonicalizeCycle distinguishes different cycles`() {
+        // {A, B, C} cycle should not collide with {A, B, D} cycle.
+        val k1 = BindingRegistry.canonicalizeCycle(listOf("A", "B", "C", "A"))
+        val k2 = BindingRegistry.canonicalizeCycle(listOf("A", "B", "D", "A"))
+        assertTrue(k1 != k2, "different cycles canonicalized to same key: $k1")
+    }
+
+    // ================================================================================
     // Helpers
     // ================================================================================
 

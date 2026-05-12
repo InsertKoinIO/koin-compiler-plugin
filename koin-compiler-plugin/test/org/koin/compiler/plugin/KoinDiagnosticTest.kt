@@ -54,6 +54,7 @@ class KoinDiagnosticTest {
         assertEquals("KOIN-D001", KoinDiagnostic.MissingBinding("T", null, "D", "p", "M", null).code)
         assertEquals("KOIN-D002", KoinDiagnostic.MissingCallSite("T", "get").code)
         assertEquals("KOIN-D003", KoinDiagnostic.MissingCallSiteDeferred("T").code)
+        assertEquals("KOIN-D004", KoinDiagnostic.CircularDependency(listOf("A", "B", "A")).code)
         assertEquals("KOIN-W001", KoinDiagnostic.UnreachableModule("m", listOf("T")).code)
         assertEquals("KOIN-A001", KoinDiagnostic.MissingViewModelArtifact("D").code)
         assertEquals("KOIN-A002", KoinDiagnostic.MissingWorkerArtifact("D").code)
@@ -68,8 +69,17 @@ class KoinDiagnosticTest {
         assertEquals(KoinDiagnostic.Severity.ERROR, KoinDiagnostic.MissingBinding("T", null, "D", "p", "M", null).severity)
         assertEquals(KoinDiagnostic.Severity.ERROR, KoinDiagnostic.MissingCoreArtifact("M").severity)
         assertEquals(KoinDiagnostic.Severity.ERROR, KoinDiagnostic.UnsafeDsl("T").severity)
+        assertEquals(KoinDiagnostic.Severity.ERROR, KoinDiagnostic.CircularDependency(listOf("A", "B", "A")).severity)
         assertEquals(KoinDiagnostic.Severity.WARNING, KoinDiagnostic.MissingPropertyValue("k", "D", "M").severity)
         assertEquals(KoinDiagnostic.Severity.WARNING, KoinDiagnostic.MonitorNoSdk().severity)
+    }
+
+    @Test
+    fun `circular dependency renders path with arrows`() {
+        val d = KoinDiagnostic.CircularDependency(listOf("com.example.A", "com.example.B", "com.example.A"))
+        assertTrue("com.example.A → com.example.B → com.example.A" in d.message)
+        assertTrue("Circular dependency detected" in d.message)
+        assertTrue("Lazy<T>" in d.message)
     }
 
     @Test

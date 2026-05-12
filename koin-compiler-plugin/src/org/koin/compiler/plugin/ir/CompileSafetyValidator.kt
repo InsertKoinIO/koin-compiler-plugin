@@ -25,6 +25,14 @@ class CompileSafetyValidator(
     /** FQNames of modules whose definitions were already validated at A2. */
     private val validatedModuleFqNames = mutableSetOf<String>()
 
+    /**
+     * Canonicalized cycle keys already reported (KOIN-D004) during this compilation.
+     * Same lifecycle as [validatedModuleFqNames] — prevents A2 and A3 from each emitting the
+     * same intra-module cycle. Owned here (not in [BindingRegistry]) because the registry is
+     * instantiated fresh per validate call.
+     */
+    private val reportedCycles = mutableSetOf<String>()
+
     /** All provided type FqNames from the assembled graph (populated by A3 or Phase 3.1). */
     val assembledGraphTypes: Set<String> get() = _assembledGraphTypes
     private val _assembledGraphTypes = mutableSetOf<String>()
@@ -59,7 +67,8 @@ class CompileSafetyValidator(
             allVisibleDefinitions,
             parameterAnalyzer,
             qualifierExtractor,
-            ownDefinitions
+            ownDefinitions,
+            reportedCycles,
         )
 
         // Mark as validated regardless of errors to prevent duplicate error reporting
@@ -183,7 +192,8 @@ class CompileSafetyValidator(
             allDefinitions,
             parameterAnalyzer,
             qualifierExtractor,
-            definitionsToValidate
+            definitionsToValidate,
+            reportedCycles,
         )
         if (errorCount > 0) {
             KoinPluginLogger.debug { "  -> DONE: $errorCount errors found" }

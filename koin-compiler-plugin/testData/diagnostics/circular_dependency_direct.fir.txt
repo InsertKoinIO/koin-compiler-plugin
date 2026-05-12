@@ -1,0 +1,31 @@
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class A : R|kotlin/Any| {
+        public constructor(b: R|testpkg/B|): R|testpkg/A| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val b: R|testpkg/B| = R|<local>/b|
+            public get(): R|testpkg/B|
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class B : R|kotlin/Any| {
+        public constructor(a: R|testpkg/A|): R|testpkg/B| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val a: R|testpkg/A| = R|<local>/a|
+            public get(): R|testpkg/A|
+
+    }
+FILE: testpkg/testpkgTestModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/TestModule|.module(): R|org/koin/core/module/Module|

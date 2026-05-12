@@ -82,6 +82,27 @@ sealed class KoinDiagnostic(
         },
     )
 
+    /**
+     * KOIN-D004 — A constructor-injection cycle exists in the assembled graph.
+     *
+     * Reported once per unique cycle (canonicalized by rotating to start at the lexicographically
+     * smallest node). Edges that pass through `Lazy<T>`, nullable, `@InjectedParam`, `@Provided`,
+     * `@ScopeId`, `List<T>`, `@Property`, or default-valued parameters are not edges in the cycle
+     * graph — i.e., `Lazy<T>` is the canonical way to break a constructor cycle at runtime.
+     */
+    class CircularDependency(
+        cycle: List<String>,
+    ) : KoinDiagnostic(
+        code = "KOIN-D004",
+        severity = Severity.ERROR,
+        message = buildString {
+            append("Circular dependency detected:\n  ")
+            // cycle is path ending back at the start, e.g. [A, B, C, A]
+            append(cycle.joinToString(" → "))
+            append("\n  Break with Lazy<T> injection or refactor to remove the cycle.")
+        },
+    )
+
     /** KOIN-W001 — A DSL module is not loaded at `startKoin`, so its definitions are unreachable. */
     class UnreachableModule(
         module: String,
