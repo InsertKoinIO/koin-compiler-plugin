@@ -173,8 +173,27 @@ koinCompiler {
     unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
     skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
     compileSafety = true       // Compile-time dependency validation (default: true)
+    strictSafety = true        // Force safety pass to bypass Kotlin IC on this module (default: false)
 }
 ```
+
+### Strict Safety (incremental compilation bypass)
+
+Set `strictSafety = true` on the module containing `startKoin { }` or `@KoinApplication` (typically `:app`) when you need compile-time graph validation to survive incremental builds.
+
+**Why**: Kotlin's incremental compilation skips `compileKotlin` when no source file directly references a changed declaration. The aggregator module usually only calls `startKoin { modules(...) }`, so changes deep inside transitive module bodies (e.g. removing `single<X>() bind I::class` from a library's `module { }` lambda) do not invalidate the aggregator's compile task. The full-graph safety check never re-runs, the build passes silently, and the failure surfaces at runtime.
+
+**Cost**: the aggregator's `compileKotlin` task always re-runs (no cache, no up-to-date skip). Other modules stay fully incremental.
+
+**When to enable**:
+
+| Aggregator style | Recommendation |
+|---|---|
+| DSL (`module { single<T>() }`, `startKoin { modules(...) }`) | Recommended — primary fix for issue #32 |
+| Annotation + `@KoinApplication(modules = [...])` | Optional — usually unnecessary |
+| Annotation + `@ComponentScan` only | Recommended as safety belt |
+
+Set only on the aggregator. Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
 
 ### DSL Safety Checks
 

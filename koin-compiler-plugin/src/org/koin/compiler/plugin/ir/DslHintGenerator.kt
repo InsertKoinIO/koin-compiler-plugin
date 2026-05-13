@@ -227,18 +227,24 @@ class DslHintGenerator(private val context: IrPluginContext) {
                 name = fileName
             }
 
-            // Create synthetic IrFile
-            val sourceFileEntry = try {
+            // Anchor the synthetic hint file on a stable source path from the current compile
+            // unit (see issue #32). Priority:
+            //   1. The DSL call's own source file — always a file in the current module, and
+            //      changing the call always dirties this file. Best invalidation signal.
+            //   2. The target class's source file — works for local types; meaningless when the
+            //      target is cross-module.
+            //   3. Alphabetically-first module file — deterministic fallback so the path stays
+            //      stable across incremental rebuilds even when 1 and 2 are unavailable.
+            val targetClassFile = try {
                 val entry = targetClass.fileEntry
-                if (entry.name.contains("/") || entry.name.contains("\\")) entry
+                if (entry.name.contains("/") || entry.name.contains("\\")) entry.name
                 else null
             } catch (_: NotImplementedError) {
                 null
             }
-
-            // Use target class file entry if available, otherwise use first file in module
-            val basePath = sourceFileEntry?.name
-                ?: moduleFragment.files.firstOrNull()?.fileEntry?.name
+            val basePath = def.registrationSourceFile?.fileEntry?.name
+                ?: targetClassFile
+                ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
             val fakeNewPath = Path(basePath).parent.resolve(fileName)
 

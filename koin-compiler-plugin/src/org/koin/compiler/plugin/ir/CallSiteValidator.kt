@@ -243,8 +243,12 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 name = fileName
             }
 
-            // Create synthetic IrFile
-            val basePath = moduleFragment.files.firstOrNull()?.fileEntry?.name ?: "/synthetic"
+            // Anchor the synthetic hint file on the call site's source file so the path stays
+            // stable across incremental rebuilds (see issue #32). Fall back to the
+            // alphabetically-first source file in the module — also stable, just less local.
+            val basePath = callSite.filePath
+                ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
+                ?: "/synthetic"
             val fakeNewPath = Path(basePath).parent.resolve(fileName)
 
             val hintFile = IrFileImpl(

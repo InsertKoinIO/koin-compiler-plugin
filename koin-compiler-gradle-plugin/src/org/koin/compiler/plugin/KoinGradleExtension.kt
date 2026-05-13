@@ -59,6 +59,26 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
     val compileSafety: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
 
     /**
+     * Force the safety pass to always run, bypassing Kotlin's incremental compilation cache
+     * (default: false). Set this on the module containing `startKoin { }` or `@KoinApplication`
+     * (typically `:app`) when you need compile-time graph validation to survive incremental builds.
+     *
+     * Background: Kotlin's incremental compilation skips `compileKotlin` when no source file
+     * directly references a changed declaration. For the Koin aggregator module — which usually
+     * only calls `startKoin { modules(...) }` — this means changes deep in transitive
+     * module bodies do not invalidate the aggregator's compile task, so the full-graph
+     * safety check never re-runs. The build silently passes; the failure surfaces at runtime.
+     *
+     * When `strictSafety = true`, the aggregator's compile task always re-runs (cost: ~that
+     * task's compile time per build). Other modules stay fully incremental.
+     *
+     * Has no effect when `compileSafety = false`.
+     *
+     * See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
+     */
+    val strictSafety: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(false)
+
+    /**
      * Append a single AI-assist hint at the end of compilation if any Koin diagnostic fires (default: true).
      * Emitted once per build (not per error), pointing developers to the Kotzilla MCP Server,
      * which can classify Koin errors and walk an AI coding assistant through the fix.

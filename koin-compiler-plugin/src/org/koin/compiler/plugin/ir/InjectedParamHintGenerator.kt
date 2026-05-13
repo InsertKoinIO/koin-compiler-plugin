@@ -261,13 +261,20 @@ class InjectedParamHintGenerator(
             packageDirective = buildPackageDirective { packageFqName = hintsPackage }
             name = fileName
         }
-        val basePath = try {
+        // Anchor the synthetic hint file on a stable path from the current compile unit
+        // (see issue #32). Priority: DSL registration site → target class source → sorted
+        // first file in module. Mirrors [DslHintGenerator.generateDslDefinitionHints].
+        val registrationSourceFile = (def as? Definition.DslDef)?.registrationSourceFile
+        val targetClassFile = try {
             val entry = targetClass.fileEntry
-            if (entry.name.contains("/") || entry.name.contains("\\")) entry.name
-            else moduleFragment.files.firstOrNull()?.fileEntry?.name ?: "/synthetic"
+            if (entry.name.contains("/") || entry.name.contains("\\")) entry.name else null
         } catch (_: NotImplementedError) {
-            moduleFragment.files.firstOrNull()?.fileEntry?.name ?: "/synthetic"
+            null
         }
+        val basePath = registrationSourceFile?.fileEntry?.name
+            ?: targetClassFile
+            ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
+            ?: "/synthetic"
         val fakeNewPath = Path(basePath).parent.resolve(fileName)
 
         val hintFile = IrFileImpl(

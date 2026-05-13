@@ -22,6 +22,20 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         const val OPTION_AI_ASSIST = "aiAssist"
     }
 
+    private fun configureStrictSafety(
+        kotlinCompilation: KotlinCompilation<*>,
+        extension: KoinGradleExtension,
+    ) {
+        kotlinCompilation.compileTaskProvider.configure { task ->
+            task.outputs.upToDateWhen {
+                !(extension.strictSafety.get() && extension.compileSafety.get())
+            }
+            task.outputs.cacheIf {
+                !(extension.strictSafety.get() && extension.compileSafety.get())
+            }
+        }
+    }
+
     override fun apply(target: Project) {
         target.extensions.create("koinCompiler", KoinGradleExtension::class.java)
     }
@@ -41,6 +55,8 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
     ): Provider<List<SubpluginOption>> {
         val project = kotlinCompilation.target.project
         val extension = project.extensions.getByType(KoinGradleExtension::class.java)
+
+        configureStrictSafety(kotlinCompilation, extension)
 
         return project.provider {
             listOf(

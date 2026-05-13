@@ -598,7 +598,8 @@ class KoinDSLTransformer(
                 bindings = emptyList(), // DSL: only explicit bind() adds bindings (no auto-bind like annotations)
                 scopeClass = if (defType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
                 modulePropertyId = transformContext.modulePropertyId,
-                qualifier = qualifier
+                qualifier = qualifier,
+                registrationSourceFile = currentFile
             ))
         }
 
@@ -697,7 +698,8 @@ class KoinDSLTransformer(
                         bindings = emptyList(), // DSL: only explicit bind() adds bindings (no auto-bind like annotations)
                         scopeClass = if (enclosingDefType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
                         modulePropertyId = transformContext.modulePropertyId,
-                        qualifier = classQualifier
+                        qualifier = classQualifier,
+                        registrationSourceFile = currentFile
                     ))
                 }
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
@@ -735,7 +737,8 @@ class KoinDSLTransformer(
                         scopeClass = if (enclosingDefType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
                         modulePropertyId = transformContext.modulePropertyId,
                         providerOnly = true,
-                        qualifier = funcQualifier
+                        qualifier = funcQualifier,
+                        registrationSourceFile = currentFile
                     ))
                 }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
