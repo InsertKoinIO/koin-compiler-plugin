@@ -16,7 +16,8 @@ This document provides everything you need to understand, debug, and develop the
 8. [Development Workflow](#8-development-workflow)
 9. [IR Inspection Techniques](#9-ir-inspection-techniques)
 10. [Cross-Module Discovery (Limitations)](#10-cross-module-discovery-limitations)
-11. [Useful Commands Cheatsheet](#11-useful-commands-cheatsheet)
+11. [IDE Resolution of `.module()` and Other Generated Symbols](#11-ide-resolution-of-module-and-other-generated-symbols)
+12. [Useful Commands Cheatsheet](#12-useful-commands-cheatsheet)
 
 ---
 
@@ -1145,7 +1146,60 @@ This makes FIR-generated functions visible in downstream IR phases.
 
 ---
 
-## 11. Useful Commands Cheatsheet
+## 11. IDE Resolution of `.module()` and Other Generated Symbols
+
+### Symptom
+
+Code compiles and runs, but Android Studio / IntelliJ shows red squiggles on:
+
+- `MyModule().module()` — the FIR-generated extension function on `@Module`-annotated classes
+- Other symbols emitted via FIR declaration generation
+
+### Cause
+
+Gradle compilation and IDE source analysis are two independent pipelines that each load Kotlin plugins on their own:
+
+| Pipeline | Where it runs | Plugin loading |
+|---|---|---|
+| `compileKotlin` | Kotlin daemon launched by Gradle | KGP puts our JAR on the daemon's plugin classpath. The daemon reads `META-INF/services/...CompilerPluginRegistrar`, instantiates our registrar, runs our FIR + IR extensions. Generated declarations land in .class files. |
+| IDE analysis | The IntelliJ / AS process itself, via the Kotlin Analysis API (K2 mode) | Separate plugin loading mechanism. JetBrains gates which compiler plugins are auto-loaded into IDE analysis because a broken plugin can corrupt the editor session. |
+
+The plugin runs correctly in compilation — the function exists in bytecode, references resolve, behavior at runtime is correct. The IDE just doesn't run our FIR extension during its own analysis, so it never sees `.module()` and flags the call as unresolved.
+
+This is **not** a misconfiguration on our side. We register the FIR extension exactly as required for compilation. The gap is on the IDE side: the K2 Analysis API doesn't automatically pick up arbitrary compiler plugins yet.
+
+### What works today
+
+- **Compilation**: ✅ correct, including in CI
+- **Runtime**: ✅ correct
+- **IDE resolution**: ❌ red squiggle on `.module()` and similar generated symbols (depending on Kotlin / AS version and K2 mode)
+
+### Workarounds for users
+
+1. **Use K2 IDE mode** — Settings → Languages & Frameworks → Kotlin → "Enable K2 Kotlin mode". Restart the IDE. On recent Kotlin / AS combinations, K2 mode resolves more compiler-plugin-generated symbols correctly. Try this first; many reports are simply K1-mode resolution.
+2. **Ignore the red** — code compiles and runs. The IDE will not block builds, only highlighting.
+3. **Invalidate caches** — when switching K1↔K2 or after a Kotlin/plugin version bump, an IDE caches invalidate-and-restart sometimes unblocks resolution.
+
+### Long-term fixes available to us
+
+Three paths, none of them free:
+
+| Approach | Effort | Trade-off |
+|---|---|---|
+| Ship a dedicated IntelliJ plugin that registers the FIR extension into the Analysis API | High | Separate JAR with IDE-version-compatibility matrix; the "correct" fix but real maintenance cost |
+| Generate `.module()` as actual `.kt` source files (KSP-style codegen) instead of FIR declarations | Medium | Real source files are always IDE-visible; trades elegance of FIR extension for a build-time codegen step |
+| Wait on / push JetBrains' K2 Analysis API auto-discovery channel for compiler plugins | None (on us) | Outside our control; the auto-discovery channel is incrementally rolling out across Kotlin versions |
+
+Tracked as a known limitation. No immediate action — the red squiggle is cosmetic and compilation is sound.
+
+### Related
+
+- Same root cause affects any other declaration we generate via FIR (e.g., `qualifier(contributed: T)` hint functions if they were ever referenced from user code, which they aren't).
+- Compose Compiler avoids this by being deeply integrated into the IDE-side Kotlin plugin (built into IntelliJ's Kotlin support). KSP avoids it by emitting real source files.
+
+---
+
+## 12. Useful Commands Cheatsheet
 
 ### Build Commands
 
