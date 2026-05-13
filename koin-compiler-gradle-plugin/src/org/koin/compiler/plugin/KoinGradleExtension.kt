@@ -59,24 +59,28 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
     val compileSafety: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
 
     /**
-     * Force the safety pass to always run, bypassing Kotlin's incremental compilation cache
-     * (default: false). Set this on the module containing `startKoin { }` or `@KoinApplication`
-     * (typically `:app`) when you need compile-time graph validation to survive incremental builds.
+     * Force the safety pass to always run, bypassing Kotlin's incremental compilation cache.
+     *
+     * When left unset (the default), the Gradle plugin scans source files for `startKoin`,
+     * `koinApplication`, or `@KoinApplication` and **auto-enables** this on detected
+     * aggregator modules. A lifecycle log line announces the decision. Set explicitly
+     * (`true` or `false`) to override the auto-detection.
      *
      * Background: Kotlin's incremental compilation skips `compileKotlin` when no source file
-     * directly references a changed declaration. For the Koin aggregator module — which usually
-     * only calls `startKoin { modules(...) }` — this means changes deep in transitive
-     * module bodies do not invalidate the aggregator's compile task, so the full-graph
-     * safety check never re-runs. The build silently passes; the failure surfaces at runtime.
+     * directly references a changed declaration. DSL lambda bodies are not part of any
+     * declaration's ABI, so changes inside `module { … }` lambdas do not invalidate the
+     * aggregator's compile task even when it explicitly references the module class. The
+     * full-graph safety check never re-runs, the build passes silently, and the failure
+     * surfaces at runtime.
      *
-     * When `strictSafety = true`, the aggregator's compile task always re-runs (cost: ~that
-     * task's compile time per build). Other modules stay fully incremental.
+     * Cost when enabled: the aggregator's `compileKotlin` task always re-runs (no cache,
+     * no up-to-date skip). Other modules stay fully incremental.
      *
      * Has no effect when `compileSafety = false`.
      *
      * See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
      */
-    val strictSafety: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(false)
+    val strictSafety: Property<Boolean> = objectFactory.property(Boolean::class.java)
 
     /**
      * Append a single AI-assist hint at the end of compilation if any Koin diagnostic fires (default: true).

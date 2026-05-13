@@ -173,27 +173,28 @@ koinCompiler {
     unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
     skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
     compileSafety = true       // Compile-time dependency validation (default: true)
-    strictSafety = true        // Force safety pass to bypass Kotlin IC on this module (default: false)
+    strictSafety = true        // Force safety pass to bypass Kotlin IC on this module (default: auto-detect)
 }
 ```
 
 ### Strict Safety (incremental compilation bypass)
 
-Set `strictSafety = true` on the module containing `startKoin { }` or `@KoinApplication` (typically `:app`) when you need compile-time graph validation to survive incremental builds.
+**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans source files at configuration time, detects the aggregator, and emits a one-line lifecycle log so the decision is visible. Set `strictSafety = true` or `false` in `koinCompiler { }` to override the auto-detection.
 
-**Why**: Kotlin's incremental compilation skips `compileKotlin` when no source file directly references a changed declaration. The aggregator module usually only calls `startKoin { modules(...) }`, so changes deep inside transitive module bodies (e.g. removing `single<X>() bind I::class` from a library's `module { }` lambda) do not invalidate the aggregator's compile task. The full-graph safety check never re-runs, the build passes silently, and the failure surfaces at runtime.
+**Why**: full-graph validation only runs in the aggregator's `compileKotlin`, but Kotlin's incremental compilation skips that task when no source file directly references a changed declaration. DSL lambda bodies are not part of a module class's ABI, so changes inside `module { … }` lambdas (e.g. removing `single<X>() bind I::class` from a library) don't invalidate the aggregator even when it explicitly references the module class — annotation + `@KoinApplication(modules = [A::class])` is no exception. The full-graph safety check never re-runs, the build passes silently, and the failure surfaces at runtime.
 
 **Cost**: the aggregator's `compileKotlin` task always re-runs (no cache, no up-to-date skip). Other modules stay fully incremental.
 
-**When to enable**:
+**When auto-detection triggers**:
 
-| Aggregator style | Recommendation |
+| Aggregator style | Detected via |
 |---|---|
-| DSL (`module { single<T>() }`, `startKoin { modules(...) }`) | Recommended — primary fix for issue #32 |
-| Annotation + `@KoinApplication(modules = [...])` | Optional — usually unnecessary |
-| Annotation + `@ComponentScan` only | Recommended as safety belt |
+| DSL (`startKoin { modules(...) }`, `koinApplication { … }`) | `startKoin` / `koinApplication` string in source |
+| Annotation (`@KoinApplication`) | `@KoinApplication` string in source |
 
-Set only on the aggregator. Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
+When the auto-detection misfires (e.g. test fixtures referencing `startKoin` in comments, or a non-aggregator helper file with the marker), set `strictSafety = false` explicitly to opt out.
+
+Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
 
 ### DSL Safety Checks
 

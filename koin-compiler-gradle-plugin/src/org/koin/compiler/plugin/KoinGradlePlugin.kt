@@ -27,12 +27,48 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         kotlinCompilation: KotlinCompilation<*>,
         extension: KoinGradleExtension,
     ) {
+        // Auto-detection of aggregator modules: when the user hasn't explicitly set
+        // `strictSafety`, scan this compilation's source files for `startKoin`,
+        // `koinApplication`, or `@KoinApplication`. If any is present, treat this as
+        // the aggregator that needs full-graph validation on every build (because DSL
+        // lambda bodies inside transitive module dependencies are not part of any
+        // declaration's ABI and Kotlin's incremental compilation can't see changes
+        // to them). Lazy so the file walk happens at most once per Gradle invocation.
+        val project = kotlinCompilation.target.project
+        val autoDetected = lazy {
+            looksLikeAggregator(kotlinCompilation).also { detected ->
+                if (detected && !extension.strictSafety.isPresent) {
+                    project.logger.lifecycle(
+                        "[Koin] Auto-enabling strictSafety on ${project.path} " +
+                            "(detected startKoin / @KoinApplication / koinApplication). " +
+                            "Set `strictSafety = false` in koinCompiler { } to override."
+                    )
+                }
+            }
+        }
+
         kotlinCompilation.compileTaskProvider.configure { task ->
             task.outputs.upToDateWhen {
-                !(extension.strictSafety.get() && extension.compileSafety.get())
+                val effective = extension.strictSafety.orNull ?: autoDetected.value
+                !(effective && extension.compileSafety.get())
             }
             task.outputs.cacheIf {
-                !(extension.strictSafety.get() && extension.compileSafety.get())
+                val effective = extension.strictSafety.orNull ?: autoDetected.value
+                !(effective && extension.compileSafety.get())
+            }
+        }
+    }
+
+    private fun looksLikeAggregator(kotlinCompilation: KotlinCompilation<*>): Boolean {
+        val markers = listOf("startKoin", "koinApplication", "@KoinApplication")
+        return kotlinCompilation.kotlinSourceSets.any { srcSet ->
+            srcSet.kotlin.files.any { file ->
+                try {
+                    val text = file.readText()
+                    markers.any { it in text }
+                } catch (_: Throwable) {
+                    false
+                }
             }
         }
     }
