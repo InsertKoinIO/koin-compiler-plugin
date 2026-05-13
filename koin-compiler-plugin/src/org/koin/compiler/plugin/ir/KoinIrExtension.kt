@@ -2,6 +2,7 @@ package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
+import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
@@ -9,7 +10,11 @@ import org.koin.compiler.plugin.KoinPluginLogger
 
 class KoinIrExtension(
     private val lookupTracker: LookupTracker?,
-    private val expectActualTracker: ExpectActualTracker
+    private val expectActualTracker: ExpectActualTracker,
+    // Captured at construction so the trailing CTA always writes to this compilation's
+    // collector, even if a parallel compilation in the same Gradle daemon has overwritten
+    // the singleton's collector reference by the time we flush.
+    private val messageCollector: MessageCollector,
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
         KoinPluginLogger.debug { "IR Phase starting for module: ${moduleFragment.name}" }
@@ -125,7 +130,8 @@ class KoinIrExtension(
         monitorTransformer.logSummary()
 
         // Final: emit one AI-assist CTA at the tail of the log if any Koin diagnostic fired.
-        KoinPluginLogger.flushAiAssistCta()
+        // Pass our captured collector to dodge the parallel-daemon singleton race.
+        KoinPluginLogger.flushAiAssistCta(messageCollector)
 
         KoinPluginLogger.debug { "IR Phase completed" }
     }

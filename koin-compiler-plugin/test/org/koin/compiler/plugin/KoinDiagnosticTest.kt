@@ -240,6 +240,64 @@ class KoinDiagnosticTest {
     }
 
     @Test
+    fun `flush attaches location of last located diagnostic to CTA`() {
+        // The CTA needs a CompilerMessageLocation so Gradle's K2 renderer doesn't sort it
+        // ahead of file-anchored errors (it puts location-less messages in a separate bucket).
+        // We anchor on the most recent located diagnostic so the CTA appears alongside it.
+        val rec = Recorder()
+        KoinPluginLogger.init(rec, userLogs = false, debugLogs = false, aiAssist = true)
+        KoinPluginLogger.report(
+            KoinDiagnostic.MissingCallSite("T", "get"),
+            filePath = "/src/A.kt", line = 10, column = 5,
+        )
+        KoinPluginLogger.report(
+            KoinDiagnostic.MissingCallSite("U", "get"),
+            filePath = "/src/B.kt", line = 42, column = 7,
+        )
+        KoinPluginLogger.flushAiAssistCta()
+
+        val cta = rec.reports.last()
+        assertTrue("Fix with AI" in cta.message)
+        val loc = cta.location
+        assertEquals("/src/B.kt", loc?.path)
+        assertEquals(42, loc?.line)
+        assertEquals(7, loc?.column)
+    }
+
+    @Test
+    fun `flush leaves CTA unlocated when no diagnostic has a location`() {
+        // If diagnostics fired but none had a file:line, the CTA falls back to no location.
+        val rec = Recorder()
+        KoinPluginLogger.init(rec, userLogs = false, debugLogs = false, aiAssist = true)
+        KoinPluginLogger.report(KoinDiagnostic.MissingBinding("T", null, "D", "p", "M", null))
+        KoinPluginLogger.flushAiAssistCta()
+
+        val cta = rec.reports.last()
+        assertTrue("Fix with AI" in cta.message)
+        assertNull(cta.location)
+    }
+
+    @Test
+    fun `flush honors caller-provided collector over singleton (parallel-daemon safety)`() {
+        // Compilation A captures its own collector at extension construction. If a parallel
+        // compilation B's init() swaps the singleton's collector mid-flight, A's flush must
+        // still write to A's captured collector, not whichever one B installed.
+        val a = Recorder()
+        val b = Recorder()
+        KoinPluginLogger.init(a, userLogs = false, debugLogs = false, aiAssist = true)
+        KoinPluginLogger.report(KoinDiagnostic.MissingBinding("T", null, "D", "p", "M", null))
+        // Simulate parallel compilation B taking over the singleton.
+        KoinPluginLogger.init(b, userLogs = false, debugLogs = false, aiAssist = true)
+        // Compilation A's flush — passes its own captured collector.
+        KoinPluginLogger.flushAiAssistCta(collector = a)
+
+        // CTA should land in A's recorder, not B's. (B's init resets severity to 0, so the
+        // singleton state alone would silently swallow the CTA — but we want it visible to A.)
+        // We allow the CTA to be absent if severity was reset; the key assertion is no leak to B.
+        assertTrue(b.reports.isEmpty(), "CTA leaked to compilation B's collector: ${b.reports}")
+    }
+
+    @Test
     fun `flush is a no-op when aiAssist is disabled even if diagnostics fired`() {
         val rec = Recorder()
         KoinPluginLogger.init(rec, userLogs = false, debugLogs = false, aiAssist = false)

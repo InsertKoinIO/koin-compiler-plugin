@@ -82,6 +82,15 @@ object KoinPluginLogger {
     private val highestDiagnosticSeverity: AtomicInteger = AtomicInteger(0)
 
     /**
+     * Location of the last located diagnostic reported via [report]. Attached to the
+     * trailing AI-assist CTA so it shares a per-file output bucket with the error,
+     * preventing renderers (Gradle's K2 collector) from sorting the location-less CTA
+     * ahead of file-anchored messages.
+     */
+    @Volatile
+    private var lastDiagnosticLocation: CompilerMessageLocation? = null
+
+    /**
      * Initialize the logger with configuration from the compiler.
      */
     fun init(collector: MessageCollector, userLogs: Boolean, debugLogs: Boolean, unsafeDslChecks: Boolean = true, skipDefaultValues: Boolean = true, compileSafety: Boolean = true, aiAssist: Boolean = true, moduleId: String? = null, lookupTracker: LookupTracker? = null) {
@@ -95,6 +104,7 @@ object KoinPluginLogger {
         this.moduleId = moduleId?.takeIf { it.isNotBlank() }
         this.lookupTracker = lookupTracker
         highestDiagnosticSeverity.set(0)
+        lastDiagnosticLocation = null
     }
 
     /**
@@ -195,6 +205,7 @@ object KoinPluginLogger {
         val location = if (filePath != null && line >= 0) {
             CompilerMessageLocation.create(filePath, line, column.coerceAtLeast(0), null)
         } else null
+        if (location != null) lastDiagnosticLocation = location
         messageCollector.report(severity, body, location)
     }
 
@@ -204,18 +215,26 @@ object KoinPluginLogger {
      * during the current compilation. Emitted at the highest severity seen so it
      * sorts with the other Koin messages in the build log.
      *
+     * Caller passes its own captured [collector] to avoid a daemon-parallel race where
+     * another compilation's [init] swaps the singleton's collector mid-flight and the CTA
+     * lands in the wrong task's output stream. The location of the last located diagnostic
+     * is attached so the CTA shares a per-file bucket with the error in Gradle's K2
+     * renderer, preventing it from sorting ahead of file-anchored messages.
+     *
      * Called once per compilation by [org.koin.compiler.plugin.ir.KoinIrExtension] at
      * the tail of IR processing.
      */
-    fun flushAiAssistCta() {
+    fun flushAiAssistCta(collector: MessageCollector = messageCollector) {
         val rank = highestDiagnosticSeverity.get()
         if (!aiAssistEnabled || rank == 0) return
         val severity = if (rank >= 2) CompilerMessageSeverity.ERROR else CompilerMessageSeverity.WARNING
-        messageCollector.report(
+        collector.report(
             severity,
             "[Koin] → Fix with AI: set up Kotzilla MCP at ${KoinPluginConstants.AI_ASSIST_CTA_URL}",
+            lastDiagnosticLocation,
         )
         highestDiagnosticSeverity.set(0)
+        lastDiagnosticLocation = null
     }
 }
 
@@ -257,7 +276,8 @@ class KoinPluginComponentRegistrar: CompilerPluginRegistrar() {
 
         // FIR extension for generating visible declarations (module extension property)
         FirExtensionRegistrarAdapter.registerExtension(KoinPluginRegistrar())
-        // IR extension for transforming function bodies
-        IrGenerationExtension.registerExtension(KoinIrExtension(lookupTracker, expectActualTracker))
+        // IR extension for transforming function bodies — captures messageCollector for the
+        // trailing AI-assist CTA so a parallel daemon compilation can't redirect its output.
+        IrGenerationExtension.registerExtension(KoinIrExtension(lookupTracker, expectActualTracker, messageCollector))
     }
 }
