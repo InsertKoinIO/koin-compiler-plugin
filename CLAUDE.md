@@ -181,9 +181,15 @@ koinCompiler {
 
 **Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans source files at configuration time, detects the aggregator, and emits a one-line lifecycle log so the decision is visible. Set `strictSafety = true` or `false` in `koinCompiler { }` to override the auto-detection.
 
-**Why**: full-graph validation only runs in the aggregator's `compileKotlin`, but Kotlin's incremental compilation skips that task when no source file directly references a changed declaration. DSL lambda bodies are not part of a module class's ABI, so changes inside `module { … }` lambdas (e.g. removing `single<X>() bind I::class` from a library) don't invalidate the aggregator even when it explicitly references the module class — annotation + `@KoinApplication(modules = [A::class])` is no exception. The full-graph safety check never re-runs, the build passes silently, and the failure surfaces at runtime.
+**Why**: full-graph safety only runs in the aggregator's `compileKotlin`, and Kotlin's IC — today, in K2 with the Build Tools API path that AGP uses — doesn't give the aggregator a reason to re-run when the graph actually changed. Two places where IC's tracking is too coarse for a DI graph:
 
-**Cost**: the aggregator's `compileKotlin` task always re-runs (no cache, no up-to-date skip). Other modules stay fully incremental.
+- **DSL definitions sit inside `module { … }` lambda bodies.** Lambda bodies aren't part of any declaration's ABI, and IC tracks per-declaration changes. So `single<X>() bind I::class` going away produces no signal the aggregator can see — its references to the module class are still valid, IC marks the task UP-TO-DATE, the removed binding goes unverified.
+
+- **`@ComponentScan` works by package, not by source reference.** Adding `@Singleton class NewService` to a scanned package creates a file nothing in the aggregator's source mentions. IC needs a source-level edge to invalidate downstream consumers, and there isn't one — the aggregator never re-scans, never sees the new class.
+
+We already record file-pair links via `ExpectActualTracker` to plug some of this (same primitive Metro uses for its `@BindingContainer` case), but those links only fire when both files participate in a build, and they don't cover newly-introduced files that nothing pointed to before. Forcing the aggregator to re-run is the smallest correct behavior we can produce on top of what K2 IC tells us today — a workaround framed against IC limitations, not a permanent design statement. If K2's IC tracking later grows package-scope edges or surfaces lambda-body changes through a different signal, this auto-enable becomes redundant and we can revisit.
+
+**Cost** is bounded: only the aggregator's `compileKotlin` task runs every build. Library and feature modules stay fully incremental.
 
 **When auto-detection triggers**:
 
