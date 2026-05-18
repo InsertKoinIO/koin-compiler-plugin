@@ -635,6 +635,34 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
     }
 
     /**
+     * Construct a [ConeKotlinType] for [classId], filling its type parameters with `Any?` so
+     * the result is a valid, non-raw type usable as a hint function value-parameter type.
+     *
+     * Why we can't just pass `emptyArray()`: parameterized classes like `SuspendFunction1<P, R>`
+     * (the supertype of `fun interface Foo : suspend (P) -> R`) crash JVM IR codegen at
+     * `AbstractTypeMapper.mapSuspendFunctionType` when their type-arg list is empty — the
+     * suspend-to-continuation lowering reads `arguments[size - 1]` to find the return type
+     * and throws `IndexOutOfBoundsException` on the empty list. Mirrors the IR-side approach
+     * cc9ee22 introduced for issue #18 (`IrClass.hintParameterType` substituting `Any?`).
+     *
+     * `Any?` is a safe placeholder: runtime Koin resolves on the erased class anyway, and the
+     * hint function's only role is to make a name discoverable via `referenceFunctions` for
+     * cross-module hint discovery.
+     */
+    private fun classLikeTypeWithDefaultArgs(classId: ClassId): org.jetbrains.kotlin.fir.types.ConeKotlinType {
+        val classSymbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)
+        val typeParamCount = (classSymbol as? FirClassSymbol<*>)?.typeParameterSymbols?.size ?: 0
+        val args = if (typeParamCount == 0) {
+            emptyArray()
+        } else {
+            val anyNullable: org.jetbrains.kotlin.fir.types.ConeTypeProjection =
+                session.builtinTypes.nullableAnyType.coneType
+            Array(typeParamCount) { anyNullable }
+        }
+        return classId.constructClassLikeType(args, false)
+    }
+
+    /**
      * Build the extra value parameters for binding, scope, and qualifier metadata
      * inside a FIR function builder lambda.
      * Returns a list of (Name, ConeType) pairs to add as value parameters.
@@ -649,14 +677,12 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
         // Binding parameters: binding0, binding1, ... with the binding type
         bindingClassIds.forEachIndexed { index, bindingClassId ->
-            val bindingType = bindingClassId.constructClassLikeType(emptyArray(), false)
-            params.add(Name.identifier("binding$index") to bindingType)
+            params.add(Name.identifier("binding$index") to classLikeTypeWithDefaultArgs(bindingClassId))
         }
 
         // Scope parameter: "scope" with the scope class type
         if (scopeClassId != null) {
-            val scopeType = scopeClassId.constructClassLikeType(emptyArray(), false)
-            params.add(Name.identifier("scope") to scopeType)
+            params.add(Name.identifier("scope") to classLikeTypeWithDefaultArgs(scopeClassId))
         }
 
         // String qualifier: "qualifier_<sanitized-name>" with Unit type
@@ -667,8 +693,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
         // Type qualifier: "qualifierType" with the qualifier class type
         if (qualifierTypeClassId != null) {
-            val qualifierType = qualifierTypeClassId.constructClassLikeType(emptyArray(), false)
-            params.add(Name.identifier("qualifierType") to qualifierType)
+            params.add(Name.identifier("qualifierType") to classLikeTypeWithDefaultArgs(qualifierTypeClassId))
         }
 
         return params

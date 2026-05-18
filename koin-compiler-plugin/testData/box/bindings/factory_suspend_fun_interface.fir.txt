@@ -1,0 +1,50 @@
+FILE: test.kt
+    public abstract fun interface SetUsernameUseCase : R|suspend (kotlin/String) -> kotlin/Unit| {
+    }
+    public final class UserRepository : R|kotlin/Any| {
+        public constructor(): R|UserRepository| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final suspend fun setUsername(name: R|kotlin/String|): R|kotlin/Unit| {
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Factory|() public final fun provideUserRepository(): R|UserRepository| {
+            ^provideUserRepository R|/UserRepository.UserRepository|()
+        }
+
+        @R|org/koin/core/annotation/Factory|() public final fun provideSetUsernameUseCase(userRepository: R|UserRepository|): R|SetUsernameUseCase| {
+            ^provideSetUsernameUseCase R|/SetUsernameUseCase|(R|<local>/userRepository|::R|/UserRepository.setUsername|)
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/AppModule.AppModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval useCase: R|SetUsernameUseCase| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|SetUsernameUseCase|>()
+        lval repo: R|UserRepository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|UserRepository|>()
+        ^box when () {
+            !=(R|<local>/useCase|, Null(null)) && !=(R|<local>/repo|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }
+FILE: /appModuleModule.kt
+    public final fun R|AppModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/appModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_appModule__provideUserRepository(contributed: R|UserRepository|): R|kotlin/Unit|
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_appModule__provideSetUsernameUseCase(contributed: R|SetUsernameUseCase|, binding0: R|suspend (kotlin/Any?) -> kotlin/Any?|): R|kotlin/Unit|

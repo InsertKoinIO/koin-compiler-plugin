@@ -65,6 +65,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("factory_suspend_fun_interface.kt")
+    public void testFactory_suspend_fun_interface() {
+      runTest("koin-compiler-plugin/testData/box/bindings/factory_suspend_fun_interface.kt");
+    }
+
+    @Test
     @TestMetadata("provider_function_binds.kt")
     public void testProvider_function_binds() {
       runTest("koin-compiler-plugin/testData/box/bindings/provider_function_binds.kt");
