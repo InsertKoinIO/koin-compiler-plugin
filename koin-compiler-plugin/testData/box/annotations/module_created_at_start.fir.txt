@@ -1,0 +1,100 @@
+FILE: test.kt
+    public final object Counter : R|kotlin/Any| {
+        private constructor(): R|Counter| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final var eagerCtor: R|kotlin/Int| = Int(0)
+            public get(): R|kotlin/Int|
+            public set(value: R|kotlin/Int|): R|kotlin/Unit|
+
+        public final var lazyCtor: R|kotlin/Int| = Int(0)
+            public get(): R|kotlin/Int|
+            public set(value: R|kotlin/Int|): R|kotlin/Unit|
+
+        public final fun reset(): R|kotlin/Unit| {
+            this@R|/Counter|.R|/Counter.eagerCtor| = Int(0)
+            this@R|/Counter|.R|/Counter.lazyCtor| = Int(0)
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true)) public final class EagerService : R|kotlin/Any| {
+        public constructor(): R|EagerService| {
+            super<R|kotlin/Any|>()
+        }
+
+        init {
+             {
+                lval <unary>: R|kotlin/Int| = Q|Counter|.R|/Counter.eagerCtor|
+                Q|Counter|.R|/Counter.eagerCtor| = R|<local>/<unary>|.R|kotlin/Int.inc|()
+                R|<local>/<unary>|
+            }
+
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class LazyService : R|kotlin/Any| {
+        public constructor(): R|LazyService| {
+            super<R|kotlin/Any|>()
+        }
+
+        init {
+             {
+                lval <unary>: R|kotlin/Int| = Q|Counter|.R|/Counter.lazyCtor|
+                Q|Counter|.R|/Counter.lazyCtor| = R|<local>/<unary>|.R|kotlin/Int.inc|()
+                R|<local>/<unary>|
+            }
+
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|(createdAtStart = Boolean(true)) @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        Q|Counter|.R|/Counter.reset|()
+        lval app: R|org/koin/core/KoinApplication| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        )
+        R|<local>/app|.R|org/koin/core/KoinApplication.createEagerInstances|()
+        when () {
+            !=(Q|Counter|.R|/Counter.eagerCtor|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: EagerService not eagerly initialized (eagerCtor=), Q|Counter|.R|/Counter.eagerCtor|, String()))
+            }
+        }
+
+        when () {
+            !=(Q|Counter|.R|/Counter.lazyCtor|, Int(0)) ->  {
+                ^box <strcat>(String(FAIL: LazyService was eagerly initialized (lazyCtor=), Q|Counter|.R|/Counter.lazyCtor|, String()))
+            }
+        }
+
+        lval koin: R|org/koin/core/Koin| = R|<local>/app|.R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|LazyService|>()
+        when () {
+            !=(Q|Counter|.R|/Counter.lazyCtor|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: LazyService missing after get<>() (lazyCtor=), Q|Counter|.R|/Counter.lazyCtor|, String()))
+            }
+        }
+
+        lval eagerFromGet: R|EagerService| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|EagerService|>()
+        when () {
+            !=(Q|Counter|.R|/Counter.eagerCtor|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: EagerService re-instantiated on get<>() (eagerCtor=), Q|Counter|.R|/Counter.eagerCtor|, String()))
+            }
+        }
+
+        when () {
+            ===(R|<local>/eagerFromGet|, Null(null)) ->  {
+                ^box String(FAIL: EagerService get<>() returned null)
+            }
+        }
+
+        ^box String(OK)
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

@@ -20,7 +20,8 @@ data class ModuleClass(
     val hasComponentScan: Boolean, // Whether @ComponentScan is present (enables package scanning)
     val scanPackages: List<String>, // Packages to scan (empty = current package if hasComponentScan)
     val definitionFunctions: List<DefinitionFunction>, // Functions inside @Module with definition annotations
-    val includedModules: List<IrClass> // Classes from @Module(includes = [...])
+    val includedModules: List<IrClass>, // Classes from @Module(includes = [...])
+    val createdAtStart: Boolean = false // `@Module(createdAtStart = true)` — eager-init all definitions in this module at startKoin
 )
 
 /**

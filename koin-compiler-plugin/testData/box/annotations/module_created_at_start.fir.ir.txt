@@ -1,0 +1,291 @@
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testModule.kt
+  FUN name:componentscan_testModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.EagerService
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_testModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.LazyService
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:<root> fileName:/test.kt
+  CLASS CLASS name:EagerService modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Singleton(binds = <null>, createdAtStart = true)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.EagerService
+    ANONYMOUS_INITIALIZER isStatic=false
+      BLOCK_BODY
+        TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+          BLOCK type=kotlin.Int origin=POSTFIX_INCR
+            VAR IR_TEMPORARY_VARIABLE name:tmp_0 type:kotlin.Int [val]
+              CALL 'public final fun <get-eagerCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=POSTFIX_INCR
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+            CALL 'public final fun <set-eagerCtor> (<set-?>: kotlin.Int): kotlin.Unit declared in <root>.Counter' type=kotlin.Unit origin=POSTFIX_INCR
+              ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              ARG <set-?>: CALL 'public final fun inc (): kotlin.Int declared in kotlin.Int' type=kotlin.Int origin=POSTFIX_INCR
+                ARG <this>: GET_VAR 'val tmp_0: kotlin.Int declared in <root>.EagerService' type=kotlin.Int origin=null
+            GET_VAR 'val tmp_0: kotlin.Int declared in <root>.EagerService' type=kotlin.Int origin=null
+    CONSTRUCTOR visibility:public returnType:<root>.EagerService [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:EagerService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:LazyService modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Singleton(binds = <null>, createdAtStart = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.LazyService
+    ANONYMOUS_INITIALIZER isStatic=false
+      BLOCK_BODY
+        TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+          BLOCK type=kotlin.Int origin=POSTFIX_INCR
+            VAR IR_TEMPORARY_VARIABLE name:tmp_1 type:kotlin.Int [val]
+              CALL 'public final fun <get-lazyCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=POSTFIX_INCR
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+            CALL 'public final fun <set-lazyCtor> (<set-?>: kotlin.Int): kotlin.Unit declared in <root>.Counter' type=kotlin.Unit origin=POSTFIX_INCR
+              ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              ARG <set-?>: CALL 'public final fun inc (): kotlin.Int declared in kotlin.Int' type=kotlin.Int origin=POSTFIX_INCR
+                ARG <this>: GET_VAR 'val tmp_1: kotlin.Int declared in <root>.LazyService' type=kotlin.Int origin=null
+            GET_VAR 'val tmp_1: kotlin.Int declared in <root>.LazyService' type=kotlin.Int origin=null
+    CONSTRUCTOR visibility:public returnType:<root>.LazyService [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:LazyService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:TestModule modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Module(includes = <null>, createdAtStart = true)
+      ComponentScan(value = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.TestModule
+    CONSTRUCTOR visibility:public returnType:<root>.TestModule [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:TestModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Counter
+    PROPERTY name:eagerCtor visibility:public modality:FINAL [var]
+      FIELD PROPERTY_BACKING_FIELD name:eagerCtor type:kotlin.Int visibility:private
+        EXPRESSION_BODY
+          CONST Int type=kotlin.Int value=0
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-eagerCtor> visibility:public modality:FINAL returnType:kotlin.Int
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.Counter
+        correspondingProperty: PROPERTY name:eagerCtor visibility:public modality:FINAL [var]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-eagerCtor> (): kotlin.Int declared in <root>.Counter'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:eagerCtor type:kotlin.Int visibility:private' type=kotlin.Int origin=null
+              receiver: GET_VAR '<this>: <root>.Counter declared in <root>.Counter.<get-eagerCtor>' type=<root>.Counter origin=null
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<set-eagerCtor> visibility:public modality:FINAL returnType:kotlin.Unit
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.Counter
+        VALUE_PARAMETER kind:Regular name:<set-?> index:1 type:kotlin.Int
+        correspondingProperty: PROPERTY name:eagerCtor visibility:public modality:FINAL [var]
+        BLOCK_BODY
+          SET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:eagerCtor type:kotlin.Int visibility:private' type=kotlin.Unit origin=null
+            receiver: GET_VAR '<this>: <root>.Counter declared in <root>.Counter.<set-eagerCtor>' type=<root>.Counter origin=null
+            value: GET_VAR '<set-?>: kotlin.Int declared in <root>.Counter.<set-eagerCtor>' type=kotlin.Int origin=null
+    PROPERTY name:lazyCtor visibility:public modality:FINAL [var]
+      FIELD PROPERTY_BACKING_FIELD name:lazyCtor type:kotlin.Int visibility:private
+        EXPRESSION_BODY
+          CONST Int type=kotlin.Int value=0
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-lazyCtor> visibility:public modality:FINAL returnType:kotlin.Int
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.Counter
+        correspondingProperty: PROPERTY name:lazyCtor visibility:public modality:FINAL [var]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-lazyCtor> (): kotlin.Int declared in <root>.Counter'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:lazyCtor type:kotlin.Int visibility:private' type=kotlin.Int origin=null
+              receiver: GET_VAR '<this>: <root>.Counter declared in <root>.Counter.<get-lazyCtor>' type=<root>.Counter origin=null
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<set-lazyCtor> visibility:public modality:FINAL returnType:kotlin.Unit
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.Counter
+        VALUE_PARAMETER kind:Regular name:<set-?> index:1 type:kotlin.Int
+        correspondingProperty: PROPERTY name:lazyCtor visibility:public modality:FINAL [var]
+        BLOCK_BODY
+          SET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:lazyCtor type:kotlin.Int visibility:private' type=kotlin.Unit origin=null
+            receiver: GET_VAR '<this>: <root>.Counter declared in <root>.Counter.<set-lazyCtor>' type=<root>.Counter origin=null
+            value: GET_VAR '<set-?>: kotlin.Int declared in <root>.Counter.<set-lazyCtor>' type=kotlin.Int origin=null
+    CONSTRUCTOR visibility:private returnType:<root>.Counter [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+    FUN name:reset visibility:public modality:FINAL returnType:kotlin.Unit
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.Counter
+      BLOCK_BODY
+        CALL 'public final fun <set-eagerCtor> (<set-?>: kotlin.Int): kotlin.Unit declared in <root>.Counter' type=kotlin.Unit origin=EQ
+          ARG <this>: GET_VAR '<this>: <root>.Counter declared in <root>.Counter.reset' type=<root>.Counter origin=IMPLICIT_ARGUMENT
+          ARG <set-?>: CONST Int type=kotlin.Int value=0
+        CALL 'public final fun <set-lazyCtor> (<set-?>: kotlin.Int): kotlin.Unit declared in <root>.Counter' type=kotlin.Unit origin=EQ
+          ARG <this>: GET_VAR '<this>: <root>.Counter declared in <root>.Counter.reset' type=<root>.Counter origin=IMPLICIT_ARGUMENT
+          ARG <set-?>: CONST Int type=kotlin.Int value=0
+  FUN name:box visibility:public modality:FINAL returnType:kotlin.String
+    BLOCK_BODY
+      CALL 'public final fun reset (): kotlin.Unit declared in <root>.Counter' type=kotlin.Unit origin=null
+        ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+      VAR name:app type:org.koin.core.KoinApplication [val]
+        CALL 'public final fun koinApplication (appDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit>?): org.koin.core.KoinApplication declared in org.koin.dsl' type=org.koin.core.KoinApplication origin=null
+          ARG appDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:$this$koinApplication index:0 type:org.koin.core.KoinApplication
+              BLOCK_BODY
+                TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                  CALL 'public final fun modules (modules: org.koin.core.module.Module): org.koin.core.KoinApplication declared in org.koin.core.KoinApplication' type=org.koin.core.KoinApplication origin=null
+                    ARG <this>: GET_VAR '$this$koinApplication: org.koin.core.KoinApplication declared in <root>.box.<anonymous>' type=org.koin.core.KoinApplication origin=IMPLICIT_ARGUMENT
+                    ARG modules: CALL 'public final fun module (<this>: <root>.TestModule): org.koin.core.module.Module declared in <root>' type=org.koin.core.module.Module origin=null
+                      ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.TestModule' type=<root>.TestModule origin=null
+      CALL 'public final fun createEagerInstances (): kotlin.Unit declared in org.koin.core.KoinApplication' type=kotlin.Unit origin=null
+        ARG <this>: GET_VAR 'val app: org.koin.core.KoinApplication declared in <root>.box' type=org.koin.core.KoinApplication origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public final fun <get-eagerCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              ARG arg1: CONST Int type=kotlin.Int value=1
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: EagerService not eagerly initialized (eagerCtor="
+              CALL 'public final fun <get-eagerCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              CONST String type=kotlin.String value=")"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public final fun <get-lazyCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              ARG arg1: CONST Int type=kotlin.Int value=0
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: LazyService was eagerly initialized (lazyCtor="
+              CALL 'public final fun <get-lazyCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              CONST String type=kotlin.String value=")"
+      VAR name:koin type:org.koin.core.Koin [val]
+        CALL 'public final fun <get-koin> (): org.koin.core.Koin declared in org.koin.core.KoinApplication' type=org.koin.core.Koin origin=GET_PROPERTY
+          ARG <this>: GET_VAR 'val app: org.koin.core.KoinApplication declared in <root>.box' type=org.koin.core.KoinApplication origin=null
+      TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.LazyService origin=null
+          TYPE_ARG T: <root>.LazyService
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public final fun <get-lazyCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              ARG arg1: CONST Int type=kotlin.Int value=1
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: LazyService missing after get<>() (lazyCtor="
+              CALL 'public final fun <get-lazyCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              CONST String type=kotlin.String value=")"
+      VAR name:eagerFromGet type:<root>.EagerService [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.EagerService origin=null
+          TYPE_ARG T: <root>.EagerService
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public final fun <get-eagerCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              ARG arg1: CONST Int type=kotlin.Int value=1
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: EagerService re-instantiated on get<>() (eagerCtor="
+              CALL 'public final fun <get-eagerCtor> (): kotlin.Int declared in <root>.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=<root>.Counter
+              CONST String type=kotlin.String value=")"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EQEQEQ
+            ARG arg0: GET_VAR 'val eagerFromGet: <root>.EagerService declared in <root>.box' type=<root>.EagerService origin=null
+            ARG arg1: CONST Null type=kotlin.Nothing? value=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            CONST String type=kotlin.String value="FAIL: EagerService get<>() returned null"
+      RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+        CONST String type=kotlin.String value="OK"
+FILE fqName:<root> fileName:/testModuleModule.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
+    VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:<root>.TestModule
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun module (<this>: <root>.TestModule): org.koin.core.module.Module declared in <root>'
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG createdAtStart: CONST Boolean type=kotlin.Boolean value=true
+          ARG moduleDeclaration: FUN_EXPR type=kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+                CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
+                  TYPE_ARG T: <root>.EagerService
+                  ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in <root>.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:EagerService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.EagerService>
+                  ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                  ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, <root>.EagerService> origin=LAMBDA
+                    FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:<root>.EagerService
+                      VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                      VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                      BLOCK_BODY
+                        RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.EagerService declared in <root>.module.<anonymous>'
+                          CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.EagerService' type=<root>.EagerService origin=null
+                  ARG createdAtStart: CONST Boolean type=kotlin.Boolean value=true
+                CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
+                  TYPE_ARG T: <root>.LazyService
+                  ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in <root>.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:LazyService modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.LazyService>
+                  ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                  ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, <root>.LazyService> origin=LAMBDA
+                    FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:<root>.LazyService
+                      VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                      VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                      BLOCK_BODY
+                        RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.LazyService declared in <root>.module.<anonymous>'
+                          CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.LazyService' type=<root>.LazyService origin=null

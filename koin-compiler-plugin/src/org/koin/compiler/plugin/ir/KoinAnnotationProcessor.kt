@@ -249,7 +249,8 @@ class KoinAnnotationProcessor(
             val scanPackages = if (hasComponentScan) getComponentScanPackages(declaration) else emptyList()
             val definitionFunctions = collectDefinitionFunctions(declaration)
             val includedModules = getModuleIncludes(declaration)
-            moduleClasses.add(ModuleClass(declaration, hasComponentScan, scanPackages, definitionFunctions, includedModules))
+            val moduleCreatedAtStart = getModuleCreatedAtStart(declaration)
+            moduleClasses.add(ModuleClass(declaration, hasComponentScan, scanPackages, definitionFunctions, includedModules, moduleCreatedAtStart))
 
             // Log module discovery (guard to avoid precomputation when logging is disabled)
             if (KoinPluginLogger.userLogsEnabled) {
@@ -515,12 +516,33 @@ class KoinAnnotationProcessor(
             fqName == KoinAnnotationFqNames.SINGLETON.asString() || fqName == KoinAnnotationFqNames.SINGLE.asString()
         } ?: return false
 
-        // createdAtStart: look up by name first, then fall back to positional index 1
-        val createdAtStartArg = annotation.getValueArgument(Name.identifier("createdAtStart"))
-            ?: annotation.getValueArgument(1)
+        // createdAtStart: look up by name first, then fall back to positional index 1.
+        // Signature: `@Single(binds: Array<KClass<*>> = [], createdAtStart: Boolean = false)`.
+        return extractBooleanArg(annotation, Name.identifier("createdAtStart"), positionalFallbackIndex = 1)
+    }
 
-        return when (createdAtStartArg) {
-            is IrConst -> createdAtStartArg.value as? Boolean ?: false
+    /**
+     * Get `createdAtStart` from `@Module(createdAtStart = true)`. Drives whether the generated
+     * `module(...)` DSL call passes `createdAtStart = true` to eagerly instantiate every
+     * `@Single` / `@Singleton` in the module at `startKoin`. KTZ-4048 / koin#2415.
+     *
+     * Signature: `@Module(includes: Array<KClass<*>> = [], createdAtStart: Boolean = false)`.
+     */
+    private fun getModuleCreatedAtStart(declaration: IrClass): Boolean {
+        val annotation = declaration.annotations.firstOrNull { annotation ->
+            annotation.type.classFqName?.asString() == KoinAnnotationFqNames.MODULE.asString()
+        } ?: return false
+        return extractBooleanArg(annotation, Name.identifier("createdAtStart"), positionalFallbackIndex = 1)
+    }
+
+    private fun extractBooleanArg(
+        annotation: org.jetbrains.kotlin.ir.expressions.IrConstructorCall,
+        name: Name,
+        positionalFallbackIndex: Int
+    ): Boolean {
+        val arg = annotation.getValueArgument(name) ?: annotation.getValueArgument(positionalFallbackIndex)
+        return when (arg) {
+            is IrConst -> arg.value as? Boolean ?: false
             else -> false
         }
     }
@@ -2412,6 +2434,19 @@ class KoinAnnotationProcessor(
             }
             if (moduleDeclarationIndex >= 0) {
                 putValueArgument(moduleDeclarationIndex, lambdaExpr)
+            }
+
+            // KTZ-4048 / koin#2415 — propagate `@Module(createdAtStart = true)` to the
+            // `module(...)` DSL call. Without this, Kotlin's `module$default` trampoline
+            // substitutes the parameter default (false) regardless of what the user wrote
+            // on the annotation, and the eager-init behavior silently goes missing.
+            if (moduleClass.createdAtStart) {
+                val createdAtStartIndex = moduleDslFunction.valueParameters.indexOfFirst {
+                    it.name.asString() == "createdAtStart"
+                }
+                if (createdAtStartIndex >= 0) {
+                    putValueArgument(createdAtStartIndex, builder.irTrue())
+                }
             }
 
             moduleDslFunction.valueParameters.forEachIndexed { index, param ->

@@ -37,6 +37,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("module_created_at_start.kt")
+    public void testModule_created_at_start() {
+      runTest("koin-compiler-plugin/testData/box/annotations/module_created_at_start.kt");
+    }
+
+    @Test
     @TestMetadata("singleton_class.kt")
     public void testSingleton_class() {
       runTest("koin-compiler-plugin/testData/box/annotations/singleton_class.kt");
