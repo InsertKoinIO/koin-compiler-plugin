@@ -311,6 +311,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_nested_includes.kt")
+    public void testDsl_nested_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_nested_includes.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_transitive_includes.kt")
     public void testDsl_transitive_includes() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_transitive_includes.kt");
