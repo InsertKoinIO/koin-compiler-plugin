@@ -1,0 +1,46 @@
+FILE: test.kt
+    public abstract interface MyType : R|kotlin/Any| {
+    }
+    @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|MyType|)) @R|org/koin/core/annotation/Scoped|() public final class Tnt : R|kotlin/Any| {
+        public constructor(): R|Tnt| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val signature: R|kotlin/String| = String(scoped-Tnt)
+            public get(): R|kotlin/String|
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class Lex : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/ScopeId|(name = String(a)) t: R|Tnt|): R|Lex| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val t: R|Tnt| = R|<local>/t|
+            public get(): R|Tnt|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(a), R|org/koin/core/qualifier/named|<R|MyType|>())
+        lval lex: R|Lex| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Lex|>()
+        ^box when () {
+            ==(R|<local>/lex|.R|/Lex.t|.R|/Tnt.signature|, String(scoped-Tnt)) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: lex.t.signature=), R|<local>/lex|.R|/Lex.t|.R|/Tnt.signature|)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|
