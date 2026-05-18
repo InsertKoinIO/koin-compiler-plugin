@@ -99,6 +99,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("hints_package_no_annotations.kt")
+    public void testHints_package_no_annotations() {
+      runTest("koin-compiler-plugin/testData/box/dsl/hints_package_no_annotations.kt");
+    }
+
+    @Test
     @TestMetadata("scoped_basic.kt")
     public void testScoped_basic() {
       runTest("koin-compiler-plugin/testData/box/dsl/scoped_basic.kt");

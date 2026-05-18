@@ -1746,11 +1746,16 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
     /**
      * Claim ownership of the hints package for generated hint functions.
+     *
+     * Must be unconditional: getTopLevelCallableIds() always emits at least the
+     * default-label hint callable in HINTS_PACKAGE (see the DEFAULT_LABEL block
+     * above). K2.3.20's Fir2IrConverter.registerFileAndClasses calls
+     * FirModuleDescriptor.getPackage(HINTS_PACKAGE) and throws
+     * IllegalStateException if hasPackage() doesn't claim it. Earlier K2
+     * versions tolerated the inconsistency.
      */
     override fun hasPackage(packageFqName: FqName): Boolean {
-        if (packageFqName == HINTS_PACKAGE && (configurationModules.isNotEmpty() || definitionClassInfos.isNotEmpty() || definitionFunctionInfos.isNotEmpty() || moduleDefinitionFunctionInfos.isNotEmpty() || qualifierAnnotationInfos.isNotEmpty())) {
-            return true
-        }
+        if (packageFqName == HINTS_PACKAGE) return true
         return super.hasPackage(packageFqName)
     }
 

@@ -1,0 +1,39 @@
+FILE: test.kt
+    public final class Repo : R|kotlin/Any| {
+        public constructor(): R|Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|Repo|): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|Repo| = R|<local>/repo|
+            public get(): R|Repo|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Repo|>()
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|Service|>()
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval r1: R|Repo| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repo|>()
+        lval r2: R|Repo| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repo|>()
+        lval s: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        ^box when () {
+            ===(R|<local>/r1|, R|<local>/r2|) && ===(R|<local>/s|.R|/Service.repo|, R|<local>/r1|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }
