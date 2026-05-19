@@ -1,6 +1,6 @@
 # Koin Compiler Plugin — Complete Code Walkthrough
 
-> **Version:** 1.0.0-RC2 | **Date:** 2026-05-11
+> **Version:** 1.0.0 | **Date:** 2026-05-19
 >
 > Line-by-line debugging reference for the Koin maintainer.
 > Every file, every method, every data flow.

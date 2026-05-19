@@ -41,7 +41,7 @@ app-*/
 
 ## Stack
 
-- **Koin** 4.2 + **Compiler Plugin** 0.4.1
+- **Koin** 4.2 + **Compiler Plugin** 1.0.0
 - Kotlin 2.3.20 (K2)
 - Jetpack Compose
 - Room, DataStore, WorkManager
