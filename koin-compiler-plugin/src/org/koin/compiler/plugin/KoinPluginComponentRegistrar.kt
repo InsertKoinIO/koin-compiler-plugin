@@ -28,9 +28,33 @@ import java.util.concurrent.atomic.AtomicInteger
  * FIR extensions don't receive configuration directly, so we store it globally.
  */
 object KoinPluginLogger {
+    /**
+     * Per-compilation message collector storage.
+     *
+     * Was `@Volatile var messageCollector: MessageCollector`. Under K2's parallel-daemon mode
+     * multiple compilations can share a daemon, and each one's `init()` writes through this
+     * singleton. With a single volatile field, compilation B's `init()` could overwrite A's
+     * collector while A was still mid-IR-generation — A's subsequent diagnostics would land in
+     * B's output stream (wrong build's log).
+     *
+     * `InheritableThreadLocal` scopes the collector to the compilation's entry thread and any
+     * threads it spawns (IR generation occasionally fans out). The volatile `fallbackCollector`
+     * preserves the original behavior for callers reached without a per-thread context — bare
+     * CLI, unit tests, and the legacy alias in [KoinPluginMessageCollector].
+     *
+     * Read order in [effectiveCollector]: thread-local first, fallback second.
+     */
+    @PublishedApi
+    internal val threadCollector: InheritableThreadLocal<MessageCollector?> =
+        InheritableThreadLocal()
+
     @Volatile
     @PublishedApi
-    internal var messageCollector: MessageCollector = MessageCollector.NONE
+    internal var fallbackCollector: MessageCollector = MessageCollector.NONE
+
+    @PublishedApi
+    internal val effectiveCollector: MessageCollector
+        get() = threadCollector.get() ?: fallbackCollector
 
     @Volatile
     var userLogsEnabled: Boolean = false
@@ -86,15 +110,41 @@ object KoinPluginLogger {
      * trailing AI-assist CTA so it shares a per-file output bucket with the error,
      * preventing renderers (Gradle's K2 collector) from sorting the location-less CTA
      * ahead of file-anchored messages.
+     *
+     * Per-thread (InheritableThreadLocal) for the same daemon-parallel reason as
+     * [threadCollector] — two compilations would otherwise stomp each other's anchor.
      */
-    @Volatile
-    private var lastDiagnosticLocation: CompilerMessageLocation? = null
+    private val lastDiagnosticLocation: InheritableThreadLocal<CompilerMessageLocation?> =
+        InheritableThreadLocal()
+
+    /**
+     * Bind [collector] to the current thread's slot for the duration of one compilation phase
+     * (typically `IrGenerationExtension.generate`). Use a try/finally with [unbindThreadCollector]
+     * to ensure it's cleared even on exceptions.
+     *
+     * Needed because Gradle daemon worker pools can dispatch a compilation's IR phase on a
+     * different thread than the one that called [init]; without a re-bind, the per-thread
+     * collector slot would be empty and reads would fall through to [fallbackCollector]
+     * (which a parallel compilation may have overwritten).
+     */
+    fun bindThreadCollector(collector: MessageCollector) {
+        threadCollector.set(collector)
+    }
+
+    fun unbindThreadCollector() {
+        threadCollector.remove()
+    }
 
     /**
      * Initialize the logger with configuration from the compiler.
+     *
+     * Writes the collector to both the per-thread slot (so this compilation's diagnostics
+     * stay scoped) and to the volatile fallback (for callers reached outside the compilation
+     * thread group — primarily the legacy [KoinPluginMessageCollector] alias).
      */
     fun init(collector: MessageCollector, userLogs: Boolean, debugLogs: Boolean, unsafeDslChecks: Boolean = true, skipDefaultValues: Boolean = true, compileSafety: Boolean = true, aiAssist: Boolean = true, moduleId: String? = null, lookupTracker: LookupTracker? = null) {
-        messageCollector = collector
+        threadCollector.set(collector)
+        fallbackCollector = collector
         userLogsEnabled = userLogs
         debugLogsEnabled = debugLogs
         unsafeDslChecksEnabled = unsafeDslChecks
@@ -104,7 +154,7 @@ object KoinPluginLogger {
         this.moduleId = moduleId?.takeIf { it.isNotBlank() }
         this.lookupTracker = lookupTracker
         highestDiagnosticSeverity.set(0)
-        lastDiagnosticLocation = null
+        lastDiagnosticLocation.remove()
     }
 
     /**
@@ -118,7 +168,7 @@ object KoinPluginLogger {
      */
     inline fun user(message: () -> String) {
         if (userLogsEnabled) {
-            messageCollector.report(CompilerMessageSeverity.WARNING, "[Koin] ${message()}")
+            effectiveCollector.report(CompilerMessageSeverity.WARNING, "[Koin] ${message()}")
         }
     }
 
@@ -133,7 +183,7 @@ object KoinPluginLogger {
      */
     inline fun debug(message: () -> String) {
         if (debugLogsEnabled) {
-            messageCollector.report(CompilerMessageSeverity.WARNING, "[Koin-Debug] ${message()}")
+            effectiveCollector.report(CompilerMessageSeverity.WARNING, "[Koin-Debug] ${message()}")
         }
     }
 
@@ -142,7 +192,7 @@ object KoinPluginLogger {
      * Use for critical messages that should never be silenced (e.g., @Monitor without SDK).
      */
     fun warn(message: String) {
-        messageCollector.report(CompilerMessageSeverity.WARNING, "[Koin] $message")
+        effectiveCollector.report(CompilerMessageSeverity.WARNING, "[Koin] $message")
     }
 
     /**
@@ -153,7 +203,7 @@ object KoinPluginLogger {
      */
     inline fun userFir(message: () -> String) {
         if (userLogsEnabled) {
-            messageCollector.report(CompilerMessageSeverity.WARNING, "[Koin-FIR] ${message()}")
+            effectiveCollector.report(CompilerMessageSeverity.WARNING, "[Koin-FIR] ${message()}")
         }
     }
 
@@ -165,7 +215,7 @@ object KoinPluginLogger {
      */
     inline fun debugFir(message: () -> String) {
         if (debugLogsEnabled) {
-            messageCollector.report(CompilerMessageSeverity.WARNING, "[Koin-Debug-FIR] ${message()}")
+            effectiveCollector.report(CompilerMessageSeverity.WARNING, "[Koin-Debug-FIR] ${message()}")
         }
     }
 
@@ -174,7 +224,7 @@ object KoinPluginLogger {
      * This will cause compilation to fail.
      */
     fun error(message: String) {
-        messageCollector.report(CompilerMessageSeverity.ERROR, "[Koin] $message")
+        effectiveCollector.report(CompilerMessageSeverity.ERROR, "[Koin] $message")
     }
 
     /**
@@ -185,7 +235,7 @@ object KoinPluginLogger {
         val location = if (filePath != null) {
             CompilerMessageLocation.create(filePath, line, column, null)
         } else null
-        messageCollector.report(CompilerMessageSeverity.ERROR, "[Koin] $message", location)
+        effectiveCollector.report(CompilerMessageSeverity.ERROR, "[Koin] $message", location)
     }
 
     /**
@@ -205,8 +255,8 @@ object KoinPluginLogger {
         val location = if (filePath != null && line >= 0) {
             CompilerMessageLocation.create(filePath, line, column.coerceAtLeast(0), null)
         } else null
-        if (location != null) lastDiagnosticLocation = location
-        messageCollector.report(severity, body, location)
+        if (location != null) lastDiagnosticLocation.set(location)
+        effectiveCollector.report(severity, body, location)
     }
 
     /**
@@ -224,17 +274,17 @@ object KoinPluginLogger {
      * Called once per compilation by [org.koin.compiler.plugin.ir.KoinIrExtension] at
      * the tail of IR processing.
      */
-    fun flushAiAssistCta(collector: MessageCollector = messageCollector) {
+    fun flushAiAssistCta(collector: MessageCollector = effectiveCollector) {
         val rank = highestDiagnosticSeverity.get()
         if (!aiAssistEnabled || rank == 0) return
         val severity = if (rank >= 2) CompilerMessageSeverity.ERROR else CompilerMessageSeverity.WARNING
         collector.report(
             severity,
             "[Koin] → Fix with AI: set up Kotzilla MCP at ${KoinPluginConstants.AI_ASSIST_CTA_URL}",
-            lastDiagnosticLocation,
+            lastDiagnosticLocation.get(),
         )
         highestDiagnosticSeverity.set(0)
-        lastDiagnosticLocation = null
+        lastDiagnosticLocation.remove()
     }
 }
 

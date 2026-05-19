@@ -17,6 +17,22 @@ class KoinIrExtension(
     private val messageCollector: MessageCollector,
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
+        // Re-anchor the per-thread collector on this compilation's captured MessageCollector.
+        // Necessary because `KoinPluginLogger.init()` ran on the thread that called
+        // `registerExtensions`, which may differ from the thread running IR generation in
+        // parallel-daemon mode. `InheritableThreadLocal` inherits only at thread creation —
+        // pool workers picked up later won't see init()'s value. Setting here ensures every
+        // diagnostic emitted during this `generate()` lands on the right compilation's
+        // collector even if another compilation's `init()` mutated the shared singleton.
+        KoinPluginLogger.bindThreadCollector(messageCollector)
+        try {
+            generateInternal(moduleFragment, pluginContext)
+        } finally {
+            KoinPluginLogger.unbindThreadCollector()
+        }
+    }
+
+    private fun generateInternal(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
         KoinPluginLogger.debug { "IR Phase starting for module: ${moduleFragment.name}" }
 
         // Phase 0: Generate bodies for FIR-generated hint functions and registry function
