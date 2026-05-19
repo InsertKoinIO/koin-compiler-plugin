@@ -93,6 +93,13 @@ class KoinStartTransformer(
     // Module function resolver (multi-strategy lookup for module() extension functions)
     private val moduleFunctionResolver = ModuleFunctionResolver(context, moduleFragment)
 
+    // Per-compile caches. The annotation walk and the full-IR scan in
+    // `discoverLocalConfigurationModules` are both invariant for a given (appClass, labels)
+    // and frequently re-asked: every typed `startKoin<T>()` / `koinApplication<T>()` site
+    // hits them, and test-apps routinely has ~9 such entry points per compile.
+    private val moduleClassesByApp = mutableMapOf<IrClass, List<IrClass>>()
+    private val configModulesByLabels = mutableMapOf<Set<String>, List<IrClass>>()
+
     override fun visitCall(expression: IrCall): IrExpression {
         val callee = expression.symbol.owner
         val calleeFqName = callee.fqNameWhenAvailable
@@ -300,7 +307,10 @@ class KoinStartTransformer(
      * - @KoinApplication(configurations = ["test"]) → only @Configuration("test") modules
      * - @KoinApplication() or @KoinApplication(configurations = []) → only @Configuration() (default) modules
      */
-    private fun extractModulesFromKoinApplicationAnnotation(appClass: IrClass): List<IrClass> {
+    private fun extractModulesFromKoinApplicationAnnotation(appClass: IrClass): List<IrClass> =
+        moduleClassesByApp.getOrPut(appClass) { computeModuleClasses(appClass) }
+
+    private fun computeModuleClasses(appClass: IrClass): List<IrClass> {
         val explicitModules = extractExplicitModules(appClass)
         val configurationLabels = extractConfigurationLabels(appClass)
 
@@ -375,11 +385,12 @@ class KoinStartTransformer(
      * Discover @Configuration modules filtered by configuration labels.
      * Combines local modules and modules from hint functions.
      */
-    private fun discoverConfigurationModules(labels: List<String>): List<IrClass> {
-        val localModules = discoverLocalConfigurationModules(labels)
-        val hintModules = discoverModulesFromHints(labels)
-        return (localModules + hintModules).distinctBy { it.fqNameWhenAvailable }
-    }
+    private fun discoverConfigurationModules(labels: List<String>): List<IrClass> =
+        configModulesByLabels.getOrPut(labels.toSet()) {
+            val localModules = discoverLocalConfigurationModules(labels)
+            val hintModules = discoverModulesFromHints(labels)
+            (localModules + hintModules).distinctBy { it.fqNameWhenAvailable }
+        }
 
     /**
      * Extract explicitly listed modules from @KoinApplication(modules = [...])

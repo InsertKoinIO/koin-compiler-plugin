@@ -102,6 +102,20 @@ class KoinAnnotationProcessor(
     // Inspired by @JellyBrick (PR #5 — https://github.com/InsertKoinIO/koin-compiler-plugin/pull/5)
     private val referenceFunctionsCache = mutableMapOf<CallableId, Collection<org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol>>()
 
+    // Indexes derived from `definitionClasses` / `definitionTopLevelFunctions`. Lazily initialized
+    // because both lists are mutated during Phase 1 (collectAnnotations) and only read in Phase 2/3.
+    // `findMatchingDefinitions` and `discoverDefinitionsFromHints` would otherwise rescan or
+    // O(n²)-check these per @Module — see lines 1541, 1574, 1617.
+    private val localDefinitionFqNames: Set<String> by lazy {
+        definitionClasses.mapNotNullTo(hashSetOf()) { it.irClass.fqNameWhenAvailable?.asString() }
+    }
+    private val definitionsByPackage: Map<String, List<DefinitionClass>> by lazy {
+        definitionClasses.groupBy { it.packageFqName.asString() }
+    }
+    private val topLevelFunctionsByPackage: Map<String, List<DefinitionTopLevelFunction>> by lazy {
+        definitionTopLevelFunctions.groupBy { it.packageFqName.asString() }
+    }
+
     /**
      * Cached wrapper around context.referenceFunctions() to avoid repeated expensive lookups.
      * The same CallableId is often queried multiple times across different modules during
@@ -1537,10 +1551,9 @@ class KoinAnnotationProcessor(
 
         KoinPluginLogger.debug { "  Scanning packages: ${scanPackages.joinToString(", ")} (recursive)" }
 
-        // Local definitions from current compilation unit
-        val localDefinitions = definitionClasses.filter { definition ->
-            matchesScanPackages(definition.packageFqName.asString(), scanPackages)
-        }
+        // Local definitions from current compilation unit (package index avoids re-filtering
+        // the full `definitionClasses` list per @Module — see `definitionsByPackage`).
+        val localDefinitions = collectFromPackageIndex(definitionsByPackage, scanPackages)
 
         // Cross-module definitions from hints (definitions from other Gradle modules)
         val crossModuleDefinitions = discoverDefinitionsFromHints(scanPackages)
@@ -1571,9 +1584,7 @@ class KoinAnnotationProcessor(
 
         val scanPackages = moduleClass.effectiveScanPackages()
 
-        val matchingFunctions = definitionTopLevelFunctions.filter { definition ->
-            matchesScanPackages(definition.packageFqName.asString(), scanPackages)
-        }
+        val matchingFunctions = collectFromPackageIndex(topLevelFunctionsByPackage, scanPackages)
 
         if (KoinPluginLogger.userLogsEnabled && matchingFunctions.isNotEmpty()) {
             val moduleName = moduleClass.irClass.name.asString()
@@ -1614,7 +1625,7 @@ class KoinAnnotationProcessor(
                 if (!matchesScanPackages(defPackage, scanPackages)) continue
 
                 // Skip if we already have this class in local definitions (avoid duplicates)
-                if (definitionClasses.any { it.irClass.fqNameWhenAvailable == defClass.fqNameWhenAvailable }) {
+                if (defClass.fqNameWhenAvailable?.asString() in localDefinitionFqNames) {
                     KoinPluginLogger.debug { "    Skipping ${defClass.name} - already in local definitions" }
                     continue
                 }
@@ -2173,6 +2184,22 @@ class KoinAnnotationProcessor(
         return scanPackages.any { scanPkg ->
             defPackage == scanPkg || defPackage.startsWith("$scanPkg.")
         }
+    }
+
+    /**
+     * Pull every value out of a (package → defs) index that lies in any of the scan packages
+     * (exact match or subpackage). Scans the index's key-set rather than the full def list, so
+     * the per-`@Module` cost is O(distinct-packages × scan-packages) instead of O(all-defs).
+     */
+    private fun <T> collectFromPackageIndex(
+        index: Map<String, List<T>>,
+        scanPackages: List<String>
+    ): List<T> {
+        val result = mutableListOf<T>()
+        for ((pkg, defs) in index) {
+            if (matchesScanPackages(pkg, scanPackages)) result.addAll(defs)
+        }
+        return result
     }
 
     /** Resolve effective scan packages: explicit scan packages or default to module's own package. */
