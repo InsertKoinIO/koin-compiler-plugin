@@ -554,10 +554,12 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      * Detect auto-binding ClassIds from the return type's supertypes.
      * Filters out kotlin.Any and only includes interfaces and abstract classes.
      *
-     * When a supertype is a `kotlin.coroutines.SuspendFunctionN`, emits KOIN-D007
-     * (blocks the build) and excludes that supertype from the returned bindings —
-     * suspend function injection isn't supported by Koin runtime yet, and shipping
-     * a half-wired definition is worse than failing the compile.
+     * When a supertype — direct OR transitive — is a `kotlin.coroutines.SuspendFunctionN`,
+     * emits KOIN-D007 (blocks the build) and excludes the affected direct supertype from the
+     * returned bindings. Suspend function injection isn't supported by Koin runtime yet, and
+     * shipping a half-wired definition is worse than failing the compile. We walk the full
+     * supertype closure because the suspend ancestor can be hidden behind an intermediate
+     * interface (e.g. `class Impl : MyApi` where `interface MyApi : suspend (P) -> R`).
      */
     private fun detectBindingClassIds(returnTypeClassId: ClassId): List<ClassId> {
         val classSymbol = session.symbolProvider.getClassLikeSymbolByClassId(returnTypeClassId) ?: return emptyList()
@@ -575,6 +577,12 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                     continue
                 }
 
+                val transitiveSuspend = findTransitiveSuspendSupertype(superClassId)
+                if (transitiveSuspend != null) {
+                    reportUnsupportedSuspendBinding(returnTypeClassId, transitiveSuspend)
+                    continue
+                }
+
                 // Check if the supertype is an interface or abstract class
                 val superSymbol = session.symbolProvider.getClassLikeSymbolByClassId(superClassId)
                 if (superSymbol is FirClassSymbol<*>) {
@@ -589,6 +597,32 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             log { "  Could not resolve supertypes for $returnTypeClassId: ${e.message}" }
         }
         return bindings
+    }
+
+    /**
+     * Walk the transitive supertype closure of [startClassId] and return the first
+     * `kotlin.coroutines.SuspendFunctionN` ClassId found, or null if none.
+     *
+     * Visited-set guarded — diamond inheritance and self-referential bounds are common
+     * enough in real code (e.g. `interface A<T : A<T>>`) that a naive walk would loop.
+     */
+    private fun findTransitiveSuspendSupertype(startClassId: ClassId): ClassId? {
+        val visited = mutableSetOf<ClassId>()
+        val stack = ArrayDeque<ClassId>()
+        stack.addLast(startClassId)
+        while (stack.isNotEmpty()) {
+            val current = stack.removeLast()
+            if (!visited.add(current)) continue
+            val symbol = session.symbolProvider.getClassLikeSymbolByClassId(current) ?: continue
+            if (symbol !is FirClassSymbol<*>) continue
+            for (ref in symbol.resolvedSuperTypeRefs) {
+                val parentId = ref.coneType.classId ?: continue
+                if (parentId.asSingleFqName().asString() == "kotlin.Any") continue
+                if (isSuspendFunctionClassId(parentId)) return parentId
+                stack.addLast(parentId)
+            }
+        }
+        return null
     }
 
     /**

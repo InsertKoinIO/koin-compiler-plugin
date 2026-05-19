@@ -59,13 +59,35 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         }
     }
 
+    /**
+     * Identifier-boundary regex for the three aggregator markers. A plain substring check
+     * (`"startKoin" in text`) flips strictSafety on for anything containing the token —
+     * `restartKoinIfNeeded`, `myStartKoinHelper`, comments, string literals — which forces
+     * `compileKotlin` to re-run every build for modules that aren't actually aggregators.
+     *
+     * Boundary rules:
+     *  - `startKoin` / `koinApplication` must be preceded by something that isn't a Kotlin
+     *    identifier part (`[A-Za-z0-9_]`) so `restartKoin` doesn't match `startKoin`, and
+     *    `myStartKoin` doesn't match either. Trailing side is similar — `startKoinInternal`
+     *    is not the call we care about.
+     *  - `@KoinApplication` only needs the trailing boundary; the `@` already anchors the
+     *    leading side.
+     *
+     * We still match identifiers that appear in comments and string literals — stripping
+     * those at config time would need a real lexer. In practice this remains a heuristic;
+     * the lifecycle log makes the decision visible and `strictSafety = false` is the escape.
+     */
+    private val aggregatorMarkerRegex: Regex = Regex(
+        "(?:(?<![A-Za-z0-9_])startKoin(?![A-Za-z0-9_]))" +
+            "|(?:(?<![A-Za-z0-9_])koinApplication(?![A-Za-z0-9_]))" +
+            "|(?:@KoinApplication(?![A-Za-z0-9_]))"
+    )
+
     private fun looksLikeAggregator(kotlinCompilation: KotlinCompilation<*>): Boolean {
-        val markers = listOf("startKoin", "koinApplication", "@KoinApplication")
         return kotlinCompilation.kotlinSourceSets.any { srcSet ->
             srcSet.kotlin.files.any { file ->
                 try {
-                    val text = file.readText()
-                    markers.any { it in text }
+                    aggregatorMarkerRegex.containsMatchIn(file.readText())
                 } catch (_: Throwable) {
                     false
                 }

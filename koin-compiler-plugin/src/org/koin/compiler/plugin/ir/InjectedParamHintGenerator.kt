@@ -81,12 +81,20 @@ class InjectedParamHintGenerator(
         if (definitions.isEmpty()) return
 
         // First pass: collect distinct slot shapes per target type so we can detect ambiguity.
+        //
+        // ExternalFunctionDef contributes no slot information of its own — its shape was
+        // already encoded in the source module's hint. Feeding it in as `emptyList()` would
+        // make it compete against a real local shape (`{[slots], []}` → size 2 → ambiguous)
+        // and silently disable D005/D006 for that target. So we skip externals entirely
+        // here; the local pass owns the shape, and cross-module discovery happens later
+        // via `discoverCrossModuleSlots` keyed off the emitted hint.
         val shapesByTarget = mutableMapOf<String, MutableSet<List<InjectedParamSlot>>>()
         val resolvedDefs = mutableListOf<Triple<Definition, IrClass, List<InjectedParamSlot>>>()
         for (def in definitions) {
+            if (def is Definition.ExternalFunctionDef) continue
             val targetClass = def.returnTypeClass
             val targetFqName = targetClass.fqNameWhenAvailable?.asString() ?: continue
-            val slots = extractSlotsFromDefinition(def) ?: emptyList()
+            val slots = extractSlotsFromDefinition(def) ?: continue
             shapesByTarget.getOrPut(targetFqName) { mutableSetOf() }.add(slots)
             if (slots.isNotEmpty()) resolvedDefs.add(Triple(def, targetClass, slots))
         }

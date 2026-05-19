@@ -205,13 +205,20 @@ sealed class KoinDiagnostic(
         },
     )
 
-    /** KOIN-W001 — A DSL module is not loaded at `startKoin`, so its definitions are unreachable. */
+    /**
+     * KOIN-W001 — A DSL module is not loaded at `startKoin`, so its definitions are unreachable.
+     *
+     * Warning, not error: a user mid-refactor commonly has a module defined but not yet wired
+     * into `modules(...)` / `includes(...)`. Failing the build would force them to comment the
+     * module out to keep working. The W prefix matches the catalog's warning convention
+     * (KOIN-W*** / KOIN-M*** are warnings; KOIN-D*** / KOIN-E*** / KOIN-A*** are errors).
+     */
     class UnreachableModule(
         module: String,
         types: List<String>,
     ) : KoinDiagnostic(
         code = "KOIN-W001",
-        severity = Severity.ERROR,
+        severity = Severity.WARNING,
         message = "Module '$module' is not loaded at startKoin — ${types.size} definitions unreachable: " +
             types.joinToString(", ") +
             "\n  Add it to modules() or includes() to make these definitions available",

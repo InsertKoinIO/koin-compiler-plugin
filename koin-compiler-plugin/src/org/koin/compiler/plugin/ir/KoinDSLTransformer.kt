@@ -424,33 +424,43 @@ class KoinDSLTransformer(
      * regardless of the exact shape, and falls back cleanly for the non-Compose case (where the
      * top-level arg is already an IrFunctionExpression).
      */
-    private fun findParametersOfCall(node: IrElement?): IrCall? {
+    private fun findParametersOfCall(node: IrElement?): IrCall? =
+        findParametersOfCall(node, java.util.IdentityHashMap<IrElement, Unit>())
+
+    private fun findParametersOfCall(
+        node: IrElement?,
+        visited: java.util.IdentityHashMap<IrElement, Unit>,
+    ): IrCall? {
         if (node == null) return null
+        // Function references and IrFunctionExpression resolve to function bodies we may also
+        // reach by descending into call arguments — guard with identity to avoid revisits and
+        // (in pathological IR) infinite recursion on cyclic references.
+        if (visited.put(node, Unit) != null) return null
         if (node is IrCall) {
             val fqName = node.symbol.owner.fqNameWhenAvailable?.asString()
             if (fqName == KoinAnnotationFqNames.PARAMETERS_OF.asString()) return node
             for (i in 0 until node.valueArgumentsCount) {
-                findParametersOfCall(node.getValueArgument(i))?.let { return it }
+                findParametersOfCall(node.getValueArgument(i), visited)?.let { return it }
             }
-            findParametersOfCall(node.dispatchReceiver)?.let { return it }
-            findParametersOfCall(node.extensionReceiver)?.let { return it }
+            findParametersOfCall(node.dispatchReceiver, visited)?.let { return it }
+            findParametersOfCall(node.extensionReceiver, visited)?.let { return it }
         }
         if (node is IrFunctionExpression) {
-            return findParametersOfCall(node.function.body)
+            return findParametersOfCall(node.function.body, visited)
         }
         if (node is IrFunctionReference) {
-            return findParametersOfCall((node.symbol.owner as? IrSimpleFunction)?.body)
+            return findParametersOfCall((node.symbol.owner as? IrSimpleFunction)?.body, visited)
         }
         if (node is IrBlockBody) {
-            for (stmt in node.statements) findParametersOfCall(stmt)?.let { return it }
+            for (stmt in node.statements) findParametersOfCall(stmt, visited)?.let { return it }
         }
         if (node is IrContainerExpression) {
-            for (stmt in node.statements) findParametersOfCall(stmt)?.let { return it }
+            for (stmt in node.statements) findParametersOfCall(stmt, visited)?.let { return it }
         }
-        if (node is IrReturn) return findParametersOfCall(node.value)
-        if (node is IrVariable) return findParametersOfCall(node.initializer)
-        if (node is IrTypeOperatorCall) return findParametersOfCall(node.argument)
-        if (node is IrSetValue) return findParametersOfCall(node.value)
+        if (node is IrReturn) return findParametersOfCall(node.value, visited)
+        if (node is IrVariable) return findParametersOfCall(node.initializer, visited)
+        if (node is IrTypeOperatorCall) return findParametersOfCall(node.argument, visited)
+        if (node is IrSetValue) return findParametersOfCall(node.value, visited)
         return null
     }
 

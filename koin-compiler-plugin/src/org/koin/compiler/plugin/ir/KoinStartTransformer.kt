@@ -97,8 +97,15 @@ class KoinStartTransformer(
     // `discoverLocalConfigurationModules` are both invariant for a given (appClass, labels)
     // and frequently re-asked: every typed `startKoin<T>()` / `koinApplication<T>()` site
     // hits them, and test-apps routinely has ~9 such entry points per compile.
-    private val moduleClassesByApp = mutableMapOf<IrClass, List<IrClass>>()
+    //
+    // Keyed by FqName (not IrClass identity) so the same logical app class resolved through
+    // two symbol paths still hits the cache. Falls back to a stable synthetic string when
+    // FqName is unavailable so the cache never collapses unrelated anonymous classes.
+    private val moduleClassesByApp = mutableMapOf<String, List<IrClass>>()
     private val configModulesByLabels = mutableMapOf<Set<String>, List<IrClass>>()
+
+    private fun appClassCacheKey(appClass: IrClass): String =
+        appClass.fqNameWhenAvailable?.asString() ?: "<anon>@${System.identityHashCode(appClass)}"
 
     override fun visitCall(expression: IrCall): IrExpression {
         val callee = expression.symbol.owner
@@ -308,7 +315,7 @@ class KoinStartTransformer(
      * - @KoinApplication() or @KoinApplication(configurations = []) → only @Configuration() (default) modules
      */
     private fun extractModulesFromKoinApplicationAnnotation(appClass: IrClass): List<IrClass> =
-        moduleClassesByApp.getOrPut(appClass) { computeModuleClasses(appClass) }
+        moduleClassesByApp.getOrPut(appClassCacheKey(appClass)) { computeModuleClasses(appClass) }
 
     private fun computeModuleClasses(appClass: IrClass): List<IrClass> {
         val explicitModules = extractExplicitModules(appClass)
@@ -421,25 +428,41 @@ class KoinStartTransformer(
 
     /**
      * Discover @Configuration modules in the current compilation unit.
-     * Filters by configuration labels - a module is included if it has ANY of the requested labels.
+     * Filters by configuration labels — a module is included if it has ANY of the requested labels.
+     *
+     * Reuses [KoinAnnotationProcessor.collectedModuleClasses] from Phase 1 instead of doing a
+     * second `moduleFragment.acceptChildrenVoid` pass. The annotation processor already walked
+     * every IrClass in this fragment and recorded every `@Module`; re-walking solely to filter
+     * for `@Configuration` doubled the cost for what amounted to a list filter. The Phase 1
+     * collection is invariant for the rest of IR generation, so consuming it here is safe.
+     *
+     * Fallback: when no annotation processor is wired (bare-CLI / test paths that instantiate
+     * KoinStartTransformer without one), do the old IR walk so behavior stays correct.
      *
      * @param labels Configuration labels to filter by
      */
     private fun discoverLocalConfigurationModules(labels: List<String>): List<IrClass> {
-        val modules = mutableListOf<IrClass>()
-
-        moduleFragment.acceptChildrenVoid(object : IrVisitorVoid() {
-            override fun visitElement(element: IrElement) {
-                element.acceptChildrenVoid(this)
-            }
-
-            override fun visitClass(declaration: IrClass) {
-                if (hasConfigurationWithMatchingLabels(declaration, labels)) {
-                    modules.add(declaration)
+        val processor = annotationProcessor
+        val modules: List<IrClass> = if (processor != null) {
+            processor.collectedModuleClasses
+                .map { it.irClass }
+                .filter { hasConfigurationWithMatchingLabels(it, labels) }
+        } else {
+            val collected = mutableListOf<IrClass>()
+            moduleFragment.acceptChildrenVoid(object : IrVisitorVoid() {
+                override fun visitElement(element: IrElement) {
+                    element.acceptChildrenVoid(this)
                 }
-                super.visitClass(declaration)
-            }
-        })
+
+                override fun visitClass(declaration: IrClass) {
+                    if (hasConfigurationWithMatchingLabels(declaration, labels)) {
+                        collected.add(declaration)
+                    }
+                    super.visitClass(declaration)
+                }
+            })
+            collected
+        }
 
         KoinPluginLogger.debug { "  -> Found ${modules.size} local @Configuration modules matching labels $labels" }
         return modules
@@ -454,6 +477,10 @@ class KoinStartTransformer(
      */
     private fun discoverModulesFromHints(labels: List<String>): List<IrClass> {
         val modules = mutableListOf<IrClass>()
+        // Dedup by FqName rather than IrClass identity — the same logical module reached via
+        // two label hints can resolve to distinct IrClass instances (external stub vs. local),
+        // and `moduleClass !in modules` (list contains, identity) would miss that.
+        val seenFqNames = mutableSetOf<String>()
 
         try {
             for (label in labels) {
@@ -465,9 +492,11 @@ class KoinStartTransformer(
                 for (hintFuncSymbol in hintFunctions) {
                     val hintFunc = hintFuncSymbol.owner
                     val paramType = hintFunc.valueParameters.firstOrNull()?.type
-                    val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner
-                    if (moduleClass != null && moduleClass !in modules) {
-                        KoinPluginLogger.debug { "  -> Found hint module: ${moduleClass.fqNameWhenAvailable} (label=$label)" }
+                    val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                    val fqName = moduleClass.fqNameWhenAvailable?.asString()
+                        ?: "<anon>@${System.identityHashCode(moduleClass)}"
+                    if (seenFqNames.add(fqName)) {
+                        KoinPluginLogger.debug { "  -> Found hint module: $fqName (label=$label)" }
                         modules.add(moduleClass)
                     }
                 }
@@ -522,9 +551,15 @@ class KoinStartTransformer(
      */
     private fun collectModuleClassesFromLambda(call: IrCall): List<IrClass> {
         val result = LinkedHashSet<IrClass>()
+        // Identity-based visited set — IrFunctionReference resolves to a function whose body
+        // may be revisited from elsewhere in the tree (Compose `remember` scaffolding, captured
+        // lambdas, etc.). Without a guard, pathological IR with cycles would recurse forever
+        // and benign cases would re-walk the same subtree once per visit.
+        val visited = java.util.IdentityHashMap<IrElement, Unit>()
 
         fun visit(node: IrElement?) {
             if (node == null) return
+            if (visited.put(node, Unit) != null) return
             if (node is IrCall) {
                 val nc = node.symbol.owner
                 val ncFq = nc.fqNameWhenAvailable?.asString()

@@ -2306,6 +2306,10 @@ class KoinAnnotationProcessor(
         }
 
         val modules = mutableListOf<IrClass>()
+        // Dedup by FqName, not IrClass identity — same logical module reached through two label
+        // hints can resolve to distinct IrClass instances (external stub vs local), and identity
+        // dedup misses that. Matches the fix in KoinStartTransformer.discoverModulesFromHints.
+        val seenFqNames = mutableSetOf<String>()
         val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
 
         for (label in labels) {
@@ -2315,8 +2319,10 @@ class KoinAnnotationProcessor(
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
                 val paramType = hintFunc.valueParameters.firstOrNull()?.type
-                val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner
-                if (moduleClass != null && moduleClass !in modules) {
+                val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val fqName = moduleClass.fqNameWhenAvailable?.asString()
+                    ?: "<anon>@${System.identityHashCode(moduleClass)}"
+                if (seenFqNames.add(fqName)) {
                     modules.add(moduleClass)
                 }
             }
