@@ -7,13 +7,13 @@ FILE: test.kt
     }
     public abstract interface Service : R|kotlin/Any| {
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(prod)) public final class ProdService : R|Service| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(prod) [evaluated = String(prod)]) public final class ProdService : R|Service| {
         public constructor(): R|ProdService| {
             super<R|kotlin/Any|>()
         }
 
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(test)) public final class TestService : R|Service| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(test) [evaluated = String(test)]) public final class TestService : R|Service| {
         public constructor(): R|TestService| {
             super<R|kotlin/Any|>()
         }

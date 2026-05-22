@@ -12,7 +12,7 @@ FILE: test.kt
     @R|org/koin/core/annotation/Singleton|() public final fun provideDataSource(): R|testpkg/DataSource| {
         ^provideDataSource R|testpkg/DatabaseDataSource.DatabaseDataSource|()
     }
-    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class TestModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg)) [evaluated = vararg(String(testpkg))]) public final class TestModule : R|kotlin/Any| {
         public constructor(): R|testpkg/TestModule| {
             super<R|kotlin/Any|>()
         }

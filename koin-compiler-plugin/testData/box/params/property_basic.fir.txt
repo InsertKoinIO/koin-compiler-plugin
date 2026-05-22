@@ -6,7 +6,7 @@ FILE: test.kt
 
     }
     @R|org/koin/core/annotation/Singleton|() public final class Config : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/Property|(value = String(server.host)) host: R|kotlin/String|, @R|org/koin/core/annotation/Property|(value = String(server.port)) port: R|kotlin/String|): R|Config| {
+        public constructor(@R|org/koin/core/annotation/Property|(value = String(server.host) [evaluated = String(server.host)]) host: R|kotlin/String|, @R|org/koin/core/annotation/Property|(value = String(server.port) [evaluated = String(server.port)]) port: R|kotlin/String|): R|Config| {
             super<R|kotlin/Any|>()
         }
 

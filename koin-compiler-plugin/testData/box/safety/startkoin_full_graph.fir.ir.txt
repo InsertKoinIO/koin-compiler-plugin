@@ -1,7 +1,7 @@
 FILE fqName:<root> fileName:/app.kt
   CLASS OBJECT name:MyApp modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
-      KoinApplication(configurations = <null>, modules = [CLASS_REFERENCE 'CLASS CLASS name:CoreModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.CoreModule>, CLASS_REFERENCE 'CLASS CLASS name:ServiceModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.ServiceModule>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>)
+      KoinApplication(configurations = <null>, modules = [CoreModule::class, ServiceModule::class] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.MyApp
     CONSTRUCTOR visibility:private returnType:<root>.MyApp [primary]
       BLOCK_BODY

@@ -153,20 +153,20 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_hints_dataModule.kt
     VALUE_PARAMETER kind:Regular name:binding0 index:1 type:data.DataSource
     VALUE_PARAMETER kind:Regular name:qualifier_com$2eexample$2elocal index:2 type:kotlin.Unit
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
   FUN name:componentscan_dataModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:data.RemoteDataSource
     VALUE_PARAMETER kind:Regular name:binding0 index:1 type:data.DataSource
     VALUE_PARAMETER kind:Regular name:qualifier_com$2eexample$2eremote index:2 type:kotlin.Unit
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:org.koin.plugin.hints fileName:/koin_hints_uiModule.kt
   FUN name:componentscan_uiModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:ui.Repository
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   FUN name:box visibility:public modality:FINAL returnType:kotlin.String
@@ -304,7 +304,7 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/dataModuleModul
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.DataModule
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
@@ -312,7 +312,7 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/uiModuleModule.
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.UiModule
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
