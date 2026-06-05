@@ -1,0 +1,5 @@
+# Kotlin versions supported by this koin-compiler-plugin release.
+# One adapter module per line under koin-compiler-version-adapter/.
+# Drives the CI matrix and the support statement in error messages/docs.
+2.3.20
+2.4.0

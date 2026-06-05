@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 /**
  * Adds `@Deprecated("Koin compiler plugin internal hint function", level = DeprecationLevel.HIDDEN)`
@@ -28,8 +29,9 @@ import org.jetbrains.kotlin.name.StandardClassIds
  */
 fun IrSimpleFunction.addDeprecatedHiddenAnnotation(context: IrPluginContext) {
     val annotation = buildDeprecatedHiddenAnnotation(context) ?: return
-    // TODO(version-adapter): annotations assignment is version-split in Kotlin 2.4.0
-    annotations = annotations + annotation
+    // The annotations list type is version-split in Kotlin 2.4.0 — assignment
+    // goes through the adapter matching the running compiler.
+    KotlinAdapterLoader.current.setAnnotations(this, annotations + annotation)
 }
 
 /**

@@ -7,9 +7,9 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.config.CommonConfigurationKeys
 import org.jetbrains.kotlin.config.CompilerConfiguration
-import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.koin.compiler.adapter.KotlinAdapterLoader
 import org.koin.compiler.plugin.ir.KoinIrExtension
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -324,10 +324,26 @@ class KoinPluginComponentRegistrar: CompilerPluginRegistrar() {
         )
         KoinPluginLogger.debug { "IC trackers: lookupTracker=${lookupTracker?.javaClass?.simpleName ?: "NULL"}, expectActualTracker=${expectActualTracker.javaClass.simpleName}" }
 
-        // FIR extension for generating visible declarations (module extension property)
-        FirExtensionRegistrarAdapter.registerExtension(KoinPluginRegistrar())
+        // Extension registration binds to compiler internals whose binary contract
+        // moves across Kotlin versions — route it through the version adapter
+        // matching the running compiler (see koin-compiler-version-adapter/).
+        val selection = KotlinAdapterLoader.load()
+        selection.warnings.forEach {
+            messageCollector.report(CompilerMessageSeverity.STRONG_WARNING, it)
+        }
+        val adapter = selection.adapter ?: run {
+            messageCollector.report(CompilerMessageSeverity.ERROR, selection.error ?: "Koin compiler plugin: no compatible Kotlin version adapter")
+            return
+        }
+        KoinPluginLogger.debug { "Kotlin version adapter: ${adapter.baselineKotlin} (compiler ${org.jetbrains.kotlin.config.KotlinCompilerVersion.VERSION})" }
+
+        // FIR extension for generating visible declarations (module extension property);
         // IR extension for transforming function bodies — captures messageCollector for the
         // trailing AI-assist CTA so a parallel daemon compilation can't redirect its output.
-        IrGenerationExtension.registerExtension(KoinIrExtension(lookupTracker, expectActualTracker, messageCollector))
+        adapter.registerCompilerExtensions(
+            this,
+            KoinPluginRegistrar(),
+            KoinIrExtension(lookupTracker, expectActualTracker, messageCollector),
+        )
     }
 }

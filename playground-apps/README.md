@@ -6,10 +6,11 @@ Two identical multi-module Android apps — one using **Annotations**, one using
 
 ## Apps
 
-| App | DI Approach | Key Patterns |
-|-----|------------|--------------|
-| `app-annotations/` | `@Singleton`, `@Module`, `@ComponentScan`, `@Configuration`, `@KoinApplication` | Annotation-driven with auto-discovery |
-| `app-dsl/` | `single<T>()`, `factory<T>()`, `viewModel<T>()`, `create(::fn)`, `bind` | DSL with explicit module composition |
+| App | DI Approach | Kotlin | Key Patterns |
+|-----|------------|--------|--------------|
+| `app-annotations/` | `@Singleton`, `@Module`, `@ComponentScan`, `@Configuration`, `@KoinApplication` | 2.4.0 | Annotation-driven with auto-discovery |
+| `app-dsl/` | `single<T>()`, `factory<T>()`, `viewModel<T>()`, `create(::fn)`, `bind` | 2.4.0 | DSL with explicit module composition |
+| `app-floor-2320/` | minimal DSL (JVM-only) | **2.3.20 (floor)** | Guard for the oldest supported Kotlin; quick probe of any line via `-PkotlinVersion=` |
 
 Both use the **Koin Compiler Plugin** for compile-time dependency validation.
 
@@ -42,7 +43,7 @@ app-*/
 ## Stack
 
 - **Koin** 4.2 + **Compiler Plugin** 1.0.0
-- Kotlin 2.3.20 (K2)
+- Kotlin 2.4.0 (K2) — `app-floor-2320` stays on 2.3.20, the oldest supported version
 - Jetpack Compose
 - Room, DataStore, WorkManager
 - Coroutines + Flow
