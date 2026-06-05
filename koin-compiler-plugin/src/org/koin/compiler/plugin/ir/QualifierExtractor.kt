@@ -71,7 +71,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
     // Cached function lookups for creating qualifier calls
     private val namedFunctionSymbol by lazy {
         context.referenceFunctions(CallableId(KoinAnnotationFqNames.QUALIFIER_PACKAGE, Name.identifier("named")))
-            .firstOrNull { it.owner.valueParameters.size == 1 && it.owner.valueParameters[0].type.isString() }
+            .firstOrNull { it.owner.regularParameters.size == 1 && it.owner.regularParameters[0].type.isString() }
     }
 
     private val typeQualifierFunctionSymbol by lazy {
@@ -101,7 +101,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
         }
 
         if (namedAnnotation != null) {
-            val valueArg = namedAnnotation.getValueArgument(0)
+            val valueArg = namedAnnotation.getRegularArgument(0)
             if (valueArg is IrConst) {
                 val value = valueArg.value as? String
                 if (value != null) {
@@ -119,7 +119,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
         if (qualifierAnnotation != null) {
             // Check for type-based qualifier: @Qualifier(SomeType::class)
             val valueArg = qualifierAnnotation.getValueArgument(Name.identifier("value"))
-                ?: qualifierAnnotation.getValueArgument(0)
+                ?: qualifierAnnotation.getRegularArgument(0)
             if (valueArg is IrClassReference) {
                 val qualifierClass = valueArg.classType.classifierOrNull?.owner as? IrClass
                 if (qualifierClass != null && qualifierClass.fqNameWhenAvailable?.asString() != "kotlin.Unit") {
@@ -170,7 +170,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
         }
 
         if (namedAnnotation != null) {
-            val valueArg = namedAnnotation.getValueArgument(0)
+            val valueArg = namedAnnotation.getRegularArgument(0)
             if (valueArg is IrConst) {
                 val value = valueArg.value as? String
                 if (value != null) {
@@ -188,7 +188,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
         if (qualifierAnnotation != null) {
             // Check for type-based qualifier: @Qualifier(SomeType::class)
             val valueArg = qualifierAnnotation.getValueArgument(Name.identifier("value"))
-                ?: qualifierAnnotation.getValueArgument(0)
+                ?: qualifierAnnotation.getRegularArgument(0)
             if (valueArg is IrClassReference) {
                 val qualifierClass = valueArg.classType.classifierOrNull?.owner as? IrClass
                 if (qualifierClass != null && qualifierClass.fqNameWhenAvailable?.asString() != "kotlin.Unit") {
@@ -251,7 +251,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
             )
             for (funcSymbol in hintFunctions) {
                 val func = funcSymbol.owner
-                for (param in func.valueParameters) {
+                for (param in func.regularParameters) {
                     val paramClass = param.type.classifierOrNull?.owner as? IrClass ?: continue
                     val fqName = paramClass.fqNameWhenAvailable?.asString() ?: continue
                     qualifiers.add(fqName)
@@ -311,7 +311,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
 
                 // Check if the annotation has a value argument (e.g., @Dispatcher(NiaDispatchers.IO))
                 // Use the argument value as the qualifier to differentiate instances
-                val valueArg = try { annotation.getValueArgument(0) } catch (e: Throwable) {
+                val valueArg = try { annotation.getRegularArgument(0) } catch (e: Throwable) {
                     KoinPluginLogger.debug { "  Could not read qualifier value argument for @$qualifierName: ${e.message}" }
                     null
                 }
@@ -356,7 +356,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
     fun createNamedQualifierCall(qualifierName: String, builder: DeclarationIrBuilder): IrExpression {
         val namedFunc = namedFunctionSymbol?.owner ?: return builder.irNull()
         return builder.irCall(namedFunc.symbol).apply {
-            putValueArgument(0, builder.irString(qualifierName))
+            putRegularArgument(0, builder.irString(qualifierName))
         }
     }
 
@@ -372,7 +372,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
         val kClass = kClassClass ?: return builder.irNull()
 
         return builder.irCall(typeQualifierFunc.symbol).apply {
-            putTypeArgument(0, qualifierClass.defaultType)
+            putTypeArgumentCompat(0, qualifierClass.defaultType)
 
             // Create KClass reference: SomeType::class
             val kClassType = kClass.typeWith(qualifierClass.defaultType)
@@ -383,7 +383,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
                 symbol = qualifierClass.symbol,
                 classType = qualifierClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
         }
     }
 
@@ -451,7 +451,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
             annotation.type.classFqName?.asString() == KoinAnnotationFqNames.PROPERTY.asString()
         } ?: return null
 
-        val valueArg = propertyAnnotation.getValueArgument(0)
+        val valueArg = propertyAnnotation.getRegularArgument(0)
         val key = (valueArg as? IrConst)?.value as? String
         if (key != null) {
             KoinPluginLogger.debug { "  @Property(\"$key\") on parameter ${param.name}" }
@@ -474,7 +474,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
         } ?: return null
 
         // Check for type-based: @ScopeId(MyScope::class) — arg 0 is KClass
-        val valueArg = scopeIdAnnotation.getValueArgument(0)
+        val valueArg = scopeIdAnnotation.getRegularArgument(0)
         if (valueArg is IrClassReference) {
             val scopeClassName = (valueArg.classType.classifierOrNull?.owner as? IrClass)
                 ?.fqNameWhenAvailable?.asString()

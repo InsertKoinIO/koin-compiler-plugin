@@ -217,14 +217,14 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 type = targetClass.hintParameterType(context),
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
-                index = 0,
+                kind = IrParameterKind.Regular,
                 varargElementType = null,
                 isCrossinline = false,
                 isNoinline = false,
                 isHidden = false
             )
             requiredParam.parent = function
-            function.valueParameters = listOf(requiredParam)
+            function.parameters = listOf(requiredParam)
 
             // Empty body (stub — hint functions are never called)
             function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
@@ -315,7 +315,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         for (hintFuncSymbol in hintFunctions) {
             val hintFunc = hintFuncSymbol.owner
-            val param = hintFunc.valueParameters.firstOrNull() ?: continue
+            val param = hintFunc.regularParameters.firstOrNull() ?: continue
             val targetClass = (param.type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
             val targetFqName = targetClass.fqNameWhenAvailable?.asString() ?: continue
 

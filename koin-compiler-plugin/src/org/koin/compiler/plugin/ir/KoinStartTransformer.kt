@@ -128,20 +128,20 @@ class KoinStartTransformer(
         val isKoinApplication = fqNameStr == "org.koin.plugin.module.dsl.koinApplication"
         val isKoinConfiguration = fqNameStr == "org.koin.plugin.module.dsl.koinConfiguration"
         val isWithConfiguration = fqNameStr == "org.koin.plugin.module.dsl.withConfiguration" &&
-            callee.extensionReceiverParameter?.type?.classFqName?.asString() == "org.koin.core.KoinApplication"
+            callee.extensionReceiverParam?.type?.classFqName?.asString() == "org.koin.core.KoinApplication"
 
         // KoinApplication.module<T>() — load a single @Module class
         val isModuleLoad = fqNameStr == "org.koin.plugin.module.dsl.module" &&
-            callee.extensionReceiverParameter?.type?.classFqName?.asString() == "org.koin.core.KoinApplication"
+            callee.extensionReceiverParam?.type?.classFqName?.asString() == "org.koin.core.KoinApplication"
         if (isModuleLoad) {
             return transformModuleLoad(expression, callee)
         }
 
         // KoinApplication.modules(vararg KClass) — load multiple @Module classes
         val isModulesLoad = fqNameStr == "org.koin.plugin.module.dsl.modules" &&
-            callee.extensionReceiverParameter?.type?.classFqName?.asString() == "org.koin.core.KoinApplication" &&
-            callee.valueParameters.size == 1 &&
-            callee.valueParameters[0].varargElementType != null
+            callee.extensionReceiverParam?.type?.classFqName?.asString() == "org.koin.core.KoinApplication" &&
+            callee.regularParameters.size == 1 &&
+            callee.regularParameters[0].varargElementType != null
         if (isModulesLoad) {
             return transformModulesLoad(expression)
         }
@@ -188,7 +188,7 @@ class KoinStartTransformer(
         }
 
         // Get the type argument T from startKoin<T>
-        val typeArg = expression.getTypeArgument(0) ?: return super.visitCall(expression)
+        val typeArg = expression.getTypeArgumentCompat(0) ?: return super.visitCall(expression)
         val appClass = (typeArg.classifierOrNull as? IrClassSymbol)?.owner
             ?: return super.visitCall(expression)
 
@@ -233,7 +233,7 @@ class KoinStartTransformer(
         }
 
         // Get the lambda argument (first argument in the generic version, may be null if default)
-        val lambdaArg = expression.getValueArgument(0)
+        val lambdaArg = expression.getRegularArgument(0)
 
         // Find the implementation function:
         // - startKoinWith(modules, lambda) for startKoin<T>()
@@ -250,7 +250,7 @@ class KoinStartTransformer(
             CallableId(FqName("org.koin.plugin.module.dsl"), Name.identifier(implFunctionName))
         ).firstOrNull { func ->
             func.owner.typeParameters.isEmpty() &&
-            func.owner.valueParameters.size == 2
+            func.owner.regularParameters.size == 2
         }?.owner ?: return super.visitCall(expression)
 
         val koinModuleClass = context.referenceClass(koinModuleClassId)?.owner
@@ -267,15 +267,15 @@ class KoinStartTransformer(
         val listOfFunction = context.referenceFunctions(
             CallableId(FqName("kotlin.collections"), Name.identifier("listOf"))
         ).firstOrNull { func ->
-            func.owner.valueParameters.size == 1 &&
-            func.owner.valueParameters[0].varargElementType != null
+            func.owner.regularParameters.size == 1 &&
+            func.owner.regularParameters[0].varargElementType != null
         }?.owner ?: return super.visitCall(expression)
 
         // Create listOf(module1, module2, ...) or emptyList()
         val modulesListArg = if (moduleExpressions.isNotEmpty()) {
             builder.irCall(listOfFunction.symbol).apply {
-                putTypeArgument(0, koinModuleClass.defaultType)
-                putValueArgument(0, builder.irVararg(
+                putTypeArgumentCompat(0, koinModuleClass.defaultType)
+                putRegularArgument(0, builder.irVararg(
                     koinModuleClass.defaultType,
                     moduleExpressions
                 ))
@@ -287,7 +287,7 @@ class KoinStartTransformer(
             ).firstOrNull()?.owner ?: return super.visitCall(expression)
 
             builder.irCall(emptyListFunction.symbol).apply {
-                putTypeArgument(0, koinModuleClass.defaultType)
+                putTypeArgumentCompat(0, koinModuleClass.defaultType)
             }
         }
 
@@ -296,10 +296,10 @@ class KoinStartTransformer(
         return builder.irCall(implFunction.symbol).apply {
             if (isWithConfiguration) {
                 // withConfigurationWith is an extension on KoinApplication, preserve the receiver
-                extensionReceiver = expression.extensionReceiver
+                setExtensionReceiverArgument(expression.extensionReceiverArgument)
             }
-            putValueArgument(0, modulesListArg)
-            putValueArgument(1, lambdaArg)
+            putRegularArgument(0, modulesListArg)
+            putRegularArgument(1, lambdaArg)
         }
     }
 
@@ -358,7 +358,7 @@ class KoinStartTransformer(
 
         // Look up configurations by name first, then fall back to positional index 0
         val configurationsArg = koinAppAnnotation.getValueArgument(Name.identifier("configurations"))
-            ?: koinAppAnnotation.getValueArgument(0)
+            ?: koinAppAnnotation.getRegularArgument(0)
 
         val labels = mutableListOf<String>()
         when (configurationsArg) {
@@ -409,7 +409,7 @@ class KoinStartTransformer(
 
         // Look up modules by name first, then fall back to positional index 1
         val modulesArg = koinAppAnnotation.getValueArgument(Name.identifier("modules"))
-            ?: koinAppAnnotation.getValueArgument(1)
+            ?: koinAppAnnotation.getRegularArgument(1)
             ?: return emptyList()
 
         // The argument should be a vararg/array of KClass references
@@ -491,7 +491,7 @@ class KoinStartTransformer(
 
                 for (hintFuncSymbol in hintFunctions) {
                     val hintFunc = hintFuncSymbol.owner
-                    val paramType = hintFunc.valueParameters.firstOrNull()?.type
+                    val paramType = hintFunc.regularParameters.firstOrNull()?.type
                     val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner ?: continue
                     val fqName = moduleClass.fqNameWhenAvailable?.asString()
                         ?: "<anon>@${System.identityHashCode(moduleClass)}"
@@ -564,11 +564,11 @@ class KoinStartTransformer(
                 val nc = node.symbol.owner
                 val ncFq = nc.fqNameWhenAvailable?.asString()
                 val isModulesCall = ncFq == "org.koin.plugin.module.dsl.modules" &&
-                    nc.extensionReceiverParameter?.type?.classFqName?.asString() == "org.koin.core.KoinApplication" &&
-                    nc.valueParameters.size == 1 &&
-                    nc.valueParameters[0].varargElementType != null
+                    nc.extensionReceiverParam?.type?.classFqName?.asString() == "org.koin.core.KoinApplication" &&
+                    nc.regularParameters.size == 1 &&
+                    nc.regularParameters[0].varargElementType != null
                 if (isModulesCall) {
-                    val varargArg = node.getValueArgument(0) as? IrVararg
+                    val varargArg = node.getRegularArgument(0) as? IrVararg
                     varargArg?.elements?.forEach { element ->
                         val cls = when (element) {
                             is IrClassReference -> (element.classType.classifierOrNull as? IrClassSymbol)?.owner
@@ -578,9 +578,9 @@ class KoinStartTransformer(
                         if (cls != null) result.add(cls)
                     }
                 }
-                for (i in 0 until node.valueArgumentsCount) visit(node.getValueArgument(i))
+                for (i in 0 until node.regularArgumentsCount) visit(node.getRegularArgument(i))
                 visit(node.dispatchReceiver)
-                visit(node.extensionReceiver)
+                visit(node.extensionReceiverArgument)
                 return
             }
             if (node is IrFunctionExpression) { visit(node.function.body); return }
@@ -593,7 +593,7 @@ class KoinStartTransformer(
             if (node is IrSetValue) { visit(node.value); return }
         }
 
-        for (i in 0 until call.valueArgumentsCount) visit(call.getValueArgument(i))
+        for (i in 0 until call.regularArgumentsCount) visit(call.getRegularArgument(i))
         return result.toList()
     }
 
@@ -604,7 +604,7 @@ class KoinStartTransformer(
      */
     private fun transformModuleLoad(expression: IrCall, callee: IrSimpleFunction): IrExpression {
         // Get type argument T
-        val typeArg = expression.getTypeArgument(0) ?: return super.visitCall(expression)
+        val typeArg = expression.getTypeArgumentCompat(0) ?: return super.visitCall(expression)
         val moduleClass = (typeArg.classifierOrNull as? IrClassSymbol)?.owner
             ?: return super.visitCall(expression)
 
@@ -617,15 +617,15 @@ class KoinStartTransformer(
             ?: return super.visitCall(expression)
 
         // Find the real KoinApplication.modules(Module) function
-        val koinAppClass = (expression.extensionReceiver?.type?.classifierOrNull as? IrClassSymbol)?.owner
+        val koinAppClass = (expression.extensionReceiverArgument?.type?.classifierOrNull as? IrClassSymbol)?.owner
             ?: return super.visitCall(expression)
 
         val modulesFunction = koinAppClass.declarations
             .filterIsInstance<IrSimpleFunction>()
             .firstOrNull { func ->
                 func.name.asString() == "modules" &&
-                func.valueParameters.size == 1 &&
-                func.valueParameters[0].varargElementType != null
+                func.regularParameters.size == 1 &&
+                func.regularParameters[0].varargElementType != null
             }
             ?: return super.visitCall(expression)
 
@@ -634,8 +634,8 @@ class KoinStartTransformer(
 
         // Generate: this.modules(T().module())
         return builder.irCall(modulesFunction.symbol).apply {
-            dispatchReceiver = expression.extensionReceiver
-            putValueArgument(0, builder.irVararg(
+            dispatchReceiver = expression.extensionReceiverArgument
+            putRegularArgument(0, builder.irVararg(
                 koinModuleClass.defaultType,
                 listOf(moduleExpression)
             ))
@@ -649,7 +649,7 @@ class KoinStartTransformer(
      * Resolves each KClass argument to a @Module class and calls the generated module() function.
      */
     private fun transformModulesLoad(expression: IrCall): IrExpression {
-        val varargArg = expression.getValueArgument(0) as? IrVararg
+        val varargArg = expression.getRegularArgument(0) as? IrVararg
             ?: return super.visitCall(expression)
 
         // Extract module classes from KClass references
@@ -678,15 +678,15 @@ class KoinStartTransformer(
         if (moduleExpressions.isEmpty()) return super.visitCall(expression)
 
         // Find the real KoinApplication.modules(vararg Module) function
-        val koinAppClass = (expression.extensionReceiver?.type?.classifierOrNull as? IrClassSymbol)?.owner
+        val koinAppClass = (expression.extensionReceiverArgument?.type?.classifierOrNull as? IrClassSymbol)?.owner
             ?: return super.visitCall(expression)
 
         val modulesFunction = koinAppClass.declarations
             .filterIsInstance<IrSimpleFunction>()
             .firstOrNull { func ->
                 func.name.asString() == "modules" &&
-                func.valueParameters.size == 1 &&
-                func.valueParameters[0].varargElementType != null
+                func.regularParameters.size == 1 &&
+                func.regularParameters[0].varargElementType != null
             }
             ?: return super.visitCall(expression)
 
@@ -695,8 +695,8 @@ class KoinStartTransformer(
 
         // Generate: this.modules(ModuleA().module(), ModuleB().module())
         return builder.irCall(modulesFunction.symbol).apply {
-            dispatchReceiver = expression.extensionReceiver
-            putValueArgument(0, builder.irVararg(
+            dispatchReceiver = expression.extensionReceiverArgument
+            putRegularArgument(0, builder.irVararg(
                 koinModuleClass.defaultType,
                 moduleExpressions
             ))

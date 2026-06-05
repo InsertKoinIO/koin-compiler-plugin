@@ -28,6 +28,7 @@ import org.jetbrains.kotlin.name.StandardClassIds
  */
 fun IrSimpleFunction.addDeprecatedHiddenAnnotation(context: IrPluginContext) {
     val annotation = buildDeprecatedHiddenAnnotation(context) ?: return
+    // TODO(version-adapter): annotations assignment is version-split in Kotlin 2.4.0
     annotations = annotations + annotation
 }
 
@@ -76,10 +77,10 @@ private fun buildDeprecatedHiddenAnnotation(context: IrPluginContext): IrConstru
     ).apply {
         // Set positional value arguments (used by codegen)
         // arg 0: message (String)
-        putValueArgument(0, messageExpr)
+        putRegularArgument(0, messageExpr)
         // arg 1: replaceWith — leave as default (null)
         // arg 2: level (DeprecationLevel.HIDDEN)
-        putValueArgument(2, levelExpr)
+        putRegularArgument(2, levelExpr)
 
         // Also set argument mapping (used by IR annotation processing and metadata serialization)
         argumentMapping = mapOf(

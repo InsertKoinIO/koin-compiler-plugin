@@ -148,10 +148,10 @@ class InjectedParamHintGenerator(
      */
     private fun extractSlotsFromDefinition(def: Definition): List<InjectedParamSlot>? {
         val params: List<IrValueParameter> = when (def) {
-            is Definition.ClassDef -> findInjectableConstructor(def.irClass)?.valueParameters
-            is Definition.DslDef -> findInjectableConstructor(def.irClass)?.valueParameters
-            is Definition.FunctionDef -> def.irFunction.valueParameters
-            is Definition.TopLevelFunctionDef -> def.irFunction.valueParameters
+            is Definition.ClassDef -> findInjectableConstructor(def.irClass)?.regularParameters
+            is Definition.DslDef -> findInjectableConstructor(def.irClass)?.regularParameters
+            is Definition.FunctionDef -> def.irFunction.regularParameters
+            is Definition.TopLevelFunctionDef -> def.irFunction.regularParameters
             is Definition.ExternalFunctionDef -> null
         } ?: return null
 
@@ -203,10 +203,10 @@ class InjectedParamHintGenerator(
         // Re-walk the source params so we can reuse the original IrType for each slot
         // (preserving its nullability) rather than reconstructing it from FqName.
         val sourceParams: List<IrValueParameter> = when (def) {
-            is Definition.ClassDef -> findInjectableConstructor(def.irClass)?.valueParameters
-            is Definition.DslDef -> findInjectableConstructor(def.irClass)?.valueParameters
-            is Definition.FunctionDef -> def.irFunction.valueParameters
-            is Definition.TopLevelFunctionDef -> def.irFunction.valueParameters
+            is Definition.ClassDef -> findInjectableConstructor(def.irClass)?.regularParameters
+            is Definition.DslDef -> findInjectableConstructor(def.irClass)?.regularParameters
+            is Definition.FunctionDef -> def.irFunction.regularParameters
+            is Definition.TopLevelFunctionDef -> def.irFunction.regularParameters
             else -> null
         } ?: return
 
@@ -251,7 +251,7 @@ class InjectedParamHintGenerator(
                 type = paramType,
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
-                index = index,
+                kind = IrParameterKind.Regular,
                 varargElementType = null,
                 isCrossinline = false,
                 isNoinline = false,
@@ -263,7 +263,7 @@ class InjectedParamHintGenerator(
 
         if (params.isEmpty()) return
 
-        function.valueParameters = params
+        function.parameters = params
         function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
         function.addDeprecatedHiddenAnnotation(context)
 
@@ -344,7 +344,7 @@ class InjectedParamHintGenerator(
         )
         val hintFunc = symbols.firstOrNull()?.owner ?: return null
         val slots = mutableListOf<InjectedParamSlot>()
-        for (p in hintFunc.valueParameters) {
+        for (p in hintFunc.regularParameters) {
             val classifier = (p.type.classifierOrNull as? IrClassSymbol)?.owner
             val typeFqName = classifier?.fqNameWhenAvailable?.asString() ?: return null
             slots.add(

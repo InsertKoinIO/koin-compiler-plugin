@@ -87,7 +87,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                 type = targetClass.hintParameterType(context),
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
-                index = 0,
+                kind = IrParameterKind.Regular,
                 varargElementType = null,
                 isCrossinline = false,
                 isNoinline = false,
@@ -106,7 +106,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     type = binding.hintParameterType(context),
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
-                    index = bindingIndex + 1,
+                    kind = IrParameterKind.Regular,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,
@@ -127,7 +127,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     type = context.irBuiltIns.unitType,
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
-                    index = params.size,
+                    kind = IrParameterKind.Regular,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,
@@ -147,7 +147,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     type = context.irBuiltIns.unitType,
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
-                    index = params.size,
+                    kind = IrParameterKind.Regular,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,
@@ -170,7 +170,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                         type = context.irBuiltIns.unitType,
                         isAssignable = false,
                         symbol = IrValueParameterSymbolImpl(),
-                        index = params.size,
+                        kind = IrParameterKind.Regular,
                         varargElementType = null,
                         isCrossinline = false,
                         isNoinline = false,
@@ -189,7 +189,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                         type = defQualifier.irClass.defaultType,
                         isAssignable = false,
                         symbol = IrValueParameterSymbolImpl(),
-                        index = params.size,
+                        kind = IrParameterKind.Regular,
                         varargElementType = null,
                         isCrossinline = false,
                         isNoinline = false,
@@ -201,7 +201,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
                 null -> {}
             }
 
-            function.valueParameters = params
+            function.parameters = params
 
             // Empty body (stub — hint functions are never called)
             function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
@@ -327,7 +327,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                for (param in hintFunc.valueParameters) {
+                for (param in hintFunc.regularParameters) {
                     val paramClass = (param.type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
                     paramClass.fqNameWhenAvailable?.asString()?.let { types.add(it) }
                 }
@@ -362,7 +362,7 @@ class DslHintGenerator(private val context: IrPluginContext) {
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                val params = hintFunc.valueParameters
+                val params = hintFunc.regularParameters
                 if (params.isEmpty()) continue
 
                 // First param is the concrete type, remaining are bindings

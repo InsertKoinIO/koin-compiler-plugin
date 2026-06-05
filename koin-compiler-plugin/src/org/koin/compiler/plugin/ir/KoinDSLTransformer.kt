@@ -239,11 +239,11 @@ class KoinDSLTransformer(
             val callee = expression.symbol.owner
             collectCallSiteIfResolutionFunction(expression, callee)
             // Recurse into call arguments
-            for (i in 0 until expression.valueArgumentsCount) {
-                val arg = expression.getValueArgument(i)
+            for (i in 0 until expression.regularArgumentsCount) {
+                val arg = expression.getRegularArgument(i)
                 if (arg != null) collectCallSitesFromExpression(arg)
             }
-            expression.extensionReceiver?.let { collectCallSitesFromExpression(it) }
+            expression.extensionReceiverArgument?.let { collectCallSitesFromExpression(it) }
             expression.dispatchReceiver?.let { collectCallSitesFromExpression(it) }
         }
     }
@@ -265,8 +265,8 @@ class KoinDSLTransformer(
             // Capture the outer typed DSL call's type argument (e.g., `single<T> { ... }` → T).
             // Used by handleScopeCreate so `single<T> { create(::Impl) }` registers T as the
             // provided type instead of Impl.
-            val outerTypeArg = if (expression.typeArgumentsCount >= 1) {
-                (expression.getTypeArgument(0)?.classifierOrNull as? IrClassSymbol)?.owner
+            val outerTypeArg = if (expression.typeArguments.size >= 1) {
+                (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
             } else null
             transformContext = transformContext.copy(
                 definitionCall = functionName,
@@ -275,8 +275,8 @@ class KoinDSLTransformer(
         }
 
         // Detect scope<ScopeType> { } — push scope type into context
-        if (functionName == scopeName && expression.typeArgumentsCount >= 1) {
-            val scopeTypeArg = expression.getTypeArgument(0)
+        if (functionName == scopeName && expression.typeArguments.size >= 1) {
+            val scopeTypeArg = expression.getTypeArgumentCompat(0)
             val scopeTypeClass = (scopeTypeArg?.classifierOrNull as? IrClassSymbol)?.owner
             if (scopeTypeClass != null) {
                 transformContext = transformContext.copy(scopeTypeClass = scopeTypeClass)
@@ -308,7 +308,7 @@ class KoinDSLTransformer(
         }
 
         // Get receiver - can be extension receiver or dispatch receiver (for implicit this in lambdas)
-        val extensionReceiver = transformedCall.extensionReceiver
+        val extensionReceiver = transformedCall.extensionReceiverArgument
         val dispatchReceiver = transformedCall.dispatchReceiver
 
         // Determine the actual receiver
@@ -333,14 +333,14 @@ class KoinDSLTransformer(
         }
 
         // Handle reified type parameter syntax: single<T>(), factory<T>(), etc.
-        if (transformedCall.valueArgumentsCount == 0 && transformedCall.typeArgumentsCount >= 1 && extensionReceiver != null) {
+        if (transformedCall.regularArgumentsCount == 0 && transformedCall.typeArguments.size >= 1 && extensionReceiver != null) {
             return handleTypeParameterCall(transformedCall, extensionReceiver, receiverClassifier, functionName)
         }
 
         // Handle create(::Constructor) or create(::function) - for Scope.create
         // Works with both extension receiver (scope.create) and dispatch receiver (this.create in lambda)
         if (functionName == createName && receiverClassifier.name.asString() == "Scope") {
-            val functionRef = transformedCall.getValueArgument(0) as? IrFunctionReference ?: return transformedCall
+            val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return transformedCall
             val referencedFunction = functionRef.symbol.owner
             return handleScopeCreate(transformedCall, referencedFunction, receiver)
         }
@@ -358,7 +358,7 @@ class KoinDSLTransformer(
         if (calleeFqName !in callSiteResolutionFqNames) return
         if (callee.typeParameters.isEmpty()) return
 
-        val typeArg = expression.getTypeArgument(0) ?: return
+        val typeArg = expression.getTypeArgumentCompat(0) ?: return
         val targetClass = (typeArg.classifierOrNull as? IrClassSymbol)?.owner ?: return
         val targetFqName = targetClass.fqNameWhenAvailable?.asString() ?: return
 
@@ -381,8 +381,8 @@ class KoinDSLTransformer(
         // robust to whatever shape Compose produces and falls back cleanly for non-Composable
         // call sites (where the top-level arg is already an IrFunctionExpression).
         var parametersOfCall: IrCall? = null
-        for (i in 0 until expression.valueArgumentsCount) {
-            val arg = expression.getValueArgument(i) ?: continue
+        for (i in 0 until expression.regularArgumentsCount) {
+            val arg = expression.getRegularArgument(i) ?: continue
             parametersOfCall = findParametersOfCall(arg) ?: continue
             break
         }
@@ -439,11 +439,11 @@ class KoinDSLTransformer(
         if (node is IrCall) {
             val fqName = node.symbol.owner.fqNameWhenAvailable?.asString()
             if (fqName == KoinAnnotationFqNames.PARAMETERS_OF.asString()) return node
-            for (i in 0 until node.valueArgumentsCount) {
-                findParametersOfCall(node.getValueArgument(i), visited)?.let { return it }
+            for (i in 0 until node.regularArgumentsCount) {
+                findParametersOfCall(node.getRegularArgument(i), visited)?.let { return it }
             }
             findParametersOfCall(node.dispatchReceiver, visited)?.let { return it }
-            findParametersOfCall(node.extensionReceiver, visited)?.let { return it }
+            findParametersOfCall(node.extensionReceiverArgument, visited)?.let { return it }
         }
         if (node is IrFunctionExpression) {
             return findParametersOfCall(node.function.body, visited)
@@ -469,8 +469,8 @@ class KoinDSLTransformer(
     ): List<BindingRegistry.Companion.ParametersOfArg>? {
         // parametersOf is `vararg values: Any?` — a single value-argument that's an IrVararg.
         val args = mutableListOf<BindingRegistry.Companion.ParametersOfArg>()
-        if (call.valueArgumentsCount == 0) return args
-        val varargArg = call.getValueArgument(0)
+        if (call.regularArgumentsCount == 0) return args
+        val varargArg = call.getRegularArgument(0)
         when (varargArg) {
             is IrVararg -> {
                 for (element in varargArg.elements) {
@@ -525,7 +525,7 @@ class KoinDSLTransformer(
         if (_dslDefinitions.isEmpty()) return
 
         // Extract the KClass argument from bind(clazz: KClass<S>)
-        val classArg = expression.getValueArgument(0) ?: return
+        val classArg = expression.getRegularArgument(0) ?: return
         val boundClass = when (classArg) {
             is IrClassReference -> {
                 val classifier = classArg.classType.classifierOrNull
@@ -551,7 +551,7 @@ class KoinDSLTransformer(
     private fun collectModuleLoadingInfo(expression: IrCall, callee: IrSimpleFunction) {
         val functionName = callee.name.asString()
         if (functionName == "includes") {
-            val receiverType = (callee.extensionReceiverParameter ?: callee.dispatchReceiverParameter)
+            val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.module.Module") {
                 val currentModuleId = transformContext.modulePropertyId ?: return
@@ -564,7 +564,7 @@ class KoinDSLTransformer(
             return
         }
         if (functionName == "modules") {
-            val receiverType = (callee.extensionReceiverParameter ?: callee.dispatchReceiverParameter)
+            val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.KoinApplication") {
                 val loadedModules = resolveModuleReferences(expression)
@@ -578,8 +578,8 @@ class KoinDSLTransformer(
 
     private fun resolveModuleReferences(call: IrCall): List<String> {
         val result = mutableListOf<String>()
-        for (i in 0 until call.valueArgumentsCount) {
-            val arg = call.getValueArgument(i) ?: continue
+        for (i in 0 until call.regularArgumentsCount) {
+            val arg = call.getRegularArgument(i) ?: continue
             resolveModuleRef(arg, result)
         }
         return result
@@ -620,7 +620,7 @@ class KoinDSLTransformer(
         receiverClassifier: IrClass,
         functionName: Name
     ): IrExpression {
-        val typeArg = call.getTypeArgument(0) ?: return call
+        val typeArg = call.getTypeArgumentCompat(0) ?: return call
         val targetClass = typeArg.classifierOrNull?.owner as? IrClass ?: return call
         val constructor = targetClass.primaryConstructor
         if (constructor == null) {
@@ -671,12 +671,12 @@ class KoinDSLTransformer(
 
         // Build the transformed call
         return builder.irCall(targetFunction.symbol).apply {
-            this.extensionReceiver = extensionReceiver
-            putTypeArgument(0, targetClass.defaultType)
+            setExtensionReceiverArgument(extensionReceiver)
+            putTypeArgumentCompat(0, targetClass.defaultType)
 
             // Arg 0: KClass<T>
             val kClassClassOwner = kClassClass ?: return call
-            putValueArgument(0, IrClassReferenceImpl(
+            putRegularArgument(0, IrClassReferenceImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
                 kClassClassOwner.typeWith(targetClass.defaultType),
                 targetClass.symbol,
@@ -684,18 +684,18 @@ class KoinDSLTransformer(
             ))
 
             // Arg 1: Qualifier? (for workers, always use class name as qualifier)
-            putValueArgument(1, qualifierExtractor.createQualifierCall(effectiveQualifier, builder) ?: builder.irNull())
+            putRegularArgument(1, qualifierExtractor.createQualifierCall(effectiveQualifier, builder) ?: builder.irNull())
 
             // Arg 2: Definition lambda { T(get(), get(), ...) }
             val parentFunc = currentFunction ?: return call
-            putValueArgument(2, lambdaBuilder.create(targetClass, builder, parentFunc) { lb, scopeParam, paramsParam ->
+            putRegularArgument(2, lambdaBuilder.create(targetClass, builder, parentFunc) { lb, scopeParam, paramsParam ->
                 lb.irCallConstructor(constructor.symbol, emptyList()).apply {
-                    constructor.valueParameters.forEachIndexed { index, param ->
+                    constructor.regularParameters.forEachIndexed { index, param ->
                         val scopeGet = lb.irGet(scopeParam)
                         val paramsGet = lb.irGet(paramsParam)
                         val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, lb)
                         if (argument != null) {
-                            putValueArgument(index, argument)
+                            putRegularArgument(index, argument)
                         }
                     }
                 }
@@ -750,10 +750,10 @@ class KoinDSLTransformer(
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${providedClass.name}" }
                 builder.irCallConstructor(referencedFunction.symbol, emptyList()).apply {
-                    referencedFunction.valueParameters.forEachIndexed { index, param ->
+                    referencedFunction.regularParameters.forEachIndexed { index, param ->
                         val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeReceiver, null, builder)
                         if (argument != null) {
-                            putValueArgument(index, argument)
+                            putRegularArgument(index, argument)
                         }
                         // If argument is null, parameter has a default value and will use it
                     }
@@ -790,10 +790,10 @@ class KoinDSLTransformer(
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${referencedFunction.name}) } -> $returnTypeName" }
                 builder.irCall(referencedFunction.symbol).apply {
-                    referencedFunction.valueParameters.forEachIndexed { index, param ->
+                    referencedFunction.regularParameters.forEachIndexed { index, param ->
                         val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeReceiver, null, builder)
                         if (argument != null) {
-                            putValueArgument(index, argument)
+                            putRegularArgument(index, argument)
                         }
                         // If argument is null, parameter has a default value and will use it
                     }
@@ -823,8 +823,8 @@ class KoinDSLTransformer(
         }
 
         // Find the lambda argument from the original call
-        val existingLambda = (0 until call.valueArgumentsCount)
-            .mapNotNull { call.getValueArgument(it) }
+        val existingLambda = (0 until call.regularArgumentsCount)
+            .mapNotNull { call.getRegularArgument(it) }
             .firstOrNull { it is IrFunctionExpression }
             ?: return call
 
@@ -833,12 +833,12 @@ class KoinDSLTransformer(
         val builder = DeclarationIrBuilder(context, call.symbol, call.startOffset, call.endOffset)
 
         return builder.irCall(targetFunction.symbol).apply {
-            this.extensionReceiver = receiver
-            putTypeArgument(0, returnClass.defaultType)
+            setExtensionReceiverArgument(receiver)
+            putTypeArgumentCompat(0, returnClass.defaultType)
 
             // Arg 0: KClass<T>
             val kClassClassOwner = kClassClass ?: return call
-            putValueArgument(0, IrClassReferenceImpl(
+            putRegularArgument(0, IrClassReferenceImpl(
                 UNDEFINED_OFFSET, UNDEFINED_OFFSET,
                 kClassClassOwner.typeWith(returnClass.defaultType),
                 returnClass.symbol,
@@ -846,10 +846,10 @@ class KoinDSLTransformer(
             ))
 
             // Arg 1: Qualifier
-            putValueArgument(1, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
+            putRegularArgument(1, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
 
             // Arg 2: Existing definition lambda (already transformed by super.visitCall)
-            putValueArgument(2, existingLambda)
+            putRegularArgument(2, existingLambda)
         }
     }
 
@@ -908,11 +908,11 @@ class KoinDSLTransformer(
             .map { it.owner }
             .filterIsInstance<IrSimpleFunction>()
             .firstOrNull { function ->
-                function.extensionReceiverParameter?.type?.classifierOrNull?.owner?.let {
+                function.extensionReceiverParam?.type?.classifierOrNull?.owner?.let {
                     (it as? IrClass)?.name?.asString() == receiverClassName
                 } == true &&
-                function.valueParameters.size >= 3 &&
-                function.valueParameters[0].type.classifierOrNull?.owner?.let {
+                function.regularParameters.size >= 3 &&
+                function.regularParameters[0].type.classifierOrNull?.owner?.let {
                     (it as? IrClass)?.name?.asString() == "KClass"
                 } == true
             }

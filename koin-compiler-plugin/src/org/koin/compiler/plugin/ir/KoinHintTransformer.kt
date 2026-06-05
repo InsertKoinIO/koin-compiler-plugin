@@ -81,7 +81,7 @@ class KoinHintTransformer(
 
         return builder.irBlockBody {
             +irCall(errorFunction).apply {
-                putValueArgument(0, irString("Stub!"))
+                putRegularArgument(0, irString("Stub!"))
             }
         }
     }

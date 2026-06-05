@@ -97,8 +97,8 @@ class DefinitionCallBuilder(
         }
 
         val definitionCall = builder.irCall(targetFunction.symbol).apply {
-            extensionReceiver = builder.irGet(moduleReceiver)
-            putTypeArgument(0, targetClass.defaultType)
+            setExtensionReceiverArgument(builder.irGet(moduleReceiver))
+            putTypeArgumentCompat(0, targetClass.defaultType)
 
             val kClassType = kClass.typeWith(targetClass.defaultType)
             val classReference = IrClassReferenceImpl(
@@ -108,22 +108,22 @@ class DefinitionCallBuilder(
                 symbol = targetClass.symbol,
                 classType = targetClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
 
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(effectiveQualifier, builder) ?: builder.irNull()
-            putValueArgument(1, qualifierArg)
+            putRegularArgument(1, qualifierArg)
 
             val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
-            putValueArgument(2, definitionLambda)
+            putRegularArgument(2, definitionLambda)
 
             // Add createdAtStart parameter if applicable (only for SINGLE)
             if (definition.createdAtStart && definition.definitionType == DefinitionType.SINGLE) {
                 // Find the createdAtStart parameter index (usually 3 or via name)
-                val createdAtStartIndex = targetFunction.valueParameters.indexOfFirst {
+                val createdAtStartIndex = targetFunction.regularParameters.indexOfFirst {
                     it.name.asString() == "createdAtStart"
                 }
                 if (createdAtStartIndex >= 0) {
-                    putValueArgument(createdAtStartIndex, builder.irTrue())
+                    putRegularArgument(createdAtStartIndex, builder.irTrue())
                 }
             }
         }
@@ -191,8 +191,8 @@ class DefinitionCallBuilder(
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
         val definitionCall = builder.irCall(koinFunction.symbol).apply {
-            extensionReceiver = builder.irGet(moduleReceiver)
-            putTypeArgument(0, returnTypeClass.defaultType)
+            setExtensionReceiverArgument(builder.irGet(moduleReceiver))
+            putTypeArgumentCompat(0, returnTypeClass.defaultType)
 
             val kClassType = kClass.typeWith(returnTypeClass.defaultType)
             val classReference = IrClassReferenceImpl(
@@ -202,15 +202,15 @@ class DefinitionCallBuilder(
                 symbol = returnTypeClass.symbol,
                 classType = returnTypeClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
 
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
-            putValueArgument(1, qualifierArg)
+            putRegularArgument(1, qualifierArg)
 
             val definitionLambda = createFunctionDefinitionLambda(
                 targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
             )
-            putValueArgument(2, definitionLambda)
+            putRegularArgument(2, definitionLambda)
         }
 
         return if (definition.bindings.isNotEmpty()) {
@@ -256,8 +256,8 @@ class DefinitionCallBuilder(
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
         val definitionCall = builder.irCall(koinFunction.symbol).apply {
-            extensionReceiver = builder.irGet(moduleReceiver)
-            putTypeArgument(0, returnTypeClass.defaultType)
+            setExtensionReceiverArgument(builder.irGet(moduleReceiver))
+            putTypeArgumentCompat(0, returnTypeClass.defaultType)
 
             val kClassType = kClass.typeWith(returnTypeClass.defaultType)
             val classReference = IrClassReferenceImpl(
@@ -267,23 +267,23 @@ class DefinitionCallBuilder(
                 symbol = returnTypeClass.symbol,
                 classType = returnTypeClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
 
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
-            putValueArgument(1, qualifierArg)
+            putRegularArgument(1, qualifierArg)
 
             val definitionLambda = createTopLevelFunctionDefinitionLambda(
                 targetFunction, returnTypeClass, builder, parentFunction
             )
-            putValueArgument(2, definitionLambda)
+            putRegularArgument(2, definitionLambda)
 
             // Add createdAtStart parameter if applicable (only for SINGLE)
             if (definition.createdAtStart && definition.definitionType == DefinitionType.SINGLE) {
-                val createdAtStartIndex = koinFunction.valueParameters.indexOfFirst {
+                val createdAtStartIndex = koinFunction.regularParameters.indexOfFirst {
                     it.name.asString() == "createdAtStart"
                 }
                 if (createdAtStartIndex >= 0) {
-                    putValueArgument(createdAtStartIndex, builder.irTrue())
+                    putRegularArgument(createdAtStartIndex, builder.irTrue())
                 }
             }
         }
@@ -342,7 +342,7 @@ class DefinitionCallBuilder(
         }
 
         val definitionCall = builder.irCall(scopedFunction.symbol).apply {
-            extensionReceiver = builder.irGet(scopeDslReceiver)
+            setExtensionReceiverArgument(builder.irGet(scopeDslReceiver))
 
             val kClassType = kClass.typeWith(targetClass.defaultType)
             val classReference = IrClassReferenceImpl(
@@ -352,13 +352,13 @@ class DefinitionCallBuilder(
                 symbol = targetClass.symbol,
                 classType = targetClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
 
             val qualifierCall = qualifierExtractor.createQualifierCall(effectiveQualifier, builder)
-            putValueArgument(1, qualifierCall ?: builder.irNull())
+            putRegularArgument(1, qualifierCall ?: builder.irNull())
 
             val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
-            putValueArgument(2, definitionLambda)
+            putRegularArgument(2, definitionLambda)
         }
 
         return addBindings(definitionCall, definition.bindings, builder)
@@ -401,8 +401,8 @@ class DefinitionCallBuilder(
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
         val definitionCall = builder.irCall(scopedFunction.symbol).apply {
-            extensionReceiver = builder.irGet(scopeDslReceiver)
-            putTypeArgument(0, returnTypeClass.defaultType)
+            setExtensionReceiverArgument(builder.irGet(scopeDslReceiver))
+            putTypeArgumentCompat(0, returnTypeClass.defaultType)
 
             val kClassType = kClass.typeWith(returnTypeClass.defaultType)
             val classReference = IrClassReferenceImpl(
@@ -412,15 +412,15 @@ class DefinitionCallBuilder(
                 symbol = returnTypeClass.symbol,
                 classType = returnTypeClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
 
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
-            putValueArgument(1, qualifierArg)
+            putRegularArgument(1, qualifierArg)
 
             val definitionLambda = createFunctionDefinitionLambda(
                 targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
             )
-            putValueArgument(2, definitionLambda)
+            putRegularArgument(2, definitionLambda)
         }
 
         return addBindings(definitionCall, definition.bindings, builder)
@@ -461,8 +461,8 @@ class DefinitionCallBuilder(
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
 
         val definitionCall = builder.irCall(scopedFunction.symbol).apply {
-            extensionReceiver = builder.irGet(scopeDslReceiver)
-            putTypeArgument(0, returnTypeClass.defaultType)
+            setExtensionReceiverArgument(builder.irGet(scopeDslReceiver))
+            putTypeArgumentCompat(0, returnTypeClass.defaultType)
 
             val kClassType = kClass.typeWith(returnTypeClass.defaultType)
             val classReference = IrClassReferenceImpl(
@@ -472,15 +472,15 @@ class DefinitionCallBuilder(
                 symbol = returnTypeClass.symbol,
                 classType = returnTypeClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
 
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
-            putValueArgument(1, qualifierArg)
+            putRegularArgument(1, qualifierArg)
 
             val definitionLambda = createTopLevelFunctionDefinitionLambda(
                 targetFunction, returnTypeClass, builder, parentFunction
             )
-            putValueArgument(2, definitionLambda)
+            putRegularArgument(2, definitionLambda)
         }
 
         return addBindings(definitionCall, definition.bindings, builder)
@@ -505,8 +505,8 @@ class DefinitionCallBuilder(
         if (bindFunction != null) {
             for (binding in bindings) {
                 result = builder.irCall(bindFunction.symbol).apply {
-                    extensionReceiver = result
-                    putTypeArgument(0, binding.defaultType)
+                    setExtensionReceiverArgument(result)
+                    putTypeArgumentCompat(0, binding.defaultType)
 
                     val kClassType = kClass.typeWith(binding.defaultType)
                     val classReference = IrClassReferenceImpl(
@@ -516,7 +516,7 @@ class DefinitionCallBuilder(
                         symbol = binding.symbol,
                         classType = binding.defaultType
                     )
-                    putValueArgument(0, classReference)
+                    putRegularArgument(0, classReference)
                 }
             }
         }
@@ -557,12 +557,12 @@ class DefinitionCallBuilder(
             .map { it.owner }
             .filterIsInstance<IrSimpleFunction>()
             .firstOrNull { function ->
-                val receiverClass = function.extensionReceiverParameter?.type?.classifierOrNull?.owner as? IrClass
-                val firstParamClass = function.valueParameters.getOrNull(0)?.type?.classifierOrNull?.owner as? IrClass
-                val secondParamClass = function.valueParameters.getOrNull(1)?.type?.classifierOrNull?.owner as? IrClass
+                val receiverClass = function.extensionReceiverParam?.type?.classifierOrNull?.owner as? IrClass
+                val firstParamClass = function.regularParameters.getOrNull(0)?.type?.classifierOrNull?.owner as? IrClass
+                val secondParamClass = function.regularParameters.getOrNull(1)?.type?.classifierOrNull?.owner as? IrClass
 
                 receiverClass?.name?.asString() == receiverClassName &&
-                function.valueParameters.size >= 3 &&
+                function.regularParameters.size >= 3 &&
                 firstParamClass?.name?.asString() == "KClass" &&
                 secondParamClass?.name?.asString() == "Qualifier"
             }
@@ -579,12 +579,12 @@ class DefinitionCallBuilder(
     ): IrExpression {
         return lambdaBuilder.create(returnTypeClass, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
             irBuilder.irCallConstructor(constructor.symbol, emptyList()).apply {
-                constructor.valueParameters.forEachIndexed { index, param ->
+                constructor.regularParameters.forEachIndexed { index, param ->
                     val scopeGet = irBuilder.irGet(scopeParam)
                     val paramsGet = irBuilder.irGet(paramsParam)
                     val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, irBuilder)
                     if (argument != null) {
-                        putValueArgument(index, argument)
+                        putRegularArgument(index, argument)
                     }
                 }
             }
@@ -602,7 +602,7 @@ class DefinitionCallBuilder(
         parentFunction: IrFunction,
         getterFunction: IrFunction
     ): IrExpression {
-        val moduleInstanceReceiver = getterFunction.extensionReceiverParameter
+        val moduleInstanceReceiver = getterFunction.extensionReceiverParam
         if (moduleInstanceReceiver == null) {
             KoinPluginLogger.debug { "No extension receiver on getter for function ${targetFunction.name} - lambda skipped" }
             return builder.irNull()
@@ -612,12 +612,12 @@ class DefinitionCallBuilder(
             irBuilder.irCall(targetFunction.symbol).apply {
                 dispatchReceiver = irBuilder.irGet(moduleInstanceReceiver)
 
-                targetFunction.valueParameters.forEachIndexed { index, param ->
+                targetFunction.regularParameters.forEachIndexed { index, param ->
                     val scopeGet = irBuilder.irGet(scopeParam)
                     val paramsGet = irBuilder.irGet(paramsParam)
                     val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, irBuilder)
                     if (argument != null) {
-                        putValueArgument(index, argument)
+                        putRegularArgument(index, argument)
                     }
                 }
             }
@@ -635,12 +635,12 @@ class DefinitionCallBuilder(
     ): IrExpression {
         return lambdaBuilder.create(returnTypeClass, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
             irBuilder.irCall(targetFunction.symbol).apply {
-                targetFunction.valueParameters.forEachIndexed { index, param ->
+                targetFunction.regularParameters.forEachIndexed { index, param ->
                     val scopeGet = irBuilder.irGet(scopeParam)
                     val paramsGet = irBuilder.irGet(paramsParam)
                     val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, irBuilder)
                     if (argument != null) {
-                        putValueArgument(index, argument)
+                        putRegularArgument(index, argument)
                     }
                 }
             }

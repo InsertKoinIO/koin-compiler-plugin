@@ -236,10 +236,10 @@ class KoinMonitorTransformer(
         // or: getInstance().suspendTrace("label", false) { originalBody }
         val traceCall = builder.irCall(traceFn.symbol).apply {
             dispatchReceiver = getInstance
-            putTypeArgument(0, function.returnType)
-            putValueArgument(0, builder.irString(label))
-            putValueArgument(1, builder.irFalse())  // stacktrace = false
-            putValueArgument(2, lambdaExpr)
+            putTypeArgumentCompat(0, function.returnType)
+            putRegularArgument(0, builder.irString(label))
+            putRegularArgument(1, builder.irFalse())  // stacktrace = false
+            putRegularArgument(2, lambdaExpr)
         }
 
         // Wrap in return statement

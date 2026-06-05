@@ -243,7 +243,7 @@ class KoinAnnotationProcessor(
         if (propertyValueAnnotation == null) return
 
         // Extract the property key from @PropertyValue("key")
-        val valueArg = propertyValueAnnotation.getValueArgument(0)
+        val valueArg = propertyValueAnnotation.getRegularArgument(0)
         val propertyKey = (valueArg as? IrConst)?.value as? String ?: return
 
         // Register this property as the default value provider
@@ -437,7 +437,7 @@ class KoinAnnotationProcessor(
             annotation.type.classFqName?.asString() == KoinAnnotationFqNames.SCOPE.asString()
         } ?: return null
 
-        val valueArg = scopeAnnotation.getValueArgument(0)
+        val valueArg = scopeAnnotation.getRegularArgument(0)
         return when (valueArg) {
             is IrClassReferenceImpl -> valueArg.classType.classifierOrNull?.owner as? IrClass
             else -> null
@@ -460,9 +460,9 @@ class KoinAnnotationProcessor(
 
         // @Scope is declared as `(value: KClass = Unit::class, name: String = "")` — name is positional
         // arg index 1 when supplied. IrCall stores explicit named-args at their declared parameter
-        // index, so getValueArgument(1) returns the user's `name = "..."` whether they wrote it
+        // index, so getRegularArgument(1) returns the user's `name = "..."` whether they wrote it
         // positionally or as a named argument.
-        val nameArg = scopeAnnotation.getValueArgument(1) as? org.jetbrains.kotlin.ir.expressions.IrConst
+        val nameArg = scopeAnnotation.getRegularArgument(1) as? org.jetbrains.kotlin.ir.expressions.IrConst
         val value = nameArg?.value as? String
         return value?.takeIf { it.isNotEmpty() }
     }
@@ -554,7 +554,7 @@ class KoinAnnotationProcessor(
         name: Name,
         positionalFallbackIndex: Int
     ): Boolean {
-        val arg = annotation.getValueArgument(name) ?: annotation.getValueArgument(positionalFallbackIndex)
+        val arg = annotation.getValueArgument(name) ?: annotation.getRegularArgument(positionalFallbackIndex)
         return when (arg) {
             is IrConst -> arg.value as? Boolean ?: false
             else -> false
@@ -579,7 +579,7 @@ class KoinAnnotationProcessor(
 
         // binds: look up by name first, then fall back to positional index 0
         val bindsArg = annotation.getValueArgument(Name.identifier("binds"))
-            ?: annotation.getValueArgument(0)
+            ?: annotation.getRegularArgument(0)
 
         if (bindsArg is IrVararg) {
             val bindings = bindsArg.elements.mapNotNull { element ->
@@ -640,7 +640,7 @@ class KoinAnnotationProcessor(
             annotation.type.classFqName?.asString() == KoinAnnotationFqNames.COMPONENT_SCAN.asString()
         } ?: return emptyList()
 
-        val valueArg = annotation.getValueArgument(0)
+        val valueArg = annotation.getRegularArgument(0)
         if (valueArg is IrVararg) {
             return valueArg.elements.mapNotNull { element ->
                 when (element) {
@@ -662,7 +662,7 @@ class KoinAnnotationProcessor(
         } ?: return emptyList()
 
         // Find the "includes" parameter (usually index 0 for @Module)
-        val includesArg = annotation.getValueArgument(0)
+        val includesArg = annotation.getRegularArgument(0)
         if (includesArg is IrVararg) {
             return includesArg.elements.mapNotNull { element ->
                 when (element) {
@@ -787,7 +787,7 @@ class KoinAnnotationProcessor(
             val hasFirGeneratedFunction = moduleFragment.files.any { file ->
                 file.declarations.filterIsInstance<IrSimpleFunction>().any { func ->
                     func.name.asString() == "module" &&
-                    func.extensionReceiverParameter?.type?.classFqName?.asString() ==
+                    func.extensionReceiverParam?.type?.classFqName?.asString() ==
                         moduleClass.irClass.fqNameWhenAvailable?.asString() &&
                     func.body == null  // FIR-generated, needs body
                 }
@@ -828,7 +828,7 @@ class KoinAnnotationProcessor(
                         val alreadyInFile = try {
                             containingFile.declarations.any {
                                 it is IrSimpleFunction && it.name.asString() == "module" &&
-                                it.extensionReceiverParameter?.type?.classFqName?.asString() == moduleClass.irClass.fqNameWhenAvailable?.asString()
+                                it.extensionReceiverParam?.type?.classFqName?.asString() == moduleClass.irClass.fqNameWhenAvailable?.asString()
                             }
                         } catch (e: Exception) {
                             KoinPluginLogger.debug { "    -> ERROR in alreadyInFile check: ${e.message}" }
@@ -1086,7 +1086,7 @@ class KoinAnnotationProcessor(
             type = targetClass.hintParameterType(context),
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
-            index = 0,
+            kind = IrParameterKind.Regular,
             varargElementType = null,
             isCrossinline = false,
             isNoinline = false,
@@ -1105,7 +1105,7 @@ class KoinAnnotationProcessor(
                 type = binding.hintParameterType(context),
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
-                index = params.size,
+                kind = IrParameterKind.Regular,
                 varargElementType = null,
                 isCrossinline = false,
                 isNoinline = false,
@@ -1125,7 +1125,7 @@ class KoinAnnotationProcessor(
                 type = scopeClass.defaultType,
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
-                index = params.size,
+                kind = IrParameterKind.Regular,
                 varargElementType = null,
                 isCrossinline = false,
                 isNoinline = false,
@@ -1147,7 +1147,7 @@ class KoinAnnotationProcessor(
                     type = context.irBuiltIns.unitType,
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
-                    index = params.size,
+                    kind = IrParameterKind.Regular,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,
@@ -1165,7 +1165,7 @@ class KoinAnnotationProcessor(
                     type = qualifier.irClass.defaultType,
                     isAssignable = false,
                     symbol = IrValueParameterSymbolImpl(),
-                    index = params.size,
+                    kind = IrParameterKind.Regular,
                     varargElementType = null,
                     isCrossinline = false,
                     isNoinline = false,
@@ -1177,7 +1177,7 @@ class KoinAnnotationProcessor(
             null -> {}
         }
 
-        function.valueParameters = params
+        function.parameters = params
         function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
         function.addDeprecatedHiddenAnnotation(context)
 
@@ -1231,7 +1231,7 @@ class KoinAnnotationProcessor(
                 type = context.irBuiltIns.unitType,
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
-                index = index,
+                kind = IrParameterKind.Regular,
                 varargElementType = null,
                 isCrossinline = false,
                 isNoinline = false,
@@ -1239,7 +1239,7 @@ class KoinAnnotationProcessor(
             ).also { it.parent = function }
         }
 
-        function.valueParameters = params
+        function.parameters = params
         function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
         function.addDeprecatedHiddenAnnotation(context)
 
@@ -1334,14 +1334,14 @@ class KoinAnnotationProcessor(
             type = receiverType,
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
-            index = -1,  // Extension receiver uses -1
+            kind = IrParameterKind.ExtensionReceiver,
             varargElementType = null,
             isCrossinline = false,
             isNoinline = false,
             isHidden = false
         )
         extensionReceiverParam.parent = function
-        function.extensionReceiverParameter = extensionReceiverParam
+        function.parameters = listOf(extensionReceiverParam)
 
         return function
     }
@@ -1356,7 +1356,7 @@ class KoinAnnotationProcessor(
         for (file in moduleFragment.files) {
             for (func in file.declarations.filterIsInstance<IrSimpleFunction>()) {
                 if (func.name.asString() != "module") continue
-                val receiverFqName = func.extensionReceiverParameter?.type?.classFqName?.asString()
+                val receiverFqName = func.extensionReceiverParam?.type?.classFqName?.asString()
                 if (receiverFqName == targetFqName) {
                     return func
                 }
@@ -1381,7 +1381,7 @@ class KoinAnnotationProcessor(
         // (i.e., its parent is IrExternalPackageFragmentImpl, not IrFile)
         for (candidate in candidates) {
             val func = candidate.owner
-            val extensionReceiverType = func.extensionReceiverParameter?.type
+            val extensionReceiverType = func.extensionReceiverParam?.type
             val receiverFqName = (extensionReceiverType?.classifierOrNull as? IrClassSymbol)?.owner?.fqNameWhenAvailable
 
             if (receiverFqName == moduleClass.fqNameWhenAvailable) {
@@ -1413,7 +1413,7 @@ class KoinAnnotationProcessor(
 
         val moduleDslFunction = context.referenceFunctions(
             CallableId(KoinAnnotationFqNames.MODULE_DSL, Name.identifier("module"))
-        ).firstOrNull { it.owner.valueParameters.any { p ->
+        ).firstOrNull { it.owner.regularParameters.any { p ->
             p.name.asString() == "moduleDeclaration"
         }}?.owner
         if (moduleDslFunction == null) {
@@ -1455,7 +1455,7 @@ class KoinAnnotationProcessor(
         if (errorFunction != null) {
             function.body = builder.irBlockBody {
                 +irCall(errorFunction).apply {
-                    putValueArgument(0, irString("Koin compiler plugin: missing koin-core dependency"))
+                    putRegularArgument(0, irString("Koin compiler plugin: missing koin-core dependency"))
                 }
             }
         }
@@ -1615,7 +1615,7 @@ class KoinAnnotationProcessor(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                val params = hintFunc.valueParameters
+                val params = hintFunc.regularParameters
                 // The first parameter type is the definition class
                 val paramType = params.firstOrNull()?.type ?: continue
                 val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
@@ -1711,7 +1711,7 @@ class KoinAnnotationProcessor(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                val params = hintFunc.valueParameters
+                val params = hintFunc.regularParameters
                 // The first parameter type is the return type of the original function (what it provides)
                 val paramType = params.firstOrNull()?.type ?: continue
                 val returnTypeClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
@@ -1930,11 +1930,11 @@ class KoinAnnotationProcessor(
 
         for (hintFuncSymbol in hintFunctions) {
             val hintFunc = hintFuncSymbol.owner
-            val contributedType = hintFunc.valueParameters.firstOrNull()?.type
+            val contributedType = hintFunc.regularParameters.firstOrNull()?.type
             val contributedClass = (contributedType?.classifierOrNull as? IrClassSymbol)?.owner
             if (returnTypeFqName != null && contributedClass?.fqNameWhenAvailable != returnTypeFqName) continue
 
-            val bindings = hintFunc.valueParameters
+            val bindings = hintFunc.regularParameters
                 .filter { it.name.asString().startsWith("binding") }
                 .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
             if (bindings.isNotEmpty()) {
@@ -1991,7 +1991,7 @@ class KoinAnnotationProcessor(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                val classParams = hintFunc.valueParameters
+                val classParams = hintFunc.regularParameters
                 val paramType = classParams.firstOrNull()?.type ?: continue
                 val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
 
@@ -2072,7 +2072,7 @@ class KoinAnnotationProcessor(
                 CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, rosterName)
             )
             for (rosterSymbol in rosterHints) {
-                val discriminators = rosterSymbol.owner.valueParameters
+                val discriminators = rosterSymbol.owner.regularParameters
                     .map { it.name.asString() }
                     .filter { it.startsWith(KoinPluginConstants.COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX) }
                     .map { it.removePrefix(KoinPluginConstants.COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX) }
@@ -2131,7 +2131,7 @@ class KoinAnnotationProcessor(
         definitions: MutableList<Definition>,
         seenKeys: MutableSet<String>,
     ) {
-        val params = hintFunc.valueParameters
+        val params = hintFunc.regularParameters
         val contributedType = params.firstOrNull()?.type ?: return
         val returnTypeClass = (contributedType.classifierOrNull as? IrClassSymbol)?.owner ?: return
 
@@ -2318,7 +2318,7 @@ class KoinAnnotationProcessor(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                val paramType = hintFunc.valueParameters.firstOrNull()?.type
+                val paramType = hintFunc.regularParameters.firstOrNull()?.type
                 val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner ?: continue
                 val fqName = moduleClass.fqNameWhenAvailable?.asString()
                     ?: "<anon>@${System.identityHashCode(moduleClass)}"
@@ -2371,14 +2371,14 @@ class KoinAnnotationProcessor(
             type = koinModuleIrClass.defaultType,
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
-            index = -1,
+            kind = IrParameterKind.ExtensionReceiver,
             varargElementType = null,
             isCrossinline = false,
             isNoinline = false,
             isHidden = false
         )
         moduleReceiverParam.parent = lambdaFunction
-        lambdaFunction.extensionReceiverParameter = moduleReceiverParam
+        lambdaFunction.parameters = listOf(moduleReceiverParam)
 
         val lambdaBuilder = DeclarationIrBuilder(context, lambdaFunction.symbol, UNDEFINED_OFFSET, UNDEFINED_OFFSET)
         val statements = mutableListOf<IrStatement>()
@@ -2462,11 +2462,11 @@ class KoinAnnotationProcessor(
         )
 
         return builder.irCall(moduleDslFunction.symbol).apply {
-            val moduleDeclarationIndex = moduleDslFunction.valueParameters.indexOfFirst {
+            val moduleDeclarationIndex = moduleDslFunction.regularParameters.indexOfFirst {
                 it.name.asString() == "moduleDeclaration"
             }
             if (moduleDeclarationIndex >= 0) {
-                putValueArgument(moduleDeclarationIndex, lambdaExpr)
+                putRegularArgument(moduleDeclarationIndex, lambdaExpr)
             }
 
             // KTZ-4048 / koin#2415 — propagate `@Module(createdAtStart = true)` to the
@@ -2474,20 +2474,20 @@ class KoinAnnotationProcessor(
             // substitutes the parameter default (false) regardless of what the user wrote
             // on the annotation, and the eager-init behavior silently goes missing.
             if (moduleClass.createdAtStart) {
-                val createdAtStartIndex = moduleDslFunction.valueParameters.indexOfFirst {
+                val createdAtStartIndex = moduleDslFunction.regularParameters.indexOfFirst {
                     it.name.asString() == "createdAtStart"
                 }
                 if (createdAtStartIndex >= 0) {
-                    putValueArgument(createdAtStartIndex, builder.irTrue())
+                    putRegularArgument(createdAtStartIndex, builder.irTrue())
                 }
             }
 
-            moduleDslFunction.valueParameters.forEachIndexed { index, param ->
-                if (index != moduleDeclarationIndex && getValueArgument(index) == null) {
+            moduleDslFunction.regularParameters.forEachIndexed { index, param ->
+                if (index != moduleDeclarationIndex && getRegularArgument(index) == null) {
                     if (param.hasDefaultValue()) {
                         // Skip - will use default
                     } else if (param.type.isMarkedNullable()) {
-                        putValueArgument(index, builder.irNull())
+                        putRegularArgument(index, builder.irNull())
                     }
                 }
             }
@@ -2604,7 +2604,7 @@ class KoinAnnotationProcessor(
         // Find the includes function: Module.includes(vararg Module)
         val includesFunction = context.referenceFunctions(
             CallableId(FqName("org.koin.plugin.module.dsl"), Name.identifier("includes"))
-        ).firstOrNull { it.owner.extensionReceiverParameter?.type?.classFqName?.asString() == KoinAnnotationFqNames.KOIN_MODULE.asString() }?.owner
+        ).firstOrNull { it.owner.extensionReceiverParam?.type?.classFqName?.asString() == KoinAnnotationFqNames.KOIN_MODULE.asString() }?.owner
             ?: return null
 
         // Get the constructor of the included module class (or object instance)
@@ -2624,13 +2624,13 @@ class KoinAnnotationProcessor(
 
         // Create: IncludedModule().module() (call the function with instance as receiver)
         val moduleGetCall = builder.irCall(moduleFunction.symbol).apply {
-            extensionReceiver = instanceExpression
+            setExtensionReceiverArgument(instanceExpression)
         }
 
         // Create: includes(IncludedModule().module())
         return builder.irCall(includesFunction.symbol).apply {
-            extensionReceiver = builder.irGet(moduleReceiver)
-            putValueArgument(0, moduleGetCall)
+            setExtensionReceiverArgument(builder.irGet(moduleReceiver))
+            putRegularArgument(0, moduleGetCall)
         }
     }
 
@@ -2644,7 +2644,7 @@ class KoinAnnotationProcessor(
         )
 
         return functionCandidates.firstOrNull { func ->
-            val extensionReceiverType = func.owner.extensionReceiverParameter?.type
+            val extensionReceiverType = func.owner.extensionReceiverParam?.type
             val receiverFqName = (extensionReceiverType?.classifierOrNull as? IrClassSymbol)?.owner?.fqNameWhenAvailable
             receiverFqName == moduleClass.fqNameWhenAvailable
         }?.owner
