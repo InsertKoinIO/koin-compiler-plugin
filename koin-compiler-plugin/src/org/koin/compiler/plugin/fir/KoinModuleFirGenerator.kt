@@ -21,7 +21,7 @@ import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.coneTypeOrNull
 import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
-import org.jetbrains.kotlin.fir.declarations.getDeprecationsProvider
+import org.koin.compiler.adapter.KotlinAdapterLoader
 import org.jetbrains.kotlin.fir.deserialization.toQualifiedPropertyAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirVarargArgumentsExpression
@@ -789,7 +789,6 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      * Mark a FIR-generated hint function as @Deprecated(level = HIDDEN).
      * This prevents the function from being exported to ObjC headers on Kotlin/Native,
      * which would otherwise crash with "An operation is not implemented" in findSourceFile.
-     * Same approach used by Metro (https://github.com/ZacSweers/metro).
      */
     private fun FirCallableDeclaration.markAsDeprecatedHidden() {
         val deprecatedSymbol = session.symbolProvider
@@ -810,7 +809,9 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             }
         }
         replaceAnnotations(annotations + listOf(annotation))
-        replaceDeprecationsProvider(getDeprecationsProvider(session))
+        // Deprecations recomputation is version-split in Kotlin 2.4.0 — route
+        // through the adapter matching the running compiler.
+        KotlinAdapterLoader.current.refreshDeprecations(this, session)
     }
 
     // Cache of module classes found (@Module) - generates .module extension property

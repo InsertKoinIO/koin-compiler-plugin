@@ -2,6 +2,8 @@ package org.koin.compiler.adapter
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.ir.declarations.IrMutableAnnotationContainer
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
@@ -50,5 +52,20 @@ interface KotlinVersionAdapter {
     fun setAnnotations(
         target: IrMutableAnnotationContainer,
         annotations: List<IrConstructorCall>,
+    )
+
+    /**
+     * Recomputes and replaces [declaration]'s deprecations provider after its
+     * annotations changed (e.g. a generated @Deprecated(HIDDEN) marker).
+     */
+    @KotlinApiChange(
+        inVersion = "2.4.0",
+        kind = KotlinApiChange.Kind.SIGNATURE,
+        note = "getDeprecationsProvider's FirAnnotationContainer receiver was specialized to " +
+            "FirCallableDeclaration/FirClassLikeDeclaration; 2.3.20-compiled bytecode throws NoSuchMethodError",
+    )
+    fun refreshDeprecations(
+        declaration: FirCallableDeclaration,
+        session: FirSession,
     )
 }

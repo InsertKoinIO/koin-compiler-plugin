@@ -2,6 +2,9 @@ package org.koin.compiler.adapter.k2320
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.getDeprecationsProvider
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
 import org.jetbrains.kotlin.ir.declarations.IrMutableAnnotationContainer
@@ -33,5 +36,12 @@ class Kotlin2320Adapter : KotlinVersionAdapter {
         annotations: List<IrConstructorCall>,
     ) {
         target.annotations = annotations
+    }
+
+    override fun refreshDeprecations(
+        declaration: FirCallableDeclaration,
+        session: FirSession,
+    ) {
+        declaration.replaceDeprecationsProvider(declaration.getDeprecationsProvider(session))
     }
 }

@@ -2,6 +2,9 @@ package org.koin.compiler.adapter.k240
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
+import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
+import org.jetbrains.kotlin.fir.declarations.getDeprecationsProvider
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
 import org.jetbrains.kotlin.ir.declarations.IrMutableAnnotationContainer
@@ -39,6 +42,15 @@ class Kotlin240Adapter : KotlinVersionAdapter {
         // 2.4.0: annotations is List<IrAnnotation>; convert what isn't one already.
         // NOTE: conversion shape is finalized against the real 2.4.0 API at compile time.
         target.annotations = annotations.map { it.asIrAnnotation() }
+    }
+
+    override fun refreshDeprecations(
+        declaration: FirCallableDeclaration,
+        session: FirSession,
+    ) {
+        // 2.4.0: getDeprecationsProvider is receiver-specialized; this bytecode
+        // binds to the FirCallableDeclaration overload.
+        declaration.replaceDeprecationsProvider(declaration.getDeprecationsProvider(session))
     }
 
     private fun IrConstructorCall.asIrAnnotation(): org.jetbrains.kotlin.ir.expressions.IrAnnotation =
