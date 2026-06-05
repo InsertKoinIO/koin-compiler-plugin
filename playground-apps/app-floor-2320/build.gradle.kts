@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm")
-    id("io.insert-koin.compiler.plugin") version "1.0.0"
+    id("io.insert-koin.compiler.plugin") version "1.0.1"
 }
 
 kotlin {
