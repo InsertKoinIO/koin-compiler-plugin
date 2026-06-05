@@ -2,6 +2,14 @@
 
 A native Kotlin Compiler Plugin for Koin dependency injection. Transforms `single<T>()` DSL calls and processes `@Singleton`/`@Factory` annotations at compile-time.
 
+## Doctrine
+
+- **Evidence-based claims.** "fixed/verified/done" must cite file:line, test output, or a box-test run — never "looks right + tests pass".
+- **Falsify, don't confirm.** A box test must try to BREAK the transformation. Prove RED before GREEN: a regression test must fail on the unfixed code.
+- **Silent is worse than broken.** Dropping an annotation value, skipping a definition, or binding an unexpected type *without a diagnostic* is the worst failure class for a compiler plugin — when in doubt, emit an error/warning rather than degrade silently.
+
+> **SURPRISE RULE — mandatory.** If the project surprises you or contradicts these docs, STOP, tell the user, and record it here. "Surprising" = not inferable from the code in one grep.
+
 ## Project Structure
 
 ```
@@ -153,6 +161,20 @@ koin-compiler-plugin/testData/
 
 Each test file has golden files (`*.fir.txt`, `*.fir.ir.txt`) containing expected compiler output.
 
+## PR Guards — check on EVERY pull request
+
+Before opening (or approving) any PR, both guards must pass:
+
+### 1. Don't break the current API
+- **Plugin configuration surface** (`koinCompiler { }` options), **supported DSL functions**, and **annotation semantics** are public API — no removals or behavior changes without a deprecation/migration path.
+- **Generated-code behavior counts as API**: a change in what the plugin emits (binding selection, qualifier matching, default-value handling, eager creation) can silently change runtime behavior of every consumer app. Any intentional behavior change must be called out explicitly in the PR description and release notes.
+- Golden-file diffs (`*.fir.txt`, `*.fir.ir.txt`) are the review surface for this: an unexpected golden-file change in an unrelated test = a regression, not noise. Never blanket-regenerate golden files to make CI green.
+
+### 2. New tests for every new case or fixed use-case
+- **Bug fix** → a box test in `testData/box/<area>/` that reproduces the issue: fails before the fix, returns "OK" after.
+- **New transformation/case** → box test(s) + golden files (`./test.sh -Pupdate.testdata=true`) covering the new shape, including qualifier/nullable/default-value variants where relevant.
+- **Codegen changes: JVM-green is not done.** Duplicate-signature and KLIB errors are invisible on JVM — compile `test-apps` for at least `iosArm64` (or another native target) and `wasmJs` before declaring a codegen change complete.
+
 ## Release
 
 ```bash
@@ -162,6 +184,8 @@ Each test file has golden files (`*.fir.txt`, `*.fir.ir.txt`) containing expecte
 # Release to Gradle Plugin Portal
 ./release-to-gradle-portal.sh
 ```
+
+**Release notes — Added vs Fixed:** ask *"would this affect a user on the previous supported Kotlin/Koin range?"* Yes → `Fixed`. No (only enables a new version range) → ONE umbrella `Added` entry with sub-bullets. Intentional generated-code behavior changes always get their own explicit entry.
 
 ## Plugin Configuration
 
@@ -245,7 +269,13 @@ single<Service>()
 
 Set `skipDefaultValues = false` to always inject all parameters from the DI container, ignoring Kotlin default values.
 
-## Compatibility
+## Compatibility — verified range + version gate
 
 - **Koin**: 4.2.0-RC2+
-- **Kotlin**: K2 compiler required (2.3.x+)
+- **Kotlin**: K2 compiler required. **Verified range: 2.3.0–2.3.10.** Known broken: 2.3.20 (`IrDeclarationOrigin` NoSuchMethodError, #42) and 2.4.0 (`FirExtensionRegistrarAdapter` cast, #19) — fix in progress.
+
+**Version-gate policy** (the plugin binds to unstable compiler internals — every Kotlin minor is a potential break):
+
+- **Known-broken Kotlin version** → fail fast with a clear diagnostic naming the version, the supported range, and the tracking issue — never let a raw `ClassCastException`/`NoSuchMethodError` surface as the error.
+- **Unknown future version** (above the verified ceiling) → WARN + proceed, never hard-block: "Kotlin X.Y is newer than the verified range (…) — proceeding, report issues at …".
+- Keep the verified range in this section AND the README in sync on every release.
