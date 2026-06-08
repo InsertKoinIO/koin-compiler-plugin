@@ -27,8 +27,24 @@ idea {
 val pluginVersion: String by project
 val annotationsRuntimeClasspath: Configuration by configurations.creating { isTransitive = true }
 
+// Kotlin version adapters: compiled per kotlin-compiler version, embedded into
+// this module's jar so the published artifact stays a single self-contained jar.
+// Selection happens at plugin load (KotlinAdapterLoader) — only the adapter
+// matching the running compiler is ever classloaded.
+val embeddedAdapters: Configuration by configurations.creating { isTransitive = false }
+
 dependencies {
     compileOnly(kotlin("compiler"))
+    compileOnly(project(":koin-compiler-version-adapter"))
+
+    embeddedAdapters(project(":koin-compiler-version-adapter"))
+    embeddedAdapters(project(":koin-compiler-version-adapter:kotlin-2.3.20"))
+    embeddedAdapters(project(":koin-compiler-version-adapter:kotlin-2.4.0"))
+
+    // Tests run the plugin in-process — adapter classes must be on the test runtime classpath.
+    testRuntimeOnly(project(":koin-compiler-version-adapter"))
+    testRuntimeOnly(project(":koin-compiler-version-adapter:kotlin-2.3.20"))
+    testRuntimeOnly(project(":koin-compiler-version-adapter:kotlin-2.4.0"))
 
     testFixturesApi(kotlin("test-junit5"))
     testFixturesApi(kotlin("compiler-internal-test-framework"))
@@ -164,6 +180,13 @@ val verifyJvmTarget by tasks.registering {
 }
 
 tasks.named("check") { dependsOn(verifyJvmTarget) }
+
+// Embed the version adapters into the published jar (single-artifact packaging).
+tasks.jar {
+    dependsOn(embeddedAdapters)
+    from({ embeddedAdapters.map { if (it.isDirectory) it else zipTree(it) } })
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
 
 // Maven Central publishing
 apply(from = file("../gradle/publish-compiler.gradle.kts"))

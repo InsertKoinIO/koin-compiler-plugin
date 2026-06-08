@@ -32,14 +32,14 @@ class ParameterAnalyzer(
      * Analyze all value parameters of a constructor.
      */
     fun analyzeConstructor(constructor: IrConstructor): List<Requirement> {
-        return constructor.valueParameters.map { analyzeParameter(it) }
+        return constructor.regularParameters.map { analyzeParameter(it) }
     }
 
     /**
      * Analyze all value parameters of a function.
      */
     fun analyzeFunction(function: IrSimpleFunction): List<Requirement> {
-        return function.valueParameters.map { analyzeParameter(it) }
+        return function.regularParameters.map { analyzeParameter(it) }
     }
 
     /**

@@ -51,7 +51,7 @@ class ModuleFunctionResolver(
         if (moduleFunction != null) {
             KoinPluginLogger.debug { "  -> Found module() function for ${moduleClass.name}" }
             return builder.irCall(moduleFunction.symbol).apply {
-                extensionReceiver = instanceExpression
+                setExtensionReceiverArgument(instanceExpression)
             }
         }
 
@@ -60,7 +60,7 @@ class ModuleFunctionResolver(
         if (function != null) {
             KoinPluginLogger.debug { "  -> Using module() function from context for ${moduleClass.name}" }
             return builder.irCall(function.symbol).apply {
-                extensionReceiver = instanceExpression
+                setExtensionReceiverArgument(instanceExpression)
             }
         }
 
@@ -77,7 +77,7 @@ class ModuleFunctionResolver(
         for (file in moduleFragment.files) {
             for (func in file.declarations.filterIsInstance<IrSimpleFunction>()) {
                 if (func.name.asString() != "module") continue
-                val receiverFqName = func.extensionReceiverParameter?.type?.classFqName?.asString()
+                val receiverFqName = func.extensionReceiverParam?.type?.classFqName?.asString()
                 if (receiverFqName == targetFqName) {
                     KoinPluginLogger.debug { "  -> Found module() function in module fragment for $targetFqName" }
                     return func
@@ -101,7 +101,7 @@ class ModuleFunctionResolver(
 
         for ((idx, func) in functionCandidates.withIndex()) {
             val owner = func.owner
-            val extensionReceiverType = owner.extensionReceiverParameter?.type
+            val extensionReceiverType = owner.extensionReceiverParam?.type
             val receiverFqName = (extensionReceiverType?.classifierOrNull as? IrClassSymbol)?.owner?.fqNameWhenAvailable
             val parent = owner.parent
             val parentInfo = when (parent) {
@@ -115,7 +115,7 @@ class ModuleFunctionResolver(
         }
 
         val matchingCandidates = functionCandidates.filter { func ->
-            val extensionReceiverType = func.owner.extensionReceiverParameter?.type
+            val extensionReceiverType = func.owner.extensionReceiverParam?.type
             val receiverFqName = (extensionReceiverType?.classifierOrNull as? IrClassSymbol)?.owner?.fqNameWhenAvailable
             receiverFqName == moduleClass.fqNameWhenAvailable
         }
@@ -160,7 +160,7 @@ class ModuleFunctionResolver(
                     val facadeClass = facadeClassSymbol.owner
                     val moduleFunction = facadeClass.functions.firstOrNull { func ->
                         func.name.asString() == "module" &&
-                        func.extensionReceiverParameter?.type?.classFqName == moduleClass.fqNameWhenAvailable
+                        func.extensionReceiverParam?.type?.classFqName == moduleClass.fqNameWhenAvailable
                     }
                     if (moduleFunction != null) {
                         KoinPluginLogger.debug { "    -> Found correct function in file facade class" }
@@ -248,13 +248,13 @@ class ModuleFunctionResolver(
         if (moduleFunctions.isNotEmpty()) {
             KoinPluginLogger.debug { "      -> $facadeName has ${moduleFunctions.size} module() functions" }
             for (func in moduleFunctions) {
-                val receiverType = func.extensionReceiverParameter?.type?.classFqName
+                val receiverType = func.extensionReceiverParam?.type?.classFqName
                 KoinPluginLogger.debug { "        -> module() receiver: $receiverType (want: ${moduleClass.fqNameWhenAvailable})" }
             }
         }
 
         return moduleFunctions.firstOrNull { func ->
-            func.extensionReceiverParameter?.type?.classFqName == moduleClass.fqNameWhenAvailable
+            func.extensionReceiverParam?.type?.classFqName == moduleClass.fqNameWhenAvailable
         }
     }
 
@@ -291,7 +291,7 @@ class ModuleFunctionResolver(
         val facadeClass = facadeClassSymbol.owner
         val moduleFunction = facadeClass.functions.firstOrNull { func ->
             func.name.asString() == "module" &&
-            func.extensionReceiverParameter?.type?.classFqName == moduleClass.fqNameWhenAvailable
+            func.extensionReceiverParam?.type?.classFqName == moduleClass.fqNameWhenAvailable
         }
 
         if (moduleFunction != null) {
@@ -324,7 +324,7 @@ class ModuleFunctionResolver(
             val facadeClass = facadeClassSymbol.owner
             val moduleFunction = facadeClass.functions.firstOrNull { func ->
                 func.name.asString() == "module" &&
-                func.extensionReceiverParameter?.type?.classFqName == moduleClass.fqNameWhenAvailable
+                func.extensionReceiverParam?.type?.classFqName == moduleClass.fqNameWhenAvailable
             }
 
             if (moduleFunction != null) {

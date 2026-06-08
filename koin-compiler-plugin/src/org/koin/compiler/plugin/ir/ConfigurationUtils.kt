@@ -54,7 +54,7 @@ fun extractConfigurationLabels(irClass: IrClass): List<String> {
 private fun parseAnnotationLabelArgs(annotation: IrConstructorCall): List<String> {
     val labels = mutableListOf<String>()
 
-    val valueArg = annotation.getValueArgument(0)
+    val valueArg = annotation.getRegularArgument(0)
     when (valueArg) {
         is IrVararg -> {
             for (element in valueArg.elements) {

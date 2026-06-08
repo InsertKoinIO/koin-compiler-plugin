@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.ir.types.isString
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrParameterKind
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
@@ -72,7 +73,7 @@ class ScopeBlockBuilder(
     // `org.koin.core.qualifier.named(String)` — used for string-named `@Scope(name = "...")`.
     private val namedFunctionSymbol by lazy {
         context.referenceFunctions(CallableId(KoinAnnotationFqNames.QUALIFIER_PACKAGE, Name.identifier("named")))
-            .firstOrNull { it.owner.valueParameters.size == 1 && it.owner.valueParameters[0].type.isString() }
+            .firstOrNull { it.owner.regularParameters.size == 1 && it.owner.regularParameters[0].type.isString() }
     }
 
     private val koinModuleFqName = KoinAnnotationFqNames.KOIN_MODULE
@@ -119,9 +120,9 @@ class ScopeBlockBuilder(
         }
 
         return builder.irCall(scopeDslFunction.symbol).apply {
-            extensionReceiver = builder.irGet(moduleReceiver)
-            putValueArgument(0, qualifierCall)
-            putValueArgument(1, scopeLambdaResult.expression)
+            setExtensionReceiverArgument(builder.irGet(moduleReceiver))
+            putRegularArgument(0, qualifierCall)
+            putRegularArgument(1, scopeLambdaResult.expression)
         }
     }
 
@@ -153,13 +154,13 @@ class ScopeBlockBuilder(
             }
 
         val qualifierCall = builder.irCall(namedFunc.symbol).apply {
-            putValueArgument(0, builder.irString(scopeName))
+            putRegularArgument(0, builder.irString(scopeName))
         }
 
         return builder.irCall(scopeDslFunction.symbol).apply {
-            extensionReceiver = builder.irGet(moduleReceiver)
-            putValueArgument(0, qualifierCall)
-            putValueArgument(1, scopeLambdaResult.expression)
+            setExtensionReceiverArgument(builder.irGet(moduleReceiver))
+            putRegularArgument(0, qualifierCall)
+            putRegularArgument(1, scopeLambdaResult.expression)
         }
     }
 
@@ -193,8 +194,8 @@ class ScopeBlockBuilder(
 
         // Call the archetype scope function (e.g., viewModelScope { })
         return builder.irCall(scopeFunction.symbol).apply {
-            extensionReceiver = builder.irGet(moduleReceiver)
-            putValueArgument(0, scopeLambdaResult.expression)
+            setExtensionReceiverArgument(builder.irGet(moduleReceiver))
+            putRegularArgument(0, scopeLambdaResult.expression)
         }
     }
 
@@ -210,7 +211,7 @@ class ScopeBlockBuilder(
         val kClass = kClassClass ?: return null
 
         return builder.irCall(typeQualifierFunction.symbol).apply {
-            putTypeArgument(0, typeClass.defaultType)
+            putTypeArgumentCompat(0, typeClass.defaultType)
 
             // Create KClass reference: ScopeClass::class
             val kClassType = kClass.typeWith(typeClass.defaultType)
@@ -221,7 +222,7 @@ class ScopeBlockBuilder(
                 symbol = typeClass.symbol,
                 classType = typeClass.defaultType
             )
-            putValueArgument(0, classReference)
+            putRegularArgument(0, classReference)
         }
     }
 
@@ -275,14 +276,14 @@ class ScopeBlockBuilder(
             type = scopeDsl.defaultType,
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
-            index = -1,
+            kind = IrParameterKind.ExtensionReceiver,
             varargElementType = null,
             isCrossinline = false,
             isNoinline = false,
             isHidden = false
         )
         scopeDslReceiverParam.parent = scopeLambdaFunction
-        scopeLambdaFunction.extensionReceiverParameter = scopeDslReceiverParam
+        scopeLambdaFunction.parameters = listOf(scopeDslReceiverParam)
 
         // Build the statements using the callback
         val scopeLambdaBuilder = DeclarationIrBuilder(context, scopeLambdaFunction.symbol, UNDEFINED_OFFSET, UNDEFINED_OFFSET)
@@ -320,9 +321,9 @@ class ScopeBlockBuilder(
         return allScopeFunctions.firstOrNull { func ->
             // Look for: Module.scope(qualifier: Qualifier, scopeSet: ScopeDSL.() -> Unit)
             func.owner.typeParameters.isEmpty() &&
-            func.owner.extensionReceiverParameter?.type?.classFqName?.asString() == koinModuleFqName.asString() &&
-            func.owner.valueParameters.size == 2 &&
-            func.owner.valueParameters[0].name.asString() == "qualifier"
+            func.owner.extensionReceiverParam?.type?.classFqName?.asString() == koinModuleFqName.asString() &&
+            func.owner.regularParameters.size == 2 &&
+            func.owner.regularParameters[0].name.asString() == "qualifier"
         }?.owner
     }
 
@@ -334,7 +335,7 @@ class ScopeBlockBuilder(
         // not the KoinScopeComponent extension that returns a Scope directly
         return context.referenceFunctions(
             CallableId(FqName(archetype.packageName), Name.identifier(archetype.scopeFunctionName))
-        ).firstOrNull { it.owner.valueParameters.isNotEmpty() }?.owner
+        ).firstOrNull { it.owner.regularParameters.isNotEmpty() }?.owner
     }
 }
 

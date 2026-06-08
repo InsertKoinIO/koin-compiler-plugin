@@ -16,6 +16,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.name.StandardClassIds
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 /**
  * Adds `@Deprecated("Koin compiler plugin internal hint function", level = DeprecationLevel.HIDDEN)`
@@ -28,7 +29,9 @@ import org.jetbrains.kotlin.name.StandardClassIds
  */
 fun IrSimpleFunction.addDeprecatedHiddenAnnotation(context: IrPluginContext) {
     val annotation = buildDeprecatedHiddenAnnotation(context) ?: return
-    annotations = annotations + annotation
+    // The annotations list type is version-split in Kotlin 2.4.0 — assignment
+    // goes through the adapter matching the running compiler.
+    KotlinAdapterLoader.current.setAnnotations(this, annotations + annotation)
 }
 
 /**
@@ -76,10 +79,10 @@ private fun buildDeprecatedHiddenAnnotation(context: IrPluginContext): IrConstru
     ).apply {
         // Set positional value arguments (used by codegen)
         // arg 0: message (String)
-        putValueArgument(0, messageExpr)
+        putRegularArgument(0, messageExpr)
         // arg 1: replaceWith — leave as default (null)
         // arg 2: level (DeprecationLevel.HIDDEN)
-        putValueArgument(2, levelExpr)
+        putRegularArgument(2, levelExpr)
 
         // Also set argument mapping (used by IR annotation processing and metadata serialization)
         argumentMapping = mapOf(

@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.ir.builders.irReturn
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrFunction
+import org.jetbrains.kotlin.ir.declarations.IrParameterKind
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
@@ -130,14 +131,13 @@ class LambdaBuilder(
             type = scopeClassLocal.defaultType,
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
-            index = -1,
+            kind = IrParameterKind.ExtensionReceiver,
             varargElementType = null,
             isCrossinline = false,
             isNoinline = false,
             isHidden = false
         )
         extensionReceiverParam.parent = lambdaFunction
-        lambdaFunction.extensionReceiverParameter = extensionReceiverParam
 
         // Create ParametersHolder value parameter
         val parametersHolderParam = context.irFactory.createValueParameter(
@@ -148,14 +148,14 @@ class LambdaBuilder(
             type = paramsHolderClass.defaultType,
             isAssignable = false,
             symbol = IrValueParameterSymbolImpl(),
-            index = 0,
+            kind = IrParameterKind.Regular,
             varargElementType = null,
             isCrossinline = false,
             isNoinline = false,
             isHidden = false
         )
         parametersHolderParam.parent = lambdaFunction
-        lambdaFunction.valueParameters = listOf(parametersHolderParam)
+        lambdaFunction.parameters = listOf(extensionReceiverParam, parametersHolderParam)
 
         // Create the body using the callback
         val lambdaBuilder = DeclarationIrBuilder(context, lambdaFunction.symbol, UNDEFINED_OFFSET, UNDEFINED_OFFSET)

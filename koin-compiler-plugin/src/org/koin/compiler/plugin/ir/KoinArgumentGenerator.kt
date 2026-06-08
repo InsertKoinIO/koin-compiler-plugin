@@ -152,7 +152,7 @@ class KoinArgumentGenerator(
             annotation.type.classFqName?.asString() == propertyAnnotationFqName.asString()
         } ?: return null
 
-        val valueArg = propertyAnnotation.getValueArgument(0)
+        val valueArg = propertyAnnotation.getRegularArgument(0)
         if (valueArg is IrConst) {
             return valueArg.value as? String
         }
@@ -183,8 +183,8 @@ class KoinArgumentGenerator(
                 .firstOrNull { function ->
                     function.name.asString() == "getProperty" &&
                     function.typeParameters.size == 1 &&
-                    function.valueParameters.size == 2 &&
-                    function.valueParameters[0].type.classifierOrNull?.owner?.let {
+                    function.regularParameters.size == 2 &&
+                    function.regularParameters[0].type.classifierOrNull?.owner?.let {
                         (it as? IrClass)?.name?.asString() == "String"
                     } == true
                 }
@@ -193,16 +193,16 @@ class KoinArgumentGenerator(
                 KoinPluginLogger.debug { "  Using getProperty(\"$propertyKey\", ${defaultProperty.name}) with @PropertyValue default" }
                 return builder.irCall(getPropertyWithDefaultFunction.symbol).apply {
                     dispatchReceiver = scopeReceiver
-                    putValueArgument(0, builder.irString(propertyKey))
+                    putRegularArgument(0, builder.irString(propertyKey))
                     // Reference the default property's getter
                     val getter = defaultProperty.getter
                     if (getter != null) {
-                        putValueArgument(1, builder.irCall(getter.symbol))
+                        putRegularArgument(1, builder.irCall(getter.symbol))
                     } else {
                         // Fallback to backing field if no getter
                         val backingField = defaultProperty.backingField
                         if (backingField != null) {
-                            putValueArgument(1, builder.irGetField(null, backingField))
+                            putRegularArgument(1, builder.irGetField(null, backingField))
                         }
                     }
                 }
@@ -215,8 +215,8 @@ class KoinArgumentGenerator(
             .firstOrNull { function ->
                 function.name.asString() == "getProperty" &&
                 function.typeParameters.size == 1 &&
-                function.valueParameters.size == 1 &&
-                function.valueParameters[0].type.classifierOrNull?.owner?.let {
+                function.regularParameters.size == 1 &&
+                function.regularParameters[0].type.classifierOrNull?.owner?.let {
                     (it as? IrClass)?.name?.asString() == "String"
                 } == true
             }
@@ -224,7 +224,7 @@ class KoinArgumentGenerator(
         if (getPropertyFunction != null) {
             return builder.irCall(getPropertyFunction.symbol).apply {
                 dispatchReceiver = scopeReceiver
-                putValueArgument(0, builder.irString(propertyKey))
+                putRegularArgument(0, builder.irString(propertyKey))
             }
         }
 
@@ -237,10 +237,10 @@ class KoinArgumentGenerator(
             return builder.irCall(koinPropertyFunction.symbol).apply {
                 if (koinPropertyFunction.dispatchReceiverParameter != null) {
                     dispatchReceiver = scopeReceiver
-                } else if (koinPropertyFunction.extensionReceiverParameter != null) {
-                    extensionReceiver = scopeReceiver
+                } else if (koinPropertyFunction.extensionReceiverParam != null) {
+                    setExtensionReceiverArgument(scopeReceiver)
                 }
-                putValueArgument(0, builder.irString(propertyKey))
+                putRegularArgument(0, builder.irString(propertyKey))
             }
         }
 
@@ -269,8 +269,8 @@ class KoinArgumentGenerator(
             .firstOrNull { function ->
                 function.name.asString() == "getPropertyOrNull" &&
                 function.typeParameters.size == 1 &&
-                function.valueParameters.size == 1 &&
-                function.valueParameters[0].type.classifierOrNull?.owner?.let {
+                function.regularParameters.size == 1 &&
+                function.regularParameters[0].type.classifierOrNull?.owner?.let {
                     (it as? IrClass)?.name?.asString() == "String"
                 } == true
             }
@@ -278,7 +278,7 @@ class KoinArgumentGenerator(
         if (getPropertyOrNullFunction != null) {
             return builder.irCall(getPropertyOrNullFunction.symbol).apply {
                 dispatchReceiver = scopeReceiver
-                putValueArgument(0, builder.irString(propertyKey))
+                putRegularArgument(0, builder.irString(propertyKey))
             }
         }
 
@@ -291,10 +291,10 @@ class KoinArgumentGenerator(
             return builder.irCall(koinPropertyOrNullFunction.symbol).apply {
                 if (koinPropertyOrNullFunction.dispatchReceiverParameter != null) {
                     dispatchReceiver = scopeReceiver
-                } else if (koinPropertyOrNullFunction.extensionReceiverParameter != null) {
-                    extensionReceiver = scopeReceiver
+                } else if (koinPropertyOrNullFunction.extensionReceiverParam != null) {
+                    setExtensionReceiverArgument(scopeReceiver)
                 }
-                putValueArgument(0, builder.irString(propertyKey))
+                putRegularArgument(0, builder.irString(propertyKey))
             }
         }
 
@@ -322,8 +322,8 @@ class KoinArgumentGenerator(
         // Scope.getScope(id: String): Scope
         val getScopeFunction = scopeClass.declarations
             .filterIsInstance<IrSimpleFunction>()
-            .filter { it.name.asString() == "getScope" && it.valueParameters.size == 1 }
-            .firstOrNull { it.valueParameters[0].type.isStringClassType() }
+            .filter { it.name.asString() == "getScope" && it.regularParameters.size == 1 }
+            .firstOrNull { it.regularParameters[0].type.isStringClassType() }
         if (getScopeFunction == null) {
             KoinPluginLogger.debug { "Could not find getScope(String) on scope class ${scopeClass.name}" }
             return builder.irNull()
@@ -331,7 +331,7 @@ class KoinArgumentGenerator(
 
         val getScopeCall = builder.irCall(getScopeFunction.symbol).apply {
             dispatchReceiver = scopeReceiver
-            putValueArgument(0, builder.irString(scopeId))
+            putRegularArgument(0, builder.irString(scopeId))
         }
 
         // namedScope.get<T>() → reuse existing get call logic
@@ -366,7 +366,7 @@ class KoinArgumentGenerator(
             val callReturnType = returnType ?: getAllFunction.returnType
             return builder.irCall(getAllFunction.symbol, callReturnType).apply {
                 dispatchReceiver = scopeReceiver
-                putTypeArgument(0, elementType)
+                putTypeArgumentCompat(0, elementType)
             }
         }
 
@@ -392,9 +392,9 @@ class KoinArgumentGenerator(
             .filter { function ->
                 function.name.asString() == "get" &&
                 function.typeParameters.size == 1 &&
-                function.valueParameters.all { it.type.isMarkedNullable() }
+                function.regularParameters.all { it.type.isMarkedNullable() }
             }
-            .minByOrNull { it.valueParameters.size }
+            .minByOrNull { it.regularParameters.size }
         if (getFunction == null) {
             KoinPluginLogger.debug { "Could not find get() function on scope class ${scopeClass.name} for type ${type.classFqName}" }
             return builder.irNull()
@@ -402,14 +402,14 @@ class KoinArgumentGenerator(
 
         return builder.irCall(getFunction.symbol, type).apply {
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgumentCompat(0, type)
 
-            getFunction.valueParameters.forEachIndexed { index, param ->
+            getFunction.regularParameters.forEachIndexed { index, param ->
                 val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
                 if (index == 0 && paramTypeName == "Qualifier" && qualifier != null) {
-                    putValueArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
+                    putRegularArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
                 } else {
-                    putValueArgument(index, builder.irNull())
+                    putRegularArgument(index, builder.irNull())
                 }
             }
         }
@@ -432,9 +432,9 @@ class KoinArgumentGenerator(
             .filter { function ->
                 function.name.asString() == "getOrNull" &&
                 function.typeParameters.size == 1 &&
-                function.valueParameters.all { it.type.isMarkedNullable() }
+                function.regularParameters.all { it.type.isMarkedNullable() }
             }
-            .minByOrNull { it.valueParameters.size }
+            .minByOrNull { it.regularParameters.size }
         if (getOrNullFunction == null) {
             KoinPluginLogger.debug { "Could not find getOrNull() function on scope class ${scopeClass.name} for type ${type.classFqName}" }
             return builder.irNull()
@@ -442,14 +442,14 @@ class KoinArgumentGenerator(
 
         return builder.irCall(getOrNullFunction.symbol, type.makeNullable()).apply {
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgumentCompat(0, type)
 
-            getOrNullFunction.valueParameters.forEachIndexed { index, param ->
+            getOrNullFunction.regularParameters.forEachIndexed { index, param ->
                 val paramTypeName = (param.type.classifierOrNull?.owner as? IrClass)?.name?.asString()
                 if (index == 0 && paramTypeName == "Qualifier" && qualifier != null) {
-                    putValueArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
+                    putRegularArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
                 } else {
-                    putValueArgument(index, builder.irNull())
+                    putRegularArgument(index, builder.irNull())
                 }
             }
         }
@@ -474,7 +474,7 @@ class KoinArgumentGenerator(
                 function.name.asString() == "inject" &&
                 function.typeParameters.size == 1
             }
-            .minByOrNull { it.valueParameters.size }
+            .minByOrNull { it.regularParameters.size }
         if (injectFunction == null) {
             KoinPluginLogger.debug { "Could not find inject() function on scope class ${scopeClass.name} for type ${type.classFqName}" }
             return builder.irNull()
@@ -488,17 +488,17 @@ class KoinArgumentGenerator(
         val callReturnType = returnType ?: injectFunction.returnType
         return builder.irCall(injectFunction.symbol, callReturnType).apply {
             dispatchReceiver = scopeReceiver
-            putTypeArgument(0, type)
+            putTypeArgumentCompat(0, type)
 
-            injectFunction.valueParameters.forEachIndexed { index, param ->
+            injectFunction.regularParameters.forEachIndexed { index, param ->
                 val paramType = param.type
                 val paramTypeName = (paramType.classifierOrNull?.owner as? IrClass)?.name?.asString()
                 when {
                     paramTypeName == "Qualifier" && qualifier != null -> {
-                        putValueArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
+                        putRegularArgument(index, qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull())
                     }
                     paramType.classifierOrNull?.owner == lazyMode && synchronizedEntry != null -> {
-                        putValueArgument(index, IrGetEnumValueImpl(
+                        putRegularArgument(index, IrGetEnumValueImpl(
                             UNDEFINED_OFFSET,
                             UNDEFINED_OFFSET,
                             paramType,
@@ -506,7 +506,7 @@ class KoinArgumentGenerator(
                         ))
                     }
                     paramType.isMarkedNullable() -> {
-                        putValueArgument(index, builder.irNull())
+                        putRegularArgument(index, builder.irNull())
                     }
                 }
             }
@@ -529,7 +529,7 @@ class KoinArgumentGenerator(
             .firstOrNull { function ->
                 function.name.asString() == "get" &&
                 function.typeParameters.size == 1 &&
-                function.valueParameters.isEmpty()
+                function.regularParameters.isEmpty()
             }
         if (getFunction == null) {
             KoinPluginLogger.debug { "Could not find get() function on ParametersHolder class for type ${type.classFqName}" }
@@ -538,7 +538,7 @@ class KoinArgumentGenerator(
 
         return builder.irCall(getFunction.symbol, type).apply {
             dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
+            putTypeArgumentCompat(0, type)
         }
     }
 
@@ -558,7 +558,7 @@ class KoinArgumentGenerator(
             .firstOrNull { function ->
                 function.name.asString() == "getOrNull" &&
                 function.typeParameters.size == 1 &&
-                function.valueParameters.isEmpty()
+                function.regularParameters.isEmpty()
             }
         if (getOrNullFunction == null) {
             KoinPluginLogger.debug { "Could not find getOrNull() function on ParametersHolder class for type ${type.classFqName}" }
@@ -567,7 +567,7 @@ class KoinArgumentGenerator(
 
         return builder.irCall(getOrNullFunction.symbol, type.makeNullable()).apply {
             dispatchReceiver = parametersHolderReceiver
-            putTypeArgument(0, type)
+            putTypeArgumentCompat(0, type)
         }
     }
 }
