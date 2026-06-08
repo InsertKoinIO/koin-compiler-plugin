@@ -111,8 +111,15 @@ class InjectedParamHintGenerator(
                 KoinPluginLogger.debug { "InjectedParam: ambiguous target $targetFqName (multiple definitions, different @InjectedParam shapes) — skipping index" }
                 continue
             }
-            localSlots.putIfAbsent(targetFqName, slots)
-            emitHintFunction(moduleFragment, def, targetClass, targetFqName, slots)
+            // Emit the hint exactly once per target. Multiple definitions can share a
+            // target+shape (e.g. an annotation definition and a DSL definition for the
+            // same type); since they passed the ambiguity check they have identical
+            // shapes, so a single hint is correct. Emitting per-definition produces
+            // duplicate IR functions with identical signatures — tolerated on JVM but
+            // a hard KLIB serialization failure on Native/JS/Wasm (compiler#40, #44).
+            if (localSlots.putIfAbsent(targetFqName, slots) == null) {
+                emitHintFunction(moduleFragment, def, targetClass, targetFqName, slots)
+            }
         }
 
         if (localSlots.isNotEmpty()) {
