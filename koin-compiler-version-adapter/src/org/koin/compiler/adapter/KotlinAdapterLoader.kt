@@ -37,8 +37,12 @@ object KotlinAdapterLoader {
      */
     val current: KotlinVersionAdapter
         get() = loaded ?: synchronized(this) {
-            loaded ?: load().let {
-                it.adapter ?: error(it.error ?: "Koin compiler plugin: no compatible Kotlin version adapter")
+            loaded ?: load().let { selection ->
+                // This path bypasses the registrar's messageCollector — don't
+                // swallow version warnings, surface them on stderr.
+                selection.warnings.forEach { System.err.println("warning: $it") }
+                selection.adapter
+                    ?: error(selection.error ?: "Koin compiler plugin: no compatible Kotlin version adapter")
             }
         }
 

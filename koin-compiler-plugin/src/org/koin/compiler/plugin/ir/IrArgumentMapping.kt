@@ -44,7 +44,10 @@ internal val IrFunctionAccessExpression.regularArgumentsCount: Int
 
 /** Sets the extension receiver argument — the old `extensionReceiver =`. */
 internal fun IrFunctionAccessExpression.setExtensionReceiverArgument(value: IrExpression?) {
-    val param = symbol.owner.extensionReceiverParam ?: return
+    // A missing extension-receiver parameter means the call site and callee shape
+    // disagree — fail loudly rather than silently dropping the argument.
+    val param = symbol.owner.extensionReceiverParam
+        ?: error("Koin compiler plugin: callee ${symbol.owner.name} has no extension receiver parameter")
     arguments[param.indexInParameters] = value
 }
 
