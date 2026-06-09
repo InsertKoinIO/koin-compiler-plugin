@@ -1,6 +1,7 @@
 package org.jetbrains.kotlin.compiler.plugin.template.runners
 
 import org.jetbrains.kotlin.compiler.plugin.template.services.configurePlugin
+import org.jetbrains.kotlin.test.backend.handlers.UpdateTestDataHandler
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
@@ -35,6 +36,7 @@ open class AbstractJvmDiagnosticTest : AbstractFirPhasedDiagnosticTest(FirParser
             +CodegenTestDirectives.IGNORE_DEXING // Avoids loading R8 from the classpath.
         }
 
+        useAfterAnalysisCheckers(::UpdateTestDataHandler)
         configurePlugin()
     }
 }

@@ -1,7 +1,7 @@
 FILE: test.kt
     public abstract interface MyType : R|kotlin/Any| {
     }
-    @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|MyType|)) @R|org/koin/core/annotation/Scoped|() public final class Tnt : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|MyType|) [evaluated = <getClass>(Q|MyType|)]) @R|org/koin/core/annotation/Scoped|() public final class Tnt : R|kotlin/Any| {
         public constructor(): R|Tnt| {
             super<R|kotlin/Any|>()
         }
@@ -11,7 +11,7 @@ FILE: test.kt
 
     }
     @R|org/koin/core/annotation/Factory|() public final class Lex : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/ScopeId|(name = String(a)) t: R|Tnt|): R|Lex| {
+        public constructor(@R|org/koin/core/annotation/ScopeId|(name = String(a) [evaluated = String(a)]) t: R|Tnt|): R|Lex| {
             super<R|kotlin/Any|>()
         }
 

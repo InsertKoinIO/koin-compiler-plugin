@@ -3,12 +3,12 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testModule.kt
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.SessionData
     VALUE_PARAMETER kind:Regular name:scope index:1 type:<root>.SessionScope
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
   FUN name:componentscan_testModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.AuthService
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:AuthService modality:FINAL visibility:public superTypes:[kotlin.Any]
@@ -35,7 +35,7 @@ FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:SessionData modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
       Scoped(binds = <null>)
-      Scope(value = CLASS_REFERENCE 'CLASS CLASS name:SessionScope modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.SessionScope>, name = <null>)
+      Scope(value = SessionScope::class, name = <null>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.SessionData
     PROPERTY name:auth visibility:public modality:FINAL [val]
       FIELD PROPERTY_BACKING_FIELD name:auth type:<root>.AuthService visibility:private [final]

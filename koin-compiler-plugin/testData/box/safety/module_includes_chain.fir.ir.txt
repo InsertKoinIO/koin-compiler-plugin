@@ -88,7 +88,7 @@ FILE fqName:<root> fileName:/infraModuleModule.kt
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:AppModule modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
-      Module(includes = [CLASS_REFERENCE 'CLASS CLASS name:DataModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.DataModule>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
+      Module(includes = [DataModule::class] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.AppModule
     CONSTRUCTOR visibility:public returnType:<root>.AppModule [primary]
       BLOCK_BODY
@@ -149,7 +149,7 @@ FILE fqName:<root> fileName:/test.kt
         public open fun toString (): kotlin.String declared in kotlin.Any
   CLASS CLASS name:DataModule modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
-      Module(includes = [CLASS_REFERENCE 'CLASS CLASS name:InfraModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.InfraModule>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
+      Module(includes = [InfraModule::class] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.DataModule
     CONSTRUCTOR visibility:public returnType:<root>.DataModule [primary]
       BLOCK_BODY
@@ -290,7 +290,7 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/appModuleModule
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_appModule__provideService visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.AppService
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
@@ -298,7 +298,7 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/dataModuleModul
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_dataModule__provideRepo visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.Repository
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
@@ -306,7 +306,7 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/infraModuleModu
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_infraModule__provideDb visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.Database
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"

@@ -2,13 +2,13 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testModule.kt
   FUN name:componentscan_testModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Lex
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
   FUN name:componentscan_testModule_scoped visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Tnt
     VALUE_PARAMETER kind:Regular name:scope index:1 type:<root>.MyType
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:Lex modality:FINAL visibility:public superTypes:[kotlin.Any]
@@ -70,7 +70,7 @@ FILE fqName:<root> fileName:/test.kt
         public open fun toString (): kotlin.String declared in kotlin.Any
   CLASS CLASS name:Tnt modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
-      Scope(value = CLASS_REFERENCE 'CLASS INTERFACE name:MyType modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.MyType>, name = <null>)
+      Scope(value = MyType::class, name = <null>)
       Scoped(binds = <null>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Tnt
     PROPERTY name:signature visibility:public modality:FINAL [val]

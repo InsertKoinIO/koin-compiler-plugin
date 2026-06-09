@@ -6,7 +6,7 @@ FILE: Services.kt
             public get(): R|kotlin/String|
 
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(baseUrl)) public final fun provideBaseUrl(): R|service/Url| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(baseUrl) [evaluated = String(baseUrl)]) public final fun provideBaseUrl(): R|service/Url| {
         ^provideBaseUrl object : R|service/Url| {
             private constructor(): R|service/<anonymous>| {
                 super<R|kotlin/Any|>()
@@ -18,7 +18,7 @@ FILE: Services.kt
         }
 
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(authUrl)) public final fun provideAuthUrl(): R|service/Url| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(authUrl) [evaluated = String(authUrl)]) public final fun provideAuthUrl(): R|service/Url| {
         ^provideAuthUrl object : R|service/Url| {
             private constructor(): R|service/<anonymous>| {
                 super<R|kotlin/Any|>()
@@ -34,7 +34,7 @@ FILE: UrlClient.kt
     package consumer
 
     @R|org/koin/core/annotation/Singleton|() public final class UrlClient : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/Named|(value = String(baseUrl)) base: R|service/Url|, @R|org/koin/core/annotation/Named|(value = String(authUrl)) auth: R|service/Url|): R|consumer/UrlClient| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(baseUrl) [evaluated = String(baseUrl)]) base: R|service/Url|, @R|org/koin/core/annotation/Named|(value = String(authUrl) [evaluated = String(authUrl)]) auth: R|service/Url|): R|consumer/UrlClient| {
             super<R|kotlin/Any|>()
         }
 
@@ -46,13 +46,13 @@ FILE: UrlClient.kt
 
     }
 FILE: modules.kt
-    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(service))) @R|org/koin/core/annotation/Configuration|() public final class ServiceModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(service)) [evaluated = vararg(String(service))]) @R|org/koin/core/annotation/Configuration|() public final class ServiceModule : R|kotlin/Any| {
         public constructor(): R|ServiceModule| {
             super<R|kotlin/Any|>()
         }
 
     }
-    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(consumer))) @R|org/koin/core/annotation/Configuration|() public final class ConsumerModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(consumer)) [evaluated = vararg(String(consumer))]) @R|org/koin/core/annotation/Configuration|() public final class ConsumerModule : R|kotlin/Any| {
         public constructor(): R|ConsumerModule| {
             super<R|kotlin/Any|>()
         }

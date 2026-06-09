@@ -15,6 +15,10 @@ import java.util.regex.Pattern;
 @TestMetadata("koin-compiler-plugin/testData/diagnostics")
 @TestDataPath("$PROJECT_ROOT")
 public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
+  private void run(String fileName) {
+    runTest("koin-compiler-plugin/testData/diagnostics/" + fileName);
+  }
+
   @Test
   public void testAllFilesPresentInDiagnostics() {
     KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/diagnostics"), Pattern.compile("^(.+)\\.kt$"), null, true);
@@ -23,138 +27,138 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
   @Test
   @TestMetadata("call_site_param_arity_mismatch.kt")
   public void testCall_site_param_arity_mismatch() {
-    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_arity_mismatch.kt");
+    run("call_site_param_arity_mismatch.kt");
   }
 
   @Test
   @TestMetadata("call_site_param_dsl_missing_d006.kt")
   public void testCall_site_param_dsl_missing_d006() {
-    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_dsl_missing_d006.kt");
+    run("call_site_param_dsl_missing_d006.kt");
   }
 
   @Test
   @TestMetadata("call_site_param_missing_d006.kt")
   public void testCall_site_param_missing_d006() {
-    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_missing_d006.kt");
+    run("call_site_param_missing_d006.kt");
   }
 
   @Test
   @TestMetadata("call_site_param_no_injected_no_d006.kt")
   public void testCall_site_param_no_injected_no_d006() {
-    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_no_injected_no_d006.kt");
+    run("call_site_param_no_injected_no_d006.kt");
   }
 
   @Test
   @TestMetadata("call_site_param_nullable_ok.kt")
   public void testCall_site_param_nullable_ok() {
-    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_nullable_ok.kt");
+    run("call_site_param_nullable_ok.kt");
   }
 
   @Test
   @TestMetadata("call_site_param_ok.kt")
   public void testCall_site_param_ok() {
-    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_ok.kt");
+    run("call_site_param_ok.kt");
   }
 
   @Test
   @TestMetadata("call_site_param_type_mismatch.kt")
   public void testCall_site_param_type_mismatch() {
-    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_type_mismatch.kt");
+    run("call_site_param_type_mismatch.kt");
   }
 
   @Test
   @TestMetadata("circular_dependency_broken_by_lazy.kt")
   public void testCircular_dependency_broken_by_lazy() {
-    runTest("koin-compiler-plugin/testData/diagnostics/circular_dependency_broken_by_lazy.kt");
+    run("circular_dependency_broken_by_lazy.kt");
   }
 
   @Test
   @TestMetadata("circular_dependency_direct.kt")
   public void testCircular_dependency_direct() {
-    runTest("koin-compiler-plugin/testData/diagnostics/circular_dependency_direct.kt");
+    run("circular_dependency_direct.kt");
   }
 
   @Test
   @TestMetadata("circular_dependency_transitive.kt")
   public void testCircular_dependency_transitive() {
-    runTest("koin-compiler-plugin/testData/diagnostics/circular_dependency_transitive.kt");
+    run("circular_dependency_transitive.kt");
   }
 
   @Test
   @TestMetadata("configuration_label_mismatch.kt")
   public void testConfiguration_label_mismatch() {
-    runTest("koin-compiler-plugin/testData/diagnostics/configuration_label_mismatch.kt");
+    run("configuration_label_mismatch.kt");
   }
 
   @Test
   @TestMetadata("dsl_module_not_loaded.kt")
   public void testDsl_module_not_loaded() {
-    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_not_loaded.kt");
+    run("dsl_module_not_loaded.kt");
   }
 
   @Test
   @TestMetadata("dsl_module_unreachable.kt")
   public void testDsl_module_unreachable() {
-    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_unreachable.kt");
+    run("dsl_module_unreachable.kt");
   }
 
   @Test
   @TestMetadata("factory_suspend_fun_interface_d007.kt")
   public void testFactory_suspend_fun_interface_d007() {
-    runTest("koin-compiler-plugin/testData/diagnostics/factory_suspend_fun_interface_d007.kt");
+    run("factory_suspend_fun_interface_d007.kt");
   }
 
   @Test
   @TestMetadata("koin_configuration_modules_a3.kt")
   public void testKoin_configuration_modules_a3() {
-    runTest("koin-compiler-plugin/testData/diagnostics/koin_configuration_modules_a3.kt");
+    run("koin_configuration_modules_a3.kt");
   }
 
   @Test
   @TestMetadata("lazy_missing.kt")
   public void testLazy_missing() {
-    runTest("koin-compiler-plugin/testData/diagnostics/lazy_missing.kt");
+    run("lazy_missing.kt");
   }
 
   @Test
   @TestMetadata("missing_dependency.kt")
   public void testMissing_dependency() {
-    runTest("koin-compiler-plugin/testData/diagnostics/missing_dependency.kt");
+    run("missing_dependency.kt");
   }
 
   @Test
   @TestMetadata("missing_viewmodel_artifact.kt")
   public void testMissing_viewmodel_artifact() {
-    runTest("koin-compiler-plugin/testData/diagnostics/missing_viewmodel_artifact.kt");
+    run("missing_viewmodel_artifact.kt");
   }
 
   @Test
   @TestMetadata("missing_worker_artifact.kt")
   public void testMissing_worker_artifact() {
-    runTest("koin-compiler-plugin/testData/diagnostics/missing_worker_artifact.kt");
+    run("missing_worker_artifact.kt");
   }
 
   @Test
   @TestMetadata("provided_missing.kt")
   public void testProvided_missing() {
-    runTest("koin-compiler-plugin/testData/diagnostics/provided_missing.kt");
+    run("provided_missing.kt");
   }
 
   @Test
   @TestMetadata("qualifier_mismatch.kt")
   public void testQualifier_mismatch() {
-    runTest("koin-compiler-plugin/testData/diagnostics/qualifier_mismatch.kt");
+    run("qualifier_mismatch.kt");
   }
 
   @Test
   @TestMetadata("scoped_cross_scope.kt")
   public void testScoped_cross_scope() {
-    runTest("koin-compiler-plugin/testData/diagnostics/scoped_cross_scope.kt");
+    run("scoped_cross_scope.kt");
   }
 
   @Test
   @TestMetadata("startkoin_missing.kt")
   public void testStartkoin_missing() {
-    runTest("koin-compiler-plugin/testData/diagnostics/startkoin_missing.kt");
+    run("startkoin_missing.kt");
   }
 }

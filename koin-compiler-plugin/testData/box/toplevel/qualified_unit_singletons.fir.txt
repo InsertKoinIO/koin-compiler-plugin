@@ -1,15 +1,15 @@
 FILE: test.kt
     package testpkg
 
-    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) @R|org/koin/core/annotation/Configuration|() public final class AppModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg)) [evaluated = vararg(String(testpkg))]) @R|org/koin/core/annotation/Configuration|() public final class AppModule : R|kotlin/Any| {
         public constructor(): R|testpkg/AppModule| {
             super<R|kotlin/Any|>()
         }
 
     }
-    @R|org/koin/core/annotation/Named|(value = String(initFlagsAndLogging)) @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true)) public final fun initFlagsAndLogging(): R|kotlin/Unit| {
+    @R|org/koin/core/annotation/Named|(value = String(initFlagsAndLogging) [evaluated = String(initFlagsAndLogging)]) @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true) [evaluated = Boolean(true)]) public final fun initFlagsAndLogging(): R|kotlin/Unit| {
     }
-    @R|org/koin/core/annotation/Named|(value = String(initNotifier)) @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true)) public final fun initNotifier(): R|kotlin/Unit| {
+    @R|org/koin/core/annotation/Named|(value = String(initNotifier) [evaluated = String(initNotifier)]) @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true) [evaluated = Boolean(true)]) public final fun initNotifier(): R|kotlin/Unit| {
     }
     public final fun box(): R|kotlin/String| {
         lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
