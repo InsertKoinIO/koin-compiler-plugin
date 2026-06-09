@@ -329,6 +329,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("injected_param_dual_definition_single_hint.kt")
+    public void testInjected_param_dual_definition_single_hint() {
+      runTest("koin-compiler-plugin/testData/box/safety/injected_param_dual_definition_single_hint.kt");
+    }
+
+    @Test
     @TestMetadata("injected_param_ok.kt")
     public void testInjected_param_ok() {
       runTest("koin-compiler-plugin/testData/box/safety/injected_param_ok.kt");
