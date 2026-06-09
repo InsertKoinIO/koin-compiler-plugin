@@ -1,12 +1,12 @@
 [versions]
-agp = "8.13.2"
+agp = "9.2.1"
 kotlin = "2.4.0"
 koin = "4.2.1"
 koin-plugin = "1.0.1"
 composeBom = "2026.03.00"
 navigation = "2.9.7"
 room = "2.8.4"
-ksp = "2.3.3"
+ksp = "2.3.9"
 datastore = "1.2.1"
 workmanager = "2.11.1"
 serialization = "1.10.0"
@@ -53,7 +53,6 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
 koin-compiler = { id = "io.insert-koin.compiler.plugin", version.ref = "koin-plugin" }
