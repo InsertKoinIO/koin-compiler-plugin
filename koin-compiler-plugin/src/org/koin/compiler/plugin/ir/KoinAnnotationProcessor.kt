@@ -1003,12 +1003,6 @@ class KoinAnnotationProcessor(
             }
 
             val batchFileName = "koin_hints_${sanitizedModuleId}.kt"
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = batchFileName
-            }
 
             val sourceFileEntry = try {
                 moduleClass.irClass.fileEntry
@@ -1021,6 +1015,17 @@ class KoinAnnotationProcessor(
             }
 
             val fakeNewPath = Path(sourceFileEntry.name).parent.resolve(batchFileName)
+            val firFile = buildFile {
+                moduleData = firModuleData
+                origin = FirDeclarationOrigin.Synthetic.PluginFile
+                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+                name = batchFileName
+                // KLIB metadata serialization (Native/JS/Wasm) requires every file to
+                // resolve to an io File; a synthetic file with no sourceFile fails the
+                // wasm/js serializer with "No file found for source null" (KT-82395).
+                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+            }
+
             val hintFile = IrFileImpl(
                 fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
                 packageFragmentDescriptor = EmptyPackageFragmentDescriptor(

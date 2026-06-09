@@ -223,13 +223,6 @@ class DslHintGenerator(private val context: IrPluginContext) {
             val prefix = HintFilePrefix.of(firModuleData.name.asString())
             val fileName = prefix + buildDslHintFileName(targetClassId, hintName)
 
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = fileName
-            }
-
             // Anchor the synthetic hint file on a stable source path from the current compile
             // unit (see issue #32). Priority:
             //   1. The DSL call's own source file — always a file in the current module, and
@@ -250,6 +243,16 @@ class DslHintGenerator(private val context: IrPluginContext) {
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
             val fakeNewPath = Path(basePath).parent.resolve(fileName)
+
+            val firFile = buildFile {
+                moduleData = firModuleData
+                origin = FirDeclarationOrigin.Synthetic.PluginFile
+                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+                name = fileName
+                // KLIB metadata serialization (Native/JS/Wasm) requires a resolvable io
+                // File per file; a null sourceFile fails the wasm/js serializer (KT-82395).
+                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+            }
 
             val hintFile = IrFileImpl(
                 fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),

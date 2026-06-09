@@ -239,13 +239,6 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 .replaceFirstChar { it.lowercaseChar() }
             val fileName = "${modulePrefix}${sanitizedName}_callsite.kt"
 
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = fileName
-            }
-
             // Anchor the synthetic hint file on the call site's source file so the path stays
             // stable across incremental rebuilds (see issue #32). Fall back to the
             // alphabetically-first source file in the module — also stable, just less local.
@@ -253,6 +246,16 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
             val fakeNewPath = Path(basePath).parent.resolve(fileName)
+
+            val firFile = buildFile {
+                moduleData = firModuleData
+                origin = FirDeclarationOrigin.Synthetic.PluginFile
+                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+                name = fileName
+                // KLIB metadata serialization (Native/JS/Wasm) requires a resolvable io
+                // File per file; a null sourceFile fails the wasm/js serializer (KT-82395).
+                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+            }
 
             val hintFile = IrFileImpl(
                 fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
