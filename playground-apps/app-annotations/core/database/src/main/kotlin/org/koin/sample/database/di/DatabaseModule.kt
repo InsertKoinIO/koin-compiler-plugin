@@ -9,7 +9,9 @@ import org.koin.sample.database.AppDatabase
 @Module
 internal object DatabaseModule {
 
-    @Singleton
+    // createdAtStart: open the Room database eagerly at startKoin rather than on first
+    // injection (exercises per-definition createdAtStart on a @Singleton function — koin#2425).
+    @Singleton(createdAtStart = true)
     fun providesDatabase(context: Context): AppDatabase =
         Room.databaseBuilder(
             context,
