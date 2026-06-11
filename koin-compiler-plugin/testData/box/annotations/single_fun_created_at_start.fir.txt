@@ -1,0 +1,101 @@
+FILE: test.kt
+    public final class Eager : R|kotlin/Any| {
+        public constructor(): R|Eager| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Lazy : R|kotlin/Any| {
+        public constructor(): R|Lazy| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final object Counter : R|kotlin/Any| {
+        private constructor(): R|Counter| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final var eagerCtor: R|kotlin/Int| = Int(0)
+            public get(): R|kotlin/Int|
+            public set(value: R|kotlin/Int|): R|kotlin/Unit|
+
+        public final var lazyCtor: R|kotlin/Int| = Int(0)
+            public get(): R|kotlin/Int|
+            public set(value: R|kotlin/Int|): R|kotlin/Unit|
+
+        public final fun reset(): R|kotlin/Unit| {
+            this@R|/Counter|.R|/Counter.eagerCtor| = Int(0)
+            this@R|/Counter|.R|/Counter.lazyCtor| = Int(0)
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Single|(createdAtStart = Boolean(true)) public final fun eager(): R|Eager| {
+             {
+                lval <unary>: R|kotlin/Int| = Q|Counter|.R|/Counter.eagerCtor|
+                Q|Counter|.R|/Counter.eagerCtor| = R|<local>/<unary>|.R|kotlin/Int.inc|()
+                R|<local>/<unary>|
+            }
+
+            ^eager R|/Eager.Eager|()
+        }
+
+        @R|org/koin/core/annotation/Single|() public final fun lazy(): R|Lazy| {
+             {
+                lval <unary>: R|kotlin/Int| = Q|Counter|.R|/Counter.lazyCtor|
+                Q|Counter|.R|/Counter.lazyCtor| = R|<local>/<unary>|.R|kotlin/Int.inc|()
+                R|<local>/<unary>|
+            }
+
+            ^lazy R|/Lazy.Lazy|()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        Q|Counter|.R|/Counter.reset|()
+        lval app: R|org/koin/core/KoinApplication| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        )
+        R|<local>/app|.R|org/koin/core/KoinApplication.createEagerInstances|()
+        when () {
+            !=(Q|Counter|.R|/Counter.eagerCtor|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: @Single(createdAtStart=true) fun not eagerly initialized (eagerCtor=), Q|Counter|.R|/Counter.eagerCtor|, String()))
+            }
+        }
+
+        when () {
+            !=(Q|Counter|.R|/Counter.lazyCtor|, Int(0)) ->  {
+                ^box <strcat>(String(FAIL: lazy @Single fun was eagerly initialized (lazyCtor=), Q|Counter|.R|/Counter.lazyCtor|, String()))
+            }
+        }
+
+        lval koin: R|org/koin/core/Koin| = R|<local>/app|.R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|Lazy|>()
+        when () {
+            !=(Q|Counter|.R|/Counter.lazyCtor|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: lazy missing after get<>() (lazyCtor=), Q|Counter|.R|/Counter.lazyCtor|, String()))
+            }
+        }
+
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|Eager|>()
+        when () {
+            !=(Q|Counter|.R|/Counter.eagerCtor|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: eager re-instantiated on get<>() (eagerCtor=), Q|Counter|.R|/Counter.eagerCtor|, String()))
+            }
+        }
+
+        ^box String(OK)
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/testModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_testModule__eager(contributed: R|Eager|): R|kotlin/Unit|
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_testModule__lazy(contributed: R|Lazy|): R|kotlin/Unit|

@@ -211,6 +211,18 @@ class DefinitionCallBuilder(
                 targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
             )
             putRegularArgument(2, definitionLambda)
+
+            // Add createdAtStart parameter if applicable (only for SINGLE).
+            // Without this, `@Single(createdAtStart = true) fun ...` inside a @Module
+            // silently falls back to the buildSingle default (false) — koin#2425.
+            if (definition.createdAtStart && definition.definitionType == DefinitionType.SINGLE) {
+                val createdAtStartIndex = koinFunction.regularParameters.indexOfFirst {
+                    it.name.asString() == "createdAtStart"
+                }
+                if (createdAtStartIndex >= 0) {
+                    putRegularArgument(createdAtStartIndex, builder.irTrue())
+                }
+            }
         }
 
         return if (definition.bindings.isNotEmpty()) {

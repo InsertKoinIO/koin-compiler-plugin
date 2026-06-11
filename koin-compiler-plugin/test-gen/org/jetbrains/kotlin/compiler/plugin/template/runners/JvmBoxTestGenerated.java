@@ -43,6 +43,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("single_fun_created_at_start.kt")
+    public void testSingle_fun_created_at_start() {
+      runTest("koin-compiler-plugin/testData/box/annotations/single_fun_created_at_start.kt");
+    }
+
+    @Test
     @TestMetadata("singleton_class.kt")
     public void testSingleton_class() {
       runTest("koin-compiler-plugin/testData/box/annotations/singleton_class.kt");
