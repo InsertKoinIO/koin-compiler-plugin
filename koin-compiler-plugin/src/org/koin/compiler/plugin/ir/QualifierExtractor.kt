@@ -14,8 +14,10 @@ import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetEnumValueImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
+import org.jetbrains.kotlin.ir.expressions.IrTypeOperatorCall
 import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.isString
@@ -209,6 +211,60 @@ class QualifierExtractor(private val context: IrPluginContext) {
 
         // Check for custom qualifier annotations
         return findCustomQualifierAnnotation(param.annotations, "parameter ${param.name}")
+    }
+
+    /**
+     * Extract qualifier from a DSL call argument such as:
+     * - `named("demo")`
+     * - `named<MyQualifier>()`
+     * - `typeQualifier(MyQualifier::class)`
+     * - `typeQualifier<MyQualifier>()`
+     */
+    fun extractFromExpression(expression: IrExpression?): QualifierValue? {
+        val unwrapped = unwrapExpression(expression) ?: return null
+        val call = unwrapped as? IrCall ?: return null
+        val fqName = call.symbol.owner.fqNameWhenAvailable?.asString() ?: return null
+
+        if (fqName == "org.koin.core.qualifier.named") {
+            val stringArg = unwrapExpression(call.getValueArgument(0))
+            if (stringArg is IrConst && stringArg.value is String) {
+                return QualifierValue.StringQualifier(stringArg.value as String)
+            }
+
+            val typeArgClass = call.getTypeArgument(0)?.classifierOrNull?.owner as? IrClass
+            if (typeArgClass != null) {
+                return QualifierValue.TypeQualifier(typeArgClass)
+            }
+        }
+
+        if (fqName == "org.koin.plugin.module.dsl.typeQualifier") {
+            val typeArgClass = call.getTypeArgument(0)?.classifierOrNull?.owner as? IrClass
+            if (typeArgClass != null) {
+                return QualifierValue.TypeQualifier(typeArgClass)
+            }
+
+            val classArg = unwrapExpression(call.getValueArgument(0))
+            if (classArg is IrClassReference) {
+                val qualifierClass = classArg.classType.classifierOrNull?.owner as? IrClass
+                if (qualifierClass != null) {
+                    return QualifierValue.TypeQualifier(qualifierClass)
+                }
+            }
+        }
+
+        return null
+    }
+
+    /**
+     * IR arguments may be wrapped in type-operator nodes such as implicit casts.
+     * Strip those wrappers so we can inspect the underlying call, constant, or class reference.
+     */
+    private fun unwrapExpression(expression: IrExpression?): IrExpression? {
+        var current = expression
+        while (current is IrTypeOperatorCall) {
+            current = current.argument
+        }
+        return current
     }
 
     /**

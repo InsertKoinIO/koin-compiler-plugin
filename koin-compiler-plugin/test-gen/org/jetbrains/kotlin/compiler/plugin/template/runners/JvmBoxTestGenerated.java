@@ -305,6 +305,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_create_function_outer_qualifier.kt")
+    public void testDsl_create_function_outer_qualifier() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_create_function_outer_qualifier.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_injected_param_d006.kt")
     public void testDsl_injected_param_d006() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_injected_param_d006.kt");
