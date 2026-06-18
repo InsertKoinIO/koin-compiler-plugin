@@ -9,7 +9,7 @@ FILE: test.kt
 
     }
     @R|org/koin/core/annotation/Factory|() public final class ProfileService : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/ScopeId|(name = String(user_session)) session: R|UserSession|): R|ProfileService| {
+        public constructor(@R|org/koin/core/annotation/ScopeId|(name = String(user_session) [evaluated = String(user_session)]) session: R|UserSession|): R|ProfileService| {
             super<R|kotlin/Any|>()
         }
 

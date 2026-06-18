@@ -3,6 +3,7 @@ package org.jetbrains.kotlin.compiler.plugin.template.runners
 import org.jetbrains.kotlin.compiler.plugin.template.services.configurePlugin
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
+import org.jetbrains.kotlin.test.backend.handlers.UpdateTestDataHandler
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
 import org.jetbrains.kotlin.test.directives.FirDiagnosticsDirectives
 import org.jetbrains.kotlin.test.directives.JvmEnvironmentConfigurationDirectives
@@ -36,6 +37,7 @@ open class AbstractJvmBoxTest : AbstractFirBlackBoxCodegenTestBase(FirParser.Lig
             +CodegenTestDirectives.IGNORE_DEXING // Avoids loading R8 from the classpath.
         }
 
+        useAfterAnalysisCheckers(::UpdateTestDataHandler)
         configurePlugin()
     }
 }

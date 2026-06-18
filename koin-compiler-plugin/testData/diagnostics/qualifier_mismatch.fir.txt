@@ -5,14 +5,14 @@ FILE: test.kt
         }
 
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(test)) public final class Repository : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(test) [evaluated = String(test)]) public final class Repository : R|kotlin/Any| {
         public constructor(): R|Repository| {
             super<R|kotlin/Any|>()
         }
 
     }
     @R|org/koin/core/annotation/Singleton|() public final class Service : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/Named|(value = String(prod)) repo: R|Repository|): R|Service| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(prod) [evaluated = String(prod)]) repo: R|Repository|): R|Service| {
             super<R|kotlin/Any|>()
         }
 

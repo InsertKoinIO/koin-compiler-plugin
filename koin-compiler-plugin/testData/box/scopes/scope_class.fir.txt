@@ -11,7 +11,7 @@ FILE: test.kt
         }
 
     }
-    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|MyScope|)) public final class ScopedService : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|MyScope|) [evaluated = <getClass>(Q|MyScope|)]) public final class ScopedService : R|kotlin/Any| {
         public constructor(): R|ScopedService| {
             super<R|kotlin/Any|>()
         }

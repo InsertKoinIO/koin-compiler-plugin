@@ -5,10 +5,10 @@ FILE: test.kt
         }
 
     }
-    @R|org/koin/core/annotation/Named|(value = String(initWithParam)) @R|org/koin/core/annotation/Singleton|() public final fun initWithParam(@R|org/koin/core/annotation/InjectedParam|() tag: R|kotlin/String|): R|kotlin/Unit| {
+    @R|org/koin/core/annotation/Named|(value = String(initWithParam) [evaluated = String(initWithParam)]) @R|org/koin/core/annotation/Singleton|() public final fun initWithParam(@R|org/koin/core/annotation/InjectedParam|() tag: R|kotlin/String|): R|kotlin/Unit| {
         R|kotlin/check|(==(R|<local>/tag|, String(x)))
     }
-    @R|org/koin/core/annotation/Named|(value = String(initNoParam)) @R|org/koin/core/annotation/Singleton|() public final fun initNoParam(): R|kotlin/Unit| {
+    @R|org/koin/core/annotation/Named|(value = String(initNoParam) [evaluated = String(initNoParam)]) @R|org/koin/core/annotation/Singleton|() public final fun initNoParam(): R|kotlin/Unit| {
     }
     public final fun box(): R|kotlin/String| {
         lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {

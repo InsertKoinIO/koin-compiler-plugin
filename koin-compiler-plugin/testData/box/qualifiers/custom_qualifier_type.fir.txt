@@ -28,10 +28,10 @@ FILE: test.kt
             super<R|kotlin/Any|>()
         }
 
-        public final val base: R|kotlin/String| = R|<local>/base|
+        @R|BaseUrl|() public final val base: R|kotlin/String| = R|<local>/base|
             public get(): R|kotlin/String|
 
-        public final val auth: R|kotlin/String| = R|<local>/auth|
+        @R|AuthUrl|() public final val auth: R|kotlin/String| = R|<local>/auth|
             public get(): R|kotlin/String|
 
     }

@@ -1,7 +1,7 @@
 FILE fqName:<root> fileName:/app.kt
   CLASS OBJECT name:MyApp modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
-      KoinApplication(configurations = <null>, modules = [CLASS_REFERENCE 'CLASS CLASS name:CoreModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.CoreModule>, CLASS_REFERENCE 'CLASS CLASS name:ServiceModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.ServiceModule>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>)
+      KoinApplication(configurations = <null>, modules = [CoreModule::class, ServiceModule::class] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.MyApp
     CONSTRUCTOR visibility:private returnType:<root>.MyApp [primary]
       BLOCK_BODY
@@ -113,13 +113,13 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_hints_coreModule.kt
   FUN name:componentscan_coreModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:core.Repository
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:org.koin.plugin.hints fileName:/koin_hints_serviceModule.kt
   FUN name:componentscan_serviceModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:service.Service
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:service fileName:/service/Service.kt
   CLASS CLASS name:Service modality:FINAL visibility:public superTypes:[kotlin.Any]

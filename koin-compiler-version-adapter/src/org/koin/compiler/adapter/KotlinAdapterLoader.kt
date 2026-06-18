@@ -54,22 +54,23 @@ object KotlinAdapterLoader {
         val newest = registry.last()
         val warnings = mutableListOf<String>()
 
-        val current = KotlinReleaseVersion.parseOrNull(compilerVersion)
+        val effectiveCompilerVersion = effectiveCompilerVersion(compilerVersion, warnings)
+        val current = KotlinReleaseVersion.parseOrNull(effectiveCompilerVersion)
         val entry = when {
             current == null -> {
-                warnings += "Koin compiler plugin: unrecognized Kotlin version '$compilerVersion' — using the adapter for Kotlin ${newest.first.raw} (newest available). Supported versions: ${supportedList(registry)}."
+                warnings += "Koin compiler plugin: unrecognized Kotlin version '$effectiveCompilerVersion' — using the adapter for Kotlin ${newest.first.raw} (newest available). Supported versions: ${supportedList(registry)}."
                 newest
             }
             else -> registry.lastOrNull { current.lineAtLeast(it.first) }
                 ?: return Selection(
                     null, warnings,
-                    "Koin compiler plugin: Kotlin $compilerVersion is older than the oldest supported version (${registry.first().first.raw}). " +
+                    "Koin compiler plugin: Kotlin $effectiveCompilerVersion is older than the oldest supported version (${registry.first().first.raw}). " +
                         "Upgrade Kotlin or use a koin-compiler-plugin release matching your Kotlin version. Supported versions: ${supportedList(registry)}.",
                 )
         }
 
         if (current != null && !newest.first.lineAtLeast(current)) {
-            warnings += "Koin compiler plugin: Kotlin $compilerVersion is newer than the newest tested version (${newest.first.raw}) — proceeding with the ${newest.first.raw} adapter. " +
+            warnings += "Koin compiler plugin: Kotlin $effectiveCompilerVersion is newer than the newest tested version (${newest.first.raw}) — proceeding with the ${newest.first.raw} adapter. " +
                 "If compilation fails, check for a koin-compiler-plugin update. Supported versions: ${supportedList(registry)}."
         }
 
@@ -80,9 +81,37 @@ object KotlinAdapterLoader {
             loaded = adapter
             Selection(adapter, warnings, null)
         } catch (e: Throwable) {
-            Selection(null, warnings, "Koin compiler plugin: failed to load Kotlin version adapter '${entry.second}' for Kotlin $compilerVersion: $e")
+            Selection(null, warnings, "Koin compiler plugin: failed to load Kotlin version adapter '${entry.second}' for Kotlin $effectiveCompilerVersion: $e")
         }
     }
+
+    /**
+     * Gradle's Build Tools API path can expose a compiler API newer than the
+     * `KotlinCompilerVersion.VERSION` constant visible to the plugin classloader.
+     * Kotlin 2.4.0 changed FIR extension registration from ProjectExtensionDescriptor
+     * to ExtensionPointDescriptor; if that shape is present, the 2.3 adapter is
+     * guaranteed to fail even when the reported version still looks like 2.3.x.
+     */
+    private fun effectiveCompilerVersion(reportedVersion: String, warnings: MutableList<String>): String {
+        if (!requiresKotlin240FirRegistrationApi()) return reportedVersion
+
+        val reported = KotlinReleaseVersion.parseOrNull(reportedVersion)
+        val kotlin240 = KotlinReleaseVersion.parseOrNull("2.4.0") ?: return reportedVersion
+        if (reported != null && reported.lineAtLeast(kotlin240)) return reportedVersion
+
+        warnings += "Koin compiler plugin: Kotlin reports '$reportedVersion' but exposes the Kotlin 2.4 FIR extension registration API — using the Kotlin 2.4.0 adapter."
+        return "2.4.0"
+    }
+
+    private fun requiresKotlin240FirRegistrationApi(): Boolean =
+        try {
+            val registrarAdapter = Class.forName("org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter")
+            val companion = registrarAdapter.getField("Companion").get(null)
+            val projectExtensionDescriptor = Class.forName("org.jetbrains.kotlin.extensions.ProjectExtensionDescriptor")
+            !projectExtensionDescriptor.isInstance(companion)
+        } catch (_: Throwable) {
+            false
+        }
 
     /** Registry entries sorted by Kotlin version, oldest first. */
     private fun readRegistry(): List<Pair<KotlinReleaseVersion, String>> {

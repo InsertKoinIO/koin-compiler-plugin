@@ -4,7 +4,7 @@ FILE: test.kt
             super<R|kotlin/Any|>()
         }
 
-        @R|org/koin/core/annotation/Single|(binds = <collectionLiteralCall>(<getClass>(Q|Repository|))) public final fun provideRepository(): R|RepositoryImpl| {
+        @R|org/koin/core/annotation/Single|(binds = <collectionLiteralCall>(<getClass>(Q|Repository|)) [evaluated = <collectionLiteralCall>(<getClass>(Q|Repository|))]) public final fun provideRepository(): R|RepositoryImpl| {
             ^provideRepository R|/RepositoryImpl.RepositoryImpl|()
         }
 

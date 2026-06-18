@@ -43,7 +43,7 @@ FILE: test.kt
         }
 
     }
-    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|AppModule|))) public abstract interface MyApp : R|kotlin/Any| {
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|AppModule|)) [evaluated = <collectionLiteralCall>(<getClass>(Q|AppModule|))]) public abstract interface MyApp : R|kotlin/Any| {
     }
     public final fun box(): R|kotlin/String| {
         lval koin: R|org/koin/core/Koin| = R|org/koin/plugin/module/dsl/startKoin|<R|MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {

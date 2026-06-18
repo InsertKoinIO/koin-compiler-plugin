@@ -3,13 +3,13 @@ FILE: CacheImpl.kt
 
     public abstract interface Cache : R|kotlin/Any| {
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(local)) public final class LocalCache : R|data/Cache| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(local) [evaluated = String(local)]) public final class LocalCache : R|data/Cache| {
         public constructor(): R|data/LocalCache| {
             super<R|kotlin/Any|>()
         }
 
     }
-    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(remote)) public final class RemoteCache : R|data/Cache| {
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(remote) [evaluated = String(remote)]) public final class RemoteCache : R|data/Cache| {
         public constructor(): R|data/RemoteCache| {
             super<R|kotlin/Any|>()
         }
@@ -19,7 +19,7 @@ FILE: CacheManager.kt
     package ui
 
     @R|org/koin/core/annotation/Singleton|() public final class CacheManager : R|kotlin/Any| {
-        public constructor(@R|org/koin/core/annotation/Named|(value = String(local)) local: R|data/Cache|, @R|org/koin/core/annotation/Named|(value = String(remote)) remote: R|data/Cache|): R|ui/CacheManager| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(local) [evaluated = String(local)]) local: R|data/Cache|, @R|org/koin/core/annotation/Named|(value = String(remote) [evaluated = String(remote)]) remote: R|data/Cache|): R|ui/CacheManager| {
             super<R|kotlin/Any|>()
         }
 
@@ -31,13 +31,13 @@ FILE: CacheManager.kt
 
     }
 FILE: modules.kt
-    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(data))) @R|org/koin/core/annotation/Configuration|() public final class DataModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(data)) [evaluated = vararg(String(data))]) @R|org/koin/core/annotation/Configuration|() public final class DataModule : R|kotlin/Any| {
         public constructor(): R|DataModule| {
             super<R|kotlin/Any|>()
         }
 
     }
-    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(ui))) @R|org/koin/core/annotation/Configuration|() public final class UiModule : R|kotlin/Any| {
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(ui)) [evaluated = vararg(String(ui))]) @R|org/koin/core/annotation/Configuration|() public final class UiModule : R|kotlin/Any| {
         public constructor(): R|UiModule| {
             super<R|kotlin/Any|>()
         }

@@ -2,13 +2,13 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testModule.kt
   FUN name:componentscan_testModule_scoped visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.SessionData
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
   FUN name:componentscan_testModule_scoped visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.UserRepositoryImpl
     VALUE_PARAMETER kind:Regular name:binding0 index:1 type:<root>.UserRepository
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:SessionData modality:FINAL visibility:public superTypes:[kotlin.Any]
@@ -72,7 +72,7 @@ FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:UserRepositoryImpl modality:FINAL visibility:public superTypes:[<root>.UserRepository]
     annotations:
       Scope(value = <null>, name = "session")
-      Scoped(binds = [CLASS_REFERENCE 'CLASS INTERFACE name:UserRepository modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.UserRepository>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>)
+      Scoped(binds = [UserRepository::class] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>)
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.UserRepositoryImpl
     CONSTRUCTOR visibility:public returnType:<root>.UserRepositoryImpl [primary]
       BLOCK_BODY

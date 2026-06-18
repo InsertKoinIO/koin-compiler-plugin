@@ -42,7 +42,7 @@ FILE fqName:<root> fileName:/test.kt
     FUN name:provideRepository visibility:public modality:FINAL returnType:<root>.RepositoryImpl
       VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.TestModule
       annotations:
-        Single(binds = [CLASS_REFERENCE 'CLASS INTERFACE name:Repository modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.Repository>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
+        Single(binds = [Repository::class] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
       BLOCK_BODY
         RETURN type=kotlin.Nothing from='public final fun provideRepository (): <root>.RepositoryImpl declared in <root>.TestModule'
           CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.RepositoryImpl' type=<root>.RepositoryImpl origin=null
@@ -135,7 +135,7 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/testModuleModul
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:<root>.RepositoryImpl
     VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:binding0 index:1 type:<root>.Repository
     annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = DeprecationLevel.HIDDEN)
     BLOCK_BODY
       CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
         ARG message: CONST String type=kotlin.String value="Stub!"
