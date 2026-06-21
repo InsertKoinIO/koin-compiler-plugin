@@ -11,6 +11,7 @@ import org.koin.plugin.module.dsl.viewModel
 import org.koin.core.module.dsl.withOptions
 import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.named
+import org.koin.dsl.bind
 import org.koin.plugin.module.dsl.typeQualifier
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
@@ -39,9 +40,9 @@ class DSLTest {
             factory<I>()
 
             // interface binding, don't expose impl
-            single<MyInterface> { create(::MyInterfaceImpl) }
+            //single<MyInterface> { create(::MyInterfaceImpl) }
             // also
-    //        single<MyInterfaceImpl>() bind MyInterface::class
+            single<MyInterfaceImpl>() bind MyInterface::class
 
             // secured function call
             single { create(::myFunBuilder) }

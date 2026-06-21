@@ -6,6 +6,10 @@ import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Singleton
 
+fun main() {
+    println("You just ran :sample-app:jvmRun!")
+}
+
 @Module
 @ComponentScan
 @Configuration // Tag this module as auto-discoverable
