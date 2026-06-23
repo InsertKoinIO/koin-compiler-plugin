@@ -557,6 +557,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("single_function_concrete_type.kt")
+    public void testSingle_function_concrete_type() {
+      runTest("koin-compiler-plugin/testData/box/toplevel/single_function_concrete_type.kt");
+    }
+
+    @Test
     @TestMetadata("singleton_function.kt")
     public void testSingleton_function() {
       runTest("koin-compiler-plugin/testData/box/toplevel/singleton_function.kt");

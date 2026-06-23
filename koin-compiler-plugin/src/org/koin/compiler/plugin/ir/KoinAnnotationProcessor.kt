@@ -175,6 +175,30 @@ class KoinAnnotationProcessor(
         }
     }
 
+    /**
+     * Find a local top-level definition function that provides [targetFqName] but is not
+     * included by any local @ComponentScan module. Such functions are valid cross-module
+     * exports, but in an entry-point module they would be silently absent from the runtime graph.
+     */
+    fun findUnclaimedTopLevelDefinitionProvider(targetFqName: String): DefinitionTopLevelFunction? {
+        if (definitionTopLevelFunctions.isEmpty()) return null
+
+        val claimedFunctions = moduleClasses
+            .asSequence()
+            .filter { it.hasComponentScan }
+            .flatMap { moduleClass ->
+                collectFromPackageIndex(
+                    index = topLevelFunctionsByPackage,
+                    scanPackages = moduleClass.effectiveScanPackages(),
+                ).asSequence()
+            }
+            .mapTo(hashSetOf()) { it.irFunction }
+
+        return definitionTopLevelFunctions.firstOrNull { definition ->
+            definition.irFunction !in claimedFunctions && definition.providesType(targetFqName)
+        }
+    }
+
     /** Get definitions from a dependency JAR module (for cross-module validation). */
     internal fun getDefinitionsForDependencyModule(moduleFqName: String): DependencyModuleResult {
         return collectDefinitionsFromDependencyModule(moduleFqName)
@@ -2212,6 +2236,11 @@ class KoinAnnotationProcessor(
         return scanPackages.ifEmpty {
             listOf(irClass.packageFqName?.asString() ?: "")
         }
+    }
+
+    private fun DefinitionTopLevelFunction.providesType(targetFqName: String): Boolean {
+        if (returnTypeClass.fqNameWhenAvailable?.asString() == targetFqName) return true
+        return bindings.any { it.fqNameWhenAvailable?.asString() == targetFqName }
     }
 
     /**

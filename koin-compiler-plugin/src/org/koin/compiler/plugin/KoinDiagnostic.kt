@@ -206,6 +206,21 @@ sealed class KoinDiagnostic(
     )
 
     /**
+     * KOIN-D008 — A top-level annotated definition exists locally, but no loaded @Module
+     * includes it via @ComponentScan, so same-module call sites would fail at runtime.
+     */
+    class UnclaimedTopLevelDefinition(
+        function: String,
+        returnType: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-D008",
+        severity = Severity.ERROR,
+        message = "Top-level definition function is not covered by any local @ComponentScan: " +
+                "$function -> $returnType\n" +
+                "  Add @ComponentScan to a @Module that covers this function's package, or move the function inside a @Module class.",
+    )
+
+    /**
      * KOIN-W001 — A DSL module is not loaded at `startKoin`, so its definitions are unreachable.
      *
      * Warning, not error: a user mid-refactor commonly has a module defined but not yet wired

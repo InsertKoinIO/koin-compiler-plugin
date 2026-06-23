@@ -120,6 +120,7 @@ class KoinStartTransformer(
         // Detect non-generic startKoin { } or koinApplication { } (entry point signal)
         if (fqNameStr == "org.koin.core.context.startKoin" ||
             fqNameStr == "org.koin.core.context.GlobalContext.startKoin" ||
+            fqNameStr == "org.koin.dsl.koinApplication" ||
             fqNameStr == "org.koin.core.KoinApplication.Companion.init") {
             hasKoinEntryPoint = true
         }

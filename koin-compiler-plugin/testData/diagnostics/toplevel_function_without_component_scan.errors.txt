@@ -1,0 +1,2 @@
+[Koin][KOIN-D008] Top-level definition function is not covered by any local @ComponentScan: json() -> JsonLike
+  Add @ComponentScan to a @Module that covers this function's package, or move the function inside a @Module class.

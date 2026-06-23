@@ -47,6 +47,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
         annotationProcessor: KoinAnnotationProcessor?,
         dslHintGenerator: DslHintGenerator,
         injectedParamHints: InjectedParamHintGenerator? = null,
+        hasKoinEntryPoint: Boolean = false,
     ) {
         val hasFullGraph = assembledGraphTypes.isNotEmpty()
 
@@ -117,6 +118,22 @@ class CallSiteValidator(private val context: IrPluginContext) {
                     if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
                     continue
                 }
+            }
+
+            val unclaimedTopLevelDefinition = if (hasKoinEntryPoint) {
+                annotationProcessor?.findUnclaimedTopLevelDefinitionProvider(callSite.targetFqName)
+            } else {
+                null
+            }
+            if (unclaimedTopLevelDefinition != null) {
+                KoinPluginLogger.report(
+                    KoinDiagnostic.UnclaimedTopLevelDefinition(
+                        function = "${unclaimedTopLevelDefinition.irFunction.name.asString()}()",
+                        returnType = callSite.targetFqName,
+                    ),
+                    callSite.filePath, callSite.line, callSite.column
+                )
+                continue
             }
 
             // Not resolved locally

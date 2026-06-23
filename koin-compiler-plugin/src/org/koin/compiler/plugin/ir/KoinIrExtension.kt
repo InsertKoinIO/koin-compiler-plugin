@@ -123,7 +123,16 @@ class KoinIrExtension(
         // Unresolved call sites (when no full graph) generate call-site hints for deferred validation.
         if (safetyValidator != null && pendingCallSites.isNotEmpty()) {
             KoinPluginLogger.debug { "Phase 3.5: Validating ${pendingCallSites.size} call-site resolutions (graph types: ${safetyValidator.assembledGraphTypes.size})" }
-            callSiteValidator.validatePendingCallSites(moduleFragment, pendingCallSites, safetyValidator.assembledGraphTypes, dslDefinitions, annotationProcessor, dslHintGenerator, injectedParamHints)
+            callSiteValidator.validatePendingCallSites(
+                moduleFragment = moduleFragment,
+                callSites = pendingCallSites,
+                assembledGraphTypes = safetyValidator.assembledGraphTypes,
+                dslDefinitions = dslDefinitions,
+                annotationProcessor = annotationProcessor,
+                dslHintGenerator = dslHintGenerator,
+                injectedParamHints = injectedParamHints,
+                hasKoinEntryPoint = startKoinTransformer.hasKoinEntryPoint
+            )
         }
 
         // Phase 3.6: Validate call-site hints from dependency modules against known definitions

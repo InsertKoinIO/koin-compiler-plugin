@@ -1,0 +1,42 @@
+FILE: test.kt
+    package testpkg
+
+    public final class JsonLike : R|kotlin/Any| {
+        public constructor(ignoreUnknownKeys: R|kotlin/Boolean|): R|testpkg/JsonLike| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val ignoreUnknownKeys: R|kotlin/Boolean| = R|<local>/ignoreUnknownKeys|
+            public get(): R|kotlin/Boolean|
+
+    }
+    @R|org/koin/core/annotation/Single|() public final fun json(): R|testpkg/JsonLike| {
+        ^json R|testpkg/JsonLike.JsonLike|(Boolean(true))
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/TestModule.TestModule|().R|testpkg/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval json1: R|testpkg/JsonLike| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/JsonLike|>()
+        lval json2: R|testpkg/JsonLike| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/JsonLike|>()
+        ^box when () {
+            ===(R|<local>/json1|, R|<local>/json2|) && R|<local>/json1|.R|testpkg/JsonLike.ignoreUnknownKeys| ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: top-level @Single function was not registered as singleton)
+            }
+        }
+
+    }
+FILE: testpkg/testpkgTestModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/TestModule|.module(): R|org/koin/core/module/Module|
