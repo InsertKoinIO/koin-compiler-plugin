@@ -1,0 +1,35 @@
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class Greeter : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/InjectedParam|() name: R|kotlin/String|): R|testpkg/Greeter| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val name: R|kotlin/String| = R|<local>/name|
+            public get(): R|kotlin/String|
+
+    }
+    public final fun makeParams(): R|org/koin/core/parameter/ParametersHolder| {
+        ^makeParams R|org/koin/core/parameter/parametersOf|(vararg(String(World)))
+    }
+    public final fun useIt(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/TestModule.TestModule|().R|testpkg/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval g: R|testpkg/Greeter| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/Greeter|>(<L> = get@fun <anonymous>(): R|org/koin/core/parameter/ParametersHolder| <inline=NoInline>  {
+            ^ R|testpkg/makeParams|()
+        }
+        )
+    }
+FILE: testpkg/testpkgTestModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/TestModule|.module(): R|org/koin/core/module/Module|

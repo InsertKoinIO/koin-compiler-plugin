@@ -33,6 +33,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("call_site_param_indirect_helper.kt")
+  public void testCall_site_param_indirect_helper() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_indirect_helper.kt");
+  }
+
+  @Test
   @TestMetadata("call_site_param_missing_d006.kt")
   public void testCall_site_param_missing_d006() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_missing_d006.kt");

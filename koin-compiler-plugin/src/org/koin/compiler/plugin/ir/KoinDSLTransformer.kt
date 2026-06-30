@@ -436,6 +436,16 @@ class KoinDSLTransformer(
         }
         val parametersOfArgs = parametersOfCall?.let { extractParametersOfArgs(it) }
 
+        // A params lambda was *passed* iff the resolution function's `parameters` slot has a
+        // non-null argument — independently of whether a *direct* parametersOf(...) is
+        // statically visible inside it. An indirect helper (`{ buildParams() }`) is a
+        // present-but-opaque lambda: KOIN-D006 ("forgot parametersOf entirely") must NOT fire
+        // for it (issue #61). It is treated as ambiguous downstream (parametersOfArgs == null →
+        // shape check skipped); only a call site with NO params lambda at all fires KOIN-D006.
+        val parametersParamIndex = callee.regularParameters.indexOfFirst { it.name.asString() == "parameters" }
+        val paramsLambdaPresent = parametersParamIndex >= 0 &&
+            expression.getRegularArgument(parametersParamIndex) != null
+
         _pendingCallSites.add(PendingCallSiteValidation(
             targetFqName = targetFqName,
             targetClass = targetClass,
@@ -443,7 +453,7 @@ class KoinDSLTransformer(
             filePath = filePath,
             line = line,
             column = column,
-            hasParametersLambda = parametersOfCall != null,
+            hasParametersLambda = paramsLambdaPresent,
             parametersOfArgs = parametersOfArgs,
         ))
 
