@@ -52,6 +52,7 @@ dependencies {
 
     // Koin libraries (koin-core for basic DSL, koin-annotations for plugin functions)
     annotationsRuntimeClasspath(libs.koin.core)
+    annotationsRuntimeClasspath(libs.koin.core.viewmodel) // viewModel { } DSL (issue #49 coverage)
     annotationsRuntimeClasspath(libs.koin.annotations)
 
     // Kotzilla SDK for @Monitor annotation testing

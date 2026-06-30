@@ -1,6 +1,7 @@
 package org.jetbrains.kotlin.compiler.plugin.template.runners
 
 import org.jetbrains.kotlin.compiler.plugin.template.services.configurePlugin
+import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.test.FirParser
 import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder
 import org.jetbrains.kotlin.test.directives.CodegenTestDirectives
@@ -32,6 +33,10 @@ open class AbstractJvmBoxTest : AbstractFirBlackBoxCodegenTestBase(FirParser.Lig
             +CodegenTestDirectives.DUMP_IR
             +FirDiagnosticsDirectives.FIR_DUMP
             +JvmEnvironmentConfigurationDirectives.FULL_JDK
+
+            // JVM 11 so test sources can inline from JVM-11 deps (e.g. androidx
+            // lifecycle ViewModel pulled in by koin-core-viewmodel for issue #49).
+            JvmEnvironmentConfigurationDirectives.JVM_TARGET with JvmTarget.JVM_11
 
             +CodegenTestDirectives.IGNORE_DEXING // Avoids loading R8 from the classpath.
         }

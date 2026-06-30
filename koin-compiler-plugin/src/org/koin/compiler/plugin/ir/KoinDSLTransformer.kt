@@ -291,6 +291,11 @@ class KoinDSLTransformer(
             }
         }
 
+        // Snapshot the DSL-definition count so we can tell whether visiting the lambda body
+        // already registered a definition (e.g. an inner create(::T)). If it did, the
+        // provider-only fallback below must NOT register a duplicate (a duplicate DslDef →
+        // duplicate hint → KLIB SignatureClashDetector error on native/wasm).
+        val dslDefsBeforeBody = _dslDefinitions.size
         val transformedCall = super.visitCall(expression) as IrCall
 
         // Capture qualifier propagated from inner create(::T) before restoring context
@@ -351,6 +356,41 @@ class KoinDSLTransformer(
             val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return transformedCall
             val referencedFunction = functionRef.symbol.owner
             return handleScopeCreate(transformedCall, referencedFunction, receiver)
+        }
+
+        // Typed DSL definition with a user-provided lambda body that is NOT create(::T):
+        //   single<T> { existingInstance }, single<T> { provideX() }, viewModel { VM() }, ...
+        // The declared/inferred type argument T is what the definition provides, regardless of
+        // the lambda body — register it as an available (provider-only) definition so
+        // compile-safety doesn't raise a false missing-definition (issues #36, #49). The call
+        // is left untransformed: the user's own lambda constructs the instance, so we only need
+        // T to be visible to the validator, not to introspect/inject its construction.
+        // Skipped when visiting the lambda already registered a definition (inner create(::T)),
+        // so we never emit a duplicate DslDef.
+        if (functionName in definitionNames && compileSafetyEnabled &&
+            _dslDefinitions.size == dslDefsBeforeBody
+        ) {
+            val defType = definitionTypeMap[functionName]
+            val providedClass = transformedCall.getTypeArgumentCompat(0)?.classifierOrNull?.owner as? IrClass
+            if (defType != null && providedClass != null) {
+                val qualifierIndex = callee.regularParameters.indexOfFirst { it.name.asString() == "qualifier" }
+                val outerQualifier = if (qualifierIndex >= 0) {
+                    qualifierExtractor.extractFromExpression(transformedCall.getRegularArgument(qualifierIndex))
+                } else null
+                val qualifier = outerQualifier ?: qualifierExtractor.extractFromClass(providedClass)
+                trackClassLookup(lookupTracker, currentFile, providedClass)
+                _dslDefinitions.add(Definition.DslDef(
+                    irClass = providedClass,
+                    definitionType = defType,
+                    bindings = emptyList(), // DSL: only explicit bind() adds bindings
+                    scopeClass = if (defType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
+                    modulePropertyId = transformContext.modulePropertyId,
+                    providerOnly = true,
+                    qualifier = qualifier,
+                    registrationSourceFile = currentFile
+                ))
+                KoinPluginLogger.user { "Intercepting $functionName<${providedClass.name}> { ... } (provider-only)" }
+            }
         }
 
         return transformedCall

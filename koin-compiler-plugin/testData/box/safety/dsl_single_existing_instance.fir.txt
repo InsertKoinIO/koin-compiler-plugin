@@ -1,0 +1,66 @@
+FILE: test.kt
+    public final class ServiceA : R|kotlin/Any| {
+        public constructor(): R|ServiceA| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ServiceB : R|kotlin/Any| {
+        public constructor(): R|ServiceB| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val instanceA: R|ServiceA| = R|/ServiceA.ServiceA|()
+        public get(): R|ServiceA|
+    public final fun provideB(): R|ServiceB| {
+        ^provideB R|/ServiceB.ServiceB|()
+    }
+    public final class NeedsA : R|kotlin/Any| {
+        public constructor(a: R|ServiceA|): R|NeedsA| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val a: R|ServiceA| = R|<local>/a|
+            public get(): R|ServiceA|
+
+    }
+    public final class NeedsB : R|kotlin/Any| {
+        public constructor(b: R|ServiceB|): R|NeedsB| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val b: R|ServiceB| = R|<local>/b|
+            public get(): R|ServiceB|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|ServiceA|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|ServiceA| <inline=NoInline>  {
+            ^ R|/instanceA|
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|ServiceB|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|ServiceB| <inline=NoInline>  {
+            ^ R|/provideB|()
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|NeedsA|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|NeedsB|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval ok: R|kotlin/Boolean| = ===(R|<local>/koin|.R|org/koin/core/Koin.get|<R|NeedsA|>().R|/NeedsA.a|, R|/instanceA|) && (R|<local>/koin|.R|org/koin/core/Koin.get|<R|NeedsB|>().R|/NeedsB.b| is R|ServiceB|)
+        ^box when () {
+            R|<local>/ok| ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

@@ -299,6 +299,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_classic_viewmodel_mixed.kt")
+    public void testDsl_classic_viewmodel_mixed() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_classic_viewmodel_mixed.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_create_function.kt")
     public void testDsl_create_function() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_create_function.kt");
@@ -338,6 +344,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @TestMetadata("dsl_nested_includes.kt")
     public void testDsl_nested_includes() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_nested_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_single_existing_instance.kt")
+    public void testDsl_single_existing_instance() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_single_existing_instance.kt");
     }
 
     @Test
