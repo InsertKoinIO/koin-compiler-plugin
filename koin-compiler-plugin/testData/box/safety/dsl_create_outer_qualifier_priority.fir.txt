@@ -1,0 +1,43 @@
+FILE: test.kt
+    public final class Service : R|kotlin/Any| {
+        public constructor(): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Named|(value = String(inner)) public final fun createService(): R|Service| {
+        ^createService R|/Service.Service|()
+    }
+    public final class Consumer : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(outer)) service: R|Service|): R|Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val service: R|Service| = R|<local>/service|
+            public get(): R|Service|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|Service|>(R|org/koin/core/qualifier/named|(String(outer)), <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|Service| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|Service|>(::R|/createService|)
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Consumer|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        ^box when () {
+            (R|<local>/koin|.R|org/koin/core/Koin.get|<R|Consumer|>().R|/Consumer.service| is R|Service|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

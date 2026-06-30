@@ -1,0 +1,49 @@
+FILE: test.kt
+    public final class DbQualifier : R|kotlin/Any| {
+        public constructor(): R|DbQualifier| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Database : R|kotlin/Any| {
+        public constructor(): R|Database| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun createDatabase(): R|Database| {
+        ^createDatabase R|/Database.Database|()
+    }
+    public final class Repo : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Qualifier|(value = <getClass>(Q|DbQualifier|)) db: R|Database|): R|Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val db: R|Database| = R|<local>/db|
+            public get(): R|Database|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|Database|>(R|org/koin/core/qualifier/named|<R|DbQualifier|>(), <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|Database| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|Database|>(::R|/createDatabase|)
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Repo|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        ^box when () {
+            (R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repo|>().R|/Repo.db| is R|Database|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

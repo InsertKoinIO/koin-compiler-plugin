@@ -110,6 +110,7 @@ class KoinDSLTransformer(
         // When set, an inner `create(::Impl)` provides T, not Impl — Impl is the
         // construction detail, T is what runtime Koin actually registers.
         val definitionCallTypeArg: IrClass? = null,
+        val definitionQualifier: QualifierValue? = null,
         val scopeTypeClass: IrClass? = null,
         val createQualifier: QualifierValue? = null,
         val createReturnClass: IrClass? = null,
@@ -268,9 +269,16 @@ class KoinDSLTransformer(
             val outerTypeArg = if (expression.typeArguments.size >= 1) {
                 (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
             } else null
+            val qualifierIndex = callee.regularParameters.indexOfFirst {
+                it.name.asString() == "qualifier"
+            }
+            val outerQualifier = if (qualifierIndex >= 0) {
+                qualifierExtractor.extractFromExpression(expression.getRegularArgument(qualifierIndex))
+            } else null
             transformContext = transformContext.copy(
                 definitionCall = functionName,
-                definitionCallTypeArg = outerTypeArg
+                definitionQualifier = outerQualifier,
+                definitionCallTypeArg = outerTypeArg,
             )
         }
 
@@ -726,7 +734,7 @@ class KoinDSLTransformer(
                 // IC: file containing create(::T) depends on the target class
                 trackClassLookup(lookupTracker, currentFile, targetClass)
                 // Extract qualifier from class for propagation to enclosing definition
-                val classQualifier = qualifierExtractor.extractFromClass(targetClass)
+                val classQualifier = transformContext.definitionQualifier ?: qualifierExtractor.extractFromClass(targetClass)
                 if (classQualifier != null && currentDefinitionCall != null) {
                     transformContext = transformContext.copy(createQualifier = classQualifier, createReturnClass = targetClass)
                 }
@@ -762,7 +770,8 @@ class KoinDSLTransformer(
             is IrSimpleFunction -> {
                 // Extract qualifier from function for propagation to enclosing definition
                 val returnTypeClass = referencedFunction.returnType.classifierOrNull?.owner as? IrClass
-                val funcQualifier = qualifierExtractor.extractFromDeclaration(referencedFunction, "function ${referencedFunction.name}")
+                val funcQualifier = transformContext.definitionQualifier
+                    ?: qualifierExtractor.extractFromDeclaration(referencedFunction, "function ${referencedFunction.name}")
                 if (funcQualifier != null && currentDefinitionCall != null) {
                     transformContext = transformContext.copy(
                         createQualifier = funcQualifier,
