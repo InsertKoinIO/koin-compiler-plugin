@@ -15,3 +15,6 @@ yarn.lock
 .kotlin/
 .claude/settings.local.json
 .obsidian
+
+# Claude Code worktrees / scratch
+.claude/
