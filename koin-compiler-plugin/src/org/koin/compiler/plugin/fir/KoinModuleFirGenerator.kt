@@ -570,7 +570,9 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             for (superTypeRef in classSymbol.resolvedSuperTypeRefs) {
                 val superClassId = superTypeRef.coneType.classId ?: continue
                 val superFqName = superClassId.asSingleFqName().asString()
-                if (superFqName == "kotlin.Any") continue
+                // Never auto-bind framework/marker supertypes (#43 KoinComponent, #64 ViewModel).
+                // Shared with the IR detector so the exclusion holds across module boundaries too.
+                if (superFqName in KoinPluginConstants.AUTO_BIND_EXCLUDED_SUPERTYPES) continue
 
                 if (isSuspendFunctionClassId(superClassId)) {
                     reportUnsupportedSuspendBinding(returnTypeClassId, superClassId)

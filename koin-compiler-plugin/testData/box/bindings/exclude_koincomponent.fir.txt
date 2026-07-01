@@ -1,0 +1,38 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface Repository : R|kotlin/Any| {
+    }
+    @R|org/koin/core/annotation/Single|() public final class MyRepo : R|testpkg/Repository|, R|org/koin/core/component/KoinComponent| {
+        public constructor(): R|testpkg/MyRepo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/AppModule.AppModule|().R|testpkg/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval byRepo: R|testpkg/Repository?| = R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|testpkg/Repository|>()
+        lval byComponent: R|org/koin/core/component/KoinComponent?| = R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|org/koin/core/component/KoinComponent|>()
+        ^box when () {
+            (R|<local>/byRepo| is R|testpkg/MyRepo|) && ==(R|<local>/byComponent|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL: KoinComponent over-bound)
+            }
+        }
+
+    }
+FILE: testpkg/testpkgAppModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/AppModule|.module(): R|org/koin/core/module/Module|

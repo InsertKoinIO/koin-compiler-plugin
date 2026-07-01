@@ -9,6 +9,37 @@ package org.koin.compiler.plugin
 object KoinPluginConstants {
 
     // ================================================================================
+    // Auto-binding exclusion policy (issues #43, #64)
+    // ================================================================================
+
+    /**
+     * Supertypes/markers that are NEVER auto-bound as a definition's exposed type.
+     *
+     * Binding these would let `get<KoinComponent>()` / `get<ViewModel>()` resolve to an
+     * arbitrary annotated component — silent wrong-instance resolution. They are framework
+     * plumbing or marker contracts, not DI-resolvable types: a definition is always registered
+     * under its own type and its genuine domain interfaces, never these.
+     *
+     *  - `kotlin.Any` — the root type; binding it is meaningless.
+     *  - `org.koin.core.component.KoinComponent` / `KoinScopeComponent` — Koin marker interfaces (#43).
+     *  - `androidx.lifecycle.ViewModel` / `AndroidViewModel` — framework base classes; a
+     *    `@KoinViewModel` registers under its own type, not the ViewModel supertype (#64).
+     *
+     * Applied by BOTH auto-binding detectors — the IR path (`detectAutoBindings`) and the FIR
+     * cross-module hint path (`KoinModuleFirGenerator.detectBindingClassIds`) — so the exclusion
+     * holds in the same module and across `@ComponentScan` module boundaries. An explicit
+     * `@Single(binds = [...])` still binds whatever the user lists; this only governs
+     * AUTO-detected bindings.
+     */
+    val AUTO_BIND_EXCLUDED_SUPERTYPES: Set<String> = setOf(
+        "kotlin.Any",
+        "org.koin.core.component.KoinComponent",
+        "org.koin.core.component.KoinScopeComponent",
+        "androidx.lifecycle.ViewModel",
+        "androidx.lifecycle.AndroidViewModel",
+    )
+
+    // ================================================================================
     // Plugin Options - These names must match between compiler and Gradle plugins
     // ================================================================================
 

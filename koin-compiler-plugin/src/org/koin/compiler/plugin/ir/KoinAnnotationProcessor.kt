@@ -2659,7 +2659,11 @@ class KoinAnnotationProcessor(
 
 /**
  * Detect interfaces/superclasses that should be auto-bound for a given class.
- * Shared utility used by both KoinAnnotationProcessor and KoinDSLTransformer.
+ *
+ * Supertypes in [KoinPluginConstants.AUTO_BIND_EXCLUDED_SUPERTYPES] are never auto-bound — see
+ * that set for why. The parallel FIR cross-module hint path
+ * ([org.koin.compiler.plugin.fir.KoinModuleFirGenerator.detectBindingClassIds]) applies the same
+ * exclusion, so it holds both in-module and across @ComponentScan module boundaries.
  */
 internal fun detectAutoBindings(declaration: IrClass): List<IrClass> {
     val bindings = mutableListOf<IrClass>()
@@ -2668,7 +2672,7 @@ internal fun detectAutoBindings(declaration: IrClass): List<IrClass> {
         val superClass = superType.classifierOrNull?.owner as? IrClass ?: return@forEach
         val superFqName = superClass.fqNameWhenAvailable?.asString() ?: return@forEach
 
-        if (superFqName == "kotlin.Any") return@forEach
+        if (superFqName in KoinPluginConstants.AUTO_BIND_EXCLUDED_SUPERTYPES) return@forEach
 
         if (superClass.isInterface || superClass.modality == Modality.ABSTRACT) {
             bindings.add(superClass)

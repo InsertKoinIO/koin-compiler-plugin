@@ -77,6 +77,18 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("exclude_androidx_viewmodel.kt")
+    public void testExclude_androidx_viewmodel() {
+      runTest("koin-compiler-plugin/testData/box/bindings/exclude_androidx_viewmodel.kt");
+    }
+
+    @Test
+    @TestMetadata("exclude_koincomponent.kt")
+    public void testExclude_koincomponent() {
+      runTest("koin-compiler-plugin/testData/box/bindings/exclude_koincomponent.kt");
+    }
+
+    @Test
     @TestMetadata("provider_function_binds.kt")
     public void testProvider_function_binds() {
       runTest("koin-compiler-plugin/testData/box/bindings/provider_function_binds.kt");
