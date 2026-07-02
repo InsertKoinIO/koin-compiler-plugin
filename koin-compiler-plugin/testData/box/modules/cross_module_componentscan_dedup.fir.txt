@@ -1,0 +1,49 @@
+Module: networkapi
+FILE: Services.kt
+    package network.api.services
+
+    @R|org/koin/core/annotation/Single|() public final class CharactersApiService : R|kotlin/Any| {
+        public constructor(): R|network/api/services/CharactersApiService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class EpisodesApiService : R|kotlin/Any| {
+        public constructor(): R|network/api/services/EpisodesApiService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: org/koin/plugin/hints/networkApiServicesCharactersApiServiceDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|network/api/services/CharactersApiService|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/networkApiServicesEpisodesApiServiceDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|network/api/services/EpisodesApiService|): R|kotlin/Unit|
+Module: app
+FILE: networkmodule.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(network))) public final class NetworkModule : R|kotlin/Any| {
+        public constructor(): R|NetworkModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: test.kt
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.allowOverride|(Boolean(false))
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/NetworkModule.NetworkModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|network/api/services/CharactersApiService|>()
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|network/api/services/EpisodesApiService|>()
+        ^box String(OK)
+    }
+FILE: /networkModuleModule.kt
+    public final fun R|NetworkModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/networkModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|NetworkModule|): R|kotlin/Unit|

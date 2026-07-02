@@ -5,7 +5,7 @@ pluginManagement {
     val kotlinVersion: String = (settings.extra.properties["kotlinVersion"] as? String) ?: "2.3.20"
     plugins {
         kotlin("multiplatform") version kotlinVersion
-        id("io.insert-koin.compiler.plugin") version "1.0.1"
+        id("io.insert-koin.compiler.plugin") version "1.0.2-Beta1"
     }
     repositories {
         mavenLocal()

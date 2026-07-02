@@ -1575,7 +1575,19 @@ class KoinAnnotationProcessor(
             }
         }
 
-        return localDefinitions + crossModuleDefinitions
+        // Dedup by class identity. A class declares exactly one definition, so when the same class is
+        // discovered more than once — local index + one or more cross-module hint functions for the same
+        // type living in a dependency module whose package is covered by this @ComponentScan — those are
+        // the SAME definition, not distinct ones. Local entries come first so they win (they carry full
+        // binding/qualifier info; cross-module hints are provider-only stubs).
+        //
+        // Without this dedup, a cross-module @ComponentScan emitted the same definition N times: N duplicate
+        // `single { }` registrations in the generated module body (runtime override/duplicate-key) AND N
+        // duplicate hint methods in the generated hints file. The latter is invisible on JVM/DEX (D8 just
+        // warns "multiple definitions" and drops the extras) but is a hard duplicate-declaration error on
+        // KLIB/native. Same identity key as the user-log block above.
+        return (localDefinitions + crossModuleDefinitions)
+            .distinctBy { it.irClass.fqNameWhenAvailable ?: it.irClass }
     }
 
     /**
