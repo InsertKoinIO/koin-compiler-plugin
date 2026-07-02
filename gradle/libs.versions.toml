@@ -11,7 +11,6 @@ nmcp = "1.0.1"
 junit = { module = "junit:junit", version.ref = "junit" }
 koin-annotations = { module = "io.insert-koin:koin-annotations-jvm", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core-jvm", version.ref = "koin" }
-koin-core-viewmodel = { module = "io.insert-koin:koin-core-viewmodel-jvm", version.ref = "koin" }
 kotzilla-core = { module = "io.kotzilla:kotzilla-core-jvm", version.ref = "kotzilla-sdk" }
 
 [plugins]
