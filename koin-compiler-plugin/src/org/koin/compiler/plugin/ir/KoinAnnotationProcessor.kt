@@ -1787,7 +1787,18 @@ class KoinAnnotationProcessor(
             }
         }
 
-        return discovered
+        // Dedup by (returnType FQ name, qualifier). K2's cross-module symbol table can surface the SAME
+        // `definition_function_<defType>` hint N times to a consumer (observed 4× for a single top-level
+        // `@Single fun` in a dependency KLIB) — one `ExternalFunctionDef` per symbol produces N identical
+        // provider defs. Those flow into the module's `definitions`, and generateModuleScanHints then emits
+        // N identical `componentscan_<moduleId>_<defType>` roster hints (an ExternalFunctionDef is
+        // provider-only — no `single { }` body is generated in the consumer, only the re-export roster hint)
+        // → a hard KLIB SignatureClashDetector error on native/wasm (invisible on JVM/DEX). Analogous to the
+        // class-path dedup in findMatchingDefinitions (KTZ-4365), but keyed on type+qualifier rather than
+        // class identity, since a function-provided type legitimately varies by qualifier. See issue #62's
+        // cross-module native manifestation.
+        val seenKeys = mutableSetOf<String>()
+        return discovered.filter { seenKeys.add(definitionDedupeKey(it)) }
     }
 
     /**

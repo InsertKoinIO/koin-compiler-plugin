@@ -11,3 +11,12 @@ class CharactersApiService
 
 @Single
 class EpisodesApiService
+
+// #62 cross-module probe: a TOP-LEVEL @Single function in the dependency module. Top-level
+// functions use a separate cross-module discovery path (definition_function_* hints /
+// findMatchingTopLevelFunctions) than classes — verify it is discovered by :app's cross-module
+// @ComponentScan without duplicating (klib clash) or being silently dropped.
+class ApiConfig
+
+@Single
+fun provideApiConfig(): ApiConfig = ApiConfig()
