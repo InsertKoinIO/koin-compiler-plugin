@@ -1,0 +1,29 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Repo : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|testpkg/Repo|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|testpkg/Repo| = R|<local>/repo|
+            public get(): R|testpkg/Repo|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Service|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun setup(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinConfiguration|(<L> = koinConfiguration@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

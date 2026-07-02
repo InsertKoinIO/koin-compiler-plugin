@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: testpkg.Repo
+  required by: dsl:testpkg.Service (parameter 'repo')
+  in module: DSL graph

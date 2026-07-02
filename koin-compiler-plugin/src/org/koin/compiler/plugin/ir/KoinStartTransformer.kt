@@ -117,10 +117,16 @@ class KoinStartTransformer(
         // koinConfigurationWith(modules), and withConfigurationWith(modules, lambda)
         val fqNameStr = calleeFqName?.asString()
 
-        // Detect non-generic startKoin { } or koinApplication { } (entry point signal)
+        // Detect non-generic startKoin { } or koinApplication { } (entry point signal).
+        // `org.koin.dsl.koinConfiguration` is koin-core's real function used by the Compose
+        // `KoinApplication(configuration = koinConfiguration { modules(...) })` entry (issue #38);
+        // recognizing it flips on the DSL-graph full validation (Phase 3.1) for that entry path.
+        // We only mark it as an entry point here — we do NOT rewrite the call, so koin-core's
+        // koinConfiguration behaves normally at runtime.
         if (fqNameStr == "org.koin.core.context.startKoin" ||
             fqNameStr == "org.koin.core.context.GlobalContext.startKoin" ||
-            fqNameStr == "org.koin.core.KoinApplication.Companion.init") {
+            fqNameStr == "org.koin.core.KoinApplication.Companion.init" ||
+            fqNameStr == "org.koin.dsl.koinConfiguration") {
             hasKoinEntryPoint = true
         }
 

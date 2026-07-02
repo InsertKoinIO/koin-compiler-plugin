@@ -111,6 +111,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("koin_configuration_dsl_module_instance_a3.kt")
+  public void testKoin_configuration_dsl_module_instance_a3() {
+    runTest("koin-compiler-plugin/testData/diagnostics/koin_configuration_dsl_module_instance_a3.kt");
+  }
+
+  @Test
   @TestMetadata("koin_configuration_modules_a3.kt")
   public void testKoin_configuration_modules_a3() {
     runTest("koin-compiler-plugin/testData/diagnostics/koin_configuration_modules_a3.kt");
