@@ -56,43 +56,52 @@ object KoinPluginLogger {
     internal val effectiveCollector: MessageCollector
         get() = threadCollector.get() ?: fallbackCollector
 
-    @Volatile
-    var userLogsEnabled: Boolean = false
-        private set
+    /**
+     * Per-compilation config flags.
+     *
+     * Same daemon-parallel hazard as [threadCollector]: multiple compilations share a daemon JVM
+     * and each `init()` writes these. When they were plain global `@Volatile var`s, one
+     * compilation's flags could leak into another (wrong-build behavior) — and, because the test
+     * suite runs many compilations in one JVM with IR fan-out threads, it made the suite
+     * order-dependent / flaky (KTZ-4414). Held per-thread (InheritableThreadLocal, inherited by
+     * spawned IR threads) with a volatile fallback for callers reached without a per-thread
+     * context (bare CLI, unit tests). Read order: thread-local first, fallback second.
+     */
+    private data class Flags(
+        val userLogs: Boolean = false,
+        val debugLogs: Boolean = false,
+        val unsafeDslChecks: Boolean = true,
+        val skipDefaultValues: Boolean = true,
+        val compileSafety: Boolean = true,
+        val aiAssist: Boolean = false,
+        val moduleId: String? = null,
+        val lookupTracker: LookupTracker? = null,
+    )
+
+    private val threadFlags: InheritableThreadLocal<Flags?> = InheritableThreadLocal()
 
     @Volatile
-    var debugLogsEnabled: Boolean = false
-        private set
+    private var fallbackFlags: Flags = Flags()
 
-    @Volatile
-    var unsafeDslChecksEnabled: Boolean = true
-        private set
+    private val effectiveFlags: Flags
+        get() = threadFlags.get() ?: fallbackFlags
 
-    @Volatile
-    var skipDefaultValuesEnabled: Boolean = true
-        private set
-
-    @Volatile
-    var compileSafetyEnabled: Boolean = true
-        private set
-
-    @Volatile
-    var aiAssistEnabled: Boolean = false
-        private set
+    val userLogsEnabled: Boolean get() = effectiveFlags.userLogs
+    val debugLogsEnabled: Boolean get() = effectiveFlags.debugLogs
+    val unsafeDslChecksEnabled: Boolean get() = effectiveFlags.unsafeDslChecks
+    val skipDefaultValuesEnabled: Boolean get() = effectiveFlags.skipDefaultValues
+    val compileSafetyEnabled: Boolean get() = effectiveFlags.compileSafety
+    val aiAssistEnabled: Boolean get() = effectiveFlags.aiAssist
 
     /**
      * Gradle-module-unique identifier (typically `project.path`, e.g. `:featureA:ui`) used as the
      * leading segment of synthetic hint file names. Null when running outside Gradle (bare CLI,
      * tests without the Gradle plugin); generators fall back to FIR module-data name in that case.
      */
-    @Volatile
-    var moduleId: String? = null
-        private set
+    val moduleId: String? get() = effectiveFlags.moduleId
 
     /** LookupTracker from compiler configuration, for direct IC lookup recording. */
-    @Volatile
-    var lookupTracker: LookupTracker? = null
-        private set
+    val lookupTracker: LookupTracker? get() = effectiveFlags.lookupTracker
 
     /**
      * Highest severity of any diagnostic reported via [report] during this compilation.
@@ -136,6 +145,25 @@ object KoinPluginLogger {
     }
 
     /**
+     * Capture the current compilation's config flags as an opaque handle, on the thread that
+     * called [init] (typically `registerExtensions`). Re-bound via [bindThreadFlags] at the start
+     * of the IR phase — the same daemon-parallel rebind the collector needs (see
+     * [bindThreadCollector]): `InheritableThreadLocal` only inherits at thread creation, so a pool
+     * worker running IR generation later would otherwise fall through to the shared [fallbackFlags]
+     * that a parallel compilation may have overwritten. This is what left `compileSafety` /
+     * `skipDefaultValues` reads racy during IR codegen (KTZ-4414).
+     */
+    fun captureFlags(): Any = effectiveFlags
+
+    fun bindThreadFlags(handle: Any) {
+        (handle as? Flags)?.let { threadFlags.set(it) }
+    }
+
+    fun unbindThreadFlags() {
+        threadFlags.remove()
+    }
+
+    /**
      * Initialize the logger with configuration from the compiler.
      *
      * Writes the collector to both the per-thread slot (so this compilation's diagnostics
@@ -145,14 +173,18 @@ object KoinPluginLogger {
     fun init(collector: MessageCollector, userLogs: Boolean, debugLogs: Boolean, unsafeDslChecks: Boolean = true, skipDefaultValues: Boolean = true, compileSafety: Boolean = true, aiAssist: Boolean = true, moduleId: String? = null, lookupTracker: LookupTracker? = null) {
         threadCollector.set(collector)
         fallbackCollector = collector
-        userLogsEnabled = userLogs
-        debugLogsEnabled = debugLogs
-        unsafeDslChecksEnabled = unsafeDslChecks
-        skipDefaultValuesEnabled = skipDefaultValues
-        compileSafetyEnabled = compileSafety
-        aiAssistEnabled = aiAssist
-        this.moduleId = moduleId?.takeIf { it.isNotBlank() }
-        this.lookupTracker = lookupTracker
+        val flags = Flags(
+            userLogs = userLogs,
+            debugLogs = debugLogs,
+            unsafeDslChecks = unsafeDslChecks,
+            skipDefaultValues = skipDefaultValues,
+            compileSafety = compileSafety,
+            aiAssist = aiAssist,
+            moduleId = moduleId?.takeIf { it.isNotBlank() },
+            lookupTracker = lookupTracker,
+        )
+        threadFlags.set(flags)
+        fallbackFlags = flags
         highestDiagnosticSeverity.set(0)
         lastDiagnosticLocation.remove()
     }
@@ -343,7 +375,7 @@ class KoinPluginComponentRegistrar: CompilerPluginRegistrar() {
         adapter.registerCompilerExtensions(
             this,
             KoinPluginRegistrar(),
-            KoinIrExtension(lookupTracker, expectActualTracker, messageCollector),
+            KoinIrExtension(lookupTracker, expectActualTracker, messageCollector, KoinPluginLogger.captureFlags()),
         )
     }
 }

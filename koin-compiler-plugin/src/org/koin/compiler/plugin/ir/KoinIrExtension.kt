@@ -15,19 +15,25 @@ class KoinIrExtension(
     // collector, even if a parallel compilation in the same Gradle daemon has overwritten
     // the singleton's collector reference by the time we flush.
     private val messageCollector: MessageCollector,
+    // Captured at construction (same reason as messageCollector): the compilation's config
+    // flags, re-bound onto the IR-phase thread below. Without this, IR-phase reads of
+    // compileSafety / skipDefaultValues fell through to the shared global on pool workers
+    // (KTZ-4414 flakiness).
+    private val flagsHandle: Any,
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
-        // Re-anchor the per-thread collector on this compilation's captured MessageCollector.
-        // Necessary because `KoinPluginLogger.init()` ran on the thread that called
+        // Re-anchor the per-thread collector AND config flags on this compilation's captured
+        // values. Necessary because `KoinPluginLogger.init()` ran on the thread that called
         // `registerExtensions`, which may differ from the thread running IR generation in
         // parallel-daemon mode. `InheritableThreadLocal` inherits only at thread creation —
-        // pool workers picked up later won't see init()'s value. Setting here ensures every
-        // diagnostic emitted during this `generate()` lands on the right compilation's
-        // collector even if another compilation's `init()` mutated the shared singleton.
+        // pool workers picked up later won't see init()'s values and would fall through to the
+        // shared singletons a parallel compilation may have overwritten.
         KoinPluginLogger.bindThreadCollector(messageCollector)
+        KoinPluginLogger.bindThreadFlags(flagsHandle)
         try {
             generateInternal(moduleFragment, pluginContext)
         } finally {
+            KoinPluginLogger.unbindThreadFlags()
             KoinPluginLogger.unbindThreadCollector()
         }
     }
