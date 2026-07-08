@@ -81,6 +81,25 @@ data class InjectedParamSlot(
 )
 
 /**
+ * An unresolved binding requirement that was NOT reported as a hard error because it was found while
+ * validating an *open* (per-module / leaf) closure rather than a *complete closed* closure. Carried
+ * back to the orchestrator ([CompileSafetyValidator]) which decides whether it becomes a KOIN-D001
+ * error (re-validated against the full assembled graph at `@KoinApplication`) or a KOIN-W002 warning
+ * (no complete closure in this compilation — defer to runtime). See KTZ-4256 / GH #51.
+ *
+ * @property moduleFqName FQName of the module whose isolated validation produced the deferral (null
+ *   when the module has no resolvable FqName). Used to skip re-emitting once A3 authoritatively
+ *   validates the same module.
+ */
+data class DeferredRequirement(
+    val defName: String,
+    val moduleName: String,
+    val moduleFqName: String?,
+    val requirement: Requirement,
+    val qualifierDisplay: String?,
+)
+
+/**
  * Registry of all provided bindings, with per-module validation.
  *
  * Collects all definitions during annotation processing Phase 1,
@@ -281,7 +300,22 @@ class BindingRegistry {
      * @param definitionsToValidate Subset of definitions whose requirements should be checked.
      *   If null, all definitions are validated. Use this to skip re-validating definitions
      *   that were already checked at A2 while still including them as providers.
-     * @return Number of errors found
+     * @param closureComplete Whether the [definitions] set is the *complete closed* closure assembled
+     *   at a `@KoinApplication` / `startKoin` entry point (A3). When true the graph is authoritative,
+     *   so an unresolved binding is always a genuine missing dependency → KOIN-D001 ERROR and deferral
+     *   never happens. When false (A2, per-module), an unresolved binding is deferred ONLY if a
+     *   [crossModuleHintLookup] proves a provider exists elsewhere on the build graph (KTZ-4256 / #51);
+     *   with no such hint it is still a hard KOIN-D001 here.
+     * @param deferredSink Collector for deferred (cross-module) unresolved requirements. Deferral only
+     *   fires when a [crossModuleHintLookup] is supplied AND it reports a provider hint for the type.
+     * @param moduleFqName FQName of the module being validated, carried into deferrals.
+     * @param crossModuleHintLookup Oracle "does a provider hint for this type exist ANYWHERE on the
+     *   build graph?" (KTZ-4256 / #51). When an unresolved binding's type IS provided by a hint
+     *   somewhere, it is a real cross-module dep the local module can't see → recorded in [deferredSink]
+     *   instead of erroring (settled at A3 / KOIN-W002). When it is NOT (or the lookup is null), the
+     *   binding is genuinely missing → hard KOIN-D001. Ignored — no deferral — when [closureComplete]
+     *   is true at A3 (the assembled graph is already authoritative).
+     * @return Number of errors found (deferred requirements are NOT counted as errors)
      */
     fun validateModule(
         moduleName: String,
@@ -290,6 +324,10 @@ class BindingRegistry {
         qualifierExtractor: QualifierExtractor,
         definitionsToValidate: List<Definition>? = null,
         reportedCycles: MutableSet<String>? = null,
+        closureComplete: Boolean = true,
+        deferredSink: MutableList<DeferredRequirement>? = null,
+        moduleFqName: String? = null,
+        crossModuleHintLookup: ((TypeKey) -> Boolean)? = null,
     ): Int {
         // Build the set of provided types from ALL definitions
         val providedTypes = mutableSetOf<ProviderKey>()
@@ -318,6 +356,14 @@ class BindingRegistry {
                 providedTypes.add(ProviderKey(bindingTypeKey, qualifier, scopeClass))
                 KoinPluginLogger.debug { "    provides (binding): ${bindingTypeKey.render()}$qualifierStr$scopeStr" }
             }
+        }
+
+        // Bare (qualifier/scope-agnostic) FQNames of every type provided in THIS module's visibility
+        // set. Used by the KTZ-4256 gate to tell a cross-module gap apart from a same-module
+        // qualifier/scope mismatch: if the type is already visible here, an unresolved requirement is
+        // a genuine LOCAL miss (wrong @Named / wrong @Scope) → hard D001, never a cross-module defer.
+        val locallyProvidedTypeFqNames = providedTypes.mapNotNullTo(hashSetOf()) {
+            it.typeKey.fqName?.asString() ?: it.typeKey.classId?.asFqNameString()
         }
 
         // Only validate requirements from the specified subset (or all if not specified)
@@ -375,9 +421,34 @@ class BindingRegistry {
 
                 // Look for a matching provider
                 val found = findProvider(req, providedTypes, defScopeClass)
+                // KTZ-4256 / #51: at A2 (open closure), defer ONLY when a provider hint for this type
+                // exists somewhere on the build graph — i.e. it is a real cross-module dep the local
+                // module can't see. With no hint anywhere, the type is genuinely missing and must stay
+                // a hard KOIN-D001 (single-module typo, @ComponentScan untyped-entry, etc.). At A3
+                // (closureComplete) the assembled graph is authoritative, so never defer.
+                val reqTypeFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
+                val visibleLocally = reqTypeFqName != null && reqTypeFqName in locallyProvidedTypeFqNames
+                val hasCrossModuleHint = !closureComplete &&
+                    deferredSink != null &&
+                    !visibleLocally &&
+                    crossModuleHintLookup?.invoke(req.typeKey) == true
                 if (found) {
                     KoinPluginLogger.debug { "      OK '${req.paramName}': ${req.typeKey.render()}" }
+                } else if (hasCrossModuleHint) {
+                    // Provider hint exists in a sibling / dependency module not visible here — defer to
+                    // the complete closed closure at @KoinApplication (KOIN-D001) or to runtime (KOIN-W002).
+                    KoinPluginLogger.debug { "      DEFERRED '${req.paramName}': ${req.typeKey.render()} (cross-module provider hint exists)" }
+                    deferredSink?.add(
+                        DeferredRequirement(
+                            defName = defName,
+                            moduleName = moduleName,
+                            moduleFqName = moduleFqName,
+                            requirement = req,
+                            qualifierDisplay = qualifierDisplay(req.qualifier),
+                        )
+                    )
                 } else {
+                    // No provider hint anywhere on the graph → genuinely missing → authoritative D001.
                     KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}" }
                     reportMissingDependency(req, defName, moduleName, providedTypes)
                     errorCount++
@@ -589,11 +660,7 @@ class BindingRegistry {
         providedTypes: Set<ProviderKey>
     ) {
         val typeName = req.typeKey.render()
-        val qualifierStr = when (val q = req.qualifier) {
-            is QualifierValue.StringQualifier -> "@Named(\"${q.name}\")"
-            is QualifierValue.TypeQualifier -> "@Qualifier(${q.irClass.name}::class)"
-            null -> null
-        }
+        val qualifierStr = qualifierDisplay(req.qualifier)
 
         // Hint: find similar bindings (same type, different qualifier)
         val similarBindings = providedTypes.filter { provider ->
@@ -632,6 +699,13 @@ class BindingRegistry {
     // ================================================================================
     // Helpers
     // ================================================================================
+
+    /** Render a qualifier for diagnostic messages, or null when unqualified. */
+    private fun qualifierDisplay(qualifier: QualifierValue?): String? = when (qualifier) {
+        is QualifierValue.StringQualifier -> "@Named(\"${qualifier.name}\")"
+        is QualifierValue.TypeQualifier -> "@Qualifier(${qualifier.irClass.name}::class)"
+        null -> null
+    }
 
     private fun typeKeyFromDefinition(def: Definition): TypeKey {
         val irClass = def.returnTypeClass

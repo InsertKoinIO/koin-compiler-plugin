@@ -224,6 +224,52 @@ sealed class KoinDiagnostic(
             "\n  Add it to modules() or includes() to make these definitions available",
     )
 
+    /**
+     * KOIN-W002 — A binding dependency could not be resolved within the module currently being
+     * validated in isolation, and no complete `@KoinApplication` / `startKoin` closure was present
+     * in this compilation to prove whether the dependency is genuinely missing.
+     *
+     * Warning, not error (contrast with the authoritative [MissingBinding] / KOIN-D001): in a clean,
+     * layered multi-module build a `@Module` is compiled without visibility of the *sibling* modules
+     * that a downstream `@KoinApplication(modules = [...])` will assemble alongside it. The provider
+     * may legitimately live in a sibling module (GH #51) or in an `implementation`-hidden transitive
+     * dependency that isn't on this compile classpath. The plugin cannot prove the dependency missing
+     * here, so it defers: the complete closed closure at `@KoinApplication` (KOIN-D001) or the runtime
+     * `checkModules()` is authoritative. Emitting a hard error here is the false positive KTZ-4256 fixes.
+     *
+     * The W prefix matches the catalog's warning convention (see [UnreachableModule] / KOIN-W001).
+     * The KOIN-D001 code is deliberately NOT reused so the Kotzilla MCP classifier contract stays stable.
+     */
+    class DeferredMissingBinding(
+        type: String,
+        qualifier: String?,
+        def: String,
+        param: String,
+        module: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W002",
+        severity = Severity.WARNING,
+        message = buildString {
+            append("Unresolved dependency (deferred): ")
+            append(type)
+            if (qualifier != null) {
+                append(" qualified with ")
+                append(qualifier)
+            }
+            append("\n  required by: ")
+            append(def)
+            append(" (parameter '")
+            append(param)
+            append("')")
+            append("\n  in module: ")
+            append(module)
+            append("\n  No provider is visible while validating this module in isolation. If it is ")
+            append("provided by a sibling module assembled at @KoinApplication / startKoin, or by a ")
+            append("transitive dependency not on this compile classpath, this is expected and validated ")
+            append("at the application entry point (KOIN-D001) or at runtime via checkModules().")
+        },
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,

@@ -1,0 +1,66 @@
+FILE: test.kt
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|Repository|): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|Repository| = R|<local>/repo|
+            public get(): R|Repository|
+
+    }
+    public final class Unrelated : R|kotlin/Any| {
+        public constructor(): R|Unrelated| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() public final class DataModule : R|kotlin/Any| {
+        public constructor(): R|DataModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Single|() public final fun unrelated(): R|Unrelated| {
+            ^unrelated R|/Unrelated.Unrelated|()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Factory|() public final fun service(repo: R|Repository|): R|Service| {
+            ^service R|/Service.Service|(R|<local>/repo|)
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|DataModule|), <getClass>(Q|FeatureModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: /dataModuleModule.kt
+    public final fun R|DataModule|.module(): R|org/koin/core/module/Module|
+FILE: /featureModuleModule.kt
+    public final fun R|FeatureModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/dataModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_dataModule__unrelated(contributed: R|Unrelated|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/featureModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_featureModule__service(contributed: R|Service|): R|kotlin/Unit|

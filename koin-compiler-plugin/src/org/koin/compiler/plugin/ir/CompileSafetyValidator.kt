@@ -2,6 +2,7 @@ package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginLogger
 
 /**
@@ -22,8 +23,35 @@ class CompileSafetyValidator(
 ) {
     private val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
 
-    /** FQNames of modules whose definitions were already validated at A2. */
+    /**
+     * FQNames of modules whose definitions were already *authoritatively* validated — either at A2
+     * with a complete closure, or against the full assembled graph at A3. A module that produced
+     * deferred (unresolved-in-isolation) requirements at A2 is intentionally NOT added here, so A3
+     * re-validates it against the sibling modules assembled at the entry point (KTZ-4256 / #51).
+     */
     private val validatedModuleFqNames = mutableSetOf<String>()
+
+    /**
+     * Binding requirements that A2 could not resolve while validating a module in isolation, held
+     * back rather than reported as KOIN-D001. Flushed by [flushDeferred] once all A3 passes have
+     * run: still-unresolved deferrals in this compilation become KOIN-W002 warnings (the provider
+     * is expected in a sibling module assembled downstream, or a transitive dep off this classpath).
+     */
+    private val deferredRequirements = mutableListOf<DeferredRequirement>()
+
+    /** Modules re-validated against a complete closed closure at A3 (deferrals for them are settled). */
+    private val authoritativelyValidatedFqNames = mutableSetOf<String>()
+
+    /**
+     * Oracle answering "does a provider hint for this type exist ANYWHERE on the build graph?"
+     * (KTZ-4256 / GH #51). Supplied by [KoinAnnotationProcessor] before A2 runs. When a binding is
+     * unresolved in a module's own visibility set, this — NOT closure state — decides the outcome:
+     *  - hint exists somewhere → real cross-module dep the local module can't see → DEFER;
+     *  - no hint anywhere → genuinely missing → hard KOIN-D001 at A2.
+     * Null (unset) means "no provider-hint information", so nothing is treated as cross-module and
+     * every unresolved binding is a genuine miss — the pre-KTZ-4256 conservative behavior.
+     */
+    var providerHintLookup: ((TypeKey) -> Boolean)? = null
 
     /**
      * Canonicalized cycle keys already reported (KOIN-D004) during this compilation.
@@ -61,6 +89,15 @@ class CompileSafetyValidator(
         KoinPluginLogger.debug { "  own=${ownDefinitions.size}, visible=${allVisibleDefinitions.size}" }
         KoinPluginLogger.debug { "  -> VALIDATING..." }
 
+        // A2 validates a module against its OWN visibility set (own defs + includes + @Configuration
+        // siblings). Sibling modules linked only via @KoinApplication(modules=[…]) are not visible
+        // here. The discriminator for an unresolved binding is NOT closure state but PROVIDER-HINT
+        // EXISTENCE (KTZ-4256 / #51): if some module on the build graph declares a provider hint for
+        // the type, it is a real cross-module dep the local module can't see → defer to A3/runtime;
+        // otherwise it is genuinely missing → hard KOIN-D001 here, exactly as before the fix. This
+        // keeps every single-module typo / @ComponentScan-untyped-entry miss a D001 (no hint anywhere)
+        // while #51's sibling dep (which HAS a hint) defers. Cycles / qualifier / property checks fire.
+        val deferredBefore = deferredRequirements.size
         val registry = BindingRegistry()
         val errorCount = registry.validateModule(
             moduleName,
@@ -69,19 +106,26 @@ class CompileSafetyValidator(
             qualifierExtractor,
             ownDefinitions,
             reportedCycles,
+            closureComplete = false,
+            deferredSink = deferredRequirements,
+            moduleFqName = moduleFqName,
+            crossModuleHintLookup = providerHintLookup,
         )
+        val deferredHere = deferredRequirements.size - deferredBefore
 
-        // Mark as validated regardless of errors to prevent duplicate error reporting
-        // at A3. If A2 already reported missing dependencies, re-reporting at A3 would
-        // produce duplicates since the same error is still present in the full graph.
-        if (moduleFqName != null) {
+        // Mark as validated only when nothing was deferred. A module with deferred requirements must
+        // be re-validated at A3 against the full assembled graph (siblings included) — that is where
+        // a genuinely-missing dependency becomes an authoritative KOIN-D001. Errors that DID fire at
+        // A2 (cycles, qualifier mismatch, missing @PropertyValue) are still deduped by marking the
+        // module validated in that case, matching the previous behavior.
+        if (moduleFqName != null && deferredHere == 0) {
             validatedModuleFqNames.add(moduleFqName)
         }
 
         if (errorCount > 0) {
-            KoinPluginLogger.debug { "  -> DONE: $errorCount errors found" }
+            KoinPluginLogger.debug { "  -> DONE: $errorCount errors found${if (deferredHere > 0) ", $deferredHere deferred" else ""}" }
         } else {
-            KoinPluginLogger.debug { "  -> DONE: all dependencies satisfied" }
+            KoinPluginLogger.debug { "  -> DONE: all dependencies satisfied${if (deferredHere > 0) " ($deferredHere deferred to A3/runtime)" else ""}" }
         }
     }
 
@@ -118,10 +162,15 @@ class CompileSafetyValidator(
         val allDefinitions = mutableListOf<Definition>()
         val definitionsToValidate = mutableListOf<Definition>()
         var allModulesComplete = true
+        // FQNames of every module assembled into this closure — used to settle A2 deferrals once we
+        // confirm the closure is complete (KTZ-4256): their unresolved-in-isolation requirements are
+        // now authoritatively validated against the full graph below.
+        val modulesInGraph = mutableSetOf<String>()
 
         KoinPluginLogger.debug { "  collecting definitions from all modules:" }
         for (moduleIrClass in allModuleIrClasses) {
             val moduleFqName = moduleIrClass.fqNameWhenAvailable?.asString() ?: continue
+            modulesInGraph.add(moduleFqName)
             val moduleClass = collectedModuleClasses.find {
                 it.irClass.fqNameWhenAvailable == moduleIrClass.fqNameWhenAvailable
             }
@@ -169,9 +218,17 @@ class CompileSafetyValidator(
         KoinPluginLogger.debug { "  assembled graph: ${_assembledGraphTypes.size} provided types" }
 
         if (!allModulesComplete) {
+            // Incomplete subgraph: at least one module's definitions couldn't be resolved on this
+            // compile classpath (e.g. hint functions unavailable). We cannot prove anything missing,
+            // so we do NOT settle A2 deferrals here — they fall through to KOIN-W002 (defer to runtime).
             KoinPluginLogger.debug { "  -> SKIPPED: some dependency modules have incomplete definitions (hint functions unavailable)" }
             return
         }
+
+        // Complete closed closure confirmed: every module assembled here is now authoritatively
+        // validated against the full graph, so its A2 deferrals are settled (resolved below, or
+        // reported as a genuine KOIN-D001). Record before the empty-set early returns.
+        authoritativelyValidatedFqNames.addAll(modulesInGraph)
 
         if (allDefinitions.isEmpty()) {
             KoinPluginLogger.debug { "  -> SKIPPED (no definitions found)" }
@@ -194,11 +251,51 @@ class CompileSafetyValidator(
             qualifierExtractor,
             definitionsToValidate,
             reportedCycles,
+            closureComplete = true,
         )
         if (errorCount > 0) {
             KoinPluginLogger.debug { "  -> DONE: $errorCount errors found" }
         } else {
             KoinPluginLogger.debug { "  -> DONE: all dependencies satisfied" }
         }
+    }
+
+    /**
+     * Flush A2 deferrals after all A3 passes have run (called once from Phase 3.7, KTZ-4256).
+     *
+     * A deferred requirement is settled — and therefore silent — when either:
+     *  - its module was authoritatively re-validated at A3 against a complete closed closure
+     *    ([authoritativelyValidatedFqNames]): a genuine miss already surfaced as KOIN-D001 there; or
+     *  - its type is present in [assembledGraphTypes]: a sibling in this compilation provides it.
+     *
+     * Everything else is a binding this compilation cannot resolve and cannot prove missing — a leaf
+     * module built without an entry point, or an incomplete subgraph. Those become KOIN-W002 warnings
+     * (validated later at the application `@KoinApplication` / at runtime), never a hard error. Deduped
+     * by (module, def, param, type) so the same requirement isn't warned about twice.
+     */
+    fun flushDeferred() {
+        if (deferredRequirements.isEmpty()) return
+        KoinPluginLogger.debug { "── Phase 3.7: flushing ${deferredRequirements.size} deferred requirement(s) ──" }
+        val warned = mutableSetOf<String>()
+        var emitted = 0
+        for (d in deferredRequirements) {
+            if (d.moduleFqName != null && d.moduleFqName in authoritativelyValidatedFqNames) continue
+            val typeFqName = d.requirement.typeKey.fqName?.asString()
+                ?: d.requirement.typeKey.classId?.asFqNameString()
+            if (typeFqName != null && typeFqName in assembledGraphTypes) continue
+            val dedupKey = "${d.moduleFqName ?: d.moduleName}|${d.defName}|${d.requirement.paramName}|${typeFqName ?: d.requirement.typeKey.render()}"
+            if (!warned.add(dedupKey)) continue
+            KoinPluginLogger.report(
+                KoinDiagnostic.DeferredMissingBinding(
+                    type = d.requirement.typeKey.render(),
+                    qualifier = d.qualifierDisplay,
+                    def = d.defName,
+                    param = d.requirement.paramName,
+                    module = d.moduleName,
+                )
+            )
+            emitted++
+        }
+        KoinPluginLogger.debug { "  -> Phase 3.7: emitted $emitted KOIN-W002 warning(s)" }
     }
 }

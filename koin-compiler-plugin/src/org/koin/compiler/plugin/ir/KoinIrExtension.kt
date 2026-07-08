@@ -144,6 +144,16 @@ class KoinIrExtension(
             callSiteValidator.validateCallSiteHintsFromDependencies(safetyValidator.assembledGraphTypes, dslDefinitions, annotationProcessor, dslHintGenerator)
         }
 
+        // Phase 3.7: Flush A2 deferrals (KTZ-4256 / #51).
+        // A2 validates each @Module in isolation and can't see sibling modules that only become
+        // visible at @KoinApplication(modules=[…]). Rather than hard-error KOIN-D001 for a dep a
+        // sibling provides, A2 defers. By now all A3 passes have run: deferrals whose module A3
+        // re-validated (or whose type is in the assembled graph) are settled silently; the rest —
+        // leaf modules with no entry point, or incomplete subgraphs — surface as KOIN-W002 warnings.
+        if (safetyValidator != null) {
+            safetyValidator.flushDeferred()
+        }
+
         // Phase 4: Transform @Monitor annotated functions
         // Wraps function bodies with Kotzilla trace calls for performance monitoring
         KoinPluginLogger.debug { "Phase 4: Processing @Monitor annotations" }

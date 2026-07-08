@@ -131,6 +131,85 @@ class KoinAnnotationProcessor(
     val collectedModuleClasses: List<ModuleClass> get() = moduleClasses
 
     /**
+     * Set of FQNames that *some* provider on the whole build graph declares as available — the
+     * "does a provider for this type exist ANYWHERE on the build's graph?" oracle used by the A2
+     * deferral discriminator (KTZ-4256 / GH #51). Two sources are unioned:
+     *  1. every LOCAL definition in this compilation (across ALL modules, including sibling modules
+     *     that a given @Module can't see because they're linked only via @KoinApplication(modules=[…])),
+     *     expanded to its `returnTypeClass` FQName + each binding supertype; and
+     *  2. every `definition_*` / `definition_function_*` / `dsl_*` hint function reachable via
+     *     [context.referenceFunctions] (providers in dependency jars/klibs off this module's classpath),
+     *     expanded to the provided class FQName + each encoded `binding*` supertype.
+     *
+     * Source (1) is what settles #51's *same-compilation* sibling case; source (2) covers a downstream
+     * leaf module whose provider lives in an already-compiled dependency module.
+     *
+     * The discrimination is on **provider-hint existence**, not closure state:
+     *  - unresolved locally AND FQName present here → a real cross-module dep the local module just
+     *    can't see → defer (settled at A3's complete closure, else KOIN-W002);
+     *  - unresolved locally AND FQName absent here → genuinely missing → hard KOIN-D001 at A2.
+     *
+     * Lazy + memoized: the underlying `referenceFunctions` scan is invariant within a compile and
+     * shared across every A2 module validation. Mirrors the hint-query pattern at
+     * [discoverDefinitionsFromHints] / [DslHintGenerator.discoverDslDefinitionTypes].
+     */
+    val providerHintTypeFqNames: Set<String> by lazy { computeProviderHintTypeFqNames() }
+
+    private fun computeProviderHintTypeFqNames(): Set<String> {
+        val types = hashSetOf<String>()
+
+        // Source (1): local FUNCTION/DSL providers authored in a @Module body, across every module in
+        // THIS compilation. A sibling @Module's function definitions aren't in a given module's A2
+        // visibility set, but they are still on the build graph — assembled downstream at
+        // @KoinApplication (the #51 sibling shape). cachedModuleDefinitions is populated in
+        // generateModuleExtensions Step 1, before any A2 validation runs.
+        //
+        // Deliberately EXCLUDES component-scanned class definitions (Definition.ClassDef): those belong
+        // to a @ComponentScan / @Configuration group whose cross-module assembly is governed by the
+        // consumer's own visibility set (A2) and the entry-point graph (A3). Treating a class from a
+        // *different* @Configuration group as a graph-wide provider would wrongly defer a genuine
+        // label-mismatch miss (e.g. configuration_label_mismatch: @Configuration("core") Repository is
+        // not assembled into @Configuration("service")) — it must stay a hard KOIN-D001, not W002.
+        cachedModuleDefinitions?.values?.forEach { defs ->
+            for (def in defs) {
+                if (def is Definition.ClassDef) continue
+                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { types.add(it) }
+                for (binding in def.bindings) {
+                    binding.fqNameWhenAvailable?.asString()?.let { types.add(it) }
+                }
+            }
+        }
+
+        // Source (2): providers in dependency jars/klibs, read from their generated hint functions.
+        fun collectFromHints(functionName: Name) {
+            val hintFunctions = cachedReferenceFunctions(
+                CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, functionName)
+            )
+            for (hintFuncSymbol in hintFunctions) {
+                val params = hintFuncSymbol.owner.regularParameters
+                // First param = the provided class (annotation defs) / return type (functions).
+                (params.firstOrNull()?.type?.classifierOrNull as? IrClassSymbol)?.owner
+                    ?.fqNameWhenAvailable?.asString()?.let { types.add(it) }
+                // binding* params = declared/inferred supertypes the definition binds to.
+                for (p in params) {
+                    if (!p.name.asString().startsWith("binding")) continue
+                    (p.type.classifierOrNull as? IrClassSymbol)?.owner
+                        ?.fqNameWhenAvailable?.asString()?.let { types.add(it) }
+                }
+            }
+        }
+
+        for (defType in KoinModuleFirGenerator.ALL_DEFINITION_TYPES) {
+            collectFromHints(KoinModuleFirGenerator.definitionHintFunctionName(defType))
+            collectFromHints(KoinModuleFirGenerator.definitionFunctionHintFunctionName(defType))
+            collectFromHints(KoinModuleFirGenerator.dslDefinitionHintFunctionName(defType))
+        }
+
+        KoinPluginLogger.debug { "  provider-hint universe: ${types.size} type(s) provided somewhere on the graph" }
+        return types
+    }
+
+    /**
      * Get all definitions for a module (local + cross-module via hints + included modules).
      * Returns a DependencyModuleResult with isComplete=false when any included dependency module's
      * definitions couldn't be fully resolved (e.g., when hint functions are unavailable).
@@ -715,6 +794,15 @@ class KoinAnnotationProcessor(
             for (included in mc.includedModules) {
                 includedModuleFqNames.add(included.fqNameWhenAvailable)
             }
+        }
+
+        // KTZ-4256 / #51: give A2 the cross-module provider-hint oracle. An unresolved binding at A2
+        // is deferred (not hard-errored) only when some module on the build graph declares a provider
+        // hint for the type — a real sibling/dependency dep the local module can't see. The set is
+        // lazy, so the referenceFunctions scan only runs if an A2 miss actually needs discriminating.
+        safetyValidator?.providerHintLookup = { typeKey ->
+            val fq = typeKey.fqName?.asString() ?: typeKey.classId?.asFqNameString()
+            fq != null && fq in providerHintTypeFqNames
         }
 
         // Step 2: For each module, build visibility + validate + generate

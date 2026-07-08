@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: Repository
+  required by: FeatureModule.service() (parameter 'repo')
+  in module: FeatureModule
