@@ -89,7 +89,7 @@ koinCompiler {
 
 ## Compatibility
 
-- **Koin**: 4.2.0-RC1+
+- **Koin**: 4.2.0+
 - **Kotlin**: K2 compiler required. One artifact spans **Kotlin 2.3.20 → 2.4.x**.
   Annotation-based (`@Module` / `@ComponentScan`) **WASM/JS** requires **Kotlin 2.4.0**
   ([KT-82395](https://youtrack.jetbrains.com/issue/KT-82395)); JVM/Android, iOS/Native, and

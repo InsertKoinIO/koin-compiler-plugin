@@ -175,6 +175,10 @@ Before opening (or approving) any PR, both guards must pass:
 - **New transformation/case** → box test(s) + golden files (`./test.sh -Pupdate.testdata=true`) covering the new shape, including qualifier/nullable/default-value variants where relevant.
 - **Codegen changes: JVM-green is not done.** Duplicate-signature and KLIB errors are invisible on JVM — compile `test-apps` for at least `iosArm64` (or another native target) and `wasmJs` before declaring a codegen change complete.
 
+### 3. Compile-safety stress test — run for EVERY published version
+- Comment out (or delete) a used definition in `playground-apps/app-annotations` **and** `app-dsl`, recompile, and confirm the build **fails with `KOIN-D001`** (not a silent success → runtime crash). Full procedure + expected results: [`playground-apps/README.md`](playground-apps/README.md#compile-safety-stress-test-run-for-every-plugin-version).
+- **DSL: clean the edited module first** (`./gradlew :core:data:clean :app:compileDebugKotlin`). Incremental-only DSL rebuilds give a **false green** — removing a DSL definition leaves an orphaned generated hint class (`org/koin/plugin/hints/…Dsl_singleKt.class`) that IC never deletes, so the deleted provider still looks present. A run without the clean step is not a valid result. (Annotations are caught at the owning module's own compile and need no clean.) Known IC limitation, tracked for KCP 1.1.
+
 ## Release
 
 ```bash
@@ -271,7 +275,7 @@ Set `skipDefaultValues = false` to always inject all parameters from the DI cont
 
 ## Compatibility — verified range + version gate
 
-- **Koin**: 4.2.0-RC2+
+- **Koin**: 4.2.0+
 - **Kotlin**: K2 compiler required. **Verified range: 2.3.0–2.3.10.** Known broken: 2.3.20 (`IrDeclarationOrigin` NoSuchMethodError, #42) and 2.4.0 (`FirExtensionRegistrarAdapter` cast, #19) — fix in progress.
 
 **Version-gate policy** (the plugin binds to unstable compiler internals — every Kotlin minor is a potential break):
