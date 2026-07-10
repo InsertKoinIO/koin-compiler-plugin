@@ -26,13 +26,18 @@ cd playground-apps/app-kmp-klib-crossmodule
 ../../gradlew :app:compileKotlinIosArm64 -PkotlinVersion=2.4.0
 ```
 
-`@ComponentScan` on wasmJs requires Kotlin 2.4.0 (KT-82395), hence the default.
+The build defaults to the shipping plugin version. `@ComponentScan` on wasmJs requires
+Kotlin 2.4.0 (KT-82395), hence the `kotlinVersion` default.
 
 ## Expected results
 
 | Plugin version | wasmJs / iosArm64 |
 |---|---|
-| `1.0.1` (pre-fix) | ❌ `SignatureClashDetector`: three identical `componentscan_crossmodule_app_NetworkModule_single(CharactersApiService)` declarations |
-| `1.0.2-Beta1` (fixed) | ✅ one declaration per scanned class |
+| `1.0.1` (pre-fix) | ❌ `SignatureClashDetector`: multiple identical `componentscan_crossmodule_app_NetworkModule_single(contributed:…)` declarations |
+| `1.0.2` (fixed) | ✅ one declaration per scanned class |
 
-To reproduce the failure, set the plugin version to `1.0.1` in `settings.gradle.kts` and rerun.
+To reproduce the failure against the pre-fix build, override the pinned version:
+
+```bash
+../../gradlew :app:compileKotlinWasmJs -PkotlinVersion=2.4.0 -PkoinPluginVersion=1.0.1
+```

@@ -8,9 +8,13 @@
 // (wasmJs / iosArm64) duplicate top-level declarations are a hard compile error.
 pluginManagement {
     val kotlinVersion: String = (settings.extra.properties["kotlinVersion"] as? String) ?: "2.4.0"
+    // Defaults to the shipping version. Override to test another build (e.g. the pre-fix
+    // repro) with `-PkoinPluginVersion=1.0.1`. Kept a property so the release-gate build
+    // can't silently drift onto a stale mavenLocal artifact (as a hardcoded pin once did).
+    val koinPluginVersion: String = (settings.extra.properties["koinPluginVersion"] as? String) ?: "1.0.2"
     plugins {
         kotlin("multiplatform") version kotlinVersion
-        id("io.insert-koin.compiler.plugin") version "1.0.2-Beta1"
+        id("io.insert-koin.compiler.plugin") version koinPluginVersion
     }
     repositories {
         mavenLocal()
