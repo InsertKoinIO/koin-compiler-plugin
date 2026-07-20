@@ -37,6 +37,7 @@ fun provideTLServiceFacade(db: TLDatabaseService, cache: TLCacheService): TLServ
 
 @Module
 @ComponentScan("examples.toplevel")
+@Configuration
 class TopLevelFunctionsModule
 
 @KoinApplication(modules = [TopLevelFunctionsModule::class])
