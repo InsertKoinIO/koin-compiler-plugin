@@ -86,10 +86,12 @@ Every detected entry point is a **Root**: its assembled closure must be a comple
 on its own. `koinConfiguration<T>()` / `koinApplication` / `startKoin` are each verified standalone —
 **separate config calls do NOT pool to complete each other's missing references** (deliberate design: a
 config missing a dependency fails, rather than silently relying on a sibling). `withConfiguration { }` is
-**also a sealed self-consistent unit** — no dependency outside the config (same rule). (Open at the
-verification step: whether a chained `koinApplication{A}.withConfiguration{B}` seals B standalone or the
-assembled {A+B} — since `withConfiguration` merges into the app at runtime, this decides a false-positive
-boundary.) The only non-Root class is **Dynamic** (`modules(if…)`, runtime lists → module set not statically resolvable →
+**also an independent sealed unit** — no dependency outside its own config. A chained
+`koinApplication{A}.withConfiguration{B}` is **NOT** modeled as B-borrows-from-A: A and B are independent
+sealed units, each verified on its own modules+includes closure; they share code by *each including the
+common module*, never by B relying on A. The cascading "B relies on A" pattern is unsupported/undocumented,
+so a B missing a dependency fails (it must include what it needs) rather than silently borrowing across the
+runtime merge. No cross-config aggregation. The only non-Root class is **Dynamic** (`modules(if…)`, runtime lists → module set not statically resolvable →
 disclose "unverified", never silent). So classification is **Root | Dynamic** (no Fragment — the
 self-consistency rule dissolves the cross-compile fragment-detection problem; no Koin-core API change).
 Forms: `startKoin` / `koinApplication` / `koinConfiguration` / `withConfiguration` / Compose
