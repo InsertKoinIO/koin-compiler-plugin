@@ -58,6 +58,20 @@ import org.jetbrains.kotlin.name.Name
  * koinApplication { }.withConfigurationWith(listOf(MyModule().module()))
  * ```
  */
+/**
+ * Internal reification of a detected entry point (A3 §4). Purely a plugin-side model built from the
+ * EXISTING Koin entry-point APIs — no public/Koin-core API change. Every entry point is a self-consistent
+ * ROOT (its graph resolves within itself); DYNAMIC = module set not statically resolvable → disclose.
+ */
+enum class EntryKind { START_KOIN, KOIN_APPLICATION, KOIN_CONFIGURATION, WITH_CONFIGURATION, KOIN_APPLICATION_ANNOTATION }
+enum class EntryClassification { ROOT, DYNAMIC }
+data class EntryPoint(
+    val kind: EntryKind,
+    val classification: EntryClassification,
+    val resolvedModules: List<IrClass>,
+    val origin: SourceOrigin?,
+)
+
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
 class KoinStartTransformer(
@@ -72,9 +86,14 @@ class KoinStartTransformer(
 
     private var currentFile: IrFile? = null
 
-    /** True if a startKoin { } or koinApplication { } call was found (generic or non-generic). */
-    var hasKoinEntryPoint = false
-        private set
+    /**
+     * Reified entry points detected in this compilation (A3 §4). Additive for now — nothing consumes it
+     * beyond the derived [hasKoinEntryPoint] yet; the verifier is wired to it in a later step.
+     */
+    val entryPoints = mutableListOf<EntryPoint>()
+
+    /** True if any entry point (startKoin / koinApplication / koinConfiguration, generic or not) was found. */
+    val hasKoinEntryPoint: Boolean get() = entryPoints.isNotEmpty()
 
     override fun visitFile(declaration: IrFile): IrFile {
         currentFile = declaration
@@ -107,6 +126,13 @@ class KoinStartTransformer(
     private fun appClassCacheKey(appClass: IrClass): String =
         appClass.fqNameWhenAvailable?.asString() ?: "<anon>@${System.identityHashCode(appClass)}"
 
+    /** Best-effort source origin of a call site (for the reified EntryPoint / debug logs). */
+    private fun originOf(expression: IrCall): SourceOrigin {
+        val fe = currentFile?.fileEntry
+        val line = fe?.let { runCatching { it.getLineNumber(expression.startOffset) + 1 }.getOrNull() }
+        return SourceOrigin(moduleFqName = null, filePath = fe?.name, line = line)
+    }
+
     override fun visitCall(expression: IrCall): IrExpression {
         val callee = expression.symbol.owner
         val calleeFqName = callee.fqNameWhenAvailable
@@ -127,7 +153,10 @@ class KoinStartTransformer(
             fqNameStr == "org.koin.core.context.GlobalContext.startKoin" ||
             fqNameStr == "org.koin.core.KoinApplication.Companion.init" ||
             fqNameStr == "org.koin.dsl.koinConfiguration") {
-            hasKoinEntryPoint = true
+            // Real koin-core entry point — flag-only today (module resolution is wired at Gate 1).
+            val kind = if (fqNameStr == "org.koin.dsl.koinConfiguration") EntryKind.KOIN_CONFIGURATION else EntryKind.START_KOIN
+            entryPoints.add(EntryPoint(kind, EntryClassification.ROOT, emptyList(), originOf(expression)))
+            KoinPluginLogger.debug { "  entry point (koin-core): $kind @ ${originOf(expression)}" }
         }
 
         val isStartKoin = fqNameStr == "org.koin.plugin.module.dsl.startKoin"
@@ -156,8 +185,16 @@ class KoinStartTransformer(
             return super.visitCall(expression)
         }
 
-        // Mark generic versions as entry points too
-        hasKoinEntryPoint = true
+        // Reify the generic-stub entry point (resolvedModules filled at Gate-1 wiring).
+        val entryKind = when {
+            isStartKoin -> EntryKind.START_KOIN
+            isKoinApplication -> EntryKind.KOIN_APPLICATION
+            isKoinConfiguration -> EntryKind.KOIN_CONFIGURATION
+            isWithConfiguration -> EntryKind.WITH_CONFIGURATION
+            else -> EntryKind.START_KOIN
+        }
+        entryPoints.add(EntryPoint(entryKind, EntryClassification.ROOT, emptyList(), originOf(expression)))
+        KoinPluginLogger.debug { "  entry point (stub): $entryKind @ ${originOf(expression)}" }
 
         // Untyped variants — `startKoin { modules(A::class) }`, `koinApplication { modules(...) }`,
         // and especially the Compose Composable-friendly `koinConfiguration { modules(...) }`

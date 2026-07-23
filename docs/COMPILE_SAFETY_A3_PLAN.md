@@ -44,7 +44,7 @@ Module {
   declaredDefinitions: [DefId]
   includes: [ModuleId]             // topology edge
 }
-EntryPoint { origin; classification (Root | Fragment | Dynamic); loadedModules (label-resolved, FIX-8) }
+EntryPoint { origin; classification (Root | Dynamic); loadedModules (label-resolved, FIX-8) }
 CallSite  { origin; requiredType; injectedParamSlots }        // D005/D006 (FIX-7)
 
 Verifier.verify(entry, world)
@@ -82,11 +82,18 @@ FIX-9 function-provider `requirements` must be populated (not `emptyList()`).
 
 ## 4. EntryPoint classification & forms
 
-An entry point authoritatively verifies only if (a) its module set is statically resolvable AND (b) it is a
-terminal **Root**, not a **Fragment** (a `koinConfiguration` composed into a root via `withConfiguration` /
-Compose `KoinApplication(configuration=…)`), and not **Dynamic** (`modules(if…)`, runtime lists →
-disclose "unverified", never silent). Forms: `startKoin` / `koinApplication` / `koinConfiguration` /
-`withConfiguration` / Compose `KoinApplication()` / `@KoinApplication`.
+Every detected entry point is a **Root**: its assembled closure must be a complete, self-consistent graph
+on its own. `koinConfiguration<T>()` / `koinApplication` / `startKoin` are each verified standalone —
+**separate config calls do NOT pool to complete each other's missing references** (deliberate design: a
+config missing a dependency fails, rather than silently relying on a sibling). `withConfiguration { }` is
+**also a sealed self-consistent unit** — no dependency outside the config (same rule). (Open at the
+verification step: whether a chained `koinApplication{A}.withConfiguration{B}` seals B standalone or the
+assembled {A+B} — since `withConfiguration` merges into the app at runtime, this decides a false-positive
+boundary.) The only non-Root class is **Dynamic** (`modules(if…)`, runtime lists → module set not statically resolvable →
+disclose "unverified", never silent). So classification is **Root | Dynamic** (no Fragment — the
+self-consistency rule dissolves the cross-compile fragment-detection problem; no Koin-core API change).
+Forms: `startKoin` / `koinApplication` / `koinConfiguration` / `withConfiguration` / Compose
+`KoinApplication()` / `@KoinApplication`.
 
 Playground reality (§9): the flagship apps use the *harder* static forms — real koin-core `startKoin{}`
 (not yet routed to A3) and **bare `@KoinApplication` + `@Configuration` discovery** (not
@@ -146,7 +153,8 @@ run the no-clean DSL leg (orphan-hint bug it documents) — the rest must be bui
 - **PR1 — DONE (metadata contract).** `SourceOrigin` + `requirements`/`origin` on `Definition`, additive, green, zero golden diffs. Parked in a worktree; salvage onto branch. Valid in every version of this design.
 - **Fill annotation cells:** origin in the carrier; function-provider requirements (typed mirror); route all annotation roots (incl. bare `@KoinApplication`+`@Configuration`) through the one verifier; A3 emits (Gate 1).
 - **Fill DSL cells:** includes-edge hint (topology) + consumer reconstruction (stop `null ⇒ reachable` over-approximation); origin. Proven by the cross-module forgot-`include` RED test.
-- **Reify `EntryPoint` + classifier** (Root/Fragment/Dynamic) — replaces `hasKoinEntryPoint`.
+- **Reify `EntryPoint` + classifier** (Root/Dynamic) — replaces `hasKoinEntryPoint`. Internal plugin model
+  only; works with existing Koin entry-point APIs (no API extension).
 - **Freshness (Gate 3):** trackers + mandatory strictSafety + the incremental stress matrix.
 - **Then, per path where its gates hold:** demote A2 to collect-only (rooted annotation compiles); keep A2+completed-oracle net for leaves. Never delete a diagnostic in §7 without its replacement proven.
 
