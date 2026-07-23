@@ -1,211 +1,172 @@
 # Compile Safety — A3 Reshape Plan
 
-> Status: design, pre-implementation (2026-07-22). Supersedes the "A2 relax-all" idea.
-> Grounding: three code audits (metadata carrier, verify logic, entry-point/module-graph),
-> a comparable-K2-DI-plugin carrier study, and an A2 collect-only spike that **falsified** the blunt version.
+> Status: design, PR1 landed (metadata contract). Organizing spine: a **common verifier meta-model** + a **gap matrix**.
+> Grounding this session: three code audits, a comparable-K2-DI-plugin carrier study, an A2 collect-only
+> spike (falsified the blunt version), a Step-1 baseline diagnostics matrix, a playground reality-check,
+> a red-team review, and a meta-model critique. Evidence in §9.
 
 ## 1. Principle
 
-**A2 (per-module) does NO graph-resolution validation. A3 (entry point) is the sole graph verifier.**
+A2 **collects** metadata + generates code; A3 **verifies** the assembled graph at the entry point. Both
+sides populate **one source-agnostic meta-model** (§2), consumed by **one verifier**. The reshape does not
+delete the `Definition` hierarchy — the meta-model is a *verifier projection* over it (codegen keeps its
+IR-bearing fields).
 
-Nothing about *binding resolution* is decidable inside a non-entry module: adding a module can add or
-override providers, so a locally-"missing", wrong-qualifier, or wrong-scope binding may resolve fine once
-the graph is assembled at the root. A2 hard-erroring these is the false-positive engine that hurts real
-multi-module apps.
+**The boundary that scopes it — "is module membership in ABI?"** (the correction the red team forced):
 
-- **A2 keeps only structural/shape checks that never touch the graph:** call-site `parametersOf` arity
-  (KOIN-D005/D006), DSL `create()`-is-only-instruction (`unsafeDslChecks`), malformed annotations.
-- **A2 collects maximally** (over-collect metadata; log everything discoverable) and defers every
-  graph-resolution question to A3. Collection never errors.
-- **A3 assembles the full loaded graph at the root and is the only place `KOIN-D001` (missing) /
-  qualifier / scope / cycle diagnostics fire.**
+- **Annotation roots** — `@KoinApplication(modules=[…])` class lists + `@Configuration` labels + `@Module(includes=…)` are **ABI**, so A3 can authoritatively reconstruct the loaded set → **A3 verifies, A2 collect-only.**
+- **DSL / Compose-`koinConfiguration`** — membership lives in `includes()`/`modules()` **lambda bodies (non-ABI)**. A3 verifies **same-compile** graphs today; **cross-Gradle-module** membership is lost → needs the **includes-edge carrier** (§5) to reach annotation parity.
+- **Entry-point-less leaves** (e.g. KMP `@Module` libraries compiled without their app) — no A3 in the compilation → **keep A2 + a *completed* oracle** as the net (hard-error genuine-local misses, defer cross-module). The oracle is **not deleted** — the ClassDef-exclusion *tuning* was the hack; the oracle *concept* (defer iff a provider exists somewhere) is load-bearing for cases A3 structurally cannot reach.
 
-### The danger (doctrine: "silent is worse than broken")
+### The three gates (exit criteria before A2 stops emitting for a given path)
+- **Gate 1** — A3 actually EMITS (today it's bookkeeping; A2 is the de-facto emitter, §9) at the root with culprit `origin`, for all statically-resolvable roots.
+- **Gate 2** — the carrier carries the "need" cells (requirements incl. function providers, origin, DSL includes-edges).
+- **Gate 3** — freshness (§6): A3 stays correct across incremental builds.
 
-The moment A2 stops erroring, the worst failure class — a *silent* missing dependency → runtime crash —
-is in play. So three **hard gates** must land *before* A2's graph validation is removed. Removing it early
-just swaps loud false positives for silent false negatives.
+## 2. The common meta-model (the spine — a verifier *projection*, not a replacement for `Definition`)
 
-- **Gate 1 — every ROOT entry point verifies authoritatively, and A3 actually EMITS** (today roots
-  don't all verify and A3 emits nothing user-visible — see §2 and §4b).
-- **Gate 2 — the carrier carries provider REQUIREMENTS**, including function providers
-  (today `ExternalFunctionDef → emptyList()`), so A3 never under-checks (see §3).
-- **Gate 3 — freshness**: A3's metadata is stale-proof across incremental builds (see §3b). A2 validates
-  per-module *at that module's own compile*, so it is freshness-robust by construction; A3-as-sole-verifier
-  removes that property and concentrates all correctness into one compile that reads every module's
-  metadata. If freshness fails, the failure is a silent false negative on the exact incremental multi-module
-  loop the reshape exists to serve.
+Both annotation and DSL populate the same shapes; only *discovery* differs. `Definition` stays for codegen
+(it carries `createdAtStart`, `moduleInstance`, `registrationSourceFile` (#32 IC anchor), raw IR refs the
+verifier has no reason to hold).
 
-## 2. Entry-point catalog (the "safe set")
+```
+Definition {                       // provider node (projection)
+  origin: SourceOrigin             // module fqn + file + line
+  providedType; bindings; qualifier
+  scope: ScopeKey                  // typed | named | archetype | root   (FIX-1)
+  kind
+  requirements: [Requirement]      // WHOLE struct; validate the requiresValidation() subset (FIX-2)
+  ownerModuleId
+}
+Module {
+  id: ModuleId?                    // null ⇒ always-loaded / unclassifiable (FIX-6)
+  origin; kind (ANNO_CLASS | DSL_VAL); labels (@Configuration | ∅)
+  declaredDefinitions: [DefId]
+  includes: [ModuleId]             // topology edge
+}
+EntryPoint { origin; classification (Root | Fragment | Dynamic); loadedModules (label-resolved, FIX-8) }
+CallSite  { origin; requiredType; injectedParamSlots }        // D005/D006 (FIX-7)
 
-An entry point authoritatively verifies only if BOTH: (a) its loaded module set is statically resolvable,
-and (b) it is the **terminal root**, not a fragment composed into a larger root.
+Verifier.verify(entry, world)
+  world = { propertyDefaults,        // PropertyValueRegistry → KOIN-P001 (FIX-3)
+            trustedTypes }           // framework whitelist ∪ @Provided ∪ Scope-receiver (FIX-4)
+```
 
-### Roles
+Verifier job (source-agnostic): `entry.loadedModules` + transitive `Module.includes` → loaded set → union
+`declaredDefinitions` → provided index (keyed by type + qualifier + `ScopeKey`) → for each loaded
+`Definition`, resolve the `requiresValidation()` subset of `requirements` against the index and
+`trustedTypes` → emit at `origin`. Plus cycle detection (keep the `isLazy` edge exclusion) and `CallSite`
+`parametersOf` checks.
 
-| Role | Meaning |
-|---|---|
-| **Root** | Assembles + owns the complete module set. Must verify. |
-| **Fragment** | A config piece composed into a root (`koinConfiguration` consumed by `withConfiguration` / Compose `KoinApplication(configuration=…)`). Verifying it in isolation = false positives. Must be aggregated into its root, not verified alone. |
-| **Loader** | `module<T>()` / `modules(vararg)` — contributes definitions to whichever root; never a root itself. |
-| **Dynamic** | Module set not statically enumerable (`modules(if(debug)…)`, spread of a runtime list). Unverifiable — must DISCLOSE, never silently pass. |
+**Baked-in fixes (from the meta-model critique):** FIX-1 `ScopeKey` unifies typed/named/archetype/root
+(a release-noted matching improvement — today only `scopeClass` is matched); FIX-2 keep `Requirement`
+whole; FIX-3 `propertyDefaults` input; FIX-4 `trustedTypes` input; FIX-6 nullable `ModuleId` semantics;
+FIX-7 first-class `CallSite`; FIX-8 label-resolved `loadedModules` preserving the label-mismatch invariant;
+FIX-9 function-provider `requirements` must be populated (not `emptyList()`).
 
-### Current state vs target
+## 3. The gap matrix (what each side must produce to fill the model)
 
-| Form | FqName | Role | Verifies today? |
-|---|---|---|---|
-| `startKoin<T>()` + `@KoinApplication(modules=[…])` | `org.koin.plugin.module.dsl.startKoin` (typed) | Root | ✅ `validateFullGraph` |
-| `startKoin { modules(…) }` (plugin stub, untyped) | `…plugin.module.dsl.startKoin` | Root | ⚠️ only if `modules(…)` statically found, else silent skip |
-| `koinApplication { modules(…) }` (stub) | `…plugin.module.dsl.koinApplication` | Root | ⚠️ same guard |
-| `koinConfiguration { modules(…) }` (stub) | `…plugin.module.dsl.koinConfiguration` | Root or Fragment | ⚠️ same guard; NOT classified root vs fragment |
-| `withConfiguration { modules(…) }` (stub) | `…plugin.module.dsl.withConfiguration` | Composition | ⚠️ validated in isolation; aggregation onto base root unconfirmed |
-| **`startKoin { modules(…) }` (real koin-core)** | `org.koin.core.context.startKoin` | **Root** | ❌ flag only → Phase 3.1 DSL-only path (spike: doesn't settle) |
-| `GlobalContext.startKoin` | `org.koin.core.context.GlobalContext.startKoin` | Root | ❌ flag only |
-| `KoinApplication.Companion.init` | same | Root (low-level) | ❌ flag only |
-| **`koinConfiguration { }` (real, Compose)** | `org.koin.dsl.koinConfiguration` | Root or Fragment | ❌ flag only → Phase 3.1 (spike: doesn't settle deferrals) |
-| **Compose `KoinApplication(configuration=…) { }`** | koin-compose composable | Root | ❌ recognized only via its `koinConfiguration` arg → same gap |
-| `module<T>()` | `…plugin.module.dsl.module` | Loader | n/a (contributes) |
-| `modules(vararg KClass)` | `…plugin.module.dsl.modules` | Loader | n/a (contributes) |
+| Model element | **Annotation** cross-module source | **DSL** cross-module source |
+|---|---|---|
+| Definition: type/bindings/qualifier/scope | ✅ `definition_*` / `componentscan_*` hints | ✅ `dsl_*` hints |
+| Definition.**requirements** | ⚠️ re-derived from class ABI; `ExternalFunctionDef` empty (FIX-9) | ⚠️ stored locally (PR1); cross-module needs carry |
+| Definition.**origin** | ❌ not carried (PR1 = local only) | ❌ not carried |
+| Module **identity** | ✅ class FqName | ⚠️ top-level `val` FqName ok; inline/local/fn-returned = null (FIX-6) |
+| Module.**includes** (topology) | ✅ `@Module(includes=…)` is ABI | ❌ **lambda body → includes-edge hint** |
+| Module.labels (`@Configuration`) | ✅ `configuration_*` hints | n/a |
+| Root.**loadedModules** | ✅ `@KoinApplication(modules)` ABI (+ label resolution) | ⚠️ `startKoin{modules()}` same-compile ok |
 
-### Missing safe entry points (the gap to close in Gate 1)
+**Per-side gap:**
+- **Annotation** — model is almost fully populatable from existing ABI+hints. Fills needed: **origin**, **function-provider requirements** (FIX-9), and the **@ComponentScan-new-file freshness** hole (§6). Then A3 emits; A2 → collect-only for rooted compiles, A2+oracle-net for leaves.
+- **DSL** — fills needed: **includes-edge topology** (DSL's *only* membership mechanism — no `@ComponentScan`/`@Configuration` shortcuts), **origin**, function-provider requirements. Then DSL flows through the identical verifier. Same-compile already works today; the carrier closes cross-module.
 
-1. **Ordinary `startKoin { modules(appModule) }` (koin-core)** — the most common form — is only on the
-   Phase 3.1 DSL path, not authoritative A3.
-2. **Standalone `koinConfiguration { }` / Compose `KoinApplication()`** — Compose apps; Phase 3.1 only,
-   spike showed it doesn't settle deferrals.
-3. **`withConfiguration` aggregation** — a base root + `withConfiguration` additions form ONE graph; the
-   verifier must aggregate them, not check the addition in isolation.
-4. **Any root whose `modules(…)` isn't statically found** — currently silently skipped
-   (`isNotEmpty()` guards). Under A3-sole-verifier this becomes a silent hole → must DISCLOSE.
+## 4. EntryPoint classification & forms
 
-### Dynamic dependencies → `@Provided`
+An entry point authoritatively verifies only if (a) its module set is statically resolvable AND (b) it is a
+terminal **Root**, not a **Fragment** (a `koinConfiguration` composed into a root via `withConfiguration` /
+Compose `KoinApplication(configuration=…)`), and not **Dynamic** (`modules(if…)`, runtime lists →
+disclose "unverified", never silent). Forms: `startKoin` / `koinApplication` / `koinConfiguration` /
+`withConfiguration` / Compose `KoinApplication()` / `@KoinApplication`.
 
-Where a dependency is supplied at runtime (not in the compile-time graph), `@Provided` is the escape
-hatch — the verifier trusts it and skips it. This is orthogonal to a dynamic *module set*: `@Provided`
-covers unknown *dependencies*; an unknowable *set of definitions* (dynamic `modules(…)`) is the "Dynamic"
-role above and gets a disclosure warning, not `@Provided`.
+Playground reality (§9): the flagship apps use the *harder* static forms — real koin-core `startKoin{}`
+(not yet routed to A3) and **bare `@KoinApplication` + `@Configuration` discovery** (not
+`@KoinApplication(modules=[…])`). Gate 1 must handle both. No dynamic-module assembly was found in any
+playground app; no fragment/`withConfiguration` coverage exists (untested classifier branch).
 
-## 3. Carrier (log everything, portably)
+## 5. Carrier — filling the "need" cells, portably
 
-Resource files are **dead on KMP** (klib `resources/` "not used yet"; no portable compile-time read).
-The reference-plugin model = hint (discovery) + `@Metadata` proto (detail) + **requirements carried as real typed
-Kotlin declarations, not strings**.
+Resource files are dead on KMP. Decision: **typed-mirror + annotation-arg, NO protobuf, NO `@Metadata` blob.**
+Do not serialize the graph — each provider exposes its own edges; the verifier reconstructs the chain.
 
-- **Now:** move to an **annotation-argument carrier** (proven portable via kotlinx.serialization
-  `@SerialInfo`; low API risk; kills today's name-mangling). Carry per-provider: def type, provided/bound
-  types, qualifiers, scope, **requirement list (incl. function providers)**, and **source origin
-  (module FqName + file/line)** so A3 diagnostics point at the culprit, not the aggregator.
-- **Later (behind a native+wasm gate):** `@Metadata`-on-owned-declaration — its payoff is IC freshness
-  (cures the orphan-hint false-green — the DSL orphan-hint IC bug). Higher API risk (the reference plugin hit a non-JVM
-  deserialization bug).
-- **Cheap wins the reference plugin proves regardless of carrier:** the `Any?` hint-type degradation may be unnecessary
-  (`@Deprecated(HIDDEN)` alone survives native); wire BOTH `LookupTracker` + `ExpectActualTracker` and
-  link each hint → source class to force recompile/removal on change.
+- **Requirements → a generated typed mirror declaration** (param types + per-param annotations ARE the
+  requirement list). Closes FIX-9 (function providers). Class providers already expose edges via constructor ABI.
+- **Origin → annotation argument** (module FqName + file/line).
+- **DSL includes-edge (topology) → a new includes-edge hint**: per `val a = module { includes(b) }`, emit an
+  ABI record `a → [b]` referencing `b` by stable `ModuleId`. This is the DSL membership carrier — brings DSL
+  to the parity annotations get free from `@Module(includes=…)`.
+- **Channel** stays the existing generated-declaration hints package. The `@Metadata` route is a separate
+  1.1+ upgrade (only payoff: IC freshness) behind a native/wasm gate — never for carrying the graph.
+- **Per-cell survival is one question, one harness:** does this cell survive cross-module on klib/native?
+  Every "need" cell (origin, typed-mirror requirements, includes-edge) gets a native+wasm survival box test
+  **before** we rely on it (the `@SerialInfo` precedent is same-compile FIR, not cross-module IR read — not
+  proof for our path).
 
-### Decision: typed-mirror + annotation-arg, NO protobuf, NO `@Metadata` blob
+## 6. Gate 3 — freshness (incremental compilation)
 
-Do NOT serialize the graph. The dependency chain is never a stored artifact — each provider exposes its
-own edges and A3 (the linker) reconstructs the chain by type-matching. (The reference plugin's protobuf carries only a
-provider *index*; its dependency edges ride on typed declarations, not the proto.)
+A3-sole-verify removes A2's per-module freshness-robustness. Levers:
+1. **strictSafety MANDATORY** whenever an entry point is present (was opt-in). Bounded cost: only the aggregator recompiles.
+2. **Both `LookupTracker` + `ExpectActualTracker`** + **link each hint → source class** so change/removal forces recompile/removal (cures the DSL orphan-hint false-green).
+3. **`@ComponentScan` new-file** (no source edge) — hard K2 residual: strictSafety re-run + package-scope lookup; else **disclose**, never silent.
 
-- **Requirements → a generated typed mirror declaration** whose parameter *types* + per-param annotations
-  ARE the requirement list (nullable→getOrNull, `@Named`→qualifier, `@InjectedParam`/`@Provided`→skip).
-  Compiler-checked, KMP-portable, no serialization library. Closes the function-provider gap
-  (`ExternalFunctionDef → emptyList()`); class providers already expose edges via constructor ABI.
-- **Origin (module FqName + file/line) → annotation argument** (small string data).
-- **Channel stays the existing generated-declaration hints package.** No protobuf, no
-  `@Metadata` custom-blob. The `@Metadata` route is a SEPARATE 1.1+ upgrade whose only payoff is IC
-  freshness (orphan-hint cure), high API risk, gated behind a native/wasm test — never for carrying the graph.
+**Exit test — incremental stress matrix in `playground-apps`** (real Gradle modules + IC): for each of
+{add def, **remove** def, change qualifier, add scanned class} in a dependency module, rebuild **without a
+clean**, assert A3 reacts correctly. The current bed covers only *remove-with-clean* and structurally can't
+run the no-clean DSL leg (orphan-hint bug it documents) — the rest must be built. **Clean-build green ≠ done.**
 
-## 3b. Gate 3 — freshness (incremental compilation)
+**Decision:** IC-trackers + mandatory strictSafety, NOT a bespoke content-hash dirty tracker.
 
-A3-as-sole-verifier is correct only if, on an incremental build, (a) every changed module's metadata on
-disk is fresh and (b) the aggregator's compile actually re-runs to re-read it. Three sub-problems, each
-with a lever:
+## 7. Diagnostics the single verifier MUST preserve (guard — silent loss is the worst failure class)
 
-1. **Aggregator doesn't re-run** — IC marks the entry-point `compileKotlin` UP-TO-DATE though the graph
-   changed. Lever: `strictSafety`, today an opt-in auto-detect, becomes **MANDATORY whenever an entry
-   point is present** (A3 is now the only safety pass). Cost stays bounded — only the aggregator recompiles.
-2. **Changed/removed def leaves stale metadata** — the DSL orphan-hint bug: a removed def leaves a hint
-   class IC never GCs, so A3 sees a provider that no longer exists. Lever: wire **both** `LookupTracker`
-   *and* `ExpectActualTracker`, and **link each generated hint back to its source class** so a
-   change/removal forces the hint to recompile or vanish. (Partially wired today.)
-3. **Newly-introduced file nothing referenced before** — `@ComponentScan` adds a `@Singleton class` to a
-   scanned package with no source edge pointing at it. Hard residual K2 limit. Lever: strictSafety re-run
-   + package-scope lookup tracking; beyond that, a limit to **disclose**, not silently miss.
+| Diagnostic | Today at | Preservation requirement |
+|---|---|---|
+| **KOIN-D001** MissingBinding (+ "similar binding" hint) | `BindingRegistry.kt:656` | move to A3 with culprit `origin`, not aggregator |
+| **KOIN-D004** CircularDependency (Lazy-broken) | `BindingRegistry.kt:494` | keep `isLazy` cycle-edge exclusion (`:537`) |
+| **KOIN-P001** MissingPropertyValue | `BindingRegistry.kt:398` | `propertyDefaults` must be a verifier input (FIX-3) |
+| **KOIN-D005/D006** parametersOf + MissingInjectedParams | `CallSiteValidator.kt:492` | needs `CallSite` node (FIX-7) |
+| **KOIN-W001** UnreachableModule (DSL) | `CallSiteValidator.kt:464` | needs stable `ModuleId` + includes edges (FIX-6) |
+| MissingCallSite (koinInject cross-module) | `CallSiteValidator.kt:135` | keep its hint round-trip; don't fold into the graph loop |
+| Qualifier-mismatch (`@Named`/typed) | `BindingRegistry.kt:644` | preserve in qualifier/`ScopeKey` matching |
+| Skip-sets: whitelist, `@Provided`, `@ScopeId`, Scope receiver | `BindingRegistry.kt:117,413`; `ParameterAnalyzer.kt:149` | `trustedTypes` (FIX-4) |
 
-**Exit test — an incremental stress matrix in `playground-apps`** (real Gradle modules + IC), generalizing
-the existing DSL orphan stress test. For each of {add a def, **remove** a def, change a qualifier, add a
-scanned class} in a dependency module, rebuild **without a clean**, and assert A3 reacts correctly (catches
-the new miss / clears the resolved one / does not false-green on the removal). A green clean-build proves
-nothing here — the diagnostics harness is single-compilation and cannot see IC.
+**Correctly deleted once gates hold (each release-noted):** `KOIN-W002` + deferral machinery, the
+`providerHintTypeFqNames` oracle *tuning* (kept as the leaf net, completed), `hasCrossModuleHint`.
 
-**Decision:** lean on the IC-tracker + mandatory-strictSafety levers, not a bespoke content-hash dirty
-tracker (which fights Gradle's own task-input tracking and the K2 IC grain).
+## 8. Work breakdown — fill the matrix against one verifier
 
-## 4. Work breakdown
+- **PR1 — DONE (metadata contract).** `SourceOrigin` + `requirements`/`origin` on `Definition`, additive, green, zero golden diffs. Parked in a worktree; salvage onto branch. Valid in every version of this design.
+- **Fill annotation cells:** origin in the carrier; function-provider requirements (typed mirror); route all annotation roots (incl. bare `@KoinApplication`+`@Configuration`) through the one verifier; A3 emits (Gate 1).
+- **Fill DSL cells:** includes-edge hint (topology) + consumer reconstruction (stop `null ⇒ reachable` over-approximation); origin. Proven by the cross-module forgot-`include` RED test.
+- **Reify `EntryPoint` + classifier** (Root/Fragment/Dynamic) — replaces `hasKoinEntryPoint`.
+- **Freshness (Gate 3):** trackers + mandatory strictSafety + the incremental stress matrix.
+- **Then, per path where its gates hold:** demote A2 to collect-only (rooted annotation compiles); keep A2+completed-oracle net for leaves. Never delete a diagnostic in §7 without its replacement proven.
 
-Each step lands with box tests (RED before GREEN) + native `iosArm64`/`wasmJs` compile + the playground
-compile-safety stress test. Gate 1 = Steps 2+3, Gate 2 = Step 4, Gate 3 = Step 4c; **Step 5 (demote A2)
-is blocked on all three gates.**
+## 9. Evidence (this session)
 
-- **Step 1 — Baseline truth (do first).** Box-test matrix: for EACH form in §2, assert what fires today
-  (D001 / W002 / nothing) for (a) a genuine missing dep and (b) a valid cross-module graph. This turns the
-  "⚠️/❌ unconfirmed" cells into evidence and is the RED baseline for the reshape.
-- **Step 2 — Reify EntryPoint + classifier.** Replace the `hasKoinEntryPoint` boolean with an EntryPoint
-  model carrying `(kind, appClass?, resolvedModules, isRoot, isDynamic)`. Classify root vs fragment vs
-  loader vs dynamic (fragment = its result flows into `withConfiguration` / Compose `configuration=`).
-- **Step 3 — One authoritative verifier for all roots.** Route every ROOT form (incl. koin-core
-  `startKoin{}`, Compose `KoinApplication()`, `koinConfiguration{}` when root) through a single
-  `validateFullGraph`. Aggregate `withConfiguration` into its base. Collapse the Phase 3.1 DSL-only path
-  into it.
-- **Step 4 — Enrich the carrier (Gate 2).** Annotation-arg carrier with requirements (incl. function
-  providers) + origin. Unify the two param classifiers (`ParameterAnalyzer` / `KoinArgumentGenerator`) so
-  the metadata is the byproduct of codegen.
-- **Step 4c — Freshness (Gate 3).** Mandatory strictSafety at entry points; wire both IC trackers +
-  hint↔source linking; build the `playground-apps` incremental stress matrix (add/remove/qualifier/scan,
-  no clean) as the exit test. See §3b.
-- **Step 5 — Flip A2 to structural-only.** Remove A2 graph-resolution errors; defer all to A3. BLOCKED on
-  Gates 1+2+3 (Steps 2+3, 4, 4c).
-- **Step 6 — Disclosure + `@Provided`.** Visible "graph unverified" warning for dynamic/unclassifiable
-  roots; confirm `@Provided` skips dynamic dependencies cleanly.
+**Step-1 baseline matrix** (`testData/diagnostics/entry_*.kt` + salvaged `cross_module_scanned_class_koinapp_ok.kt`):
+every diagnostic is attributed to a **module**, never the root → **A2 is the de-facto emitter; A3 emits
+nothing user-visible today.** Two probes documented the cross-module scanned-class false positive on both
+typed `@KoinApplication` and real `startKoin{}`.
 
-## 4b. Step 1 results — baseline matrix (2026-07-22)
+**Red team:** the "A3 sole verifier, delete A2+oracle" design is sound for the annotation path, **unsound if
+generalized to DSL/Compose/entry-point-less leaves** (non-ABI or absent membership). Recalibrated by the
+follow-up: DSL is *already* entry-point-only (no per-module DSL pass to lose), so the residual is the
+**pre-existing cross-module transitive-includes over-approximation**, not a regression the reshape
+introduces — closed by the §5 includes-edge carrier. Surviving structural point: **keep the oracle as the
+leaf net.**
 
-Ran a diagnostics probe matrix (`testData/diagnostics/entry_*.kt` + salvaged
-`cross_module_scanned_class_koinapp_ok.kt`). Captured behavior:
+**Playground:** no dynamic module assembly anywhere (the "degrades to unverified" fear did not materialize
+on the sample); flagship apps use the harder static forms; zero fragment coverage; freshness bed is ¼ of the
+§6 matrix and can't run the no-clean DSL leg.
 
-| Probe | Entry point | Scenario | Baseline | Correct? |
-|---|---|---|---|---|
-| `entry_startkoin_core_scan_missing` | real `startKoin{}` | genuine miss | D001 @ AppModule | ✅ |
-| `entry_koinapplication_core_scan_missing` | real `koinApplication{}` | genuine miss | D001 @ AppModule | ✅ |
-| `entry_dynamic_modules_missing` | dynamic `modules(if…)` | genuine miss | D001 @ AppModule | ✅ |
-| `entry_startkoin_core_scan_crossmodule_ok` | real `startKoin{}` | valid cross-module | D001 @ FeatureModule | ❌ false positive |
-| `cross_module_scanned_class_koinapp_ok` | typed `@KoinApplication` | valid cross-module | D001 @ ServiceModule | ❌ false positive |
-
-**Key finding (SURPRISE — corrects §1/§2 assumptions):** every diagnostic — genuine and
-false — is attributed to a **module**, never the root. A2 (the per-module pass) is the **de
-facto verifier**; A3/`validateFullGraph` emits essentially nothing user-visible — it runs,
-marks modules validated, settles deferrals, but **A2 emits the D001 first and A3 cannot
-un-emit it**. Confirmed against existing `cross_module_genuine_missing_d001` (→FeatureModule)
-and `startkoin_missing` (→ServiceModule).
-
-Implications:
-- The false positive = A2 hard-erroring what A3 would resolve. Systemic to A2, on **both**
-  typed `@KoinApplication` and real `startKoin{}`/`koinApplication{}` roots (not a typed-vs-lambda quirk).
-- A2 currently carries **all** genuine-miss safety, including the **dynamic** module case A3
-  fundamentally cannot verify. So Step 5 (gut A2) regresses probes 1–3 to silent unless A3 is
-  first promoted from bookkeeping to primary emitter (Gate 1, heavier than "wire lambda forms")
-  AND the dynamic case gets a per-module catch or the §Step-6 disclosure warning.
-- Revised framing: **A3 must become the primary emitter before A2 is demoted** — the two are
-  not a simple hand-off; A3 today barely emits.
-
-## 5. Guards (per PR)
-
-- Generated-diagnostic behavior is API: the A2→A3 shift changes what fires where → explicit release note.
-- No blanket golden-file regeneration; each diagnostic move is an intentional, reviewed diff.
-- JVM-green ≠ done: native + wasm compile required (duplicate-signature / KLIB errors are JVM-invisible).
-- Re-run the playground compile-safety stress test for the reshaped behavior.
-- **Clean-build green ≠ done (freshness):** the diagnostics harness is single-compilation and cannot see
-  IC. Any change touching A3 or the carrier must also pass the §3b incremental stress matrix in
-  `playground-apps` (add/remove/qualifier/scan, no clean).
+**Meta-model critique:** adopt the common model WITH FIX-1…9 (§2); it's a genuine shared core, not a
+trench-coat union; the 3 silent-loss risks (P001, W001, D005/D006) are the must-fixes.
