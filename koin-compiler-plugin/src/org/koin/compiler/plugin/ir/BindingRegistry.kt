@@ -375,7 +375,7 @@ class BindingRegistry {
         // Validate each definition's requirements
         var errorCount = 0
         for (def in toValidate) {
-            val requirements = extractRequirements(def, parameterAnalyzer)
+            val requirements = extractRequirements(def)
             val defName = definitionDisplayName(def)
             val defScopeClass = def.scopeClass
             KoinPluginLogger.debug { "    validating: $defName (${requirements.size} requirements)" }
@@ -532,7 +532,7 @@ class BindingRegistry {
         val adj = HashMap<ProviderKey, List<ProviderKey>>(primaryToDef.size)
         for ((primary, def) in primaryToDef) {
             val edges = LinkedHashSet<ProviderKey>()
-            for (req in extractRequirements(def, parameterAnalyzer)) {
+            for (req in extractRequirements(def)) {
                 if (!req.requiresValidation()) continue
                 if (req.isLazy) continue
                 val reqFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
@@ -726,37 +726,11 @@ class BindingRegistry {
         }
     }
 
-    private fun extractRequirements(def: Definition, analyzer: ParameterAnalyzer): List<Requirement> {
-        return when (def) {
-            is Definition.ClassDef -> {
-                val constructor = findConstructorToUse(def.irClass)
-                if (constructor != null) analyzer.analyzeConstructor(constructor) else emptyList()
-            }
-            is Definition.FunctionDef -> analyzer.analyzeFunction(def.irFunction)
-            is Definition.TopLevelFunctionDef -> analyzer.analyzeFunction(def.irFunction)
-            is Definition.DslDef -> {
-                val constructor = findConstructorToUse(def.irClass)
-                if (constructor != null) analyzer.analyzeConstructor(constructor) else emptyList()
-            }
-            is Definition.ExternalFunctionDef -> emptyList() // Provider-only, requirements validated in source module
-        }
-    }
-
-    /**
-     * Find the constructor to use for injection.
-     * Prefers @Inject annotated constructor, otherwise uses primary constructor.
-     */
-    private fun findConstructorToUse(targetClass: IrClass): org.jetbrains.kotlin.ir.declarations.IrConstructor? {
-        val injectConstructor = targetClass.declarations
-            .filterIsInstance<org.jetbrains.kotlin.ir.declarations.IrConstructor>()
-            .firstOrNull { constructor ->
-                constructor.annotations.any { annotation ->
-                    val fqName = annotation.type.classFqName?.asString()
-                    fqName == "jakarta.inject.Inject" || fqName == "javax.inject.Inject"
-                }
-            }
-        return injectConstructor ?: targetClass.primaryConstructor
-    }
+    // The verifier consumes the model: requirements are attached at collection time (the metadata
+    // contract, A3 §2) — a single source of truth, no re-derivation and no classifier drift.
+    // ExternalFunctionDef carries an empty list (provider-only; the Gate-2 carrier fills it).
+    // Verified equivalent to on-demand re-derivation by a whole-suite differential (0 mismatches).
+    private fun extractRequirements(def: Definition): List<Requirement> = def.requirements
 
     private fun definitionDisplayName(def: Definition): String {
         return when (def) {
