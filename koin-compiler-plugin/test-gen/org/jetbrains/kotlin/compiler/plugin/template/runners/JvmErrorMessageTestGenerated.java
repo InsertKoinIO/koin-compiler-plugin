@@ -105,6 +105,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
   }
 
   @Test
+  @TestMetadata("cross_module_scanned_class_koinapp_ok.kt")
+  public void testCross_module_scanned_class_koinapp_ok() {
+    runTest("koin-compiler-plugin/testData/diagnostics/cross_module_scanned_class_koinapp_ok.kt");
+  }
+
+  @Test
   @TestMetadata("cross_module_sibling_koinapp_ok.kt")
   public void testCross_module_sibling_koinapp_ok() {
     runTest("koin-compiler-plugin/testData/diagnostics/cross_module_sibling_koinapp_ok.kt");
@@ -120,6 +126,30 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
   @TestMetadata("dsl_module_unreachable.kt")
   public void testDsl_module_unreachable() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_unreachable.kt");
+  }
+
+  @Test
+  @TestMetadata("entry_dynamic_modules_missing.kt")
+  public void testEntry_dynamic_modules_missing() {
+    runTest("koin-compiler-plugin/testData/diagnostics/entry_dynamic_modules_missing.kt");
+  }
+
+  @Test
+  @TestMetadata("entry_koinapplication_core_scan_missing.kt")
+  public void testEntry_koinapplication_core_scan_missing() {
+    runTest("koin-compiler-plugin/testData/diagnostics/entry_koinapplication_core_scan_missing.kt");
+  }
+
+  @Test
+  @TestMetadata("entry_startkoin_core_scan_crossmodule_ok.kt")
+  public void testEntry_startkoin_core_scan_crossmodule_ok() {
+    runTest("koin-compiler-plugin/testData/diagnostics/entry_startkoin_core_scan_crossmodule_ok.kt");
+  }
+
+  @Test
+  @TestMetadata("entry_startkoin_core_scan_missing.kt")
+  public void testEntry_startkoin_core_scan_missing() {
+    runTest("koin-compiler-plugin/testData/diagnostics/entry_startkoin_core_scan_missing.kt");
   }
 
   @Test
