@@ -68,7 +68,11 @@ enum class EntryClassification { ROOT, DYNAMIC }
 data class EntryPoint(
     val kind: EntryKind,
     val classification: EntryClassification,
-    val resolvedModules: List<IrClass>,
+    // Mutable so the entry point can be reified at detection time and its closure filled in once
+    // resolved a few lines later in the same visitCall (Gate-1: each root resolves its OWN
+    // modules + includes + @ComponentScan/@Configuration set). Assigned exactly once, on the
+    // single-threaded IR walk, immediately after construction.
+    var resolvedModules: List<IrClass>,
     val origin: SourceOrigin?,
 )
 
@@ -193,7 +197,10 @@ class KoinStartTransformer(
             isWithConfiguration -> EntryKind.WITH_CONFIGURATION
             else -> EntryKind.START_KOIN
         }
-        entryPoints.add(EntryPoint(entryKind, EntryClassification.ROOT, emptyList(), originOf(expression)))
+        // Reify the entry point now; resolvedModules is populated below once we resolve this
+        // root's own closure (typed → @KoinApplication annotation; untyped → lambda modules(...) walk).
+        val entryPoint = EntryPoint(entryKind, EntryClassification.ROOT, emptyList(), originOf(expression))
+        entryPoints.add(entryPoint)
         KoinPluginLogger.debug { "  entry point (stub): $entryKind @ ${originOf(expression)}" }
 
         // Untyped variants — `startKoin { modules(A::class) }`, `koinApplication { modules(...) }`,
@@ -205,6 +212,14 @@ class KoinStartTransformer(
         // typed entry point.
         if (callee.typeParameters.isEmpty()) {
             val lambdaModuleClasses = collectModuleClassesFromLambda(expression)
+            // Reify this root's own closure (Gate-1). Nothing verifies from resolvedModules yet —
+            // the inline validateFullGraph call below is still the authority — but this makes the
+            // reified EntryPoint carry real data and logs the resolved set for debugging.
+            entryPoint.resolvedModules = lambdaModuleClasses
+            KoinPluginLogger.debug {
+                "  -> resolved closure ($entryKind, untyped): ${lambdaModuleClasses.size} module(s): " +
+                    lambdaModuleClasses.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+            }
             if (lambdaModuleClasses.isNotEmpty() && safetyValidator != null && annotationProcessor != null) {
                 val startKoinFile = currentFile
                 for (moduleClass in lambdaModuleClasses) {
@@ -237,6 +252,13 @@ class KoinStartTransformer(
 
         // Get modules from @KoinApplication(modules = [...]) annotation
         val moduleClasses = extractModulesFromKoinApplicationAnnotation(appClass)
+
+        // Reify this root's own closure (Gate-1) — same additive/log-only role as the untyped path.
+        entryPoint.resolvedModules = moduleClasses
+        KoinPluginLogger.debug {
+            "  -> resolved closure ($entryKind, typed <${appClass.name.asString()}>): ${moduleClasses.size} module(s): " +
+                moduleClasses.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+        }
 
         // IC: startKoin file depends on each discovered module class
         val startKoinFile = currentFile
