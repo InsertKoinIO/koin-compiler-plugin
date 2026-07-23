@@ -21,8 +21,6 @@ import org.koin.compiler.plugin.KoinPluginLogger
 class CompileSafetyValidator(
     val qualifierExtractor: QualifierExtractor
 ) {
-    private val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
-
     /**
      * FQNames of modules whose definitions were already *authoritatively* validated — either at A2
      * with a complete closure, or against the full assembled graph at A3. A module that produced
@@ -102,7 +100,6 @@ class CompileSafetyValidator(
         val errorCount = registry.validateModule(
             moduleName,
             allVisibleDefinitions,
-            parameterAnalyzer,
             qualifierExtractor,
             ownDefinitions,
             reportedCycles,
@@ -247,7 +244,6 @@ class CompileSafetyValidator(
         val errorCount = fullGraphRegistry.validateModule(
             "$appName (startKoin)",
             allDefinitions,
-            parameterAnalyzer,
             qualifierExtractor,
             definitionsToValidate,
             reportedCycles,

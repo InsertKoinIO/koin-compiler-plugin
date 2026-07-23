@@ -295,7 +295,6 @@ class BindingRegistry {
      *
      * @param moduleName Name of the module (for error messages)
      * @param definitions All definitions collected for this module (used to build provided types)
-     * @param parameterAnalyzer Analyzer for extracting parameter requirements
      * @param qualifierExtractor Extractor for reading qualifier annotations from definitions
      * @param definitionsToValidate Subset of definitions whose requirements should be checked.
      *   If null, all definitions are validated. Use this to skip re-validating definitions
@@ -320,7 +319,6 @@ class BindingRegistry {
     fun validateModule(
         moduleName: String,
         definitions: List<Definition>,
-        parameterAnalyzer: ParameterAnalyzer,
         qualifierExtractor: QualifierExtractor,
         definitionsToValidate: List<Definition>? = null,
         reportedCycles: MutableSet<String>? = null,
@@ -378,7 +376,13 @@ class BindingRegistry {
             val requirements = extractRequirements(def)
             val defName = definitionDisplayName(def)
             val defScopeClass = def.scopeClass
-            KoinPluginLogger.debug { "    validating: $defName (${requirements.size} requirements)" }
+            KoinPluginLogger.debug {
+                val o = def.origin
+                val originStr = if (o != null) " [${o.moduleFqName ?: "?"}${o.filePath?.let { " ${it.substringAfterLast('/')}:${o.line ?: "?"}" } ?: ""}]" else ""
+                val reqStr = requirements.joinToString(", ") { r -> r.typeKey.render() + if (r.requiresValidation()) "" else "(skip)" }
+                val note = if (def is Definition.ExternalFunctionDef) " (provider-only; cross-module reqs not carried — Gate 2)" else ""
+                "    validating: $defName$originStr — ${requirements.size} req(s): [$reqStr]$note"
+            }
 
             for (req in requirements) {
                 if (!req.requiresValidation()) {
@@ -449,7 +453,7 @@ class BindingRegistry {
                     )
                 } else {
                     // No provider hint anywhere on the graph → genuinely missing → authoritative D001.
-                    KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}" }
+                    KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}  [culprit ${def.origin?.let { "${it.filePath?.substringAfterLast('/') ?: it.moduleFqName ?: "?"}:${it.line ?: "?"}" } ?: definitionDisplayName(def)}]" }
                     reportMissingDependency(req, defName, moduleName, providedTypes)
                     errorCount++
                 }
@@ -459,7 +463,7 @@ class BindingRegistry {
         // Cycle detection runs over the full provider set (not just toValidate) so a back-edge
         // through an already-validated definition still surfaces. Dedup happens via [reportedCycles]
         // so the same cycle isn't reported at both A2 and A3.
-        val cycleErrors = detectCycles(definitions, parameterAnalyzer, qualifierExtractor, reportedCycles)
+        val cycleErrors = detectCycles(definitions, qualifierExtractor, reportedCycles)
         errorCount += cycleErrors
 
         if (errorCount == 0) {
@@ -493,7 +497,6 @@ class BindingRegistry {
      */
     private fun detectCycles(
         definitions: List<Definition>,
-        parameterAnalyzer: ParameterAnalyzer,
         qualifierExtractor: QualifierExtractor,
         reportedCycles: MutableSet<String>?,
     ): Int {

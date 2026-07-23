@@ -397,11 +397,9 @@ class CallSiteValidator(private val context: IrPluginContext) {
         val defsToValidate = reachableDefs.filter { !(it is Definition.DslDef && it.providerOnly) }
         val registry = BindingRegistry()
         val qualifierExtractor = safetyValidator.qualifierExtractor
-        val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
         val errorCount = registry.validateModule(
             "DSL graph",
             providerDefinitions,
-            parameterAnalyzer,
             qualifierExtractor,
             defsToValidate
         )
