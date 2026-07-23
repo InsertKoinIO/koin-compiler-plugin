@@ -109,6 +109,11 @@ class KoinIrExtension(
         val startKoinTransformer = KoinStartTransformer(pluginContext, moduleFragment, annotationProcessor, safetyValidator, lookupTracker, expectActualTracker, dslDefinitions)
         moduleFragment.transform(startKoinTransformer, null)
 
+        // A3 §4: single graph-verification pass over the reified entry points. Must run before
+        // Phase 3.1 so it populates assembledGraphTypes first — Phase 3.1 skips when that set is
+        // non-empty, exactly as when validation happened inline during the transform.
+        startKoinTransformer.verifyEntryPoints()
+
         // Phase 3.1: DSL-only A3 validation (when startKoin { } is present but no startKoin<T>() / @KoinApplication)
         // Validates constructor parameters of local DSL definitions against all known definitions.
         // This catches missing definitions like commenting out single<Repository>() that a ViewModel needs.

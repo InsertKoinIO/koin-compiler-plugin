@@ -74,6 +74,10 @@ data class EntryPoint(
     // single-threaded IR walk, immediately after construction.
     var resolvedModules: List<IrClass>,
     val origin: SourceOrigin?,
+    // Display name passed to the verifier (leaks into KOIN-D001's `module = …`). Typed roots use
+    // the app class simple name; untyped roots use a fixed `startKoin { … }`-style label. Assigned
+    // alongside resolvedModules so [verifyEntryPoints] reproduces the exact pre-refactor message.
+    var appName: String = "",
 )
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
@@ -91,13 +95,45 @@ class KoinStartTransformer(
     private var currentFile: IrFile? = null
 
     /**
-     * Reified entry points detected in this compilation (A3 §4). Additive for now — nothing consumes it
-     * beyond the derived [hasKoinEntryPoint] yet; the verifier is wired to it in a later step.
+     * Reified entry points detected in this compilation (A3 §4). Each ROOT carries its own resolved
+     * module closure; [verifyEntryPoints] routes them all through the single graph verifier.
      */
     val entryPoints = mutableListOf<EntryPoint>()
 
     /** True if any entry point (startKoin / koinApplication / koinConfiguration, generic or not) was found. */
     val hasKoinEntryPoint: Boolean get() = entryPoints.isNotEmpty()
+
+    /**
+     * A3 §4 — the SINGLE graph-verification pass. Runs over every reified [EntryPoint] AFTER the IR
+     * walk (called from [KoinIrExtension] Phase 3, before Phase 3.1) instead of validating inline
+     * mid-visit. Behavior-preserving: each ROOT with a resolved closure is validated with the exact
+     * (appName, modules, …) arguments the inline calls used, so KOIN-D001 output is unchanged.
+     *
+     * Roots with an empty closure (today: the real koin-core `startKoin{}` / `koinConfiguration{}`
+     * path, still flag-only) are skipped here — their resolution is wired in a later Gate-1 sub-step.
+     */
+    fun verifyEntryPoints() {
+        val validator = safetyValidator ?: return
+        val processor = annotationProcessor ?: return
+        KoinPluginLogger.debug { "── A3 verify: ${entryPoints.size} reified entry point(s) ──" }
+        for (ep in entryPoints) {
+            if (ep.resolvedModules.isEmpty()) {
+                KoinPluginLogger.debug { "  skip ${ep.kind} @ ${ep.origin} — no resolved modules (closure resolution pending)" }
+                continue
+            }
+            KoinPluginLogger.debug {
+                "  verify ${ep.kind} '${ep.appName}' [${ep.classification}] — ${ep.resolvedModules.size} module(s) @ ${ep.origin}"
+            }
+            validator.validateFullGraph(
+                ep.appName,
+                ep.resolvedModules,
+                processor.collectedModuleClasses,
+                processor::getDefinitionsForModule,
+                processor::getDefinitionsForDependencyModule,
+                dslDefinitions
+            )
+        }
+    }
 
     override fun visitFile(declaration: IrFile): IrFile {
         currentFile = declaration
@@ -212,35 +248,29 @@ class KoinStartTransformer(
         // typed entry point.
         if (callee.typeParameters.isEmpty()) {
             val lambdaModuleClasses = collectModuleClassesFromLambda(expression)
-            // Reify this root's own closure (Gate-1). Nothing verifies from resolvedModules yet —
-            // the inline validateFullGraph call below is still the authority — but this makes the
-            // reified EntryPoint carry real data and logs the resolved set for debugging.
+            val entryName = when {
+                isStartKoin -> "startKoin { … }"
+                isKoinApplication -> "koinApplication { … }"
+                isKoinConfiguration -> "koinConfiguration { … }"
+                isWithConfiguration -> "withConfiguration { … }"
+                else -> "<unknown-entry>"
+            }
+            // Reify this root's own closure (Gate-1). Verification is now centralized in
+            // [verifyEntryPoints], which runs over `entryPoints` after this IR walk.
             entryPoint.resolvedModules = lambdaModuleClasses
+            entryPoint.appName = entryName
             KoinPluginLogger.debug {
-                "  -> resolved closure ($entryKind, untyped): ${lambdaModuleClasses.size} module(s): " +
+                "  -> resolved closure ($entryName, untyped): ${lambdaModuleClasses.size} module(s): " +
                     lambdaModuleClasses.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
             }
+            // IC: entry-point file depends on each discovered module class. Guard kept identical to
+            // the pre-refactor validation guard so incremental edges are recorded exactly as before.
             if (lambdaModuleClasses.isNotEmpty() && safetyValidator != null && annotationProcessor != null) {
                 val startKoinFile = currentFile
                 for (moduleClass in lambdaModuleClasses) {
                     trackClassLookup(lookupTracker, startKoinFile, moduleClass)
                     linkDeclarationsForIC(expectActualTracker, startKoinFile, moduleClass)
                 }
-                val entryName = when {
-                    isStartKoin -> "startKoin { … }"
-                    isKoinApplication -> "koinApplication { … }"
-                    isKoinConfiguration -> "koinConfiguration { … }"
-                    isWithConfiguration -> "withConfiguration { … }"
-                    else -> "<unknown-entry>"
-                }
-                safetyValidator.validateFullGraph(
-                    entryName,
-                    lambdaModuleClasses,
-                    annotationProcessor.collectedModuleClasses,
-                    annotationProcessor::getDefinitionsForModule,
-                    annotationProcessor::getDefinitionsForDependencyModule,
-                    dslDefinitions
-                )
             }
             return super.visitCall(expression)
         }
@@ -253,10 +283,11 @@ class KoinStartTransformer(
         // Get modules from @KoinApplication(modules = [...]) annotation
         val moduleClasses = extractModulesFromKoinApplicationAnnotation(appClass)
 
-        // Reify this root's own closure (Gate-1) — same additive/log-only role as the untyped path.
+        // Reify this root's own closure (Gate-1). Verification is centralized in [verifyEntryPoints].
         entryPoint.resolvedModules = moduleClasses
+        entryPoint.appName = appClass.name.asString()
         KoinPluginLogger.debug {
-            "  -> resolved closure ($entryKind, typed <${appClass.name.asString()}>): ${moduleClasses.size} module(s): " +
+            "  -> resolved closure (${entryPoint.appName}, typed <${appClass.name.asString()}>): ${moduleClasses.size} module(s): " +
                 moduleClasses.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
         }
 
@@ -265,18 +296,6 @@ class KoinStartTransformer(
         for (moduleClass in moduleClasses) {
             trackClassLookup(lookupTracker, startKoinFile, moduleClass)
             linkDeclarationsForIC(expectActualTracker, startKoinFile, moduleClass)
-        }
-
-        // A3: Validate the full assembled graph at the startKoin entry point
-        if (safetyValidator != null && moduleClasses.isNotEmpty() && annotationProcessor != null) {
-            safetyValidator.validateFullGraph(
-                appClass.name.asString(),
-                moduleClasses,
-                annotationProcessor.collectedModuleClasses,
-                annotationProcessor::getDefinitionsForModule,
-                annotationProcessor::getDefinitionsForDependencyModule,
-                dslDefinitions
-            )
         }
 
         // Log interception (guard to avoid precomputation when logging is disabled)
