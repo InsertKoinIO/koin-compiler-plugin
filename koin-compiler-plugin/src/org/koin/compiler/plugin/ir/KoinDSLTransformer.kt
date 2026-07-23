@@ -67,6 +67,10 @@ class KoinDSLTransformer(
     // Qualifier extraction helper
     private val qualifierExtractor = QualifierExtractor(context)
 
+    // Parameter analyzer — attaches requirements to DslDefs at collection time (A3 durable model,
+    // PR1). Shares qualifierExtractor so the metadata matches what BindingRegistry re-derives today.
+    private val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
+
     // Reuse argument generator and lambda builder from the annotation processor infrastructure
     private val argumentGenerator = KoinArgumentGenerator(context, qualifierExtractor)
     private val lambdaBuilder = LambdaBuilder(context, qualifierExtractor, argumentGenerator)
@@ -388,7 +392,7 @@ class KoinDSLTransformer(
                     providerOnly = true,
                     qualifier = qualifier,
                     registrationSourceFile = currentFile
-                ))
+                ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
                 KoinPluginLogger.user { "Intercepting $functionName<${providedClass.name}> { ... } (provider-only)" }
             }
         }
@@ -703,7 +707,7 @@ class KoinDSLTransformer(
                 modulePropertyId = transformContext.modulePropertyId,
                 qualifier = qualifier,
                 registrationSourceFile = currentFile
-            ))
+            ).attachA3Metadata(targetClass) { parameterAnalyzer.requirementsForClass(targetClass) })
         }
 
         val receiverClassName = receiverClassifier.name.asString()
@@ -803,7 +807,7 @@ class KoinDSLTransformer(
                         modulePropertyId = transformContext.modulePropertyId,
                         qualifier = classQualifier,
                         registrationSourceFile = currentFile
-                    ))
+                    ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
                 }
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${providedClass.name}" }
@@ -843,7 +847,7 @@ class KoinDSLTransformer(
                         providerOnly = true,
                         qualifier = funcQualifier,
                         registrationSourceFile = currentFile
-                    ))
+                    ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
                 }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"

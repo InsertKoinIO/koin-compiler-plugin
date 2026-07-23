@@ -70,6 +70,11 @@ class KoinAnnotationProcessor(
     private val expectActualTracker: ExpectActualTracker? = null
 ) {
 
+    // Parameter analyzer — used to attach requirements to definitions at collection time (A3
+    // durable model, PR1). Same config (shared qualifierExtractor) as the validation-time analyzer,
+    // so the metadata cannot diverge from what BindingRegistry re-derives today.
+    private val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
+
     // Argument generator for lambda parameters
     private val argumentGenerator = KoinArgumentGenerator(context, qualifierExtractor)
 
@@ -1576,7 +1581,7 @@ class KoinAnnotationProcessor(
                 defClass.scopeArchetype,
                 defClass.createdAtStart,
                 defClass.qualifier
-            )
+            ).attachA3Metadata(defClass.irClass) { parameterAnalyzer.requirementsForClass(defClass.irClass) }
         })
 
         // Function-based definitions from @Module class
@@ -1591,7 +1596,7 @@ class KoinAnnotationProcessor(
                 defFunc.scopeName, // String-named scope from @Scope(name = "...")
                 defFunc.scopeArchetype, // Scope archetype from @ViewModelScope, @ActivityScope, etc.
                 defFunc.createdAtStart
-            ))
+            ).attachA3Metadata(defFunc.irFunction) { parameterAnalyzer.analyzeFunction(defFunc.irFunction) })
         }
 
         // Top-level function definitions from component scan
@@ -1606,7 +1611,7 @@ class KoinAnnotationProcessor(
                 defFunc.scopeName,
                 defFunc.scopeArchetype,
                 defFunc.createdAtStart
-            )
+            ).attachA3Metadata(defFunc.irFunction) { parameterAnalyzer.analyzeFunction(defFunc.irFunction) }
         })
 
         // Cross-module top-level function definitions from hints
@@ -1871,7 +1876,10 @@ class KoinAnnotationProcessor(
                     bindings = bindings,
                     scopeClass = scopeClass,
                     qualifier = qualifier
-                ))
+                ).also {
+                    // TODO(a3-carrier): requirements arrive via the typed-mirror carrier (plan §3, Gate 2)
+                    it.origin = SourceOrigin.of(returnTypeClass)
+                })
             }
         }
 
@@ -1953,7 +1961,7 @@ class KoinAnnotationProcessor(
                 defFunc.scopeName,
                 defFunc.scopeArchetype,
                 defFunc.createdAtStart
-            ))
+            ).attachA3Metadata(defFunc.irFunction) { parameterAnalyzer.analyzeFunction(defFunc.irFunction) })
         }
 
         // 2. Check if the module has @ComponentScan — if so, discover scanned definitions
@@ -2078,7 +2086,7 @@ class KoinAnnotationProcessor(
                 defClass.scopeArchetype,
                 defClass.createdAtStart,
                 defClass.qualifier
-            )
+            ).attachA3Metadata(defClass.irClass) { parameterAnalyzer.requirementsForClass(defClass.irClass) }
         }
     }
 
@@ -2159,7 +2167,7 @@ class KoinAnnotationProcessor(
                     getScopeArchetype(defClass),
                     createdAtStart,
                     classQualifier
-                ))
+                ).attachA3Metadata(defClass) { parameterAnalyzer.requirementsForClass(defClass) })
             }
 
             val definitionType = parseDefinitionType(defType) ?: continue
@@ -2273,7 +2281,10 @@ class KoinAnnotationProcessor(
             bindings = bindings,
             scopeClass = scopeClass,
             qualifier = qualifier,
-        )
+        ).also {
+            // TODO(a3-carrier): requirements arrive via the typed-mirror carrier (plan §3, Gate 2)
+            it.origin = SourceOrigin.of(returnTypeClass)
+        }
         val key = definitionDedupeKey(candidate)
         if (!seenKeys.add(key)) {
             KoinPluginLogger.debug { "        (skip dup) ${returnTypeClass.name} ($defTypeLabel) qualifier=${qualifier?.debugString()}" }

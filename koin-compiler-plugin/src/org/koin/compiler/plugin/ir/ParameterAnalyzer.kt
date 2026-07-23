@@ -5,11 +5,13 @@ import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.types.IrSimpleType
+import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.types.isMarkedNullable
 import org.jetbrains.kotlin.ir.types.typeOrNull
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
 import org.jetbrains.kotlin.ir.util.packageFqName
+import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
@@ -40,6 +42,41 @@ class ParameterAnalyzer(
      */
     fun analyzeFunction(function: IrSimpleFunction): List<Requirement> {
         return function.regularParameters.map { analyzeParameter(it) }
+    }
+
+    /**
+     * Requirements for a class-based definition: analyze the injectable constructor's parameters.
+     * Returns empty when no usable constructor exists.
+     *
+     * This is the same derivation `BindingRegistry.extractRequirements` performs for a
+     * `ClassDef`/`DslDef`. It is exposed here so the A3 durable model can attach requirements at
+     * COLLECTION time (see docs/COMPILE_SAFETY_A3_PLAN.md §4d) without touching the existing
+     * validation-time consumer. Both call the same [analyzeConstructor] classifier, so they cannot
+     * diverge on per-parameter classification.
+     *
+     * NOTE: the constructor-selection below intentionally mirrors
+     * `BindingRegistry.findConstructorToUse` (still private there, left untouched so this PR stays
+     * additive). A later PR that migrates the consumer onto this model should unify the two.
+     */
+    fun requirementsForClass(irClass: IrClass): List<Requirement> {
+        val constructor = findInjectableConstructor(irClass) ?: return emptyList()
+        return analyzeConstructor(constructor)
+    }
+
+    /**
+     * Find the constructor to use for injection: prefer a `@Inject`-annotated constructor, otherwise
+     * the primary constructor. Mirrors `BindingRegistry.findConstructorToUse`.
+     */
+    private fun findInjectableConstructor(targetClass: IrClass): IrConstructor? {
+        val injectConstructor = targetClass.declarations
+            .filterIsInstance<IrConstructor>()
+            .firstOrNull { constructor ->
+                constructor.annotations.any { annotation ->
+                    val fqName = annotation.type.classFqName?.asString()
+                    fqName == "jakarta.inject.Inject" || fqName == "javax.inject.Inject"
+                }
+            }
+        return injectConstructor ?: targetClass.primaryConstructor
     }
 
     /**
