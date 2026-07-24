@@ -11,7 +11,7 @@ pluginManagement {
     // Defaults to the shipping version. Override to test another build (e.g. the pre-fix
     // repro) with `-PkoinPluginVersion=1.0.1`. Kept a property so the release-gate build
     // can't silently drift onto a stale mavenLocal artifact (as a hardcoded pin once did).
-    val koinPluginVersion: String = (settings.extra.properties["koinPluginVersion"] as? String) ?: "1.1.0-Beta1"
+    val koinPluginVersion: String = (settings.extra.properties["koinPluginVersion"] as? String) ?: "1.1.0-Beta2"
     plugins {
         kotlin("multiplatform") version kotlinVersion
         id("io.insert-koin.compiler.plugin") version koinPluginVersion
