@@ -236,5 +236,23 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     public void testCross_module_funcprovider_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcprovider_missing_d001.kt");
     }
+
+    @Test
+    @TestMetadata("cross_module_funcprovider_qualified_missing_d001.kt")
+    public void testCross_module_funcprovider_qualified_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcprovider_qualified_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_funcprovider_qualified_ok.kt")
+    public void testCross_module_funcprovider_qualified_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcprovider_qualified_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_orphan_funcprovider_missing_d001.kt")
+    public void testCross_module_orphan_funcprovider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_orphan_funcprovider_missing_d001.kt");
+    }
   }
 }

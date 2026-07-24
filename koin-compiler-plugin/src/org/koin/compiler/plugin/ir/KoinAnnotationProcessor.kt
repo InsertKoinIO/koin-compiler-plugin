@@ -121,6 +121,13 @@ class KoinAnnotationProcessor(
         definitionTopLevelFunctions.groupBy { it.packageFqName.asString() }
     }
 
+    // A3 Gate-3: return-type FqNames for which a `funcreqs_*` carrier hint has already been emitted in
+    // THIS compilation. Shared by the scan-path emission (generateModuleScanHints) and the orphan-path
+    // emission (emitOrphanFuncReqsHints) so each return type gets exactly one hint — an unscoped hint
+    // emitted twice is a hard KLIB SignatureClash on native/wasm. Fresh per compilation (this processor
+    // is instantiated per IR generation).
+    private val emittedFuncReqsReturnFqns = mutableSetOf<String>()
+
     /**
      * Cached wrapper around context.referenceFunctions() to avoid repeated expensive lookups.
      * The same CallableId is often queried multiple times across different modules during
@@ -797,6 +804,14 @@ class KoinAnnotationProcessor(
         // Uses registerFunctionAsMetadataVisible to make hints visible to downstream compilations.
         generateModuleScanHints(moduleFragment, moduleDefinitions)
 
+        // Step 1c (A3 Gate-3, 1b): funcreqs carrier hints for ORPHAN top-level function providers —
+        // a top-level @Single fun NOT owned by any local @ComponentScan module here. Its discovery
+        // hint (definition_function_*) is FIR-generated, but generateModuleScanHints (scan-path only)
+        // never emits its requirements carrier, so a downstream module that scans its package would
+        // see a requirements-empty ExternalFunctionDef. Runs AFTER generateModuleScanHints so the
+        // shared dedupe set already contains scan-path return types → this only emits true orphans.
+        emitOrphanFuncReqsHints(moduleFragment)
+
         // Map to track functions for each module class (FIR-generated or newly created)
         val moduleFunctions = mutableMapOf<ModuleClass, IrSimpleFunction>()
 
@@ -1021,11 +1036,11 @@ class KoinAnnotationProcessor(
         // top-level function discovered by TWO @ComponentScan modules in the SAME compilation (e.g.
         // two @Module classes scanning the same package) would emit two identical `funcreqs_*`
         // functions → a hard KLIB SignatureClashDetector failure on native/wasm (invisible on JVM).
-        // Dedupe COMPILATION-WIDE — emit each return-fqn once, in the first scan module that yields it
-        // — mirroring InjectedParamHintGenerator's single cross-compilation index. `.add()` returns
-        // true only on first encounter. (Cross-*Gradle*-module duplicates are fine: separate klibs.)
-        val emittedFuncReqsReturnFqns = mutableSetOf<String>()
-
+        // Dedupe COMPILATION-WIDE — emit each return-fqn once — mirroring InjectedParamHintGenerator's
+        // single cross-compilation index. `.add()` returns true only on first encounter. (Cross-*Gradle*-
+        // module duplicates are fine: separate klibs.) The set is a field shared with
+        // [emitOrphanFuncReqsHints], which runs AFTER this and therefore only emits funcreqs for
+        // top-level functions NOT already covered by a @ComponentScan module here (true orphans).
         for (moduleClass in modulesWithScan) {
             val definitions = moduleDefinitions[moduleClass] ?: continue
             if (definitions.isEmpty()) continue
@@ -1143,7 +1158,7 @@ class KoinAnnotationProcessor(
             val firFile = buildFile {
                 moduleData = firModuleData
                 origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+                packageDirective = buildPackageDirective { packageFqName = KoinModuleFirGenerator.HINTS_PACKAGE }
                 name = batchFileName
                 // KLIB metadata serialization (Native/JS/Wasm) requires every file to
                 // resolve to an io File; a synthetic file with no sourceFile fails the
@@ -1402,13 +1417,6 @@ class KoinAnnotationProcessor(
         val returnFqn = returnTypeClass.fqNameWhenAvailable?.asString() ?: return null
         val toCarry = requirements.filter { it.requiresValidation() }
         if (toCarry.isEmpty()) return null
-        val qualified = toCarry.firstOrNull { it.qualifier != null }
-        if (qualified != null) {
-            KoinPluginLogger.debug {
-                "    funcreqs SKIP for $returnFqn: qualified requirement '${qualified.paramName}' not yet carried (Gate-3 cut 1)"
-            }
-            return null
-        }
 
         val flat = KoinPluginConstants.flattenFqNameForHint(returnFqn)
         val hintName = Name.identifier("${KoinPluginConstants.FUNCTION_REQS_HINT_PREFIX}$flat")
@@ -1432,6 +1440,30 @@ class KoinAnnotationProcessor(
             isFakeOverride = false
         )
 
+        fun hintParam(paramName: String, type: org.jetbrains.kotlin.ir.types.IrType) =
+            context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier(paramName),
+                type = type,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+
+        // Encoding (cut-2 — see [discoverFuncReqsForExternalDef] for the mirror decode). Each
+        // must-validate requirement emits, in order:
+        //   r_<sanitized-paramName> : <required type>        — the requirement (name round-trips
+        //                                                       the original param name for D001)
+        // followed by AT MOST ONE adjacent qualifier companion (reserved prefixes, decoder ties it
+        // to the preceding r_ by position):
+        //   qn_<sanitized-value>    : Unit                   — @Named / string @Qualifier value
+        //   qt                      : <qualifier annotation>  — typed @Qualifier(T::class)
         val params = mutableListOf<IrValueParameter>()
         for (req in toCarry) {
             val classId = req.typeKey.classId ?: run {
@@ -1442,23 +1474,14 @@ class KoinAnnotationProcessor(
                 KoinPluginLogger.debug { "    funcreqs SKIP for $returnFqn: type ${classId.asFqNameString()} not on classpath" }
                 return null
             }
-            val p = context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                // Param NAME carries the original constructor/function parameter name so the rebuilt
-                // requirement reproduces the exact KOIN-D001 "parameter '<name>'" attribution.
-                name = Name.identifier(req.paramName),
-                type = reqClass.hintParameterType(context),
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            ).also { it.parent = function }
-            params.add(p)
+            params.add(hintParam("r_${KoinPluginConstants.sanitizeQualifierName(req.paramName)}", reqClass.hintParameterType(context)))
+            when (val q = req.qualifier) {
+                is QualifierValue.StringQualifier ->
+                    params.add(hintParam("qn_${KoinPluginConstants.sanitizeQualifierName(q.name)}", context.irBuiltIns.unitType))
+                is QualifierValue.TypeQualifier ->
+                    params.add(hintParam("qt", q.irClass.hintParameterType(context)))
+                null -> {}
+            }
         }
         if (params.isEmpty()) return null
 
@@ -1469,14 +1492,79 @@ class KoinAnnotationProcessor(
     }
 
     /**
+     * A3 Gate-3 (1b) — emit `funcreqs_*` carrier hints for ORPHAN top-level function providers.
+     *
+     * [generateModuleScanHints] only emits funcreqs for functions a local @ComponentScan module owns.
+     * A top-level @Single fun that no local module scans is an ORPHAN: its discovery hint
+     * (definition_function_*) is FIR-generated so a downstream scanner still finds it, but without a
+     * funcreqs hint the downstream sees a requirements-empty ExternalFunctionDef → its transitive deps
+     * are silently unvalidated. This emits the missing carrier, once per return type (shared
+     * [emittedFuncReqsReturnFqns] dedupe; runs after the scan pass so only true orphans remain), into
+     * a synthetic hint file anchored on the function's own source (stable path for IC — issue #32).
+     */
+    private fun emitOrphanFuncReqsHints(moduleFragment: IrModuleFragment) {
+        for (fn in definitionTopLevelFunctions) {
+            val returnFqn = fn.returnTypeClass.fqNameWhenAvailable?.asString() ?: continue
+            if (!emittedFuncReqsReturnFqns.add(returnFqn)) continue // already emitted (scan-path or dup)
+            val reqs = parameterAnalyzer.analyzeFunction(fn.irFunction)
+            val hint = createFuncReqsHintFunction(fn.returnTypeClass, reqs) ?: continue
+
+            val firModuleData = extractFirModuleData(fn.returnTypeClass)
+                ?: moduleFragment.files.firstNotNullOfOrNull { f ->
+                    when (val m = f.metadata) {
+                        is FirMetadataSource.File -> m.fir.moduleData
+                        is FirMetadataSource.Class -> m.fir.moduleData
+                        else -> null
+                    }
+                }
+                ?: run {
+                    KoinPluginLogger.debug { "    funcreqs (orphan) SKIP for $returnFqn: no FIR module data" }
+                    continue
+                }
+
+            val sourceFileEntry = try {
+                fn.irFunction.fileOrNull?.fileEntry ?: fn.returnTypeClass.fileEntry
+            } catch (_: NotImplementedError) {
+                null
+            }
+            val basePath = sourceFileEntry?.name
+                ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
+                ?: "/synthetic"
+            val flat = KoinPluginConstants.flattenFqNameForHint(returnFqn)
+            val fileName = "koin_funcreqs_${flat}.kt"
+            val fakeNewPath = Path(basePath).parent.resolve(fileName)
+
+            val firFile = buildFile {
+                moduleData = firModuleData
+                origin = FirDeclarationOrigin.Synthetic.PluginFile
+                packageDirective = buildPackageDirective { packageFqName = KoinModuleFirGenerator.HINTS_PACKAGE }
+                name = fileName
+                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+            }
+            val hintFile = IrFileImpl(
+                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, KoinModuleFirGenerator.HINTS_PACKAGE),
+                module = moduleFragment,
+            ).also { it.metadata = FirMetadataSource.File(firFile) }
+
+            moduleFragment.addFile(hintFile)
+            hintFile.addChild(hint)
+            hint.parent = hintFile
+            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(hint)
+            KoinPluginLogger.debug { "    + funcreqs carrier (orphan): $returnFqn (${hint.parameters.size} requirement(s))" }
+        }
+    }
+
+    /**
      * A3 Gate-3 — rebuild a cross-module function provider's requirements from its `funcreqs_*`
-     * carrier hint (see [createFuncReqsHintFunction]). Each hint value parameter becomes one
-     * must-validate [Requirement] with all runtime flags zeroed and no qualifier, so the rebuilt
-     * requirement's `requiresValidation()` is true exactly as the provider's original was (cut-1
-     * carries only unqualified must-validate requirements).
+     * carrier hint (see [createFuncReqsHintFunction] for the mirror encode). Walks the hint's value
+     * parameters in order: each `r_*` param begins a must-validate [Requirement] (typeKey from its
+     * type, paramName un-sanitized from its name); an immediately-following `qn_*` / `qt` companion
+     * attaches a string / typed qualifier to it. All runtime flags are zeroed, so a rebuilt
+     * requirement's `requiresValidation()` is true exactly as the provider's original was.
      *
      * Returns emptyList() when no carrier hint exists — the provider had no must-validate
-     * requirements, or it carried a qualified requirement cut-1 can't encode. In both cases the
+     * requirements, or the hint was skipped (unresolvable type). In both cases the
      * [Definition.ExternalFunctionDef] stays provider-only, i.e. today's behavior (never a wrong
      * partial). Keyed by return-type FqName, the same key the consumer resolves the provider by.
      */
@@ -1488,29 +1576,49 @@ class KoinAnnotationProcessor(
             CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
         ).firstOrNull()?.owner ?: return emptyList()
 
-        val reqs = hintFunc.regularParameters.map { p ->
-            Requirement(
-                typeKey = ParameterAnalyzer.typeKeyFromType(p.type),
-                paramName = p.name.asString(),
-                isNullable = false,
-                hasDefault = false,
-                isInjectedParam = false,
-                isProvided = false,
-                isScopeId = false,
-                scopeIdName = null,
-                isLazy = false,
-                isList = false,
-                isProperty = false,
-                propertyKey = null,
-                qualifier = null,
-            )
+        val reqs = mutableListOf<Requirement>()
+        for (p in hintFunc.regularParameters) {
+            val name = p.name.asString()
+            when {
+                name.startsWith("r_") -> reqs.add(
+                    Requirement(
+                        typeKey = ParameterAnalyzer.typeKeyFromType(p.type),
+                        paramName = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("r_")),
+                        isNullable = false,
+                        hasDefault = false,
+                        isInjectedParam = false,
+                        isProvided = false,
+                        isScopeId = false,
+                        scopeIdName = null,
+                        isLazy = false,
+                        isList = false,
+                        isProperty = false,
+                        propertyKey = null,
+                        qualifier = null,
+                    )
+                )
+                // Qualifier companions attach to the most recent requirement (positional adjacency).
+                name.startsWith("qn_") && reqs.isNotEmpty() -> {
+                    val v = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("qn_"))
+                    reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.StringQualifier(v))
+                }
+                name == "qt" && reqs.isNotEmpty() -> {
+                    val qClass = (p.type.classifierOrNull as? IrClassSymbol)?.owner
+                    if (qClass != null) reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.TypeQualifier(qClass))
+                }
+            }
         }
         if (reqs.isNotEmpty()) {
             KoinPluginLogger.debug {
-                "      funcreqs decoded for $returnFqn: ${reqs.size} req(s) [${reqs.joinToString { it.typeKey.render() }}]"
+                "      funcreqs decoded for $returnFqn: ${reqs.size} req(s) [${reqs.joinToString { it.typeKey.render() + (it.qualifier?.let { q -> " " + qualifierDisplayForLog(q) } ?: "") }}]"
             }
         }
         return reqs
+    }
+
+    private fun qualifierDisplayForLog(q: QualifierValue): String = when (q) {
+        is QualifierValue.StringQualifier -> "@Named(\"${q.name}\")"
+        is QualifierValue.TypeQualifier -> "@Qualifier(${q.irClass.name}::class)"
     }
 
     /** Extract FIR module data from an IR class's metadata. */
