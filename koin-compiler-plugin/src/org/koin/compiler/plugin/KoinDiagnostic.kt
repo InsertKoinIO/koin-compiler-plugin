@@ -78,29 +78,15 @@ sealed class KoinDiagnostic(
      */
     class MissingCallSiteDeferred(
         type: String,
-        callFn: String? = null,
         module: String? = null,
-        location: String? = null,
     ) : KoinDiagnostic(
         code = "KOIN-D003",
         severity = Severity.ERROR,
         message = buildString {
+            // The call site's location is carried as the compiler source-location prefix (clickable
+            // in a real Gradle build — see CallSiteValidator), so it isn't repeated in the body.
             append("Missing definition: ")
             append(type)
-            if (callFn != null) {
-                append("\n  resolved by: ")
-                append(callFn)
-                append("<")
-                append(type.substringAfterLast('.'))
-                append(">()")
-                if (location != null) {
-                    append(" at ")
-                    append(location)
-                }
-            } else if (location != null) {
-                append("\n  at ")
-                append(location)
-            }
             append("\n  required by a call site in a dependency module")
             if (module != null) {
                 append(" (")
