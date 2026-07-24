@@ -189,14 +189,44 @@ class KoinStartTransformer(
         // recognizing it flips on the DSL-graph full validation (Phase 3.1) for that entry path.
         // We only mark it as an entry point here — we do NOT rewrite the call, so koin-core's
         // koinConfiguration behaves normally at runtime.
+        // Real koin-core entry points. These are NOT rewritten (koin-core runs them normally at
+        // runtime) — we only reify them as ROOTs and resolve their module closure so the A3 verifier
+        // (verifyEntryPoints) validates the assembled graph at the root, exactly like the plugin-stub
+        // and typed @KoinApplication forms.
+        //   - org.koin.core.context.startKoin / GlobalContext.startKoin / KoinApplication.Companion.init
+        //   - org.koin.dsl.koinApplication  (KMP-style `koinApplication { modules(...) }.koin`)
+        //   - org.koin.dsl.koinConfiguration (Compose `KoinApplication(configuration = koinConfiguration { … })`, #38)
+        // Each is a SEALED self-consistent root (its graph must resolve within its own module set).
         if (fqNameStr == "org.koin.core.context.startKoin" ||
             fqNameStr == "org.koin.core.context.GlobalContext.startKoin" ||
             fqNameStr == "org.koin.core.KoinApplication.Companion.init" ||
+            fqNameStr == "org.koin.dsl.koinApplication" ||
             fqNameStr == "org.koin.dsl.koinConfiguration") {
-            // Real koin-core entry point — flag-only today (module resolution is wired at Gate 1).
-            val kind = if (fqNameStr == "org.koin.dsl.koinConfiguration") EntryKind.KOIN_CONFIGURATION else EntryKind.START_KOIN
-            entryPoints.add(EntryPoint(kind, EntryClassification.ROOT, emptyList(), originOf(expression)))
-            KoinPluginLogger.debug { "  entry point (koin-core): $kind @ ${originOf(expression)}" }
+            val kind = when (fqNameStr) {
+                "org.koin.dsl.koinConfiguration" -> EntryKind.KOIN_CONFIGURATION
+                "org.koin.dsl.koinApplication" -> EntryKind.KOIN_APPLICATION
+                else -> EntryKind.START_KOIN
+            }
+            val label = when (kind) {
+                EntryKind.KOIN_CONFIGURATION -> "koinConfiguration { … }"
+                EntryKind.KOIN_APPLICATION -> "koinApplication { … }"
+                else -> "startKoin { … }"
+            }
+            // Resolve this root's own closure by walking its trailing lambda for plugin-stub
+            // modules(vararg KClass) calls — the same walk the untyped-stub path uses. Without this,
+            // the root stays flag-only, A3 never sees its modules, and a valid cross-module scanned
+            // graph loaded here only defers to KOIN-W002 instead of resolving to silence.
+            val lambdaModules = collectModuleClassesFromLambda(expression)
+            entryPoints.add(EntryPoint(kind, EntryClassification.ROOT, lambdaModules, originOf(expression), label))
+            val entryFile = currentFile
+            for (moduleClass in lambdaModules) {
+                trackClassLookup(lookupTracker, entryFile, moduleClass)
+                linkDeclarationsForIC(expectActualTracker, entryFile, moduleClass)
+            }
+            KoinPluginLogger.debug {
+                "  entry point (koin-core): $kind @ ${originOf(expression)} — ${lambdaModules.size} module(s): " +
+                    lambdaModules.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+            }
         }
 
         val isStartKoin = fqNameStr == "org.koin.plugin.module.dsl.startKoin"

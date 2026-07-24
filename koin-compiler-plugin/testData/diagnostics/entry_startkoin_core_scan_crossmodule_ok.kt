@@ -5,14 +5,13 @@
 // Repository (scanned in `core`) is provided; Service (scanned in `feature`) depends on it.
 // The graph is COMPLETE once both modules are loaded at the root.
 //
-// RESULT: KOIN-W002 (deferred), NOT the former FALSE-POSITIVE KOIN-D001. The scoped A2→A3
-// shift now defers FeatureModule's not-locally-visible cross-module scanned-class dep instead
-// of hard-erroring it. The remaining gap to full silence: this root is REAL koin-core
-// `startKoin { modules(...) }` (org.koin.core.context.startKoin), which is still flag-only —
-// its module closure isn't resolved, so A3 can't settle the deferral here and it flushes to
-// W002. The typed @KoinApplication / stub-startKoin form (cross_module_scanned_class_koinapp_ok)
-// resolves fully to empty. Wiring real-koin-core-startKoin closure resolution (Gate-1 follow-up)
-// will take this to empty too. Net: the false hard error is gone; a deferred warning remains.
+// RESULT: empty .errors.txt (no diagnostic) — correct. The scoped A2→A3 shift defers
+// FeatureModule's not-locally-visible cross-module scanned-class dep, and real koin-core
+// `startKoin { modules(...) }` (org.koin.core.context.startKoin) now resolves its module closure
+// (KoinStartTransformer walks the trailing lambda for modules(vararg KClass) calls and reifies the
+// root), so the A3 full-graph pass assembles CoreModule + FeatureModule and resolves Repository —
+// settling the deferral silently. (Before the A3 reshape this was a FALSE-POSITIVE KOIN-D001; an
+// intermediate step left it at KOIN-W002 until real-koin-core-startKoin closure resolution landed.)
 // FILE: core/Repository.kt
 package core
 
