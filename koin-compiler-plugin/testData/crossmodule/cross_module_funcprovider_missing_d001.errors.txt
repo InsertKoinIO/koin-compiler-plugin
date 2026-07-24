@@ -1,3 +1,6 @@
+[Koin][KOIN-D001] Missing dependency: base.Repository
+  required by: lib.Service (parameter 'repo')
+  in module: MyApp (startKoin)
 [Koin][KOIN-W002] Unresolved dependency (deferred): base.Repository
   required by: lib.provideService (parameter 'repo')
   in module: LibModule

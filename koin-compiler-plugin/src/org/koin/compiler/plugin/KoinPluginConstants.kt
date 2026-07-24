@@ -148,6 +148,20 @@ object KoinPluginConstants {
     const val INJECTED_PARAMS_HINT_PREFIX = "injectedparams_"
 
     /**
+     * Prefix for the A3 function-requirements carrier hint (Gate-3). For a function-based provider
+     * discovered cross-module as [Definition.ExternalFunctionDef] — a top-level `@Single fun`
+     * reached via a dependency's @ComponentScan roster — the hint carries what the function NEEDS
+     * (its must-validate constructor/parameter requirements) so the A3 verifier at the consumer's
+     * entry point can check them. Without it, ExternalFunctionDef.requirements is empty and the
+     * verifier is blind to the provider's transitive deps (a silent false negative).
+     *
+     * The hint IS the shape: `funcreqs_<flat-return-fqn>(param0: T0, param1: T1, …)`, one value
+     * parameter per must-validate requirement, mirroring [INJECTED_PARAMS_HINT_PREFIX]. Consumers
+     * rebuild the requirement list by walking `IrFunction.valueParameters` — no string parsing.
+     */
+    const val FUNCTION_REQS_HINT_PREFIX = "funcreqs_"
+
+    /**
      * Flatten an FqName (dots → underscores) into a Kotlin-identifier-safe segment usable as
      * the suffix of an [INJECTED_PARAMS_HINT_PREFIX] hint function name. `$` (nested-class
      * separator in some FqName renderings) also collapses to `_`.

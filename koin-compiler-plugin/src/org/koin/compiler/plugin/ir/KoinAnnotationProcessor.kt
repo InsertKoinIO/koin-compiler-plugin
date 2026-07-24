@@ -1025,6 +1025,13 @@ class KoinAnnotationProcessor(
             // LinkedHashSet: O(1) duplicate check + preserved insertion order for deterministic debug logs.
             val qualifiedEntriesByDefType = mutableMapOf<String, LinkedHashSet<String>>()
 
+            // A3 Gate-3: funcreqs carrier hints for TOP-LEVEL function providers, keyed by return-type
+            // FqName (the key the consumer resolves by). Value = the hint, or null = AMBIGUOUS (two
+            // top-level functions in this module contribute the same return type → the consumer can't
+            // tell which provider a requirement belongs to, so we emit NEITHER, mirroring the
+            // InjectedParam ambiguity guard). Merged into hintFunctions after the definition loop.
+            val funcReqsByReturnFqn = LinkedHashMap<String, IrSimpleFunction?>()
+
             for (definition in definitions) {
                 val defTypeStr = definitionTypeToString(definition.definitionType)
                 val targetClass = definition.returnTypeClass
@@ -1045,6 +1052,21 @@ class KoinAnnotationProcessor(
                         KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr) bindings=${definition.bindings.map { it.name.asString() }}" }
                     }
                     is Definition.TopLevelFunctionDef -> {
+                        // A3 Gate-3: emit this provider's requirements carrier alongside its
+                        // discovery hint. Keyed by return-type FqName; second contributor of the same
+                        // return type marks it ambiguous (null) so neither is emitted.
+                        val returnFqn = targetClass.fqNameWhenAvailable?.asString()
+                        if (returnFqn != null) {
+                            if (funcReqsByReturnFqn.containsKey(returnFqn)) {
+                                if (funcReqsByReturnFqn[returnFqn] != null) {
+                                    KoinPluginLogger.debug { "    funcreqs AMBIGUOUS for $returnFqn: multiple top-level providers — emitting none" }
+                                }
+                                funcReqsByReturnFqn[returnFqn] = null
+                            } else {
+                                funcReqsByReturnFqn[returnFqn] = createFuncReqsHintFunction(targetClass, definition.requirements)
+                            }
+                        }
+
                         // Top-level functions extract qualifier from the function declaration
                         val funcQualifier = qualifierExtractor.extractFromDeclaration(definition.irFunction)
                         if (funcQualifier == null) {
@@ -1084,6 +1106,13 @@ class KoinAnnotationProcessor(
                 val rosterFunc = createRosterHintFunction(rosterName, discriminators.sorted())
                 hintFunctions.add(rosterFunc)
                 KoinPluginLogger.debug { "    + componentscanfunc roster: $defTypeStr lists ${discriminators.size} qualifier(s) -> $rosterName" }
+            }
+
+            // A3 Gate-3: merge the non-ambiguous funcreqs carrier hints (one per return type).
+            for ((returnFqn, hint) in funcReqsByReturnFqn) {
+                if (hint == null) continue
+                hintFunctions.add(hint)
+                KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn (${hint.parameters.size} requirement(s))" }
             }
 
             if (hintFunctions.isEmpty()) continue
@@ -1342,6 +1371,143 @@ class KoinAnnotationProcessor(
         function.addDeprecatedHiddenAnnotation(context)
 
         return function
+    }
+
+    /**
+     * A3 Gate-3 — create the function-requirements carrier hint for a function-based provider:
+     * `funcreqs_<flat-return-fqn>(param0: T0, param1: T1, …)`, one value parameter per MUST-VALIDATE
+     * requirement, mirroring the typed-mirror shape of [InjectedParamHintGenerator]. The hint IS the
+     * shape — the consumer rebuilds [Definition.ExternalFunctionDef.requirements] by walking these
+     * value parameters (see [addFuncReqsToExternalDef]). See [KoinPluginConstants.FUNCTION_REQS_HINT_PREFIX].
+     *
+     * Cut-1 scope (deliberately conservative — never degrade silently):
+     *  - Only requirements where `requiresValidation()` is true are carried (nullable / @InjectedParam
+     *    / @Provided / @ScopeId / @Property / defaulted params need no provider, so they are omitted;
+     *    a rebuilt requirement therefore validates iff the original did).
+     *  - Only UNQUALIFIED requirements are encodable today. If ANY carried requirement has a
+     *    @Named/@Qualifier qualifier, or a required type that can't be resolved to a hint param type,
+     *    the WHOLE hint is skipped (returns null) — the provider stays a requirements-empty
+     *    ExternalFunctionDef at the consumer, i.e. today's behavior, never a wrong partial. Per-
+     *    requirement qualifier encoding is a tracked follow-up.
+     *
+     * @return the hint function, or null when there is nothing safe to carry (see above).
+     */
+    private fun createFuncReqsHintFunction(
+        returnTypeClass: IrClass,
+        requirements: List<Requirement>,
+    ): IrSimpleFunction? {
+        val returnFqn = returnTypeClass.fqNameWhenAvailable?.asString() ?: return null
+        val toCarry = requirements.filter { it.requiresValidation() }
+        if (toCarry.isEmpty()) return null
+        val qualified = toCarry.firstOrNull { it.qualifier != null }
+        if (qualified != null) {
+            KoinPluginLogger.debug {
+                "    funcreqs SKIP for $returnFqn: qualified requirement '${qualified.paramName}' not yet carried (Gate-3 cut 1)"
+            }
+            return null
+        }
+
+        val flat = KoinPluginConstants.flattenFqNameForHint(returnFqn)
+        val hintName = Name.identifier("${KoinPluginConstants.FUNCTION_REQS_HINT_PREFIX}$flat")
+        val function = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = hintName,
+            visibility = DescriptorVisibilities.PUBLIC,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
+
+        val params = mutableListOf<IrValueParameter>()
+        for (req in toCarry) {
+            val classId = req.typeKey.classId ?: run {
+                KoinPluginLogger.debug { "    funcreqs SKIP for $returnFqn: unresolvable type for '${req.paramName}'" }
+                return null
+            }
+            val reqClass = context.referenceClass(classId)?.owner ?: run {
+                KoinPluginLogger.debug { "    funcreqs SKIP for $returnFqn: type ${classId.asFqNameString()} not on classpath" }
+                return null
+            }
+            val p = context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                // Param NAME carries the original constructor/function parameter name so the rebuilt
+                // requirement reproduces the exact KOIN-D001 "parameter '<name>'" attribution.
+                name = Name.identifier(req.paramName),
+                type = reqClass.hintParameterType(context),
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+            params.add(p)
+        }
+        if (params.isEmpty()) return null
+
+        function.parameters = params
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+        function.addDeprecatedHiddenAnnotation(context)
+        return function
+    }
+
+    /**
+     * A3 Gate-3 — rebuild a cross-module function provider's requirements from its `funcreqs_*`
+     * carrier hint (see [createFuncReqsHintFunction]). Each hint value parameter becomes one
+     * must-validate [Requirement] with all runtime flags zeroed and no qualifier, so the rebuilt
+     * requirement's `requiresValidation()` is true exactly as the provider's original was (cut-1
+     * carries only unqualified must-validate requirements).
+     *
+     * Returns emptyList() when no carrier hint exists — the provider had no must-validate
+     * requirements, or it carried a qualified requirement cut-1 can't encode. In both cases the
+     * [Definition.ExternalFunctionDef] stays provider-only, i.e. today's behavior (never a wrong
+     * partial). Keyed by return-type FqName, the same key the consumer resolves the provider by.
+     */
+    private fun discoverFuncReqsForExternalDef(returnTypeClass: IrClass): List<Requirement> {
+        val returnFqn = returnTypeClass.fqNameWhenAvailable?.asString() ?: return emptyList()
+        val flat = KoinPluginConstants.flattenFqNameForHint(returnFqn)
+        val hintName = Name.identifier("${KoinPluginConstants.FUNCTION_REQS_HINT_PREFIX}$flat")
+        val hintFunc = context.referenceFunctions(
+            CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
+        ).firstOrNull()?.owner ?: return emptyList()
+
+        val reqs = hintFunc.regularParameters.map { p ->
+            Requirement(
+                typeKey = ParameterAnalyzer.typeKeyFromType(p.type),
+                paramName = p.name.asString(),
+                isNullable = false,
+                hasDefault = false,
+                isInjectedParam = false,
+                isProvided = false,
+                isScopeId = false,
+                scopeIdName = null,
+                isLazy = false,
+                isList = false,
+                isProperty = false,
+                propertyKey = null,
+                qualifier = null,
+            )
+        }
+        if (reqs.isNotEmpty()) {
+            KoinPluginLogger.debug {
+                "      funcreqs decoded for $returnFqn: ${reqs.size} req(s) [${reqs.joinToString { it.typeKey.render() }}]"
+            }
+        }
+        return reqs
     }
 
     /** Extract FIR module data from an IR class's metadata. */
@@ -1877,7 +2043,10 @@ class KoinAnnotationProcessor(
                     scopeClass = scopeClass,
                     qualifier = qualifier
                 ).also {
-                    // TODO(a3-carrier): requirements arrive via the typed-mirror carrier (plan §3, Gate 2)
+                    // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint so the
+                    // entry-point verifier can check this provider's transitive deps (empty when the
+                    // provider carried nothing — today's provider-only behavior).
+                    it.requirements = discoverFuncReqsForExternalDef(returnTypeClass)
                     it.origin = SourceOrigin.of(returnTypeClass)
                 })
             }
@@ -2282,7 +2451,9 @@ class KoinAnnotationProcessor(
             scopeClass = scopeClass,
             qualifier = qualifier,
         ).also {
-            // TODO(a3-carrier): requirements arrive via the typed-mirror carrier (plan §3, Gate 2)
+            // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint (empty when
+            // the provider carried nothing — today's provider-only behavior).
+            it.requirements = discoverFuncReqsForExternalDef(returnTypeClass)
             it.origin = SourceOrigin.of(returnTypeClass)
         }
         val key = definitionDedupeKey(candidate)

@@ -20,12 +20,12 @@
 //          "lib"). base's orphan provideRepository is NOT loaded (base has no module, app doesn't
 //          scan "base") → Repository is genuinely MISSING in the assembled graph.
 //
-// EXPECTED (target, after the typed-mirror carrier lands):
-//   app: KOIN-D001 Missing dependency: base.Repository, required by provideService(), at the root.
-//
-// RED TODAY (this golden): provideService is an ExternalFunctionDef with empty requirements → A3
-// never learns it needs Repository → NO root D001 → silent false negative. This file is RED until
-// the carrier fills ExternalFunctionDef.requirements; GREEN adds the app-root D001.
+// GREEN (carrier landed — this golden): base's funcreqs_lib_Service carrier hint carries
+// provideService's `repo: Repository` requirement across the module boundary; the consumer rebuilds
+// ExternalFunctionDef.requirements from it, so A3 at the app root validates provideService and emits
+// KOIN-D001 Missing dependency: base.Repository, in module MyApp (startKoin). lib itself still emits
+// the KOIN-W002 leaf deferral (no entry point there — correct). Regression guard: before the carrier
+// this file was RED (only the lib W002, no root D001 — a silent false negative → runtime crash).
 
 // MODULE: base
 // FILE: base/Base.kt

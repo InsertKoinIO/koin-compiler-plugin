@@ -380,7 +380,14 @@ class BindingRegistry {
                 val o = def.origin
                 val originStr = if (o != null) " [${o.moduleFqName ?: "?"}${o.filePath?.let { " ${it.substringAfterLast('/')}:${o.line ?: "?"}" } ?: ""}]" else ""
                 val reqStr = requirements.joinToString(", ") { r -> r.typeKey.render() + if (r.requiresValidation()) "" else "(skip)" }
-                val note = if (def is Definition.ExternalFunctionDef) " (provider-only; cross-module reqs not carried — Gate 2)" else ""
+                val note = when {
+                    def !is Definition.ExternalFunctionDef -> ""
+                    // A3 Gate-3: an external provider now carries its requirements via the funcreqs
+                    // hint; empty still means provider-only (nothing carried, or a qualified req cut-1
+                    // can't encode yet).
+                    requirements.isEmpty() -> " (provider-only; no cross-module reqs carried)"
+                    else -> " (cross-module reqs carried via funcreqs)"
+                }
                 "    validating: $defName$originStr — ${requirements.size} req(s): [$reqStr]$note"
             }
 
