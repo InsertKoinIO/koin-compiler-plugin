@@ -138,6 +138,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("entry_dynamic_valid_disclosed_w003.kt")
+    public void testEntry_dynamic_valid_disclosed_w003() {
+      runTest("koin-compiler-plugin/testData/diagnostics/entry_dynamic_valid_disclosed_w003.kt");
+    }
+
+    @Test
     @TestMetadata("entry_koinapplication_core_scan_missing.kt")
     public void testEntry_koinapplication_core_scan_missing() {
       runTest("koin-compiler-plugin/testData/diagnostics/entry_koinapplication_core_scan_missing.kt");

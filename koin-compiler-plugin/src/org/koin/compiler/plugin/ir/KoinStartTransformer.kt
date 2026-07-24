@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.koin.compiler.plugin.KoinPluginConstants
+import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import org.jetbrains.kotlin.ir.IrElement
@@ -65,9 +66,18 @@ import org.jetbrains.kotlin.name.Name
  */
 enum class EntryKind { START_KOIN, KOIN_APPLICATION, KOIN_CONFIGURATION, WITH_CONFIGURATION, KOIN_APPLICATION_ANNOTATION }
 enum class EntryClassification { ROOT, DYNAMIC }
+
+/**
+ * Result of walking an entry-point lambda for `modules(...)` calls: the statically-resolvable module
+ * classes, plus whether ANY argument was non-static (conditional / spread / variable) — which makes
+ * the assembled graph unverifiable at compile time (→ [EntryClassification.DYNAMIC], KOIN-W003).
+ */
+data class LambdaModules(val classes: List<IrClass>, val dynamic: Boolean)
 data class EntryPoint(
     val kind: EntryKind,
-    val classification: EntryClassification,
+    // Mutable: the plugin-stub path reifies the entry as ROOT, then reclassifies to DYNAMIC once the
+    // lambda walk finds a non-static modules(...) argument (assigned once, single-threaded IR walk).
+    var classification: EntryClassification,
     // Mutable so the entry point can be reified at detection time and its closure filled in once
     // resolved a few lines later in the same visitCall (Gate-1: each root resolves its OWN
     // modules + includes + @ComponentScan/@Configuration set). Assigned exactly once, on the
@@ -173,6 +183,18 @@ class KoinStartTransformer(
         return SourceOrigin(moduleFqName = null, filePath = fe?.name, line = line)
     }
 
+    /**
+     * A3 §4 — disclose a DYNAMIC entry point (KOIN-W003): its module set is computed at runtime
+     * (conditional / spread / variable), so the assembled graph can't be verified at compile time.
+     * Emitting this warning keeps the "unverifiable" state visible rather than letting a green build
+     * imply a guarantee it didn't make (see KoinDiagnostic.UnverifiableDynamicGraph).
+     */
+    private fun discloseDynamicEntryPoint(entryLabel: String, expression: IrCall) {
+        val o = originOf(expression)
+        val originStr = o.filePath?.let { "${it.substringAfterLast('/')}:${o.line ?: "?"}" }
+        KoinPluginLogger.report(KoinDiagnostic.UnverifiableDynamicGraph(entryLabel, originStr))
+    }
+
     override fun visitCall(expression: IrCall): IrExpression {
         val callee = expression.symbol.owner
         val calleeFqName = callee.fqNameWhenAvailable
@@ -217,15 +239,17 @@ class KoinStartTransformer(
             // the root stays flag-only, A3 never sees its modules, and a valid cross-module scanned
             // graph loaded here only defers to KOIN-W002 instead of resolving to silence.
             val lambdaModules = collectModuleClassesFromLambda(expression)
-            entryPoints.add(EntryPoint(kind, EntryClassification.ROOT, lambdaModules, originOf(expression), label))
+            val classification = if (lambdaModules.dynamic) EntryClassification.DYNAMIC else EntryClassification.ROOT
+            entryPoints.add(EntryPoint(kind, classification, lambdaModules.classes, originOf(expression), label))
             val entryFile = currentFile
-            for (moduleClass in lambdaModules) {
+            for (moduleClass in lambdaModules.classes) {
                 trackClassLookup(lookupTracker, entryFile, moduleClass)
                 linkDeclarationsForIC(expectActualTracker, entryFile, moduleClass)
             }
+            if (lambdaModules.dynamic) discloseDynamicEntryPoint(label, expression)
             KoinPluginLogger.debug {
-                "  entry point (koin-core): $kind @ ${originOf(expression)} — ${lambdaModules.size} module(s): " +
-                    lambdaModules.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+                "  entry point (koin-core): $kind [$classification] @ ${originOf(expression)} — ${lambdaModules.classes.size} module(s): " +
+                    lambdaModules.classes.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
             }
         }
 
@@ -287,17 +311,21 @@ class KoinStartTransformer(
             }
             // Reify this root's own closure (Gate-1). Verification is now centralized in
             // [verifyEntryPoints], which runs over `entryPoints` after this IR walk.
-            entryPoint.resolvedModules = lambdaModuleClasses
+            entryPoint.resolvedModules = lambdaModuleClasses.classes
             entryPoint.appName = entryName
+            if (lambdaModuleClasses.dynamic) {
+                entryPoint.classification = EntryClassification.DYNAMIC
+                discloseDynamicEntryPoint(entryName, expression)
+            }
             KoinPluginLogger.debug {
-                "  -> resolved closure ($entryName, untyped): ${lambdaModuleClasses.size} module(s): " +
-                    lambdaModuleClasses.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+                "  -> resolved closure ($entryName, untyped) [${entryPoint.classification}]: ${lambdaModuleClasses.classes.size} module(s): " +
+                    lambdaModuleClasses.classes.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
             }
             // IC: entry-point file depends on each discovered module class. Guard kept identical to
             // the pre-refactor validation guard so incremental edges are recorded exactly as before.
-            if (lambdaModuleClasses.isNotEmpty() && safetyValidator != null && annotationProcessor != null) {
+            if (lambdaModuleClasses.classes.isNotEmpty() && safetyValidator != null && annotationProcessor != null) {
                 val startKoinFile = currentFile
-                for (moduleClass in lambdaModuleClasses) {
+                for (moduleClass in lambdaModuleClasses.classes) {
                     trackClassLookup(lookupTracker, startKoinFile, moduleClass)
                     linkDeclarationsForIC(expectActualTracker, startKoinFile, moduleClass)
                 }
@@ -663,8 +691,13 @@ class KoinStartTransformer(
      * can't get modules from `@KoinApplication(modules = [...])`, but the user's `modules(...)`
      * call inside the lambda gives us the same list at the IR level.
      */
-    private fun collectModuleClassesFromLambda(call: IrCall): List<IrClass> {
+    private fun collectModuleClassesFromLambda(call: IrCall): LambdaModules {
         val result = LinkedHashSet<IrClass>()
+        // dynamic = at least one modules(...) argument is NOT a statically-resolvable KClass — a
+        // conditional (`modules(if (x) A else B)`), a spread of a runtime list (`modules(*list)`),
+        // or a variable. The loaded set then depends on runtime values, so the graph is unverifiable
+        // at compile time for this root (A3 §4, DYNAMIC classification → KOIN-W003 disclosure).
+        var dynamic = false
         // Identity-based visited set — IrFunctionReference resolves to a function whose body
         // may be revisited from elsewhere in the tree (Compose `remember` scaffolding, captured
         // lambdas, etc.). Without a guard, pathological IR with cycles would recurse forever
@@ -683,13 +716,19 @@ class KoinStartTransformer(
                     nc.regularParameters[0].varargElementType != null
                 if (isModulesCall) {
                     val varargArg = node.getRegularArgument(0) as? IrVararg
-                    varargArg?.elements?.forEach { element ->
-                        val cls = when (element) {
-                            is IrClassReference -> (element.classType.classifierOrNull as? IrClassSymbol)?.owner
-                            is IrExpression -> extractClassFromKClassExpression(element)
-                            else -> null
+                    if (varargArg == null) {
+                        // modules(...) present but the argument isn't a plain vararg (e.g. a spread
+                        // of a runtime array) → the module set is not statically resolvable.
+                        dynamic = true
+                    } else {
+                        varargArg.elements.forEach { element ->
+                            val cls = when (element) {
+                                is IrClassReference -> (element.classType.classifierOrNull as? IrClassSymbol)?.owner
+                                is IrExpression -> extractClassFromKClassExpression(element)
+                                else -> null // e.g. IrSpreadElement
+                            }
+                            if (cls != null) result.add(cls) else dynamic = true
                         }
-                        if (cls != null) result.add(cls)
                     }
                 }
                 for (i in 0 until node.regularArgumentsCount) visit(node.getRegularArgument(i))
@@ -708,7 +747,7 @@ class KoinStartTransformer(
         }
 
         for (i in 0 until call.regularArgumentsCount) visit(call.getRegularArgument(i))
-        return result.toList()
+        return LambdaModules(result.toList(), dynamic)
     }
 
     /**

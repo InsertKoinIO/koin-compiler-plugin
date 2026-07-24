@@ -270,6 +270,40 @@ sealed class KoinDiagnostic(
         },
     )
 
+    /**
+     * KOIN-W003 — An entry point (`startKoin` / `koinApplication` / `koinConfiguration`) was given a
+     * module set that is NOT statically resolvable — a conditional (`modules(if (x) A else B)`), a
+     * spread of a runtime list (`modules(*list)`), or a variable. The set of modules actually loaded
+     * depends on runtime values, so the plugin cannot assemble and verify the full graph at compile
+     * time for this root.
+     *
+     * Warning, not error, and never silent: compile-time safety fundamentally cannot verify a
+     * runtime-decided graph, but hiding that would let a green build imply a guarantee it never made
+     * (the doctrine's worst failure class). We disclose it here; the graph is validated at runtime by
+     * Koin's `checkModules()`. Any statically-visible modules in the call are still verified normally
+     * (this only flags that verification is partial/unverifiable, not that anything is wrong).
+     */
+    class UnverifiableDynamicGraph(
+        entry: String,
+        origin: String?,
+    ) : KoinDiagnostic(
+        code = "KOIN-W003",
+        severity = Severity.WARNING,
+        message = buildString {
+            append("Graph not verifiable at compile time: ")
+            append(entry)
+            append(" is loaded with a dynamically-computed module set (a conditional, spread, or ")
+            append("variable), so the assembled graph is unknowable here.")
+            if (origin != null) {
+                append("\n  at: ")
+                append(origin)
+            }
+            append("\n  Compile-time dependency checks are skipped for this entry point; it is ")
+            append("validated at runtime via checkModules(). Pass module classes directly — e.g. ")
+            append("modules(MyModule::class) — to enable full compile-time verification.")
+        },
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,

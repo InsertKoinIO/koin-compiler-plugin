@@ -6,11 +6,12 @@
 // Service (scanned @Singleton) needs Repo; Repo is provided by no definition. Genuine miss —
 // but the verifier cannot know the module set.
 //
-// TARGET (Step 6): a VISIBLE "graph unverified" warning — never a silent pass. Compile-time safety
-// cannot verify an unknowable module set, and silence here is the doctrine's worst failure class.
-// PROBE: the lambda walker collects only IrClassReference args (collectModuleClassesFromLambda);
-// a conditional yields no static class, so the set is empty and validateFullGraph is skipped.
-// Records whether the shipping code discloses this or silently emits nothing.
+// RESULT (#2 implemented): a VISIBLE KOIN-W003 "graph not verifiable at compile time" disclosure —
+// never a silent pass. The lambda walker (collectModuleClassesFromLambda) flags the conditional
+// modules(...) argument as non-static → the entry point is classified DYNAMIC → discloseDynamicEntryPoint
+// emits KOIN-W003. The KOIN-D001 here is the separate local miss A2 catches (Repo genuinely absent in
+// AppModule, which IS statically visible); it is unrelated to the dynamic-ness. See
+// entry_dynamic_valid_disclosed_w003 for the valid-graph case where ONLY W003 fires.
 // FILE: test.kt
 package testpkg
 
