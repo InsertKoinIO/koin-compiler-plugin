@@ -27,7 +27,14 @@ import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
-class DslHintGenerator(private val context: IrPluginContext) {
+class DslHintGenerator(
+    private val context: IrPluginContext,
+    // Used to re-derive a cross-module DSL provider's requirements from its provided class's
+    // constructor (A3 — see discoverDslDefinitionsFromHints). Optional so bare-CLI/test paths that
+    // don't need requirement carrying can still construct the generator; when null, cross-module
+    // DslDefs keep empty requirements (pre-fix behavior).
+    private val parameterAnalyzer: ParameterAnalyzer? = null,
+) {
 
     /**
      * Generate DSL definition hint functions for cross-module discovery.
@@ -400,6 +407,13 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     else -> null
                 }
 
+                // A3: re-derive requirements from the provided class's constructor — the class is on
+                // the consumer's classpath (targetClass), so its constructor is ABI-available, exactly
+                // like a cross-module ClassDef. Without this the cross-module DslDef carried ZERO
+                // requirements, so a downstream entry point never validated a DSL provider's
+                // constructor dependencies (silent false negative — e.g. single<OfflineFirstNewsRepository>()
+                // whose Notifier/NetworkDataSource/NewsResourceDao deps went unchecked at the app root).
+                // Mirrors how the LOCAL DslDef derives requirements (KoinDSLTransformer.attachA3Metadata).
                 definitions.add(Definition.DslDef(
                     irClass = targetClass,
                     definitionType = defType,
@@ -407,7 +421,10 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     modulePropertyId = modulePropertyId,
                     providerOnly = providerOnly,
                     qualifier = qualifier
-                ))
+                ).also { def ->
+                    parameterAnalyzer?.let { def.requirements = it.requirementsForClass(targetClass) }
+                    def.origin = SourceOrigin.of(targetClass)
+                })
             }
         }
 
