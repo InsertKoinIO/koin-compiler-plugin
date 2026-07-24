@@ -253,16 +253,24 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 KoinPluginLogger.moduleId?.takeIf { it.isNotBlank() }?.let {
                     add(marker("mod_${KoinPluginConstants.sanitizeQualifierName(it)}"))
                 }
-                // Original call-site location so the cross-module KOIN-D003 can name WHERE the call
-                // is (the app can't see the dependency's call expression — only this hint). Encode the
-                // SIMPLE file name (not the absolute path): the path is machine-specific and would leak
-                // into IR-dump goldens; the simple name + line is deterministic and tells the user
-                // which file:line to open (e.g. "HomeScreen.kt:25"). Cross-module clickability isn't
-                // achievable golden-safely, so this goes in the message body rather than as a bogus
-                // absolute location prefix.
-                callSite.filePath?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.let {
-                    add(marker("loc_${KoinPluginConstants.sanitizeQualifierName(it)}"))
+                // Original call-site location so the cross-module KOIN-D003 can point at WHERE the
+                // call is (the app can't see the dependency's call expression — only this hint).
+                //   loc_ (SIMPLE file name) + line_ : ALWAYS emitted, deterministic → rendered in the
+                //     message body ("at HomeScreen.kt:25"). Portable — never leaks a machine path into
+                //     an IR-dump golden.
+                //   abs_ (ABSOLUTE path) + acol_    : ONLY when koin.moduleId is set, i.e. a real Gradle
+                //     build where that path exists on this machine. The consumer passes it to report()
+                //     so Android Studio renders a clickable `file://…:line:col` prefix like the local
+                //     KOIN-D002. moduleId is absent in golden/CLI compiles, so the abs path (and its
+                //     temp-dir path) never reaches a golden.
+                callSite.filePath?.takeIf { it.isNotBlank() }?.let { fullPath ->
+                    val simple = fullPath.substringAfterLast('/').substringAfterLast('\\')
+                    add(marker("loc_${KoinPluginConstants.sanitizeQualifierName(simple)}"))
                     add(marker("line_${callSite.line}"))
+                    if (KoinPluginLogger.moduleId != null) {
+                        add(marker("abs_${KoinPluginConstants.sanitizeQualifierName(fullPath)}"))
+                        add(marker("acol_${callSite.column}"))
+                    }
                 }
             }
             function.parameters = markerParams
@@ -396,6 +404,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
             var callModule: String? = null
             var origFile: String? = null
             var origLine: Int? = null
+            var origAbsPath: String? = null
+            var origCol: Int? = null
             for (p in hintFunc.regularParameters) {
                 val n = p.name.asString()
                 when {
@@ -403,17 +413,24 @@ class CallSiteValidator(private val context: IrPluginContext) {
                     n.startsWith("mod_") -> callModule = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("mod_"))
                     n.startsWith("loc_") -> origFile = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("loc_"))
                     n.startsWith("line_") -> origLine = n.removePrefix("line_").toIntOrNull()
+                    n.startsWith("abs_") -> origAbsPath = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("abs_"))
+                    n.startsWith("acol_") -> origCol = n.removePrefix("acol_").toIntOrNull()
                 }
             }
-            // "HomeScreen.kt:25" — tells the user which call site to open, in the message body
-            // (golden-deterministic; the dependency's absolute path can't be carried portably).
+            // "HomeScreen.kt:25" — always in the message body (golden-deterministic).
             val callSiteLocation = origFile?.let { if (origLine != null) "$it:$origLine" else it }
 
+            // When the producer was a real Gradle build it also carried the absolute path — pass it as
+            // the source location so Android Studio renders a clickable `file://…:line:col` prefix at
+            // the real call site, exactly like the local KOIN-D002. Otherwise fall back to the hint
+            // file's location.
             KoinPluginLogger.report(
                 KoinDiagnostic.MissingCallSiteDeferred(
                     type = targetFqName, callFn = callFn, module = callModule, location = callSiteLocation,
                 ),
-                hintFilePath, hintLine, hintColumn,
+                origAbsPath ?: hintFilePath,
+                if (origAbsPath != null) (origLine ?: hintLine) else hintLine,
+                if (origAbsPath != null) (origCol ?: hintColumn) else hintColumn,
             )
         }
     }
