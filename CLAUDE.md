@@ -177,7 +177,7 @@ Before opening (or approving) any PR, both guards must pass:
 
 ### 3. Compile-safety stress test — run for EVERY published version
 - Comment out (or delete) a used definition in `playground-apps/app-annotations` **and** `app-dsl`, recompile, and confirm the build **fails with `KOIN-D001`** (not a silent success → runtime crash). Full procedure + expected results: [`playground-apps/README.md`](playground-apps/README.md#compile-safety-stress-test-run-for-every-plugin-version).
-- **DSL: clean the edited module first** (`./gradlew :core:data:clean :app:compileDebugKotlin`). Incremental-only DSL rebuilds give a **false green** — removing a DSL definition leaves an orphaned generated hint class (`org/koin/plugin/hints/…Dsl_singleKt.class`) that IC never deletes, so the deleted provider still looks present. A run without the clean step is not a valid result. (Annotations are caught at the owning module's own compile and need no clean.) Known IC limitation, tracked for KCP 1.1.
+- **No clean needed (as of 1.1.0-Beta3).** Incremental DSL rebuilds now detect a removed definition — `./gradlew :app:compileDebugKotlin` MUST fail with `KOIN-D001` for both apps. The old DSL orphan-hint false-green (removing a `single<T>()` left an orphaned per-def hint class `…Dsl_singleKt.class` that IC never deleted) is fixed: each module's DSL hints are batched into one `koin_dsl_hints_<module>.kt` regenerated wholesale (same shape the annotation hints always used), so a removed def leaves no orphan. Verified incremental / `:module:clean` / full-clean all catch it. A full clean or `--rerun-tasks` stays a safe belt-and-suspenders check but is no longer required.
 
 ## Release
 

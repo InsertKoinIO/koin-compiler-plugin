@@ -77,20 +77,14 @@ build** with `KOIN-D001` instead of letting it compile and crash at runtime. Run
 3. Recompile and confirm the build **fails** with `KOIN-D001: Missing dependency: …NewsRepository`.
 4. Restore the line; confirm the build passes again.
 
-### ⚠️ DSL requires cleaning the edited module first
-
-DSL cross-module detection reads generated hint classes (`org/koin/plugin/hints/…Dsl_singleKt.class`)
-from the dependency's output. Kotlin **incremental** compilation regenerates hints for the definitions
-that remain but does **not delete** the hint class of a *removed* definition — it survives as an orphan
-and makes the deleted provider still look present. An incremental-only rebuild therefore **passes
-silently** (false green → runtime crash). Always clean the edited leaf module for the DSL app:
+### No clean needed (as of 1.1.0-Beta3 — orphan-hint fix)
 
 ```bash
-# DSL — clean the edited module so stale hints can't mask the removal
+# DSL — incremental is fine; a removed definition is caught without any clean
 cd app-dsl
-./gradlew :core:data:clean :app:compileDebugKotlin      # MUST fail with KOIN-D001
+./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
 
-# Annotations — no clean needed; caught at the owning module during its own compile
+# Annotations — same, caught at the owning module during its own compile
 cd app-annotations
 ./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
 ```
@@ -100,12 +94,15 @@ cd app-annotations
 | App | After commenting a used definition | Where it's caught |
 |-----|-----------------------------------|-------------------|
 | `app-annotations` | build **FAILS** with `KOIN-D001` (incremental is fine) | the definition's own module (A2, real class symbols) |
-| `app-dsl` | build **FAILS** with `KOIN-D001` **after `:<module>:clean`** | the aggregator (`:app`) via cross-module hints |
+| `app-dsl` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`) via cross-module hints |
 
-> The DSL clean requirement is a known **incremental-compilation limitation** (orphaned generated hint
-> classes), not a validation-logic bug — a clean / `--rerun-tasks` build catches every case, in every
-> version tested. Tracked for the KCP 1.1 incremental-compilation work. Until it's fixed, a DSL
-> stress-test run **without** the clean step is not a valid result.
+> **History:** DSL removal detection previously required `:<module>:clean` because DSL hints were
+> emitted one class *per definition* (`…Dsl_singleKt.class`); Kotlin IC regenerated hints for the
+> remaining defs but never deleted a *removed* def's orphan class, so an incremental rebuild passed
+> silently. Fixed in **1.1.0-Beta3** by batching each module's DSL hints into one
+> `koin_dsl_hints_<module>.kt` file regenerated wholesale (same shape the annotation module-scan hints
+> always used) — a removed def leaves no orphan class. Verified incremental (no clean), `:module:clean`,
+> and full-clean all detect. A full clean / `--rerun-tasks` remains a safe belt-and-suspenders check.
 
 ## Key Patterns Covered
 
