@@ -1,3 +1,3 @@
 [Koin][KOIN-D001] Missing dependency: lib.Repository
   required by: dsl:lib.Service (parameter 'repo')
-  in module: DSL graph
+  in module: lib.libModule

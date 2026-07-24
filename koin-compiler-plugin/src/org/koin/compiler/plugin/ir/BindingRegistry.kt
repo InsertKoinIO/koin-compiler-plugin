@@ -461,7 +461,12 @@ class BindingRegistry {
                 } else {
                     // No provider hint anywhere on the graph → genuinely missing → authoritative D001.
                     KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}  [culprit ${def.origin?.let { "${it.filePath?.substringAfterLast('/') ?: it.moduleFqName ?: "?"}:${it.line ?: "?"}" } ?: definitionDisplayName(def)}]" }
-                    reportMissingDependency(req, defName, moduleName, providedTypes)
+                    // Attribute to the definition's OWN module when we know it. For a DSL definition
+                    // that is its `module { }` val (modulePropertyId) — far more useful than the generic
+                    // "DSL graph" validation-context label, especially in a multi-module app. Other def
+                    // kinds already carry a meaningful moduleName (the @Module class / entry point).
+                    val owningModule = (def as? Definition.DslDef)?.modulePropertyId ?: moduleName
+                    reportMissingDependency(req, defName, owningModule, providedTypes)
                     errorCount++
                 }
             }
