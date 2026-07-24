@@ -1,3 +1,4 @@
-[Koin][KOIN-D001] Missing dependency: core.Repository
+[Koin][KOIN-W002] Unresolved dependency (deferred): core.Repository
   required by: feature.Service (parameter 'repo')
   in module: FeatureModule
+  No provider is visible while validating this module in isolation. If it is provided by a sibling module assembled at @KoinApplication / startKoin, or by a transitive dependency not on this compile classpath, this is expected and validated at the application entry point (KOIN-D001) or at runtime via checkModules().

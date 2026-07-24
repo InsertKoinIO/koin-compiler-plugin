@@ -163,21 +163,29 @@ class KoinAnnotationProcessor(
     private fun computeProviderHintTypeFqNames(): Set<String> {
         val types = hashSetOf<String>()
 
-        // Source (1): local FUNCTION/DSL providers authored in a @Module body, across every module in
-        // THIS compilation. A sibling @Module's function definitions aren't in a given module's A2
-        // visibility set, but they are still on the build graph — assembled downstream at
-        // @KoinApplication (the #51 sibling shape). cachedModuleDefinitions is populated in
-        // generateModuleExtensions Step 1, before any A2 validation runs.
+        // Source (1): local providers authored across every module in THIS compilation — FUNCTION,
+        // DSL, AND component-scanned CLASS definitions. A sibling @Module's definitions aren't in a
+        // given module's A2 visibility set, but they are still on the build graph — assembled
+        // downstream at @KoinApplication (the #51 sibling shape). cachedModuleDefinitions is populated
+        // in generateModuleExtensions Step 1, before any A2 validation runs.
         //
-        // Deliberately EXCLUDES component-scanned class definitions (Definition.ClassDef): those belong
-        // to a @ComponentScan / @Configuration group whose cross-module assembly is governed by the
-        // consumer's own visibility set (A2) and the entry-point graph (A3). Treating a class from a
-        // *different* @Configuration group as a graph-wide provider would wrongly defer a genuine
-        // label-mismatch miss (e.g. configuration_label_mismatch: @Configuration("core") Repository is
-        // not assembled into @Configuration("service")) — it must stay a hard KOIN-D001, not W002.
+        // A3-reshape (scoped A2→A3 authority shift): component-scanned classes (Definition.ClassDef)
+        // are now INCLUDED. They were previously excluded so a cross-@Configuration-label class dep
+        // would stay a hard KOIN-D001 at A2, but that same exclusion hard-errored *valid* cross-module
+        // scanned graphs assembled at an entry point (entry_startkoin_core_scan_crossmodule_ok,
+        // cross_module_scanned_class_koinapp_ok) — false positives. The authoritative label set is only
+        // known at the entry point (A3), so A2 must DEFER a not-locally-visible scanned-class dep and
+        // let A3 settle it (resolved → silent; genuinely missing → KOIN-D001 at the root; no entry
+        // point in this compilation → KOIN-W002). This intentionally changes configuration_label_mismatch
+        // from D001 to W002 at a leaf (a leaf can't know the app's @Configuration label set).
+        //
+        // This does NOT weaken local mismatch detection: the [BindingRegistry.validateModule] gate only
+        // consults this oracle when the type is NOT visible in the module's own set. A same-module wrong
+        // @Named / wrong @Scope (qualifier_mismatch, scoped_cross_scope) is visibleLocally → still a hard
+        // KOIN-D001, never a defer. A genuinely absent, never-provided type (missing_dependency,
+        // lazy_missing, provided_missing) is not in this universe at all → still a hard KOIN-D001.
         cachedModuleDefinitions?.values?.forEach { defs ->
             for (def in defs) {
-                if (def is Definition.ClassDef) continue
                 def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { types.add(it) }
                 for (binding in def.bindings) {
                     binding.fqNameWhenAvailable?.asString()?.let { types.add(it) }

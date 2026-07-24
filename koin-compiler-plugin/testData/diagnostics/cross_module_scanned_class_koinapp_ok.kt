@@ -1,5 +1,5 @@
 // RUN_PIPELINE_TILL: BACKEND
-// A3 RESHAPE — baseline matrix (salvaged from the A2 collect-only spike).
+// A3 RESHAPE — scoped A2→A3 authority shift (false positive FIXED).
 //
 // A component-scanned @Singleton CLASS in one @Configuration label depends on a
 // component-scanned @Singleton CLASS in a *different* label, and BOTH modules are
@@ -7,13 +7,12 @@
 // therefore COMPLETE: Repository (CoreModule) resolves for Service (ServiceModule) at
 // the A3 full-graph pass.
 //
-// TARGET (Step 5, A2→structural-only): empty .errors.txt (no diagnostic).
-// BASELINE (shipping code): emits KOIN-D001 — a FALSE POSITIVE. The A2 per-module pass
-// validates ServiceModule in isolation; Repository is a component-scanned Definition.ClassDef
-// in a different label, absent from ServiceModule's A2 visibility set AND excluded from the
-// cross-module provider-hint oracle (KoinAnnotationProcessor.kt:175), so A2 hard-errors even
-// though the typed A3 pass would resolve it. This golden captures the bug; Step 5 flips it to
-// empty as a reviewed diff.
+// RESULT: empty .errors.txt (no diagnostic) — correct. A2 validates ServiceModule in
+// isolation and can't see Repository (a scanned Definition.ClassDef in a different label),
+// but the cross-module provider-hint oracle now INCLUDES scanned classes, so A2 DEFERS
+// instead of hard-erroring; the typed A3 full-graph pass then assembles both modules and
+// resolves Repository, settling the deferral silently. (Before the shift this was a FALSE
+// POSITIVE KOIN-D001 — the oracle excluded ClassDef, so A2 hard-errored a valid graph.)
 // FILE: core/Repository.kt
 package core
 

@@ -1,3 +1,1 @@
-[Koin][KOIN-D001] Missing dependency: core.Repository
-  required by: service.Service (parameter 'repo')
-  in module: ServiceModule
+
