@@ -43,16 +43,95 @@ class DslHintGenerator(
      *
      * Downstream modules discover these via context.referenceFunctions(dsl_<type>).
      */
+    /**
+     * Emit DSL definition hints for cross-module discovery, batched ONE FILE PER MODULE.
+     *
+     * Orphan-hint fix: previously this emitted one synthetic file PER DEFINITION, named by the
+     * definition's target type. Removing a `single<T>()` left that per-def file's `.class` behind —
+     * IC/build never deleted it — so the removed provider still looked present (silent false green on
+     * an incremental rebuild). Now every DSL definition in the same `module { }` (keyed by
+     * [Definition.DslDef.modulePropertyId], falling back to its source file) is batched into ONE
+     * stable-named file `koin_dsl_hints_<module>.kt`, regenerated wholesale each compile — exactly how
+     * the annotation module-scan hints (`koin_hints_<moduleId>.kt`) already work, which is why they
+     * never orphan. A removed definition simply isn't in the regenerated file, and the single class is
+     * overwritten, so no stale per-def class can survive.
+     *
+     * Function shape is unchanged (generic `dsl_<defType>` names → same-signature-distinct overloads
+     * within the file), so [discoverDslDefinitionsFromHints] finds them by name exactly as before.
+     */
     fun generateDslDefinitionHints(
         moduleFragment: IrModuleFragment,
         dslDefinitions: List<Definition.DslDef>
     ) {
         val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
 
-        for (def in dslDefinitions) {
+        // Group by owning module (its `module { }` val), so each module's hints live in one file.
+        // Fallback for a definition with no modulePropertyId: its registration source file's SIMPLE
+        // name (path-free → deterministic across machines/CI; the full path is a temp dir under test).
+        // Either way it lands in a stable, overwrite-per-compile file — never a per-def file.
+        val byModule = dslDefinitions.groupBy { def ->
+            def.modulePropertyId
+                ?: def.registrationSourceFile?.fileEntry?.name?.substringAfterLast('/')?.substringAfterLast('\\')
+                ?: "anonymous"
+        }
+
+        for ((groupKey, groupDefs) in byModule) {
+            val functions = groupDefs.mapNotNull { buildDslHintFunction(it) }
+            if (functions.isEmpty()) continue
+
+            // FIR module data + source anchor from the group (all defs share the module val's file).
+            val firModuleData = groupDefs.firstNotNullOfOrNull { extractFirModuleData(it.returnTypeClass) }
+                ?: extractFirModuleDataFromModule(moduleFragment)
+            if (firModuleData == null) {
+                KoinPluginLogger.debug { "  WARN: No FIR module data for DSL module '$groupKey', skipping ${functions.size} hint(s)" }
+                continue
+            }
+
+            // Anchor on a stable source path (issue #32): the module val's registration file dirties
+            // whenever any of its definitions change, so the batched file is regenerated then.
+            val anchorDef = groupDefs.firstOrNull { it.registrationSourceFile != null }
+            val targetClassFile = groupDefs.firstNotNullOfOrNull { def ->
+                try {
+                    val entry = def.returnTypeClass.fileEntry
+                    if (entry.name.contains("/") || entry.name.contains("\\")) entry.name else null
+                } catch (_: NotImplementedError) { null }
+            }
+            val basePath = anchorDef?.registrationSourceFile?.fileEntry?.name
+                ?: targetClassFile
+                ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
+                ?: "/synthetic"
+
+            val prefix = HintFilePrefix.of(firModuleData.name.asString())
+            val fileName = prefix + buildDslModuleHintFileName(groupKey)
+            val fakeNewPath = Path(basePath).parent.resolve(fileName)
+
+            val firFile = buildFile {
+                moduleData = firModuleData
+                origin = FirDeclarationOrigin.Synthetic.PluginFile
+                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+                name = fileName
+                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+            }
+            val hintFile = IrFileImpl(
+                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, hintsPackage),
+                module = moduleFragment
+            ).also { it.metadata = FirMetadataSource.File(firFile) }
+
+            moduleFragment.addFile(hintFile)
+            for (function in functions) {
+                hintFile.addChild(function)
+                context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+            }
+            KoinPluginLogger.debug { "  Generated DSL module hints: $fileName (${functions.size} definition(s))" }
+        }
+    }
+
+    /** Build one DSL hint function encoding a definition (contributed type + bindings + moduleId +
+     *  providerOnly + qualifier). Returns null when the target type has no resolvable FqName. */
+    private fun buildDslHintFunction(def: Definition.DslDef): IrSimpleFunction? {
             val targetClass = def.returnTypeClass
-            val targetFqName = targetClass.fqNameWhenAvailable ?: continue
-            val targetClassId = ClassId.topLevel(targetFqName)
+            targetClass.fqNameWhenAvailable ?: return null
 
             val defTypeString = when (def.definitionType) {
                 DefinitionType.SINGLE -> KoinPluginConstants.DEF_TYPE_SINGLE
@@ -216,70 +295,17 @@ class DslHintGenerator(
             // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
             function.addDeprecatedHiddenAnnotation(context)
 
-            // Create synthetic FirFile for metadata
-            val firModuleData = extractFirModuleData(targetClass)
-                ?: extractFirModuleDataFromModule(moduleFragment)
-            if (firModuleData == null) {
-                KoinPluginLogger.debug { "  WARN: No FIR module data for ${targetClass.name}, skipping DSL hint" }
-                continue
-            }
+            return function
+    }
 
-            // Build deterministic file name, prefixed with a Gradle-module-unique segment so
-            // two modules emitting hints for the same target type produce distinct class names
-            // (no dex merge collision). See KoinPluginConstants.OPTION_MODULE_ID.
-            val prefix = HintFilePrefix.of(firModuleData.name.asString())
-            val fileName = prefix + buildDslHintFileName(targetClassId, hintName)
-
-            // Anchor the synthetic hint file on a stable source path from the current compile
-            // unit (see issue #32). Priority:
-            //   1. The DSL call's own source file — always a file in the current module, and
-            //      changing the call always dirties this file. Best invalidation signal.
-            //   2. The target class's source file — works for local types; meaningless when the
-            //      target is cross-module.
-            //   3. Alphabetically-first module file — deterministic fallback so the path stays
-            //      stable across incremental rebuilds even when 1 and 2 are unavailable.
-            val targetClassFile = try {
-                val entry = targetClass.fileEntry
-                if (entry.name.contains("/") || entry.name.contains("\\")) entry.name
-                else null
-            } catch (_: NotImplementedError) {
-                null
-            }
-            val basePath = def.registrationSourceFile?.fileEntry?.name
-                ?: targetClassFile
-                ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
-                ?: "/synthetic"
-            val fakeNewPath = Path(basePath).parent.resolve(fileName)
-
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = fileName
-                // KLIB metadata serialization (Native/JS/Wasm) requires a resolvable io
-                // File per file; a null sourceFile fails the wasm/js serializer (KT-82395).
-                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-            }
-
-            val hintFile = IrFileImpl(
-                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
-                    moduleFragment.descriptor,
-                    hintsPackage
-                ),
-                module = moduleFragment
-            ).also { it.metadata = FirMetadataSource.File(firFile) }
-
-            moduleFragment.addFile(hintFile)
-            hintFile.addChild(function)
-
-            // Register for downstream visibility
-            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
-
-            val bindingNames = def.bindings.mapNotNull { it.fqNameWhenAvailable?.shortName()?.asString() }
-            val bindingInfo = if (bindingNames.isNotEmpty()) " (bindings: ${bindingNames.joinToString()})" else ""
-            KoinPluginLogger.debug { "  Generated DSL hint: $hintName -> ${targetClass.name}$bindingInfo" }
-        }
+    /** Deterministic, stable file name for a module's batched DSL hints: keyed by the module
+     *  group (its `module { }` val, or source-file fallback) — NOT by any single definition — so it
+     *  is regenerated wholesale each compile and a removed definition leaves no orphan class. */
+    private fun buildDslModuleHintFileName(groupKey: String): String {
+        val sanitized = buildString(groupKey.length) {
+            for (ch in groupKey) append(if (ch.isLetterOrDigit()) ch else '_')
+        }.trim('_').ifEmpty { "anonymous" }
+        return "koin_dsl_hints_$sanitized.kt"
     }
 
     /** Extract FIR module data from an IR class's metadata. */
