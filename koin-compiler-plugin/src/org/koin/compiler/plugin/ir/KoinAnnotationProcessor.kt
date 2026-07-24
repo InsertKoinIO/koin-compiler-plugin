@@ -1008,6 +1008,16 @@ class KoinAnnotationProcessor(
             "generateModuleScanHints: ${modulesWithScan.size} @Module modules with @ComponentScan (config=$configCount)"
         }
 
+        // A3 Gate-3: funcreqs carrier hints are named `funcreqs_<return-fqn>` WITHOUT a module id
+        // (so the consumer can resolve them by return type alone). That makes the name unscoped, so a
+        // top-level function discovered by TWO @ComponentScan modules in the SAME compilation (e.g.
+        // two @Module classes scanning the same package) would emit two identical `funcreqs_*`
+        // functions → a hard KLIB SignatureClashDetector failure on native/wasm (invisible on JVM).
+        // Dedupe COMPILATION-WIDE — emit each return-fqn once, in the first scan module that yields it
+        // — mirroring InjectedParamHintGenerator's single cross-compilation index. `.add()` returns
+        // true only on first encounter. (Cross-*Gradle*-module duplicates are fine: separate klibs.)
+        val emittedFuncReqsReturnFqns = mutableSetOf<String>()
+
         for (moduleClass in modulesWithScan) {
             val definitions = moduleDefinitions[moduleClass] ?: continue
             if (definitions.isEmpty()) continue
@@ -1024,13 +1034,6 @@ class KoinAnnotationProcessor(
             // The roster lets cross-module consumers enumerate qualifiers they'd otherwise have no way to discover.
             // LinkedHashSet: O(1) duplicate check + preserved insertion order for deterministic debug logs.
             val qualifiedEntriesByDefType = mutableMapOf<String, LinkedHashSet<String>>()
-
-            // A3 Gate-3: funcreqs carrier hints for TOP-LEVEL function providers, keyed by return-type
-            // FqName (the key the consumer resolves by). Value = the hint, or null = AMBIGUOUS (two
-            // top-level functions in this module contribute the same return type → the consumer can't
-            // tell which provider a requirement belongs to, so we emit NEITHER, mirroring the
-            // InjectedParam ambiguity guard). Merged into hintFunctions after the definition loop.
-            val funcReqsByReturnFqn = LinkedHashMap<String, IrSimpleFunction?>()
 
             for (definition in definitions) {
                 val defTypeStr = definitionTypeToString(definition.definitionType)
@@ -1052,18 +1055,17 @@ class KoinAnnotationProcessor(
                         KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr) bindings=${definition.bindings.map { it.name.asString() }}" }
                     }
                     is Definition.TopLevelFunctionDef -> {
-                        // A3 Gate-3: emit this provider's requirements carrier alongside its
-                        // discovery hint. Keyed by return-type FqName; second contributor of the same
-                        // return type marks it ambiguous (null) so neither is emitted.
+                        // A3 Gate-3: emit this provider's requirements carrier alongside its discovery
+                        // hint, once per return-fqn across the whole compilation (see
+                        // emittedFuncReqsReturnFqns). The same top-level function discovered by two
+                        // scan modules carries the same requirements, so emitting once is correct and
+                        // avoids the native/wasm duplicate-signature clash.
                         val returnFqn = targetClass.fqNameWhenAvailable?.asString()
-                        if (returnFqn != null) {
-                            if (funcReqsByReturnFqn.containsKey(returnFqn)) {
-                                if (funcReqsByReturnFqn[returnFqn] != null) {
-                                    KoinPluginLogger.debug { "    funcreqs AMBIGUOUS for $returnFqn: multiple top-level providers — emitting none" }
-                                }
-                                funcReqsByReturnFqn[returnFqn] = null
-                            } else {
-                                funcReqsByReturnFqn[returnFqn] = createFuncReqsHintFunction(targetClass, definition.requirements)
+                        if (returnFqn != null && emittedFuncReqsReturnFqns.add(returnFqn)) {
+                            val reqHint = createFuncReqsHintFunction(targetClass, definition.requirements)
+                            if (reqHint != null) {
+                                hintFunctions.add(reqHint)
+                                KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn (${reqHint.parameters.size} requirement(s))" }
                             }
                         }
 
@@ -1106,13 +1108,6 @@ class KoinAnnotationProcessor(
                 val rosterFunc = createRosterHintFunction(rosterName, discriminators.sorted())
                 hintFunctions.add(rosterFunc)
                 KoinPluginLogger.debug { "    + componentscanfunc roster: $defTypeStr lists ${discriminators.size} qualifier(s) -> $rosterName" }
-            }
-
-            // A3 Gate-3: merge the non-ambiguous funcreqs carrier hints (one per return type).
-            for ((returnFqn, hint) in funcReqsByReturnFqn) {
-                if (hint == null) continue
-                hintFunctions.add(hint)
-                KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn (${hint.parameters.size} requirement(s))" }
             }
 
             if (hintFunctions.isEmpty()) continue
