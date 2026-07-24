@@ -224,7 +224,48 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 isHidden = false
             )
             requiredParam.parent = function
-            function.parameters = listOf(requiredParam)
+
+            // Carry enough for a clear KOIN-D003 at the consumer (this call site is in a dependency
+            // module, so the app can't see its IR expression — only this hint). Encoded as Unit-typed
+            // marker params, name-encoded like the DSL module / qualifier markers:
+            //   fn_<callFunctionName>       — the resolver (e.g. koinViewModel) → "resolved by: koinViewModel<T>()"
+            //   mod_<sanitized-moduleId>    — the dependency's Gradle module id (:feature:home), when known
+            fun marker(markerName: String) = context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier(markerName),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+
+            val markerParams = buildList {
+                add(requiredParam)
+                callSite.callFunctionName.takeIf { it.isNotBlank() }?.let {
+                    add(marker("fn_${KoinPluginConstants.sanitizeQualifierName(it)}"))
+                }
+                KoinPluginLogger.moduleId?.takeIf { it.isNotBlank() }?.let {
+                    add(marker("mod_${KoinPluginConstants.sanitizeQualifierName(it)}"))
+                }
+                // Original call-site location so the cross-module KOIN-D003 can name WHERE the call
+                // is (the app can't see the dependency's call expression — only this hint). Encode the
+                // SIMPLE file name (not the absolute path): the path is machine-specific and would leak
+                // into IR-dump goldens; the simple name + line is deterministic and tells the user
+                // which file:line to open (e.g. "HomeScreen.kt:25"). Cross-module clickability isn't
+                // achievable golden-safely, so this goes in the message body rather than as a bogus
+                // absolute location prefix.
+                callSite.filePath?.substringAfterLast('/')?.substringAfterLast('\\')?.takeIf { it.isNotBlank() }?.let {
+                    add(marker("loc_${KoinPluginConstants.sanitizeQualifierName(it)}"))
+                    add(marker("line_${callSite.line}"))
+                }
+            }
+            function.parameters = markerParams
 
             // Empty body (stub — hint functions are never called)
             function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
@@ -348,10 +389,31 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 (hintFunc.parent as? IrFile)?.fileEntry?.getColumnNumber(hintFunc.startOffset)?.plus(1) ?: 0
             } else 0
 
-            // Report error with best-available location info
+            // Decode the markers the producer encoded (see generateCallSiteHints) so the cross-module
+            // D003 is as actionable as the local D002: resolver fn, dependency module, and the ORIGINAL
+            // call-site location (for the clickable file:line:col prefix).
+            var callFn: String? = null
+            var callModule: String? = null
+            var origFile: String? = null
+            var origLine: Int? = null
+            for (p in hintFunc.regularParameters) {
+                val n = p.name.asString()
+                when {
+                    n.startsWith("fn_") -> callFn = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("fn_"))
+                    n.startsWith("mod_") -> callModule = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("mod_"))
+                    n.startsWith("loc_") -> origFile = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("loc_"))
+                    n.startsWith("line_") -> origLine = n.removePrefix("line_").toIntOrNull()
+                }
+            }
+            // "HomeScreen.kt:25" — tells the user which call site to open, in the message body
+            // (golden-deterministic; the dependency's absolute path can't be carried portably).
+            val callSiteLocation = origFile?.let { if (origLine != null) "$it:$origLine" else it }
+
             KoinPluginLogger.report(
-                KoinDiagnostic.MissingCallSiteDeferred(type = targetFqName),
-                hintFilePath, hintLine, hintColumn
+                KoinDiagnostic.MissingCallSiteDeferred(
+                    type = targetFqName, callFn = callFn, module = callModule, location = callSiteLocation,
+                ),
+                hintFilePath, hintLine, hintColumn,
             )
         }
     }

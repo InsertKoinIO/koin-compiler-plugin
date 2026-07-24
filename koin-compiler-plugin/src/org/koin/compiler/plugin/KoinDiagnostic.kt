@@ -67,16 +67,47 @@ sealed class KoinDiagnostic(
         },
     )
 
-    /** KOIN-D003 — A cross-module call-site hint cannot be resolved at app assembly. */
+    /**
+     * KOIN-D003 — A cross-module call-site hint cannot be resolved at app assembly.
+     *
+     * The call site is in a *dependency* module, so — unlike the local [MissingCallSite] (D002) which
+     * has the real IR call expression and reports file:line — the app only sees a `callsite` hint. To
+     * make it as actionable as D002 the hint now also carries the resolver function and the dependency
+     * module's id, so we can name both (falling back to the bare message when either is absent, e.g.
+     * an older hint or a build without `koin.moduleId`).
+     */
     class MissingCallSiteDeferred(
         type: String,
+        callFn: String? = null,
+        module: String? = null,
+        location: String? = null,
     ) : KoinDiagnostic(
         code = "KOIN-D003",
         severity = Severity.ERROR,
         message = buildString {
             append("Missing definition: ")
             append(type)
-            append("\n  Required by a call site in a dependency module (deferred validation).")
+            if (callFn != null) {
+                append("\n  resolved by: ")
+                append(callFn)
+                append("<")
+                append(type.substringAfterLast('.'))
+                append(">()")
+                if (location != null) {
+                    append(" at ")
+                    append(location)
+                }
+            } else if (location != null) {
+                append("\n  at ")
+                append(location)
+            }
+            append("\n  required by a call site in a dependency module")
+            if (module != null) {
+                append(" (")
+                append(module)
+                append(")")
+            }
+            append(" — deferred validation.")
             append("\n  No matching definition found in any declared module.")
             append("\n  Check your declaration with Annotation or DSL.")
         },
