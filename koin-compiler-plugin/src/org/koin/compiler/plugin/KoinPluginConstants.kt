@@ -178,6 +178,29 @@ object KoinPluginConstants {
     /** Prefix for module property ID parameter in DSL hint functions (cross-module reachability). */
     const val DSL_MODULE_PARAM_PREFIX = "module_"
 
+    /**
+     * Prefix for the DSL includes-edge hint — the topology carrier for `module { includes(…) }`.
+     *
+     * A DSL module's membership lives in its lambda BODY, which is not part of any declaration's
+     * ABI, so an `includes()` edge declared in a dependency module does not survive compilation.
+     * Without this hint a consumer only knows the edges it can walk locally, so any module reached
+     * ONLY through a dependency's `includes()` looks unreachable — its definitions get dropped from
+     * the provider set and every consumer of them hard-errors (a false KOIN-D001 on a graph that
+     * resolves fine at runtime, plus a false KOIN-W001). This is the DSL analog of what
+     * `@Module(includes = […])` gives the annotation side for free, since that IS ABI.
+     *
+     * Shape: `dslincludes_<flattened-owner-module-id>(module_<included$module$id>: Unit, …)`.
+     * The owner's id is in the NAME (not a parameter) so every module val gets a unique signature —
+     * all parameters are `Unit`-typed, so two modules with the same include count would otherwise
+     * collide on JVM/KLIB. Consumers rebuild the name from a module id they already know and read
+     * the edges off the parameter names, walking them breadth-first so relay chains resolve.
+     */
+    const val DSL_INCLUDES_HINT_PREFIX = "dslincludes_"
+
+    /** Hint function name carrying the `includes()` edges declared by [ownerModuleId]'s `module { }`. */
+    fun dslIncludesHintFunctionName(ownerModuleId: String): String =
+        "$DSL_INCLUDES_HINT_PREFIX${flattenFqNameForHint(ownerModuleId)}"
+
     /** Default label for @Configuration modules. */
     const val DEFAULT_LABEL = "default"
 

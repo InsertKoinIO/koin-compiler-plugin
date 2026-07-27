@@ -72,7 +72,7 @@ FIX-9 function-provider `requirements` must be populated (not `emptyList()`).
 | Definition.**requirements** | ⚠️ re-derived from class ABI; `ExternalFunctionDef` empty (FIX-9) | ⚠️ stored locally (PR1); cross-module needs carry |
 | Definition.**origin** | ❌ not carried (PR1 = local only) | ❌ not carried |
 | Module **identity** | ✅ class FqName | ⚠️ top-level `val` FqName ok; inline/local/fn-returned = null (FIX-6) |
-| Module.**includes** (topology) | ✅ `@Module(includes=…)` is ABI | ❌ **lambda body → includes-edge hint** |
+| Module.**includes** (topology) | ✅ `@Module(includes=…)` is ABI | ✅ **includes-edge hint** (`dslincludes_*`, DONE) |
 | Module.labels (`@Configuration`) | ✅ `configuration_*` hints | n/a |
 | Root.**loadedModules** | ✅ `@KoinApplication(modules)` ABI (+ label resolution) | ⚠️ `startKoin{modules()}` same-compile ok |
 
@@ -110,9 +110,15 @@ Do not serialize the graph — each provider exposes its own edges; the verifier
 - **Requirements → a generated typed mirror declaration** (param types + per-param annotations ARE the
   requirement list). Closes FIX-9 (function providers). Class providers already expose edges via constructor ABI.
 - **Origin → annotation argument** (module FqName + file/line).
-- **DSL includes-edge (topology) → a new includes-edge hint**: per `val a = module { includes(b) }`, emit an
-  ABI record `a → [b]` referencing `b` by stable `ModuleId`. This is the DSL membership carrier — brings DSL
-  to the parity annotations get free from `@Module(includes=…)`.
+- **DSL includes-edge (topology) → a new includes-edge hint — DONE.** Per `val a = module { includes(b) }`,
+  emits `dslincludes_<flattened-a>(module_<b>: Unit, …)` into `a`'s existing per-module batched hint file, so
+  it regenerates wholesale and cannot orphan. The owner id is in the function NAME (not a parameter) because
+  every parameter is `Unit`-typed — two owners with the same include count would otherwise share a descriptor
+  and clash on KLIB. `CallSiteValidator.computeReachableModules` consults it at every hop of the BFS
+  alongside the local edge map, so chains that alternate local/dependency modules and relay modules (includes
+  but no definitions) both resolve. An absent hint (older dependency) degrades to local-edges-only — the
+  pre-carrier behavior — so the carrier can only ever ADD reachability, never invent it. This brings DSL to
+  the parity annotations get free from `@Module(includes=…)`.
 - **Channel** stays the existing generated-declaration hints package. The `@Metadata` route is a separate
   1.1+ upgrade (only payoff: IC freshness) behind a native/wasm gate — never for carrying the graph.
 - **Per-cell survival is one question, one harness:** does this cell survive cross-module on klib/native?
@@ -154,7 +160,10 @@ run the no-clean DSL leg (orphan-hint bug it documents) — the rest must be bui
 
 - **PR1 — DONE (metadata contract).** `SourceOrigin` + `requirements`/`origin` on `Definition`, additive, green, zero golden diffs. Parked in a worktree; salvage onto branch. Valid in every version of this design.
 - **Fill annotation cells:** origin in the carrier; function-provider requirements (typed mirror); route all annotation roots (incl. bare `@KoinApplication`+`@Configuration`) through the one verifier; A3 emits (Gate 1).
-- **Fill DSL cells:** includes-edge hint (topology) + consumer reconstruction (stop `null ⇒ reachable` over-approximation); origin. Proven by the cross-module forgot-`include` RED test.
+- **Fill DSL cells:** includes-edge hint (topology) + consumer reconstruction — **DONE** (§5). Still open: `origin`,
+  and the `null ⇒ reachable` fallback in `partitionByReachability` for definitions with no resolvable
+  `modulePropertyId` (inline/local/function-returned modules), which stays deliberately permissive — it is a
+  false-NEGATIVE risk, unrelated to the transitive-includes false POSITIVE the carrier fixed.
 - **Reify `EntryPoint` + classifier** (Root/Dynamic) — replaces `hasKoinEntryPoint`. Internal plugin model
   only; works with existing Koin entry-point APIs (no API extension).
 - **Freshness (Gate 3):** trackers + mandatory strictSafety + the incremental stress matrix.

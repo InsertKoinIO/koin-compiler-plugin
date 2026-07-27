@@ -61,7 +61,8 @@ class DslHintGenerator(
      */
     fun generateDslDefinitionHints(
         moduleFragment: IrModuleFragment,
-        dslDefinitions: List<Definition.DslDef>
+        dslDefinitions: List<Definition.DslDef>,
+        moduleIncludes: Map<String, List<String>> = emptyMap()
     ) {
         val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
 
@@ -75,8 +76,20 @@ class DslHintGenerator(
                 ?: "anonymous"
         }
 
-        for ((groupKey, groupDefs) in byModule) {
-            val functions = groupDefs.mapNotNull { buildDslHintFunction(it) }
+        // A module that only relays (`module { includes(a, b) }` with no definitions of its own) has
+        // no group above, but its edges still have to reach consumers — otherwise a relay breaks the
+        // transitive walk. Union the include owners in so those get a file too.
+        val groupKeys = LinkedHashSet<String>().apply {
+            addAll(byModule.keys)
+            addAll(moduleIncludes.keys)
+        }
+
+        for (groupKey in groupKeys) {
+            val groupDefs = byModule[groupKey].orEmpty()
+            val functions = groupDefs.mapNotNull { buildDslHintFunction(it) }.toMutableList()
+            // Topology carrier: this module's own `includes()` edges, in the same per-module file so
+            // they are regenerated wholesale and can never orphan (same reason as the defs above).
+            buildDslIncludesHintFunction(groupKey, moduleIncludes[groupKey].orEmpty())?.let { functions.add(it) }
             if (functions.isEmpty()) continue
 
             // FIR module data + source anchor from the group (all defs share the module val's file).
@@ -123,7 +136,11 @@ class DslHintGenerator(
                 hintFile.addChild(function)
                 context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
             }
-            KoinPluginLogger.debug { "  Generated DSL module hints: $fileName (${functions.size} definition(s))" }
+            val includeCount = moduleIncludes[groupKey].orEmpty().size
+            KoinPluginLogger.debug {
+                "  Generated DSL module hints: $fileName (${groupDefs.size} definition(s)" +
+                    if (includeCount > 0) ", $includeCount includes edge(s))" else ")"
+            }
         }
     }
 
@@ -298,6 +315,72 @@ class DslHintGenerator(
             return function
     }
 
+    /**
+     * Build the includes-edge hint for one module val — the DSL topology carrier.
+     *
+     * `module { includes(a, b) }` records its membership in a LAMBDA BODY, which never reaches the
+     * ABI, so a consumer compiling against this module cannot see the edge. This hint re-exposes it
+     * as a declaration: `dslincludes_<flattened-owner-id>(module_<a>: Unit, module_<b>: Unit)`.
+     *
+     * The owner id lives in the function NAME rather than a parameter, which is what keeps signatures
+     * unique — every parameter here is `Unit`-typed, so two module vals with the same number of
+     * includes would otherwise produce an identical descriptor and clash on JVM and, more sharply, on
+     * KLIB (native/wasm) where duplicate signatures are a hard serialization error.
+     *
+     * Returns null when the module includes nothing, so no empty hint is emitted.
+     */
+    private fun buildDslIncludesHintFunction(
+        ownerModuleId: String,
+        includedModuleIds: List<String>
+    ): IrSimpleFunction? {
+        val included = includedModuleIds.distinct()
+        if (included.isEmpty()) return null
+
+        val function = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId)),
+            visibility = DescriptorVisibilities.PUBLIC,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
+
+        // One Unit-typed parameter per included module, using the same `module_<id with . → $>`
+        // encoding the definition hints already use for modulePropertyId, so decoding is symmetric.
+        function.parameters = included.map { includedId ->
+            context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier("${KoinPluginConstants.DSL_MODULE_PARAM_PREFIX}${includedId.replace('.', '$')}"),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+        }
+
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+        // @Deprecated(HIDDEN) — same reason as the definition hints: keeps these out of ObjC export.
+        function.addDeprecatedHiddenAnnotation(context)
+        return function
+    }
+
     /** Deterministic, stable file name for a module's batched DSL hints: keyed by the module
      *  group (its `module { }` val, or source-file fallback) — NOT by any single definition — so it
      *  is regenerated wholesale each compile and a removed definition leaves no orphan class. */
@@ -376,6 +459,38 @@ class DslHintGenerator(
 
         types
     }
+
+    /**
+     * Read the `includes()` edges a module val declares, from its cross-module includes hint.
+     *
+     * This is the decode half of the DSL topology carrier. The caller already knows [ownerModuleId]
+     * (it came from `modules(...)` at the entry point, or from a previously-decoded edge), so the
+     * hint name is reconstructed rather than enumerated.
+     *
+     * Returns empty when there is no hint — a dependency built by an older plugin, or a module that
+     * includes nothing. That degrades exactly to the pre-carrier behavior (fewer modules considered
+     * reachable), so a missing hint can only ever cost reachability, never invent it.
+     */
+    fun discoverModuleIncludesFromHints(ownerModuleId: String): List<String> =
+        cachedModuleIncludes.getOrPut(ownerModuleId) {
+            val hintName = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId))
+            val callableId = CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
+            val prefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
+            val edges = context.referenceFunctions(callableId)
+                .flatMap { it.owner.regularParameters }
+                .map { it.name.asString() }
+                .filter { it.startsWith(prefix) }
+                .map { it.removePrefix(prefix).replace('$', '.') }
+                .distinct()
+            if (edges.isNotEmpty()) {
+                KoinPluginLogger.debug { "  includes (cross-module hint): $ownerModuleId -> $edges" }
+            }
+            edges
+        }
+
+    /** Memoized per owner id — `referenceFunctions` is invariant within a compile and the
+     *  reachability walk can revisit the same module through several paths. */
+    private val cachedModuleIncludes = mutableMapOf<String, List<String>>()
 
     /**
      * Discover DSL definitions from dependency hints as Definition objects.

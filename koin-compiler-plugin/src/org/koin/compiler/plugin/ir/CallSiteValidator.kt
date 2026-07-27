@@ -444,7 +444,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         if (allDefinitions.isEmpty()) return
 
-        val reachableModuleIds = computeReachableModules(startKoinModules, moduleIncludes)
+        val reachableModuleIds = computeReachableModules(startKoinModules, moduleIncludes, dslHintGenerator)
         val allDslDefs = dslDefinitions + dependencyDslDefs.filterIsInstance<Definition.DslDef>()
         val (reachableDefs, unreachableDefs) = partitionByReachability(allDslDefs, reachableModuleIds)
 
@@ -484,9 +484,25 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
     }
 
+    /**
+     * Breadth-first walk of the loaded-module closure, from the entry point's `modules(...)` down
+     * through every `includes()` edge.
+     *
+     * Two edge sources, because a DSL module's membership lives in a lambda body and so only half of
+     * it is locally visible:
+     *  - [moduleIncludes] — edges walked from THIS compilation's IR (same-compile modules);
+     *  - the includes-edge hint — edges a DEPENDENCY module declared, which have no other way to
+     *    cross the module boundary.
+     *
+     * Both are consulted at every hop, so a chain that alternates between local and dependency
+     * modules still resolves, as does a relay module that includes others but defines nothing.
+     * When a dependency predates the carrier its hint is simply absent and the walk falls back to
+     * local edges only — the pre-carrier behavior.
+     */
     private fun computeReachableModules(
         startKoinModules: List<String>,
-        moduleIncludes: Map<String, List<String>>
+        moduleIncludes: Map<String, List<String>>,
+        dslHintGenerator: DslHintGenerator?
     ): Set<String> {
         if (startKoinModules.isEmpty()) return emptySet()
         val reachable = mutableSetOf<String>()
@@ -494,7 +510,9 @@ class CallSiteValidator(private val context: IrPluginContext) {
         while (queue.isNotEmpty()) {
             val moduleId = queue.removeFirst()
             if (reachable.add(moduleId)) {
-                moduleIncludes[moduleId]?.forEach { included ->
+                val localEdges = moduleIncludes[moduleId].orEmpty()
+                val crossModuleEdges = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId).orEmpty()
+                for (included in localEdges + crossModuleEdges) {
                     if (included !in reachable) queue.add(included)
                 }
             }

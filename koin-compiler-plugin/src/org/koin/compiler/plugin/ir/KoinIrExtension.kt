@@ -81,9 +81,15 @@ class KoinIrExtension(
         // Phase 2.5: Generate DSL definition hints for cross-module discovery
         // Each DSL definition (single<T>, factory<T>, etc.) generates a hint function
         // so downstream modules can discover these definitions via referenceFunctions()
-        if (dslDefinitions.isNotEmpty() && KoinPluginLogger.compileSafetyEnabled) {
-            KoinPluginLogger.debug { "Phase 2.5: Generating ${dslDefinitions.size} DSL definition hints" }
-            dslHintGenerator.generateDslDefinitionHints(moduleFragment, dslDefinitions)
+        // A module that only relays (`module { includes(…) }`, no definitions of its own) still has
+        // topology to export, so the includes map alone is enough to warrant emitting hints.
+        if ((dslDefinitions.isNotEmpty() || koinTransformer.moduleIncludes.isNotEmpty())
+            && KoinPluginLogger.compileSafetyEnabled) {
+            KoinPluginLogger.debug {
+                "Phase 2.5: Generating ${dslDefinitions.size} DSL definition hints" +
+                    " + ${koinTransformer.moduleIncludes.size} includes-edge hint(s)"
+            }
+            dslHintGenerator.generateDslDefinitionHints(moduleFragment, dslDefinitions, koinTransformer.moduleIncludes)
         }
 
         // Phase 2.6: Generate `@InjectedParam` shape hints for cross-module call-site validation.
