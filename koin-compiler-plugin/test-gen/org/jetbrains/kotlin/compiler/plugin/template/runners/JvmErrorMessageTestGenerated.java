@@ -72,6 +72,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("call_site_unreachable_module_d002.kt")
+    public void testCall_site_unreachable_module_d002() {
+      runTest("koin-compiler-plugin/testData/diagnostics/call_site_unreachable_module_d002.kt");
+    }
+
+    @Test
     @TestMetadata("circular_dependency_broken_by_lazy.kt")
     public void testCircular_dependency_broken_by_lazy() {
       runTest("koin-compiler-plugin/testData/diagnostics/circular_dependency_broken_by_lazy.kt");

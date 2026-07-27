@@ -32,6 +32,24 @@ import kotlin.io.path.absolutePathString
 class CallSiteValidator(private val context: IrPluginContext) {
 
     /**
+     * Types that ONLY an unreachable DSL module provides, published by the DSL-graph pass
+     * (Phase 3.1) for the call-site pass (Phase 3.5) that runs after it.
+     *
+     * Constructor-dependency validation resolves against the reachable provider set, but call-site
+     * validation used to build its universe from every definition DECLARED in the compilation. So a
+     * `get<T>()` / `inject<T>()` resolved against a module nobody loads, and the two passes
+     * contradicted each other in one compile: KOIN-W001 reporting the module unreachable, and the
+     * call site reporting OK. Build green, crash at runtime.
+     *
+     * Only types with NO reachable provider land here, so subtracting them can never hide a type
+     * something else supplies. The set stays empty whenever reachability is unknown — a leaf module
+     * with no entry point, or a compile where the DSL-graph pass does not run — which keeps those
+     * compiles exactly as permissive as before. That matters: over-eager call-site errors in leaves
+     * are the false-positive class this whole reshape set out to remove.
+     */
+    private var unreachableOnlyTypes: Set<String> = emptySet()
+
+    /**
      * A4: Validate pending call-site resolutions against the assembled graph.
      * Simple loop -- no tree walk needed.
      *
@@ -74,6 +92,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
                     for (b in def.bindings) { b.fqNameWhenAvailable?.asString()?.let { add(it) } }
                 }
             }
+            // Declared is not the same as loaded. Drop the types only an UNREACHABLE module provides
+            // (see [unreachableOnlyTypes]) — otherwise a `get<T>()` resolves against a module that
+            // never reaches the entry point and the failure is deferred to runtime. Empty whenever
+            // reachability is unknown, so leaf compiles keep resolving exactly as before.
+            removeAll(unreachableOnlyTypes)
         }
 
         // Also check for definition annotations on the target class (heuristic when no graph)
@@ -468,6 +491,27 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         if (unreachableDefs.isNotEmpty()) {
             reportUnreachableModules(unreachableDefs, reachableModuleIds)
+        }
+
+        // Publish the unreachable-only types for the call-site pass (Phase 3.5), which runs next and
+        // would otherwise resolve `get<T>()` against a module nobody loads. Subtracting the reachable
+        // providers first means a type supplied from anywhere else is never withheld.
+        unreachableOnlyTypes = buildSet {
+            for (def in unreachableDefs) {
+                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
+                for (binding in def.bindings) {
+                    binding.fqNameWhenAvailable?.asString()?.let { add(it) }
+                }
+            }
+            for (def in providerDefinitions) {
+                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { remove(it) }
+                for (binding in def.bindings) {
+                    binding.fqNameWhenAvailable?.asString()?.let { remove(it) }
+                }
+            }
+        }
+        if (unreachableOnlyTypes.isNotEmpty()) {
+            KoinPluginLogger.debug { "  unreachable-only types (withheld from call sites): $unreachableOnlyTypes" }
         }
 
         for (def in providerDefinitions) {
