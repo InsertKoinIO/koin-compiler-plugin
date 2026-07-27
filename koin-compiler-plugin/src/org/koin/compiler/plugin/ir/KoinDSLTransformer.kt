@@ -618,9 +618,12 @@ class KoinDSLTransformer(
         // Update the last DslDef with the additional binding
         val lastDef = _dslDefinitions.last()
         if (boundClass.fqNameWhenAvailable?.asString() !in lastDef.bindings.mapNotNull { it.fqNameWhenAvailable?.asString() }) {
+            // retainA3Metadata is REQUIRED here: copy() re-runs the primary constructor, so the
+            // body-held requirements/origin would reset and this definition's constructor
+            // dependencies would go unvalidated (see Definition.retainA3Metadata).
             _dslDefinitions[_dslDefinitions.lastIndex] = lastDef.copy(
                 bindings = lastDef.bindings + boundClass
-            )
+            ).retainA3Metadata(lastDef)
             KoinPluginLogger.debug { "  bind: ${lastDef.returnTypeClass.name} -> ${boundClass.name}" }
         }
     }

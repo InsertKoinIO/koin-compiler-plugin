@@ -744,7 +744,14 @@ class BindingRegistry {
     // The verifier consumes the model: requirements are attached at collection time (the metadata
     // contract, A3 §2) — a single source of truth, no re-derivation and no classifier drift.
     // ExternalFunctionDef carries an empty list (provider-only; the Gate-2 carrier fills it).
-    // Verified equivalent to on-demand re-derivation by a whole-suite differential (0 mismatches).
+    //
+    // A whole-suite differential against on-demand re-derivation reported 0 mismatches, but that
+    // was a BLIND SPOT, not a proof: the suite had no `bind` + missing-dependency case to differ on.
+    // `single<X>() bind Y::class` rebuilds its definition via copy(), which resets the body-held
+    // requirements, and this bare field read has no fallback — so BOTH consumers below went silent
+    // (KOIN-D001 at :376 and KOIN-D004 cycle detection at :550). Fixed by Definition.retainA3Metadata;
+    // covered by testData/diagnostics/dsl_bind_missing_dependency_d001.kt and its variants. Treat an
+    // unpopulated `requirements` as a bug at the collection site, never as "no requirements".
     private fun extractRequirements(def: Definition): List<Requirement> = def.requirements
 
     private fun definitionDisplayName(def: Definition): String {

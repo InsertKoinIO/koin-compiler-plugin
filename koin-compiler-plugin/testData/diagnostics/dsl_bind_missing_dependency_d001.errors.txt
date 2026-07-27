@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: testpkg.ApiService
+  required by: dsl:testpkg.UserRepositoryImpl (parameter 'api')
+  in module: testpkg.appModule

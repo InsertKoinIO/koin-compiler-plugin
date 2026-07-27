@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: testpkg.MissingDep
+  required by: dsl:testpkg.FactoryImpl (parameter 'dep')
+  in module: testpkg.appModule

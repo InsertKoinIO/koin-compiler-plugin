@@ -123,6 +123,24 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_bind_chained_and_scoped_d001.kt")
+  public void testDsl_bind_chained_and_scoped_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_bind_chained_and_scoped_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_bind_missing_dependency_d001.kt")
+  public void testDsl_bind_missing_dependency_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_bind_missing_dependency_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_bind_valid_graph_ok.kt")
+  public void testDsl_bind_valid_graph_ok() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_bind_valid_graph_ok.kt");
+  }
+
+  @Test
   @TestMetadata("dsl_module_not_loaded.kt")
   public void testDsl_module_not_loaded() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_not_loaded.kt");

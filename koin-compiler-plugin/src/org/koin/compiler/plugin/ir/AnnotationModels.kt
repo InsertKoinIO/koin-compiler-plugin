@@ -92,12 +92,16 @@ sealed class Definition {
     // equals/hashCode/copy, so keeping these in the (base) class body leaves all existing dedup
     // (`.distinctBy`, `definitionDedupeKey`, set membership, `putIfAbsent`) UNCHANGED. Do not
     // promote them into any subclass primary constructor.
+    //
+    // Corollary: `copy()` re-runs the primary constructor, so it DROPS both. Any copy() of a
+    // Definition must be followed by [retainA3Metadata].
 
     /** Constructor/function parameter requirements of this definition (empty until populated). */
     var requirements: List<Requirement> = emptyList()
 
     /** Where this definition was declared (module/file/line), or null when unrecoverable. */
     var origin: SourceOrigin? = null
+
 
     data class ClassDef(
         val irClass: IrClass,
@@ -238,6 +242,28 @@ internal inline fun <T : Definition> T.attachA3Metadata(
     this.origin = SourceOrigin.of(declaration)
     this.requirements = requirements()
     return this
+}
+
+/**
+ * Carry the A3 body properties across a `copy()` of the SAME definition.
+ *
+ * [Definition.requirements] and [Definition.origin] live in the class body (see the note on
+ * [Definition]) so that data-class `equals`/`hashCode`/dedup stay unchanged. Body properties are
+ * exactly what `copy()` drops, though — it re-runs the PRIMARY constructor, so both silently reset
+ * to their defaults.
+ *
+ * That was not theoretical. `single<X>() bind Y::class` rebuilt its definition through `copy()` to
+ * append the binding, and the rebuilt definition carried zero requirements. Both consumers of
+ * [BindingRegistry] `extractRequirements` then saw nothing: KOIN-D001 missing-dependency validation
+ * AND KOIN-D004 cycle detection. A missing constructor dependency, or a cycle, compiled green — a
+ * regression against 1.0.2, which re-derived requirements from the constructor at validation time.
+ *
+ * [source] is typed `T` rather than `Definition` so a `ClassDef`'s metadata cannot be grafted onto a
+ * `DslDef`. Regression test: `testData/diagnostics/dsl_bind_missing_dependency_d001.kt`.
+ */
+internal fun <T : Definition> T.retainA3Metadata(source: T): T = apply {
+    requirements = source.requirements
+    origin = source.origin
 }
 
 /**
