@@ -138,7 +138,8 @@ class KoinIrExtension(
             KoinPluginLogger.debug { "Phase 3.1: DSL-only A3 validation (${dslDefinitions.size} local DSL definitions)" }
             callSiteValidator.validateDslDefinitionGraph(
                 dslDefinitions, annotationProcessor, safetyValidator, dslHintGenerator,
-                koinTransformer.startKoinModules, koinTransformer.moduleIncludes
+                koinTransformer.startKoinModules, koinTransformer.moduleIncludes,
+                topologyComplete = !koinTransformer.moduleTopologyIncomplete
             )
         }
 

@@ -453,7 +453,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
         safetyValidator: CompileSafetyValidator,
         dslHintGenerator: DslHintGenerator,
         startKoinModules: List<String> = emptyList(),
-        moduleIncludes: Map<String, List<String>> = emptyMap()
+        moduleIncludes: Map<String, List<String>> = emptyMap(),
+        topologyComplete: Boolean = true
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -467,7 +468,20 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         if (allDefinitions.isEmpty()) return
 
-        val reachableModuleIds = computeReachableModules(startKoinModules, moduleIncludes, dslHintGenerator)
+        // Fail OPEN when the loaded set isn't fully known. An empty reachable set makes
+        // partitionByReachability treat every definition as reachable, so no KOIN-W001 is reported
+        // and nothing is withheld from call sites — the pre-reachability behavior. Trusting a
+        // partially-resolved set instead is what turned `modules(listOf(a, b))` into a KOIN-D002 on
+        // a valid graph.
+        val reachableModuleIds = if (!topologyComplete) {
+            KoinPluginLogger.debug {
+                "  reachability: DISABLED — a modules()/includes() argument could not be resolved " +
+                    "to a Module val, so the loaded set is unknown (failing open)"
+            }
+            emptySet()
+        } else {
+            computeReachableModules(startKoinModules, moduleIncludes, dslHintGenerator)
+        }
         val allDslDefs = dslDefinitions + dependencyDslDefs.filterIsInstance<Definition.DslDef>()
         val (reachableDefs, unreachableDefs) = partitionByReachability(allDslDefs, reachableModuleIds)
 

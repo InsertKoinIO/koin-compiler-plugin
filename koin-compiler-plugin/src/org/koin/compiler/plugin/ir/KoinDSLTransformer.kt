@@ -73,6 +73,21 @@ class KoinDSLTransformer(
     private val _startKoinModules = mutableListOf<String>()
     val startKoinModules: List<String> get() = _startKoinModules
 
+    /**
+     * Set when any `modules(...)` / `includes(...)` argument could not be resolved to a `Module` val
+     * — a list variable, a spread, a function call, a conditional.
+     *
+     * Reachability is only meaningful over a COMPLETE topology. With an unresolved argument the
+     * loaded set is unknown, so consumers must fail OPEN (verify nothing) instead of treating what
+     * they did resolve as the whole truth. See [resolveModuleReferences].
+     */
+    private var _moduleTopologyIncomplete = false
+    val moduleTopologyIncomplete: Boolean get() = _moduleTopologyIncomplete
+
+    private companion object {
+        const val KOIN_MODULE_FQNAME = "org.koin.core.module.Module"
+    }
+
     override fun visitFile(declaration: IrFile): IrFile {
         currentFile = declaration
         return super.visitFile(declaration)
@@ -656,38 +671,55 @@ class KoinDSLTransformer(
         }
     }
 
+    /**
+     * Resolve the module vals referenced by a `modules(...)` / `includes(...)` call.
+     *
+     * Any argument we cannot resolve to a `Module`-typed property marks the topology INCOMPLETE
+     * ([moduleTopologyIncomplete]). That distinction matters: an unresolved argument means we do not
+     * know the full loaded set, and treating a partial set as authoritative turns correct code into
+     * errors. `modules(listOf(appModule, coreModule))` used to record the LIST property as the loaded
+     * module, leaving the real modules "unreachable" — historically two harmless KOIN-W001s, but once
+     * call-site validation began withholding unreachable-only types it became a KOIN-D002 build
+     * failure on a valid graph. Regression test: `entry_modules_list_variable_ok.kt`.
+     */
     private fun resolveModuleReferences(call: IrCall): List<String> {
         val result = mutableListOf<String>()
         for (i in 0 until call.regularArgumentsCount) {
-            val arg = call.getRegularArgument(i) ?: continue
-            resolveModuleRef(arg, result)
+            val arg = call.getRegularArgument(i)
+            if (arg == null || !resolveModuleRef(arg, result)) {
+                _moduleTopologyIncomplete = true
+                KoinPluginLogger.debug {
+                    "  modules()/includes(): argument #$i is not a resolvable Module val — " +
+                        "topology incomplete, reachability checks disabled for this compilation"
+                }
+            }
         }
         return result
     }
 
-    private fun resolveModuleRef(expression: IrExpression, result: MutableList<String>) {
-        when (expression) {
-            is IrGetField -> {
-                val property = expression.symbol.owner.correspondingPropertySymbol?.owner
-                if (property != null) {
-                    val propId = buildModulePropertyId(property)
-                    if (propId != null) result.add(propId)
-                }
-            }
-            is IrCall -> {
-                val calledFunction = expression.symbol.owner
-                val property = calledFunction.correspondingPropertySymbol?.owner
-                if (property != null) {
-                    val propId = buildModulePropertyId(property)
-                    if (propId != null) result.add(propId)
-                }
-            }
-            is IrVararg -> {
-                for (element in expression.elements) {
-                    if (element is IrExpression) resolveModuleRef(element, result)
-                }
-            }
-            else -> {}
+    /** @return true when this expression resolved to a `Module`-typed property (or all of them, for a vararg). */
+    private fun resolveModuleRef(expression: IrExpression, result: MutableList<String>): Boolean {
+        // The type guard is the point: without it ANY argument was recorded as a module, including a
+        // `List<Module>` passed to Koin's `modules(modules: List<Module>)` overload.
+        fun record(property: IrProperty?, isModuleTyped: Boolean): Boolean {
+            if (!isModuleTyped || property == null) return false
+            val propId = buildModulePropertyId(property) ?: return false
+            result.add(propId)
+            return true
+        }
+        return when (expression) {
+            is IrGetField -> record(
+                expression.symbol.owner.correspondingPropertySymbol?.owner,
+                expression.symbol.owner.type.classFqName?.asString() == KOIN_MODULE_FQNAME
+            )
+            is IrCall -> record(
+                expression.symbol.owner.correspondingPropertySymbol?.owner,
+                expression.type.classFqName?.asString() == KOIN_MODULE_FQNAME
+            )
+            // A vararg counts as resolved only if EVERY element did; a partially-read spread is
+            // exactly the "we don't know the whole set" case.
+            is IrVararg -> expression.elements.all { it is IrExpression && resolveModuleRef(it, result) }
+            else -> false
         }
     }
 
