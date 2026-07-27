@@ -62,7 +62,8 @@ class DslHintGenerator(
     fun generateDslDefinitionHints(
         moduleFragment: IrModuleFragment,
         dslDefinitions: List<Definition.DslDef>,
-        moduleIncludes: Map<String, List<String>> = emptyMap()
+        moduleIncludes: Map<String, List<String>> = emptyMap(),
+        allModuleIds: Set<String> = emptySet()
     ) {
         val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
 
@@ -82,6 +83,7 @@ class DslHintGenerator(
         val groupKeys = LinkedHashSet<String>().apply {
             addAll(byModule.keys)
             addAll(moduleIncludes.keys)
+            addAll(allModuleIds)
         }
 
         for (groupKey in groupKeys) {
@@ -89,7 +91,20 @@ class DslHintGenerator(
             val functions = groupDefs.mapNotNull { buildDslHintFunction(it) }.toMutableList()
             // Topology carrier: this module's own `includes()` edges, in the same per-module file so
             // they are regenerated wholesale and can never orphan (same reason as the defs above).
-            buildDslIncludesHintFunction(groupKey, moduleIncludes[groupKey].orEmpty())?.let { functions.add(it) }
+            val edges = moduleIncludes[groupKey].orEmpty()
+            buildDslIncludesHintFunction(groupKey, edges)?.let { functions.add(it) }
+
+            // Keep-alive marker. A module that currently contributes NOTHING — last definition or
+            // last `includes()` deleted — would otherwise produce no file, leaving the previous
+            // compile's class on disk for IC to find: the module still looks populated and the
+            // removal goes undetected (verified on app-dsl — incremental AND `:module:clean` both
+            // false-greened; only a full clean caught it). Emitting a zero-parameter includes hint
+            // keeps the file written and regenerated wholesale, so the stale class is overwritten.
+            // Decoding reads zero `module_` params → no edges, which is the truth.
+            if (functions.isEmpty() && groupKey in allModuleIds) {
+                buildDslIncludesHintFunction(groupKey, emptyList(), emitWhenEmpty = true)
+                    ?.let { functions.add(it) }
+            }
             if (functions.isEmpty()) continue
 
             // FIR module data + source anchor from the group (all defs share the module val's file).
@@ -327,14 +342,17 @@ class DslHintGenerator(
      * includes would otherwise produce an identical descriptor and clash on JVM and, more sharply, on
      * KLIB (native/wasm) where duplicate signatures are a hard serialization error.
      *
-     * Returns null when the module includes nothing, so no empty hint is emitted.
+     * Returns null when the module includes nothing, so no empty hint is emitted — unless
+     * [emitWhenEmpty] is set, which produces the zero-parameter keep-alive form used to stop a
+     * now-empty module's hint file from orphaning (see the call site).
      */
     private fun buildDslIncludesHintFunction(
         ownerModuleId: String,
-        includedModuleIds: List<String>
+        includedModuleIds: List<String>,
+        emitWhenEmpty: Boolean = false
     ): IrSimpleFunction? {
         val included = includedModuleIds.distinct()
-        if (included.isEmpty()) return null
+        if (included.isEmpty() && !emitWhenEmpty) return null
 
         val function = context.irFactory.createSimpleFunction(
             startOffset = UNDEFINED_OFFSET,

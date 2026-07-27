@@ -62,7 +62,7 @@ sealed class KoinDiagnostic(
             append("<")
             append(type.substringAfterLast('.'))
             append(">()")
-            append("\n  No matching definition found in any declared module.")
+            append("\n  No matching definition found in any loaded module.")
             append("\n  Check your declaration with Annotation or DSL.")
         },
     )
@@ -94,7 +94,7 @@ sealed class KoinDiagnostic(
                 append(")")
             }
             append(" — deferred validation.")
-            append("\n  No matching definition found in any declared module.")
+            append("\n  No matching definition found in any loaded module.")
             append("\n  Check your declaration with Annotation or DSL.")
         },
     )

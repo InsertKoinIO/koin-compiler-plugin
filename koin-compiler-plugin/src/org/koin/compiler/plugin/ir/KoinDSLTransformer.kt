@@ -56,6 +56,20 @@ class KoinDSLTransformer(
     private val _moduleIncludes = mutableMapOf<String, MutableList<String>>()
     val moduleIncludes: Map<String, List<String>> get() = _moduleIncludes
 
+    /**
+     * Every `module { }` val seen in this compilation, whether or not it declares definitions or
+     * `includes()` edges.
+     *
+     * Needed so hint generation can emit a file for a module that currently contributes NOTHING.
+     * Without it, a module whose last definition or last include is deleted drops out of the hint
+     * groups entirely, no file is written, and the previous compile's class survives — the module
+     * keeps looking populated on an incremental build. That is the orphan-hint failure this project
+     * already hit once with per-definition DSL hints (fixed in 80584c8 by regenerating each module's
+     * file wholesale); regeneration only helps if the file is still written at all.
+     */
+    private val _allModuleIds = linkedSetOf<String>()
+    val allModuleIds: Set<String> get() = _allModuleIds
+
     private val _startKoinModules = mutableListOf<String>()
     val startKoinModules: List<String> get() = _startKoinModules
 
@@ -149,6 +163,7 @@ class KoinDSLTransformer(
             val propertyId = buildModulePropertyId(declaration)
             if (propertyId != null) {
                 KoinPluginLogger.debug { "Module property: $propertyId" }
+                _allModuleIds.add(propertyId)
                 return withContext(transformContext.copy(modulePropertyId = propertyId)) {
                     super.visitProperty(declaration)
                 }
