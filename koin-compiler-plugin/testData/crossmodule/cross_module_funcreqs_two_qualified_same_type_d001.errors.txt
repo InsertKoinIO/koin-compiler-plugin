@@ -1,0 +1,12 @@
+[Koin][KOIN-D001] Missing dependency: lib.AuthInterceptor
+  required by: lib.HttpClient (parameter 'interceptor')
+  in module: MyApp (startKoin)
+[Koin][KOIN-D001] Missing dependency: lib.AuthInterceptor
+  required by: lib.authClient (parameter 'interceptor')
+  in module: LibModule
+[Koin][KOIN-D001] Missing dependency: lib.PlainConfig
+  required by: lib.HttpClient (parameter 'config')
+  in module: MyApp (startKoin)
+[Koin][KOIN-D001] Missing dependency: lib.PlainConfig
+  required by: lib.plainClient (parameter 'config')
+  in module: LibModule

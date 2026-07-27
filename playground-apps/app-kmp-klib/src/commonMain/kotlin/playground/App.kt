@@ -4,6 +4,7 @@ import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.InjectedParam
 import org.koin.core.annotation.Module
+import org.koin.core.annotation.Named
 import org.koin.core.annotation.Single
 
 // Same @InjectedParam target collected by two @ComponentScan modules — the case
@@ -28,6 +29,30 @@ fun provideDep(): Dep = Dep()
 
 @Single
 fun provideConsumer(dep: Dep): Consumer = Consumer(dep)
+
+// Two QUALIFIED providers of the same return type — ordinary Koin, and the shape that forced the
+// funcreqs carrier to key on (return type, qualifier) instead of return type alone. Both are also
+// seen by FirstModule and SecondModule's @ComponentScan, so this simultaneously exercises the
+// compilation-wide dedup. Two carriers now exist for one return type, distinguished only by the
+// `__q_` suffix in the function name: if that suffix were ever dropped, the two would share a
+// signature and the KLIB serializer fails the build here (JVM would silently overwrite instead).
+class AuthDep
+class PlainDep
+class ApiClient(val tag: String)
+
+@Single
+fun provideAuthDep(): AuthDep = AuthDep()
+
+@Single
+fun providePlainDep(): PlainDep = PlainDep()
+
+@Single
+@Named("auth")
+fun authApiClient(dep: AuthDep): ApiClient = ApiClient("auth")
+
+@Single
+@Named("plain")
+fun plainApiClient(dep: PlainDep): ApiClient = ApiClient("plain")
 
 class EagerService
 

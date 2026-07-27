@@ -162,6 +162,27 @@ object KoinPluginConstants {
     const val FUNCTION_REQS_HINT_PREFIX = "funcreqs_"
 
     /**
+     * Name of the requirements carrier for one function provider, keyed by return type AND qualifier.
+     *
+     * The qualifier belongs in the key because two qualified providers of the same type is ordinary
+     * Koin (`@Named("auth")` / `@Named("plain")` returning `HttpClient`). Keyed on the return type
+     * alone, the second provider's carrier was never emitted and BOTH consumers decoded the first
+     * one's requirements: one provider's dependencies went unvalidated (a silent false negative) and
+     * the other's were falsely attributed to it. This is also the key the consumer already dedupes
+     * ExternalFunctionDefs by, so the two now agree.
+     *
+     * Unqualified providers keep the bare `funcreqs_<flat-return-fqn>` name, so nothing that existed
+     * before this change moves. Qualified ones get a `__q_<sanitized>` suffix, matching the
+     * convention `componentscanfunc_…__q_…` already uses — which also keeps signatures distinct on
+     * KLIB, where duplicates are a hard error rather than a silent overwrite.
+     */
+    fun funcReqsHintFunctionName(returnFqn: String, qualifierDiscriminator: String?): String {
+        val flat = flattenFqNameForHint(returnFqn)
+        return if (qualifierDiscriminator == null) "$FUNCTION_REQS_HINT_PREFIX$flat"
+        else "$FUNCTION_REQS_HINT_PREFIX${flat}__q_$qualifierDiscriminator"
+    }
+
+    /**
      * Flatten an FqName (dots → underscores) into a Kotlin-identifier-safe segment usable as
      * the suffix of an [INJECTED_PARAMS_HINT_PREFIX] hint function name. `$` (nested-class
      * separator in some FqName renderings) also collapses to `_`.

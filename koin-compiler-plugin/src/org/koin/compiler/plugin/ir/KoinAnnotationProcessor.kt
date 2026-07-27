@@ -1084,11 +1084,16 @@ class KoinAnnotationProcessor(
                         // scan modules carries the same requirements, so emitting once is correct and
                         // avoids the native/wasm duplicate-signature clash.
                         val returnFqn = targetClass.fqNameWhenAvailable?.asString()
-                        if (returnFqn != null && emittedFuncReqsReturnFqns.add(returnFqn)) {
-                            val reqHint = createFuncReqsHintFunction(targetClass, definition.requirements)
+                        // Key on (return type, qualifier): two qualified providers of the SAME type
+                        // are ordinary Koin, and keying on the type alone dropped the second one's
+                        // carrier while making both decode the first one's requirements.
+                        val carrierQualifier = qualifierExtractor.extractFromDeclaration(definition.irFunction)
+                            ?.let { qualifierDiscriminator(it) }
+                        if (returnFqn != null && emittedFuncReqsReturnFqns.add("$returnFqn|${carrierQualifier ?: ""}")) {
+                            val reqHint = createFuncReqsHintFunction(targetClass, definition.requirements, carrierQualifier)
                             if (reqHint != null) {
                                 hintFunctions.add(reqHint)
-                                KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn (${reqHint.parameters.size} requirement(s))" }
+                                KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn${carrierQualifier?.let { " @$it" } ?: ""} (${reqHint.parameters.size} requirement(s))" }
                             }
                         }
 
@@ -1413,13 +1418,15 @@ class KoinAnnotationProcessor(
     private fun createFuncReqsHintFunction(
         returnTypeClass: IrClass,
         requirements: List<Requirement>,
+        qualifierDiscriminator: String? = null,
     ): IrSimpleFunction? {
         val returnFqn = returnTypeClass.fqNameWhenAvailable?.asString() ?: return null
         val toCarry = requirements.filter { it.requiresValidation() }
         if (toCarry.isEmpty()) return null
 
-        val flat = KoinPluginConstants.flattenFqNameForHint(returnFqn)
-        val hintName = Name.identifier("${KoinPluginConstants.FUNCTION_REQS_HINT_PREFIX}$flat")
+        val hintName = Name.identifier(
+            KoinPluginConstants.funcReqsHintFunctionName(returnFqn, qualifierDiscriminator)
+        )
         val function = context.irFactory.createSimpleFunction(
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
@@ -1505,9 +1512,12 @@ class KoinAnnotationProcessor(
     private fun emitOrphanFuncReqsHints(moduleFragment: IrModuleFragment) {
         for (fn in definitionTopLevelFunctions) {
             val returnFqn = fn.returnTypeClass.fqNameWhenAvailable?.asString() ?: continue
-            if (!emittedFuncReqsReturnFqns.add(returnFqn)) continue // already emitted (scan-path or dup)
+            val carrierQualifier = qualifierExtractor.extractFromDeclaration(fn.irFunction)
+                ?.let { qualifierDiscriminator(it) }
+            // Same (return type, qualifier) key as the scan path above.
+            if (!emittedFuncReqsReturnFqns.add("$returnFqn|${carrierQualifier ?: ""}")) continue
             val reqs = parameterAnalyzer.analyzeFunction(fn.irFunction)
-            val hint = createFuncReqsHintFunction(fn.returnTypeClass, reqs) ?: continue
+            val hint = createFuncReqsHintFunction(fn.returnTypeClass, reqs, carrierQualifier) ?: continue
 
             val firModuleData = extractFirModuleData(fn.returnTypeClass)
                 ?: moduleFragment.files.firstNotNullOfOrNull { f ->
@@ -1568,10 +1578,15 @@ class KoinAnnotationProcessor(
      * [Definition.ExternalFunctionDef] stays provider-only, i.e. today's behavior (never a wrong
      * partial). Keyed by return-type FqName, the same key the consumer resolves the provider by.
      */
-    private fun discoverFuncReqsForExternalDef(returnTypeClass: IrClass): List<Requirement> {
+    private fun discoverFuncReqsForExternalDef(
+        returnTypeClass: IrClass,
+        qualifier: QualifierValue? = null,
+    ): List<Requirement> {
         val returnFqn = returnTypeClass.fqNameWhenAvailable?.asString() ?: return emptyList()
-        val flat = KoinPluginConstants.flattenFqNameForHint(returnFqn)
-        val hintName = Name.identifier("${KoinPluginConstants.FUNCTION_REQS_HINT_PREFIX}$flat")
+        // Must mirror the producer's key exactly — see KoinPluginConstants.funcReqsHintFunctionName.
+        val hintName = Name.identifier(
+            KoinPluginConstants.funcReqsHintFunctionName(returnFqn, qualifier?.let { qualifierDiscriminator(it) })
+        )
         val hintFunc = context.referenceFunctions(
             CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
         ).firstOrNull()?.owner ?: return emptyList()
@@ -2157,7 +2172,7 @@ class KoinAnnotationProcessor(
                     // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint so the
                     // entry-point verifier can check this provider's transitive deps (empty when the
                     // provider carried nothing — today's provider-only behavior).
-                    it.requirements = discoverFuncReqsForExternalDef(returnTypeClass)
+                    it.requirements = discoverFuncReqsForExternalDef(returnTypeClass, qualifier)
                     it.origin = SourceOrigin.of(returnTypeClass)
                 })
             }
@@ -2564,7 +2579,7 @@ class KoinAnnotationProcessor(
         ).also {
             // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint (empty when
             // the provider carried nothing — today's provider-only behavior).
-            it.requirements = discoverFuncReqsForExternalDef(returnTypeClass)
+            it.requirements = discoverFuncReqsForExternalDef(returnTypeClass, qualifier)
             it.origin = SourceOrigin.of(returnTypeClass)
         }
         val key = definitionDedupeKey(candidate)
