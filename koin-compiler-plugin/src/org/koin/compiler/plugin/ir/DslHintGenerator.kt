@@ -63,7 +63,8 @@ class DslHintGenerator(
         moduleFragment: IrModuleFragment,
         dslDefinitions: List<Definition.DslDef>,
         moduleIncludes: Map<String, List<String>> = emptyMap(),
-        allModuleIds: Set<String> = emptySet()
+        allModuleIds: Set<String> = emptySet(),
+        modulesWithIncompleteIncludes: Set<String> = emptySet()
     ) {
         val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
 
@@ -92,7 +93,9 @@ class DslHintGenerator(
             // Topology carrier: this module's own `includes()` edges, in the same per-module file so
             // they are regenerated wholesale and can never orphan (same reason as the defs above).
             val edges = moduleIncludes[groupKey].orEmpty()
-            buildDslIncludesHintFunction(groupKey, edges)?.let { functions.add(it) }
+            val edgesIncomplete = groupKey in modulesWithIncompleteIncludes
+            buildDslIncludesHintFunction(groupKey, edges, incomplete = edgesIncomplete)
+                ?.let { functions.add(it) }
 
             // Keep-alive marker. A module that currently contributes NOTHING — last definition or
             // last `includes()` deleted — would otherwise produce no file, leaving the previous
@@ -349,10 +352,12 @@ class DslHintGenerator(
     private fun buildDslIncludesHintFunction(
         ownerModuleId: String,
         includedModuleIds: List<String>,
-        emitWhenEmpty: Boolean = false
+        emitWhenEmpty: Boolean = false,
+        incomplete: Boolean = false
     ): IrSimpleFunction? {
         val included = includedModuleIds.distinct()
-        if (included.isEmpty() && !emitWhenEmpty) return null
+        // An incomplete module MUST emit even with nothing readable — the marker is the payload.
+        if (included.isEmpty() && !emitWhenEmpty && !incomplete) return null
 
         val function = context.irFactory.createSimpleFunction(
             startOffset = UNDEFINED_OFFSET,
@@ -376,7 +381,28 @@ class DslHintGenerator(
 
         // One Unit-typed parameter per included module, using the same `module_<id with . → $>`
         // encoding the definition hints already use for modulePropertyId, so decoding is symmetric.
-        function.parameters = included.map { includedId ->
+        // Marker: this module's includes() had an argument the producer could not read, so the edge
+        // list below is PARTIAL. Without it the consumer treats a partial list as authoritative and
+        // reports everything beyond it unreachable — a false KOIN-D001/D002/W001 on a graph that is
+        // correct at runtime. Incompleteness has to cross the module boundary with the edges.
+        val markerParams = if (incomplete) listOf(
+            context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier(KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+        ) else emptyList()
+
+        function.parameters = markerParams + included.map { includedId ->
             context.irFactory.createValueParameter(
                 startOffset = UNDEFINED_OFFSET,
                 endOffset = UNDEFINED_OFFSET,
@@ -489,26 +515,32 @@ class DslHintGenerator(
      * includes nothing. That degrades exactly to the pre-carrier behavior (fewer modules considered
      * reachable), so a missing hint can only ever cost reachability, never invent it.
      */
-    fun discoverModuleIncludesFromHints(ownerModuleId: String): List<String> =
+    /** Edges a dependency declared, plus whether that list is known to be PARTIAL. */
+    data class ModuleIncludes(val edges: List<String>, val incomplete: Boolean)
+
+    fun discoverModuleIncludesFromHints(ownerModuleId: String): ModuleIncludes =
         cachedModuleIncludes.getOrPut(ownerModuleId) {
             val hintName = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId))
             val callableId = CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
             val prefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
-            val edges = context.referenceFunctions(callableId)
-                .flatMap { it.owner.regularParameters }
+            val params = context.referenceFunctions(callableId).flatMap { it.owner.regularParameters }
                 .map { it.name.asString() }
-                .filter { it.startsWith(prefix) }
+            val edges = params.filter { it.startsWith(prefix) }
                 .map { it.removePrefix(prefix).replace('$', '.') }
                 .distinct()
-            if (edges.isNotEmpty()) {
-                KoinPluginLogger.debug { "  includes (cross-module hint): $ownerModuleId -> $edges" }
+            val incomplete = params.any { it == KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER }
+            if (edges.isNotEmpty() || incomplete) {
+                KoinPluginLogger.debug {
+                    "  includes (cross-module hint): $ownerModuleId -> $edges" +
+                        if (incomplete) " (PARTIAL — producer could not read all arguments)" else ""
+                }
             }
-            edges
+            ModuleIncludes(edges, incomplete)
         }
 
     /** Memoized per owner id — `referenceFunctions` is invariant within a compile and the
      *  reachability walk can revisit the same module through several paths. */
-    private val cachedModuleIncludes = mutableMapOf<String, List<String>>()
+    private val cachedModuleIncludes = mutableMapOf<String, ModuleIncludes>()
 
     /**
      * Discover DSL definitions from dependency hints as Definition objects.

@@ -328,6 +328,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_incomplete_includes_w003.kt")
+    public void testCross_module_incomplete_includes_w003() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_incomplete_includes_w003.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_orphan_funcprovider_missing_d001.kt")
     public void testCross_module_orphan_funcprovider_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_orphan_funcprovider_missing_d001.kt");

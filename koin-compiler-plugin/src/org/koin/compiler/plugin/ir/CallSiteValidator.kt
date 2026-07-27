@@ -586,8 +586,12 @@ class CallSiteValidator(private val context: IrPluginContext) {
             if (moduleId in modulesWithIncompleteIncludes) return null
             if (reachable.add(moduleId)) {
                 val localEdges = moduleIncludes[moduleId].orEmpty()
-                val crossModuleEdges = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId).orEmpty()
-                for (included in localEdges + crossModuleEdges) {
+                val crossModule = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId)
+                // A dependency that could not read all of its own includes() carries a marker saying
+                // so. Its edge list is partial, so anything below it is unknown — same conclusion as
+                // for a local module with unreadable includes.
+                if (crossModule?.incomplete == true) return null
+                for (included in localEdges + crossModule?.edges.orEmpty()) {
                     if (included !in reachable) queue.add(included)
                 }
             }

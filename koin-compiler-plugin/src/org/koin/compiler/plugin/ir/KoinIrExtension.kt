@@ -95,7 +95,8 @@ class KoinIrExtension(
                     " + ${koinTransformer.moduleIncludes.size} includes-edge hint(s)"
             }
             dslHintGenerator.generateDslDefinitionHints(
-                moduleFragment, dslDefinitions, koinTransformer.moduleIncludes, koinTransformer.allModuleIds
+                moduleFragment, dslDefinitions, koinTransformer.moduleIncludes, koinTransformer.allModuleIds,
+                koinTransformer.modulesWithIncompleteIncludes
             )
         }
 

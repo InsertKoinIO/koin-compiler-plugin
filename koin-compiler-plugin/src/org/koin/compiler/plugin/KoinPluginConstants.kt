@@ -218,6 +218,16 @@ object KoinPluginConstants {
      */
     const val DSL_INCLUDES_HINT_PREFIX = "dslincludes_"
 
+    /**
+     * Marker parameter on a [DSL_INCLUDES_HINT_PREFIX] hint: this module's `includes(...)` had an
+     * argument the producer could not resolve, so the edges it carries are PARTIAL.
+     *
+     * Incompleteness must travel with the edges. Without it a consumer reads a partial list as the
+     * whole truth and reports everything beyond it unreachable — a false KOIN-D001/D002/W001 on a
+     * graph that resolves fine at runtime, one module away from where the ambiguity actually is.
+     */
+    const val DSL_INCLUDES_INCOMPLETE_MARKER = "incomplete_topology"
+
     /** Hint function name carrying the `includes()` edges declared by [ownerModuleId]'s `module { }`. */
     fun dslIncludesHintFunctionName(ownerModuleId: String): String =
         "$DSL_INCLUDES_HINT_PREFIX${flattenFqNameForHint(ownerModuleId)}"
