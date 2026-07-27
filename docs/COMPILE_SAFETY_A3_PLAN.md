@@ -140,6 +140,20 @@ run the no-clean DSL leg (orphan-hint bug it documents) — the rest must be bui
 
 **Decision:** IC-trackers + mandatory strictSafety, NOT a bespoke content-hash dirty tracker.
 
+**Status (Beta8/Beta9) — measured, not assumed.** The includes-edge carrier (§5) inherits the
+per-module batched-file shape, so the common edit propagates: removing one `includes()` edge among
+several in a dependency module is caught on a no-clean, cache-on rebuild (verified on app-dsl, 3
+correct KOIN-D001). **Residual hole:** a module that goes COMPLETELY empty — last `includes()` gone
+AND no definitions of its own — is not detected incrementally, and `:module:clean` does not help;
+only a full clean with `--no-build-cache`. The plugin emits a zero-parameter keep-alive hint so the
+*artifact* is correct (javap-verified on the packaged jar); what remains is K2 re-resolving a changed
+hint signature within one IC session — the consumer keeps the old signature even though the jar it
+compiles against no longer holds it, both tasks re-execute, and clearing the consumer's IC caches
+does not help. Not specific to `includes()`: the same shape applies to a module losing its last
+*definition*, which predates this carrier. This is the §6 "clean-build green ≠ done" warning landing
+exactly where it predicted, and it is the strongest current argument for the `@Metadata`-on-owned-
+declaration route (§5), whose stated payoff is precisely IC freshness.
+
 ## 7. Diagnostics the single verifier MUST preserve (guard — silent loss is the worst failure class)
 
 | Diagnostic | Today at | Preservation requirement |

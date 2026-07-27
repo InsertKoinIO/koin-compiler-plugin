@@ -104,6 +104,40 @@ cd app-annotations
 > always used) — a removed def leaves no orphan class. Verified incremental (no clean), `:module:clean`,
 > and full-clean all detect. A full clean / `--rerun-tasks` remains a safe belt-and-suspenders check.
 
+### Also worth commenting out (as of 1.1.0-Beta8/Beta9)
+
+Removing a *definition* is not the only way to break a graph. Two more edits belong in the sweep:
+
+```bash
+# 1. Remove a transitive `includes()` edge in a dependency module.
+#    app-dsl: drop `databaseModule` from core/data/…/DataModule.kt's includes(...)
+./gradlew :app:compileDebugKotlin        # MUST fail with KOIN-D001 (incremental is fine)
+
+# 2. Remove a module from the root's includes(), where a call site still resolves it.
+#    app-dsl: comment `activityModule` out of app/…/AppModule.kt
+./gradlew :app:compileDebugKotlin        # MUST fail with KOIN-D002 at the inject() call site
+```
+
+Edit 2 is the one that used to compile and crash at runtime — `by inject<ActivityTracker>()` resolved
+against a module nobody loaded. Note that Gradle suppresses `w:` lines on a failing task, so the
+`KOIN-W001` that fires alongside the D002 will not appear in the console.
+
+> **Known limitation — a module that goes COMPLETELY empty.** If a `module { }` val loses its last
+> `includes()` *and* has no definitions of its own, an incremental rebuild does **not** detect it:
+> the build passes and the missing providers surface at runtime. `:<module>:clean` does not help
+> either; only a full `clean` (with `--no-build-cache`) catches it.
+>
+> The plugin emits a zero-parameter keep-alive hint for exactly this case, so the *artifact* is
+> correct — `javap` on the module's `classes.jar` shows the edge gone. The residual is K2 re-resolving
+> a changed hint signature within one incremental session: the consumer keeps seeing the old
+> signature even though the jar it compiles against no longer contains it. Both tasks re-execute and
+> clearing the consumer's IC caches does not help, so this sits past what the plugin can reach.
+>
+> Scope is narrow: changing *one edge among several* propagates correctly (verified — 3 correct
+> `KOIN-D001` on a no-clean rebuild). It is also not specific to `includes()` — the same shape applies
+> to a module whose last *definition* is deleted, which predates the includes-edge carrier. If you are
+> deliberately emptying a module, run a full clean before trusting a green build.
+
 ## Key Patterns Covered
 
 - Application bootstrap (`startKoin<T>` / `startKoin { }`)
