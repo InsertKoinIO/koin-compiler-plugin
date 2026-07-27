@@ -454,7 +454,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
         dslHintGenerator: DslHintGenerator,
         startKoinModules: List<String> = emptyList(),
         moduleIncludes: Map<String, List<String>> = emptyMap(),
-        topologyComplete: Boolean = true
+        entryModulesIncomplete: Boolean = false,
+        modulesWithIncompleteIncludes: Set<String> = emptySet()
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -473,15 +474,23 @@ class CallSiteValidator(private val context: IrPluginContext) {
         // and nothing is withheld from call sites — the pre-reachability behavior. Trusting a
         // partially-resolved set instead is what turned `modules(listOf(a, b))` into a KOIN-D002 on
         // a valid graph.
-        val reachableModuleIds = if (!topologyComplete) {
-            KoinPluginLogger.debug {
-                "  reachability: DISABLED — a modules()/includes() argument could not be resolved " +
-                    "to a Module val, so the loaded set is unknown (failing open)"
-            }
-            emptySet()
-        } else {
-            computeReachableModules(startKoinModules, moduleIncludes, dslHintGenerator)
+        // null = the loaded set is not knowable, so fail OPEN (empty set ⇒ everything counts as
+        // reachable ⇒ no KOIN-W001, nothing withheld from call sites). Disclosed, never silent:
+        // a green build must not imply a guarantee that was never checked.
+        val resolvedReachable = computeReachableModules(
+            startKoinModules, moduleIncludes, dslHintGenerator,
+            entryModulesIncomplete, modulesWithIncompleteIncludes
+        )
+        if (resolvedReachable == null) {
+            KoinPluginLogger.report(
+                KoinDiagnostic.UnverifiableDynamicGraph(
+                    entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
+                        ?.let { "the entry point loading $it" } ?: "this entry point",
+                    origin = null,
+                )
+            )
         }
+        val reachableModuleIds = resolvedReachable ?: emptySet()
         val allDslDefs = dslDefinitions + dependencyDslDefs.filterIsInstance<Definition.DslDef>()
         val (reachableDefs, unreachableDefs) = partitionByReachability(allDslDefs, reachableModuleIds)
 
@@ -560,13 +569,21 @@ class CallSiteValidator(private val context: IrPluginContext) {
     private fun computeReachableModules(
         startKoinModules: List<String>,
         moduleIncludes: Map<String, List<String>>,
-        dslHintGenerator: DslHintGenerator?
-    ): Set<String> {
+        dslHintGenerator: DslHintGenerator?,
+        entryModulesIncomplete: Boolean = false,
+        modulesWithIncompleteIncludes: Set<String> = emptySet()
+    ): Set<String>? {
+        // An unresolvable argument at the entry point means the loaded set itself is unknown.
+        if (entryModulesIncomplete) return null
         if (startKoinModules.isEmpty()) return emptySet()
         val reachable = mutableSetOf<String>()
         val queue = ArrayDeque(startKoinModules)
         while (queue.isNotEmpty()) {
             val moduleId = queue.removeFirst()
+            // Reaching a module whose own includes() were only partly readable means everything
+            // below it is unknown. Scoped this way, an unresolvable includes() in a module the entry
+            // point never loads costs nothing.
+            if (moduleId in modulesWithIncompleteIncludes) return null
             if (reachable.add(moduleId)) {
                 val localEdges = moduleIncludes[moduleId].orEmpty()
                 val crossModuleEdges = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId).orEmpty()

@@ -180,6 +180,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("entry_modules_partial_resolution_w003.kt")
+    public void testEntry_modules_partial_resolution_w003() {
+      runTest("koin-compiler-plugin/testData/diagnostics/entry_modules_partial_resolution_w003.kt");
+    }
+
+    @Test
     @TestMetadata("entry_startkoin_core_scan_crossmodule_ok.kt")
     public void testEntry_startkoin_core_scan_crossmodule_ok() {
       runTest("koin-compiler-plugin/testData/diagnostics/entry_startkoin_core_scan_crossmodule_ok.kt");
@@ -189,6 +195,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("entry_startkoin_core_scan_missing.kt")
     public void testEntry_startkoin_core_scan_missing() {
       runTest("koin-compiler-plugin/testData/diagnostics/entry_startkoin_core_scan_missing.kt");
+    }
+
+    @Test
+    @TestMetadata("entry_unreached_incomplete_includes_w001.kt")
+    public void testEntry_unreached_incomplete_includes_w001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/entry_unreached_incomplete_includes_w001.kt");
     }
 
     @Test

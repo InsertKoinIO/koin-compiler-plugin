@@ -139,7 +139,8 @@ class KoinIrExtension(
             callSiteValidator.validateDslDefinitionGraph(
                 dslDefinitions, annotationProcessor, safetyValidator, dslHintGenerator,
                 koinTransformer.startKoinModules, koinTransformer.moduleIncludes,
-                topologyComplete = !koinTransformer.moduleTopologyIncomplete
+                entryModulesIncomplete = koinTransformer.entryModulesIncomplete,
+                modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes
             )
         }
 

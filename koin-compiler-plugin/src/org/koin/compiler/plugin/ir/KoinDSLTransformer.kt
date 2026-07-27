@@ -81,8 +81,20 @@ class KoinDSLTransformer(
      * loaded set is unknown, so consumers must fail OPEN (verify nothing) instead of treating what
      * they did resolve as the whole truth. See [resolveModuleReferences].
      */
-    private var _moduleTopologyIncomplete = false
-    val moduleTopologyIncomplete: Boolean get() = _moduleTopologyIncomplete
+    private var _entryModulesIncomplete = false
+    val entryModulesIncomplete: Boolean get() = _entryModulesIncomplete
+
+    /**
+     * Module vals whose own `includes(...)` had an argument we could not resolve, so their edge set
+     * is PARTIAL.
+     *
+     * Scoped per module rather than per compilation on purpose. One boolean for the whole transformer
+     * meant a single `includes(makeDebugModule())` anywhere in the Gradle module switched reachability
+     * off for every entry point in it — including production ones in unrelated files. Recorded per
+     * owner, an incomplete module only costs verification when the walk actually reaches it.
+     */
+    private val _modulesWithIncompleteIncludes = linkedSetOf<String>()
+    val modulesWithIncompleteIncludes: Set<String> get() = _modulesWithIncompleteIncludes
 
     private companion object {
         const val KOIN_MODULE_FQNAME = "org.koin.core.module.Module"
@@ -650,7 +662,11 @@ class KoinDSLTransformer(
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.module.Module") {
                 val currentModuleId = transformContext.modulePropertyId ?: return
-                val includedModules = resolveModuleReferences(expression)
+                val (includedModules, complete) = resolveModuleReferences(expression)
+                if (!complete) {
+                    _modulesWithIncompleteIncludes.add(currentModuleId)
+                    KoinPluginLogger.debug { "  includes: $currentModuleId has an UNRESOLVABLE argument — its edge set is partial" }
+                }
                 if (includedModules.isNotEmpty()) {
                     _moduleIncludes.getOrPut(currentModuleId) { mutableListOf() }.addAll(includedModules)
                     KoinPluginLogger.debug { "  includes: $currentModuleId -> $includedModules" }
@@ -662,7 +678,11 @@ class KoinDSLTransformer(
             val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.KoinApplication") {
-                val loadedModules = resolveModuleReferences(expression)
+                val (loadedModules, complete) = resolveModuleReferences(expression)
+                if (!complete) {
+                    _entryModulesIncomplete = true
+                    KoinPluginLogger.debug { "  modules() at startKoin has an UNRESOLVABLE argument — loaded set unknown" }
+                }
                 if (loadedModules.isNotEmpty()) {
                     _startKoinModules.addAll(loadedModules)
                     KoinPluginLogger.debug { "  modules() at startKoin: $loadedModules" }
@@ -682,20 +702,23 @@ class KoinDSLTransformer(
      * call-site validation began withholding unreachable-only types it became a KOIN-D002 build
      * failure on a valid graph. Regression test: `entry_modules_list_variable_ok.kt`.
      */
-    private fun resolveModuleReferences(call: IrCall): List<String> {
+    private fun resolveModuleReferences(call: IrCall): ResolvedModules {
         val result = mutableListOf<String>()
+        var complete = true
         for (i in 0 until call.regularArgumentsCount) {
             val arg = call.getRegularArgument(i)
             if (arg == null || !resolveModuleRef(arg, result)) {
-                _moduleTopologyIncomplete = true
+                complete = false
                 KoinPluginLogger.debug {
-                    "  modules()/includes(): argument #$i is not a resolvable Module val — " +
-                        "topology incomplete, reachability checks disabled for this compilation"
+                    "  modules()/includes(): argument #$i is not a resolvable Module val"
                 }
             }
         }
-        return result
+        return ResolvedModules(result, complete)
     }
+
+    /** Module ids read off a `modules(...)`/`includes(...)` call, and whether ALL arguments resolved. */
+    data class ResolvedModules(val ids: List<String>, val complete: Boolean)
 
     /** @return true when this expression resolved to a `Module`-typed property (or all of them, for a vararg). */
     private fun resolveModuleRef(expression: IrExpression, result: MutableList<String>): Boolean {

@@ -1,0 +1,48 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Service : R|kotlin/Any| {
+        public constructor(): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Orphaned : R|kotlin/Any| {
+        public constructor(): R|testpkg/Orphaned| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class DebugOnly : R|kotlin/Any| {
+        public constructor(): R|testpkg/DebugOnly| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun makeDebugExtras(): R|org/koin/core/module/Module| {
+        ^makeDebugExtras R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/DebugOnly|>()
+        }
+        )
+    }
+    public final val debugModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|testpkg/makeDebugExtras|()))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val orphanModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Orphaned|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Service|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }
