@@ -20,29 +20,41 @@ open class AbstractJvmErrorMessageTest : AbstractJvmDiagnosticTest() {
     override fun runTest(filePath: String) {
         CapturedErrors.clear()
 
-        // Run the full compiler pipeline (FIR + IR with RUN_PIPELINE_TILL: BACKEND)
-        // Diagnostic tests handle compilation errors gracefully.
+        // Run the full compiler pipeline (FIR + IR with RUN_PIPELINE_TILL: BACKEND).
         //
-        // Catch Throwable (not just Exception): besides ERROR-severity compiler messages, the
-        // framework's own golden handlers (FIR_DUMP, GlobalMetadataInfoHandler) throw
-        // `AssertionError` — notably for multi-module (`// MODULE:`) test files, where
-        // GlobalMetadataInfoHandler can't write the inline `.kt` metadata / GENERATED_FIR_TAGS
-        // trailer. Those are the DiagnosticTest twin's concern (single-module files run under both
-        // runners); THIS runner asserts only the Koin diagnostic messages via the `.errors.txt`
-        // golden below, so it must not be aborted by the FIR-structure handlers. Compilation always
-        // completes before those post-module handlers run, so CapturedErrors is fully populated here.
+        // We ignore ONLY AssertionError, because that is what the framework's own golden handlers
+        // throw (FIR_DUMP, GlobalMetadataInfoHandler → opentest4j AssertionFailedError) — notably
+        // for multi-module (`// MODULE:`) files, where GlobalMetadataInfoHandler cannot write the
+        // inline `.kt` GENERATED_FIR_TAGS trailer. Those are the DiagnosticTest twin's concern;
+        // THIS runner asserts only Koin's diagnostics via the `.errors.txt` golden below, and
+        // compilation always completes before those post-module handlers run, so CapturedErrors is
+        // fully populated by then.
+        //
+        // Everything else MUST propagate. This used to `catch (_: Throwable)`, which also swallowed:
+        //   - plugin crashes — `IrValidationException` extends IllegalStateException, so an invalid
+        //     IR tree produced an EMPTY `.errors.txt` that passed as "no diagnostics" (observed for
+        //     real: a hint parameter emitted without its `parent` set);
+        //   - PhasedPipelineChecker's IllegalStateException, i.e. the `RUN_PIPELINE_TILL: BACKEND`
+        //     assertion — narrowing restores that check for free;
+        //   - any Kotlin compiler crash.
+        // An empty `_ok` golden could therefore mean "clean" OR "the compiler blew up", which makes
+        // every such golden in the suite worthless as evidence.
         try {
             super.runTest(filePath)
-        } catch (_: Throwable) {
-            // Expected: ERROR-severity messages and/or the framework's FIR-dump/metadata golden
-            // assertions. The `.errors.txt` comparison below is this runner's real assertion.
+        } catch (e: AssertionError) {
+            // A MultipleFailuresError (also an AssertionError) can wrap a genuine crash ALONGSIDE
+            // the expected golden-handler assertions. Ignoring it wholesale reopens the same hole,
+            // so only the assertion-shaped failures may be dropped.
+            rethrowIfNotFrameworkAssertion(e)
         }
 
         // Build actual error output (sorted for deterministic comparison)
         val actualErrors = CapturedErrors.errors.sorted().joinToString("\n")
 
-        // Golden file: same name as .kt but with .errors.txt extension
-        val errorsFile = File(filePath.replace(".kt", ".errors.txt"))
+        // Golden file: same name as .kt but with .errors.txt extension.
+        // removeSuffix, not replace: a path containing ".kt" earlier (a directory named `foo.kt`,
+        // or a fixture like `a.kt.kt`) would otherwise be rewritten in the middle.
+        val errorsFile = File(filePath.removeSuffix(".kt") + ".errors.txt")
         val updateTestData = System.getProperty("update.testdata")?.toBoolean() == true
 
         if (updateTestData) {
@@ -71,5 +83,17 @@ open class AbstractJvmErrorMessageTest : AbstractJvmDiagnosticTest() {
                 "Run with -Pupdate.testdata=true to update golden files."
             )
         }
+    }
+
+    /**
+     * Drop framework golden-handler assertions; rethrow anything that isn't one.
+     *
+     * `MultipleFailuresError` is itself an `AssertionError` but aggregates the individual failures,
+     * so a plugin crash reported alongside a FIR-dump mismatch would be invisible if we treated the
+     * wrapper as expected. Unwrap it and rethrow the first non-assertion failure.
+     */
+    private fun rethrowIfNotFrameworkAssertion(e: AssertionError) {
+        val failures = (e as? org.opentest4j.MultipleFailuresError)?.failures ?: return
+        failures.firstOrNull { it !is AssertionError }?.let { throw it }
     }
 }
