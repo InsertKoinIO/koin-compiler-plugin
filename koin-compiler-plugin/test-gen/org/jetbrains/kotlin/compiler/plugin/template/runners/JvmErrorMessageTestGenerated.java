@@ -174,6 +174,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("entry_load_koin_modules_ok.kt")
+    public void testEntry_load_koin_modules_ok() {
+      runTest("koin-compiler-plugin/testData/diagnostics/entry_load_koin_modules_ok.kt");
+    }
+
+    @Test
     @TestMetadata("entry_modules_list_variable_ok.kt")
     public void testEntry_modules_list_variable_ok() {
       runTest("koin-compiler-plugin/testData/diagnostics/entry_modules_list_variable_ok.kt");

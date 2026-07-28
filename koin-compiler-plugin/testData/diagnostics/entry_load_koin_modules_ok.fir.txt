@@ -1,0 +1,36 @@
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Provided|() public final class Repository : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|testpkg/Repository|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|testpkg/Repository| = R|<local>/repo|
+            public get(): R|testpkg/Repository|
+
+    }
+    public final val featureModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Repository|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Service|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun main(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|org/koin/core/context/loadKoinModules|(R|testpkg/featureModule|)
+        lval repo: R|testpkg/Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/Repository|>()
+    }

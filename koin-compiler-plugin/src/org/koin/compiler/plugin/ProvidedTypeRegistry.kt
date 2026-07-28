@@ -20,8 +20,32 @@ import java.util.concurrent.ConcurrentHashMap
  */
 object ProvidedTypeRegistry {
 
-    // Set of FQ names of types marked @Provided (thread-safe for Gradle daemon parallel builds)
-    private val providedTypes: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    // FQ names of types marked @Provided.
+    //
+    // Was a single global set shared by EVERY compilation in a daemon JVM. Thread-*safe* but not
+    // compilation-*isolated*, which is a different property: `register()` / `isProvided()` /
+    // `clear()` all run in the IR phase, so a parallel or interleaved compilation's `clear()`
+    // (KoinAnnotationProcessor.collectAnnotations) could wipe another's registrations between its
+    // register and its read. The @Provided type then looks unannotated and validation reports it
+    // missing — a SILENT false positive on correctly-annotated code, with no hint that the
+    // annotation was dropped.
+    //
+    // That matters more than it looks: @Provided is the required declaration for dependencies
+    // arriving via `loadKoinModules(...)` (see docs/COMPILE_TIME_SAFETY.md), so an unreliable
+    // registry makes the documented escape hatch unreliable too. Found by a full-suite run of
+    // `entry_load_koin_modules_ok`, which passed in isolation and failed in the suite — the same
+    // symptom and the same root cause as KTZ-4414 for @PropertyValue.
+    //
+    // Held per-thread via InheritableThreadLocal: IR fan-out threads inherit the same set
+    // reference, so one compilation's threads share one set while distinct compilations stay
+    // isolated. Mirrors [PropertyValueRegistry] and the per-thread collector/config in
+    // KoinPluginLogger.
+    private val providedTypesHolder: InheritableThreadLocal<MutableSet<String>> =
+        object : InheritableThreadLocal<MutableSet<String>>() {
+            override fun initialValue(): MutableSet<String> = ConcurrentHashMap.newKeySet()
+        }
+
+    private val providedTypes: MutableSet<String> get() = providedTypesHolder.get()
 
     /**
      * Register a type as @Provided.
