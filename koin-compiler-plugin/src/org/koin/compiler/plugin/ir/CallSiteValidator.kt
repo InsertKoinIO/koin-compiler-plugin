@@ -455,7 +455,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
         startKoinModules: List<String> = emptyList(),
         moduleIncludes: Map<String, List<String>> = emptyMap(),
         entryModulesIncomplete: Boolean = false,
-        modulesWithIncompleteIncludes: Set<String> = emptySet()
+        modulesWithIncompleteIncludes: Set<String> = emptySet(),
+        ownsAuthoritativeGraph: Boolean = true
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -512,8 +513,31 @@ class CallSiteValidator(private val context: IrPluginContext) {
             defsToValidate
         )
 
-        if (unreachableDefs.isNotEmpty()) {
-            reportUnreachableModules(unreachableDefs, reachableModuleIds)
+        // KOIN-W001 means "you declared this module and never loaded it". Whose module it is decides
+        // whether that is actionable:
+        //
+        //  - declared in THIS compilation → always report. Leaving a module you just wrote unloaded
+        //    is a genuine mistake whatever the entry-point kind, and the fix is local.
+        //  - declared in a DEPENDENCY → report only where this compilation owns the authoritative
+        //    application graph. An isolated `koinApplication { }` (Compose preview, test fixture)
+        //    legitimately loads a subset; telling it a dependency's module is unloaded is noise, and
+        //    following the advice would defeat the isolation. The real application root still sees it.
+        //
+        // Locality comes free: `dslDefinitions` is this compilation's own list, while the rest were
+        // reconstructed from dependency hints above.
+        val localModuleIds = dslDefinitions.mapNotNullTo(mutableSetOf()) { it.modulePropertyId }
+        val reportableUnreachable =
+            if (ownsAuthoritativeGraph) unreachableDefs
+            else unreachableDefs.filter { it.modulePropertyId in localModuleIds }
+        if (reportableUnreachable.isNotEmpty()) {
+            reportUnreachableModules(reportableUnreachable, reachableModuleIds)
+        }
+        val withheld = unreachableDefs.size - reportableUnreachable.size
+        if (withheld > 0) {
+            KoinPluginLogger.debug {
+                "  $withheld unreachable DEPENDENCY def(s) not reported — this compilation does not " +
+                    "own an authoritative graph (isolated koinApplication/koinConfiguration)"
+            }
         }
 
         // Publish the unreachable-only types for the call-site pass (Phase 3.5), which runs next and

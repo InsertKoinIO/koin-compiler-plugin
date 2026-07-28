@@ -114,6 +114,34 @@ class KoinStartTransformer(
     val hasKoinEntryPoint: Boolean get() = entryPoints.isNotEmpty()
 
     /**
+     * True if this compilation owns an AUTHORITATIVE application graph — i.e. an entry point that
+     * installs the global Koin context and is therefore expected to be able to resolve everything
+     * the whole application asks for.
+     *
+     * Deliberately narrower than [hasKoinEntryPoint], because "is there an entry point here" and
+     * "is this the application" are different questions and only the second licenses judging OTHER
+     * modules:
+     *
+     *  - `startKoin { }` / `@KoinApplication` install the global context → authoritative.
+     *  - `koinApplication { }` launches an ISOLATED context. It is a perfectly real entry point and
+     *    its own graph is validated (Phase 3.1) — but it is the idiom you reach for when you want a
+     *    deliberately partial graph: a Compose preview, a test fixture, a KMP helper holding its own
+     *    Koin instance. It does not own the application, so a call-site hint deferred by some other
+     *    module is none of its business.
+     *  - `koinConfiguration { }` / `withConfiguration { }` are configuration fragments, same
+     *    reasoning.
+     *
+     * Gating Phase 3.6 on [hasKoinEntryPoint] made any library module containing a
+     * `koinApplication { }` hard-error KOIN-D003 for every unresolved call-site hint on its
+     * classpath — types it neither owns nor should provide. Regression test:
+     * `testData/crossmodule/cross_module_koinapplication_library_ok.kt`.
+     */
+    val ownsAuthoritativeGraph: Boolean
+        get() = entryPoints.any {
+            it.kind == EntryKind.START_KOIN || it.kind == EntryKind.KOIN_APPLICATION_ANNOTATION
+        }
+
+    /**
      * A3 §4 — the SINGLE graph-verification pass. Runs over every reified [EntryPoint] AFTER the IR
      * walk (called from [KoinIrExtension] Phase 3, before Phase 3.1) instead of validating inline
      * mid-visit. Behavior-preserving: each ROOT with a resolved closure is validated with the exact
