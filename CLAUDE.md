@@ -122,7 +122,7 @@ fun provideHttpClient(): NetworkClient = OkHttpClient()
 | `@InjectedParam` | Uses `ParametersHolder.get()` |
 | `@Property("key")` | Injects property value (warns if no `@PropertyValue` default) |
 | `@PropertyValue("key")` | Provides default value for `@Property` |
-| `@Provided` | Marks type/parameter as externally available (skips safety validation) |
+| `@Provided` | Marks type/parameter as externally available (skips safety validation). **Required for dependencies that arrive via `loadKoinModules(...)`** — compile time cannot prove a runtime-loaded module is loaded before a given resolution, so the plugin does not try; see [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.md#runtime-module-loading-loadkoinmodules) |
 | `@ScopeId(name = "x")` | Resolves from named scope → `getScope("x").get<T>()` |
 | `@ScopeId(MyScope::class)` | Resolves from typed scope → `getScope("fqName").get<T>()` |
 

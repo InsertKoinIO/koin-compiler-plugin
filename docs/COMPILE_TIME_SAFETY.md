@@ -182,6 +182,9 @@ The whitelist is defined in `BindingRegistry.WHITELISTED_TYPES`.
 
 Both `@Provided` and the whitelist are checked before reporting a missing dependency. If either matches, the type is considered satisfied.
 
+`@Provided` is also the required declaration for dependencies that arrive through **runtime module
+loading** — see [Runtime Module Loading (`loadKoinModules`)](#runtime-module-loading-loadkoinmodules).
+
 ## Special Parameter Handling
 
 ### `Scope` Parameter Injection
@@ -265,6 +268,67 @@ Within the explicit list, declaration order is preserved:
 If a module re-appears in both the explicit list and is also discovered via `@Configuration`, it is loaded once — at its **explicit position** — so the user's declaration order always controls override precedence.
 
 **Escape hatch for fine-grained ordering**: list all participating modules explicitly in `@KoinApplication(modules = [...])` in the desired order. This bypasses classpath-dependent discovery order for `@Configuration` modules.
+
+## Runtime Module Loading (`loadKoinModules`)
+
+`loadKoinModules(...)` loads modules **after** `startKoin` — feature-scoped loading, dynamic
+delivery, plugin architectures, test setup. Graphs assembled this way cannot be verified at compile
+time, and the reason is fundamental rather than a gap in the implementation:
+
+- the call happens at an arbitrary runtime moment, so the plugin cannot prove a module is loaded
+  **before** a given `get<T>()` resolves against it;
+- the module may never be loaded at all on some code paths;
+- `unloadKoinModules(...)` can remove it again afterwards.
+
+The plugin therefore does not try to prove such a graph correct — it would have to invent knowledge
+it does not have. Instead:
+
+> **Dependencies that arrive via runtime module loading must be declared `@Provided`.**
+
+```kotlin
+// Arrives at runtime, not at startKoin
+@Provided
+class Repository
+
+val featureModule = module { single<Repository>() }    // loaded later
+
+val appModule = module { single<Service>() }           // Service(val repo: Repository)
+
+fun main() {
+    startKoin { modules(appModule) }
+    loadKoinModules(featureModule)                     // runtime load
+}
+```
+
+Without `@Provided`, `Repository` is reported missing — **correctly**, because at compile time it is
+genuinely absent from the assembled graph:
+
+| Diagnostic | Where |
+|---|---|
+| `KOIN-D001` | `Service`'s constructor dependency on `Repository` |
+| `KOIN-D002` / `KOIN-D003` | any `get<Repository>()` / `inject<Repository>()` call site |
+
+`@Provided` is the declaration of intent — *"this type arrives from outside the graph the compiler
+can see"* — the same mechanism used for platform types like `Context` (see
+[`@Provided`](#provided-annotation) above). Validation steps back, responsibility moves to you, and
+the graph is checked at runtime by Koin's `checkModules()`.
+
+**Scope it as narrowly as possible.** Prefer parameter-level `@Provided` on the specific injection
+point; class-level disables validation for *every* usage of that type:
+
+```kotlin
+class Service(@Provided val repo: Repository)   // only this parameter is skipped
+```
+
+**Known rough edge.** The runtime-loaded module itself is still reported as unreachable:
+
+```
+[KOIN-W001] Module 'featureModule' is not loaded at startKoin — 1 definitions unreachable: Repository
+  Add it to modules() or includes() to make these definitions available
+```
+
+That advice does not apply to this pattern — adding the module to `modules()` would defeat the point
+of loading it on demand. The warning is harmless unless you build with `allWarningsAsErrors`.
 
 ## Mixing `@KoinApplication` with DSL modules
 
