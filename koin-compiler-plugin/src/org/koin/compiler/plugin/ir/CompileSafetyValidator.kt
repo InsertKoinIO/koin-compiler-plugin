@@ -53,7 +53,9 @@ class CompileSafetyValidator(
      * Collects ALL definitions from ALL discovered modules and validates that every required
      * dependency is satisfied somewhere in the combined graph.
      *
-     * @param appName Application class name (for error messages)
+     * @param appName Full display label for error messages, e.g. "MyApp (startKoin)" — the caller
+     *   is responsible for the entry-kind suffix (startKoin/koinApplication/koinConfiguration/
+     *   withConfiguration); this validator has no EntryKind of its own to pick the right one.
      * @param allModuleIrClasses All module IrClasses discovered for this entry point
      * @param collectedModuleClasses Local module classes from annotation processing
      * @param getDefinitionsForModule Callback to get definitions for a local module (returns completeness info)
@@ -130,7 +132,7 @@ class CompileSafetyValidator(
 
         val fullGraphRegistry = BindingRegistry()
         val errorCount = fullGraphRegistry.validateModule(
-            "$appName (startKoin)",
+            appName,
             allDefinitions,
             qualifierExtractor,
             reportedCycles = reportedCycles,

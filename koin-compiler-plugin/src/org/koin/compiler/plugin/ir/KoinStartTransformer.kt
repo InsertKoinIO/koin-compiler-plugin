@@ -161,7 +161,7 @@ class KoinStartTransformer(
                 "  verify ${ep.kind} '${ep.appName}' [${ep.classification}] — ${ep.resolvedModules.size} module(s) @ ${ep.origin}"
             }
             validator.validateFullGraph(
-                ep.appName,
+                "${ep.appName} (${entryKindDisplayLabel(ep.kind)})",
                 ep.resolvedModules,
                 processor.collectedModuleClasses,
                 processor::getDefinitionsForModule,
@@ -169,6 +169,19 @@ class KoinStartTransformer(
                 dslDefinitions
             )
         }
+    }
+
+    /**
+     * Short label for the KOIN-D001 fallback module display (`"$appName ($label)"`), e.g. when a
+     * definition's real origin is unavailable (an `ExternalFunctionDef` reconstructed from a
+     * cross-module hint). Was hardcoded to "startKoin" for every entry kind — misleading for a
+     * genuine `koinApplication`/`koinConfiguration`/`withConfiguration` entry point.
+     */
+    private fun entryKindDisplayLabel(kind: EntryKind): String = when (kind) {
+        EntryKind.START_KOIN -> "startKoin"
+        EntryKind.KOIN_APPLICATION -> "koinApplication"
+        EntryKind.KOIN_CONFIGURATION -> "koinConfiguration"
+        EntryKind.WITH_CONFIGURATION -> "withConfiguration"
     }
 
     override fun visitFile(declaration: IrFile): IrFile {
