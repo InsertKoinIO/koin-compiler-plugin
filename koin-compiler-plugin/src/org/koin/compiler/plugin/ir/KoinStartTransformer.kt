@@ -64,7 +64,7 @@ import org.jetbrains.kotlin.name.Name
  * EXISTING Koin entry-point APIs — no public/Koin-core API change. Every entry point is a self-consistent
  * ROOT (its graph resolves within itself); DYNAMIC = module set not statically resolvable → disclose.
  */
-enum class EntryKind { START_KOIN, KOIN_APPLICATION, KOIN_CONFIGURATION, WITH_CONFIGURATION, KOIN_APPLICATION_ANNOTATION }
+enum class EntryKind { START_KOIN, KOIN_APPLICATION, KOIN_CONFIGURATION, WITH_CONFIGURATION }
 enum class EntryClassification { ROOT, DYNAMIC }
 
 /**
@@ -137,9 +137,7 @@ class KoinStartTransformer(
      * `testData/crossmodule/cross_module_koinapplication_library_ok.kt`.
      */
     val ownsAuthoritativeGraph: Boolean
-        get() = entryPoints.any {
-            it.kind == EntryKind.START_KOIN || it.kind == EntryKind.KOIN_APPLICATION_ANNOTATION
-        }
+        get() = entryPoints.any { it.kind == EntryKind.START_KOIN }
 
     /**
      * A3 §4 — the SINGLE graph-verification pass. Runs over every reified [EntryPoint] AFTER the IR
@@ -264,8 +262,7 @@ class KoinStartTransformer(
             }
             // Resolve this root's own closure by walking its trailing lambda for plugin-stub
             // modules(vararg KClass) calls — the same walk the untyped-stub path uses. Without this,
-            // the root stays flag-only, A3 never sees its modules, and a valid cross-module scanned
-            // graph loaded here only defers to KOIN-W002 instead of resolving to silence.
+            // the root stays flag-only and A3 never sees its modules.
             val lambdaModules = collectModuleClassesFromLambda(expression)
             val classification = if (lambdaModules.dynamic) EntryClassification.DYNAMIC else EntryClassification.ROOT
             entryPoints.add(EntryPoint(kind, classification, lambdaModules.classes, originOf(expression), label))

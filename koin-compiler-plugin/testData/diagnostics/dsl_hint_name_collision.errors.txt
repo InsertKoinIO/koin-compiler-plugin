@@ -1,0 +1,2 @@
+[Koin][KOIN-D008] Module id collision: 'p.q_r.mod' and 'p.q.r_mod' both encode to 'p_q_r_mod' when generating cross-module hint names.
+  Rename one of these `module { }` declarations so they no longer collide once non-alphanumeric characters are replaced with '_'.

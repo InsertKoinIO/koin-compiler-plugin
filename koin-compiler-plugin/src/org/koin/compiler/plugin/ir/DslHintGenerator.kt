@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
@@ -87,7 +88,26 @@ class DslHintGenerator(
             addAll(allModuleIds)
         }
 
+        // KOIN-D008 (#75, Tier 1): two distinct module ids that flatten to the same identifier
+        // would collide in every hint function name keyed by flattenFqNameForHint (dslincludes_*
+        // today). Detect same-compilation collisions before generating anything for the
+        // colliding ids, so the build fails with a clear diagnostic instead of a silently-wrong
+        // hint (JVM) or a location-less KLIB SignatureClashDetector crash (native/wasm).
+        val collidingGroupKeys: Set<String> = run {
+            val byEncoded = groupKeys.groupBy { KoinPluginConstants.flattenFqNameForHint(it) }
+            val colliding = mutableSetOf<String>()
+            for ((encoded, rawIds) in byEncoded) {
+                if (rawIds.size <= 1) continue
+                for (i in 1 until rawIds.size) {
+                    KoinPluginLogger.report(KoinDiagnostic.DuplicateModuleHintIdentity(rawIds[0], rawIds[i], encoded))
+                }
+                colliding.addAll(rawIds)
+            }
+            colliding
+        }
+
         for (groupKey in groupKeys) {
+            if (groupKey in collidingGroupKeys) continue
             val groupDefs = byModule[groupKey].orEmpty()
             val functions = groupDefs.mapNotNull { buildDslHintFunction(it) }.toMutableList()
             // Topology carrier: this module's own `includes()` edges, in the same per-module file so
@@ -132,8 +152,9 @@ class DslHintGenerator(
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
 
-            val prefix = HintFilePrefix.of(firModuleData.name.asString())
-            val fileName = prefix + buildDslModuleHintFileName(groupKey)
+            val fileName = HintFileNaming.fileName(
+                "koin_dsl_hints_", KoinPluginLogger.moduleId, firModuleData.name.asString(), groupKey,
+            )
             val fakeNewPath = Path(basePath).parent.resolve(fileName)
 
             val firFile = buildFile {
@@ -423,16 +444,6 @@ class DslHintGenerator(
         // @Deprecated(HIDDEN) — same reason as the definition hints: keeps these out of ObjC export.
         function.addDeprecatedHiddenAnnotation(context)
         return function
-    }
-
-    /** Deterministic, stable file name for a module's batched DSL hints: keyed by the module
-     *  group (its `module { }` val, or source-file fallback) — NOT by any single definition — so it
-     *  is regenerated wholesale each compile and a removed definition leaves no orphan class. */
-    private fun buildDslModuleHintFileName(groupKey: String): String {
-        val sanitized = buildString(groupKey.length) {
-            for (ch in groupKey) append(if (ch.isLetterOrDigit()) ch else '_')
-        }.trim('_').ifEmpty { "anonymous" }
-        return "koin_dsl_hints_$sanitized.kt"
     }
 
     /** Extract FIR module data from an IR class's metadata. */

@@ -30,7 +30,9 @@ import org.koin.core.annotation.Configuration
 class CoreModule
 
 // ServiceModule scans "service" package → provides Service (needs Repository from CoreModule)
-// A2: Repository is visible because CoreModule shares the same @Configuration("default") label
+// Repository is visible because both modules are unioned into the same koinApplication{} graph
+// below (A3, the sole verifier as of 1.1.0) — the shared @Configuration label is not itself what
+// makes this resolve, since both modules are passed to modules(...) explicitly either way.
 @Module
 @ComponentScan("service")
 @Configuration

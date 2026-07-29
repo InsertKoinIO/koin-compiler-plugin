@@ -27,10 +27,9 @@ FILE: beta.kt
     )
         public get(): R|org/koin/core/module/Module|
 FILE: main.kt
-    public final fun box(): R|kotlin/String| {
+    public final fun setup(): R|kotlin/Unit| {
         R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
             this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|p/q_r/mod|, R|p/q/r_mod|))
         }
         )
-        ^box String(OK)
     }

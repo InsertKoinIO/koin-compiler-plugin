@@ -1,3 +1,1 @@
-[Koin][KOIN-D001] Missing dependency: ExternalContext
-  required by: Service (parameter 'ctx')
-  in module: TestModule
+

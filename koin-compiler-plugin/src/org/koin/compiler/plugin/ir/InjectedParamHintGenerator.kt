@@ -295,10 +295,13 @@ class InjectedParamHintGenerator(
             return
         }
 
-        // Module-disambiguating prefix so two Gradle modules emitting an InjectedParam hint
-        // for the same target type don't produce identical class names at dex merge time.
-        val modulePrefix = HintFilePrefix.of(firModuleData.name.asString())
-        val fileName = "${modulePrefix}${KoinPluginConstants.INJECTED_PARAMS_HINT_PREFIX}${flat}.kt"
+        // Module-disambiguating so two Gradle modules emitting an InjectedParam hint for the
+        // same target type don't produce identical class names at dex merge time. Hashes the
+        // RAW targetFqName, not `flat` (its flattened form) — two distinct FQNs that happen to
+        // flatten to the same string must still get distinct file names (#75).
+        val fileName = HintFileNaming.fileName(
+            KoinPluginConstants.INJECTED_PARAMS_HINT_PREFIX, KoinPluginLogger.moduleId, firModuleData.name.asString(), targetFqName,
+        )
         // Anchor the synthetic hint file on a stable path from the current compile unit
         // (see issue #32). Priority: DSL registration site → target class source → sorted
         // first file in module. Mirrors [DslHintGenerator.generateDslDefinitionHints].

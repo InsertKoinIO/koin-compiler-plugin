@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
@@ -37,7 +38,13 @@ import org.jetbrains.kotlin.ir.expressions.IrGetField
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
 class KoinDSLTransformer(
     private val context: IrPluginContext,
-    private val lookupTracker: LookupTracker? = null
+    private val lookupTracker: LookupTracker? = null,
+    // Gate 3 (freshness): links a DSL call site's file to its target class's file for IC, so a
+    // NEW declaration in the target's file (which LookupTracker can't see — it never existed
+    // before) still invalidates this call site's compile task. Mirrors what
+    // KoinAnnotationProcessor/KoinStartTransformer already do for annotation definitions and
+    // entry-point modules; the DSL path was missing it.
+    private val expectActualTracker: ExpectActualTracker? = null,
 ) : IrElementTransformerVoid() {
 
     private val unsafeDslChecksEnabled = KoinPluginLogger.unsafeDslChecksEnabled
@@ -425,6 +432,7 @@ class KoinDSLTransformer(
                 } else null
                 val qualifier = outerQualifier ?: qualifierExtractor.extractFromClass(providedClass)
                 trackClassLookup(lookupTracker, currentFile, providedClass)
+                linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
                 _dslDefinitions.add(Definition.DslDef(
                     irClass = providedClass,
                     definitionType = defType,
@@ -505,6 +513,7 @@ class KoinDSLTransformer(
 
         // IC: call site file depends on the target class
         trackClassLookup(lookupTracker, currentFile, targetClass)
+        linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
     }
 
     /**
@@ -765,6 +774,7 @@ class KoinDSLTransformer(
 
         // IC: file containing DSL call depends on the target class
         trackClassLookup(lookupTracker, currentFile, targetClass)
+        linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
 
         // Get qualifier from @Named or @Qualifier annotation on class
         val qualifier = qualifierExtractor.extractFromClass(targetClass)
@@ -860,6 +870,7 @@ class KoinDSLTransformer(
                 val targetClass = referencedFunction.parent as IrClass
                 // IC: file containing create(::T) depends on the target class
                 trackClassLookup(lookupTracker, currentFile, targetClass)
+                linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
                 // Extract qualifier from class for propagation to enclosing definition
                 val classQualifier = transformContext.definitionQualifier ?: qualifierExtractor.extractFromClass(targetClass)
                 if (classQualifier != null && currentDefinitionCall != null) {
@@ -911,6 +922,7 @@ class KoinDSLTransformer(
                 val providedClass = transformContext.definitionCallTypeArg ?: returnTypeClass
                 if (enclosingDefType != null && compileSafetyEnabled && providedClass != null) {
                     trackClassLookup(lookupTracker, currentFile, providedClass)
+                    linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
                     _dslDefinitions.add(Definition.DslDef(
                         irClass = providedClass,
                         definitionType = enclosingDefType,

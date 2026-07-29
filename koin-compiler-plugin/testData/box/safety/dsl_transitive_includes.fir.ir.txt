@@ -1,4 +1,4 @@
-FILE fqName:org.koin.plugin.hints fileName:/main__koin_dsl_hints_appModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__appModule_1d5d8c3abb4ee773.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Service
     VALUE_PARAMETER kind:Regular name:module_appModule index:1 type:kotlin.Unit
@@ -10,7 +10,7 @@ FILE fqName:org.koin.plugin.hints fileName:/main__koin_dsl_hints_appModule.kt
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/main__koin_dsl_hints_dataModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__dataModule_688abfb187c91b44.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Repository
     VALUE_PARAMETER kind:Regular name:module_dataModule index:1 type:kotlin.Unit
@@ -22,7 +22,7 @@ FILE fqName:org.koin.plugin.hints fileName:/main__koin_dsl_hints_dataModule.kt
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/main__koin_dsl_hints_dbModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__dbModule_eeee789016cbd972.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Database
     VALUE_PARAMETER kind:Regular name:module_dbModule index:1 type:kotlin.Unit

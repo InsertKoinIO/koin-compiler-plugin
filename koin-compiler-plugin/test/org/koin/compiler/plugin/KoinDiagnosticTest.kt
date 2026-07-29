@@ -79,6 +79,7 @@ class KoinDiagnosticTest {
         assertEquals("KOIN-S001", KoinDiagnostic.UnsafeDsl("T").code)
         assertEquals("KOIN-P001", KoinDiagnostic.MissingPropertyValue("k", "D", "M").code)
         assertEquals("KOIN-M001", KoinDiagnostic.MonitorNoSdk().code)
+        assertEquals("KOIN-D008", KoinDiagnostic.DuplicateModuleHintIdentity("p.q_r.mod", "p.q.r_mod", "p_q_r_mod").code)
     }
 
     @Test
@@ -102,6 +103,18 @@ class KoinDiagnosticTest {
         )
         assertEquals(KoinDiagnostic.Severity.WARNING, KoinDiagnostic.MissingPropertyValue("k", "D", "M").severity)
         assertEquals(KoinDiagnostic.Severity.WARNING, KoinDiagnostic.MonitorNoSdk().severity)
+        assertEquals(
+            KoinDiagnostic.Severity.ERROR,
+            KoinDiagnostic.DuplicateModuleHintIdentity("p.q_r.mod", "p.q.r_mod", "p_q_r_mod").severity,
+        )
+    }
+
+    @Test
+    fun `duplicate module hint identity names both raw ids and the encoded form`() {
+        val d = KoinDiagnostic.DuplicateModuleHintIdentity("p.q_r.mod", "p.q.r_mod", "p_q_r_mod")
+        assertTrue("'p.q_r.mod'" in d.message)
+        assertTrue("'p.q.r_mod'" in d.message)
+        assertTrue("'p_q_r_mod'" in d.message)
     }
 
     @Test

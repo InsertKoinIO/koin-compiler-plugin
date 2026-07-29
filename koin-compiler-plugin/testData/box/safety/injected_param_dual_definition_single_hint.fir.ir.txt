@@ -23,21 +23,21 @@ FILE fqName:<root> fileName:/firstModuleModule.kt
                             ARG name: CALL 'public final fun get <T> (): T of org.koin.core.parameter.ParametersHolder.get declared in org.koin.core.parameter.ParametersHolder' type=kotlin.String origin=null
                               TYPE_ARG T: kotlin.String
                               ARG <this>: GET_VAR 'params: org.koin.core.parameter.ParametersHolder declared in <root>.module.<anonymous>.<anonymous>' type=org.koin.core.parameter.ParametersHolder origin=null
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_firstModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/injectedparams_main__Greeter_541c60e361b1e40e.kt
+  FUN name:injectedparams_Greeter visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:name index:0 type:kotlin.String
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_FirstModule_6aa7c01557849879.kt
   FUN name:componentscan_firstModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Greeter
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_secondModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_SecondModule_ebad64fe4d559005.kt
   FUN name:componentscan_secondModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Greeter
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/main__injectedparams_Greeter.kt
-  FUN name:injectedparams_Greeter visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:name index:0 type:kotlin.String
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY

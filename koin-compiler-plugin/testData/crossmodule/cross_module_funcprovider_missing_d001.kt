@@ -23,9 +23,9 @@
 // GREEN (carrier landed — this golden): base's funcreqs_lib_Service carrier hint carries
 // provideService's `repo: Repository` requirement across the module boundary; the consumer rebuilds
 // ExternalFunctionDef.requirements from it, so A3 at the app root validates provideService and emits
-// KOIN-D001 Missing dependency: base.Repository, in module MyApp (startKoin). lib itself still emits
-// the KOIN-W002 leaf deferral (no entry point there — correct). Regression guard: before the carrier
-// this file was RED (only the lib W002, no root D001 — a silent false negative → runtime crash).
+// KOIN-D001 Missing dependency: base.Repository, in module MyApp (startKoin). Regression guard:
+// before the carrier this file was RED (a silent false negative → runtime crash). 1.1.0: lib no
+// longer also emits a KOIN-W002 leaf deferral (A2 removed) — the root D001 alone is now sufficient.
 
 // MODULE: base
 // FILE: base/Base.kt

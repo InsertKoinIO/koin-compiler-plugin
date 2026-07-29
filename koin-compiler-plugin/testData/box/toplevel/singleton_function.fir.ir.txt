@@ -1,4 +1,4 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_TestModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_TestModule_2adabf7517c994d5.kt
   FUN name:componentscanfunc_testpkg_TestModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.DataSource
     annotations:

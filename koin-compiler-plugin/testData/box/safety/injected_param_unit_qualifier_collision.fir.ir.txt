@@ -37,7 +37,7 @@ FILE fqName:<root> fileName:/launchersModuleModule.kt
                       BLOCK_BODY
                         RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): kotlin.Unit declared in <root>.module.<anonymous>'
                           CALL 'public final fun initNoParam (): kotlin.Unit declared in <root>' type=kotlin.Unit origin=null
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_launchersModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_LaunchersModule_4ff4c98d7fcde212.kt
   FUN name:componentscanfunc_launchersModule_single__q_initNoParam visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:qualifier_initNoParam index:1 type:kotlin.Unit

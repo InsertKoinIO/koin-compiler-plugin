@@ -1,7 +1,3 @@
 [Koin][KOIN-D001] Missing dependency: base.Repository
   required by: lib.Service (parameter 'repo')
   in module: MyApp (startKoin)
-[Koin][KOIN-W002] Unresolved dependency (deferred): base.Repository
-  required by: lib.provideService (parameter 'repo')
-  in module: LibModule
-  No provider is visible while validating this module in isolation. If it is provided by a sibling module assembled at @KoinApplication / startKoin, or by a transitive dependency not on this compile classpath, this is expected and validated at the application entry point (KOIN-D001) or at runtime via checkModules().

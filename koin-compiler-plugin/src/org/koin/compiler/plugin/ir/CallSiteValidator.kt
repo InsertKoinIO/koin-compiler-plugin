@@ -65,6 +65,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
         annotationProcessor: KoinAnnotationProcessor?,
         dslHintGenerator: DslHintGenerator,
         injectedParamHints: InjectedParamHintGenerator? = null,
+        // No Koin entry point anywhere in this compilation ⇒ no assembled graph exists to judge an
+        // unresolved call site against — KOIN-D002 requires one (generation only otherwise, see
+        // CompileSafetyValidator's class doc). Defaults to true so existing callers/tests that
+        // don't pass it keep today's behavior.
+        hasKoinEntryPoint: Boolean = true,
     ) {
         val hasFullGraph = assembledGraphTypes.isNotEmpty()
 
@@ -144,17 +149,24 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
             // Not resolved locally
             if (!hasFullGraph) {
-                // Defer external types (from dependency JARs) — they may be defined in a downstream module.
-                // Local types or modules with local DSL definitions should error immediately.
+                // Defer external types (from dependency JARs) — they may be defined in a downstream
+                // module. Also defer when this compilation has no Koin entry point at all: a leaf
+                // has no assembled graph to judge a local type against either, so treat it the same
+                // as external (generation only — see CompileSafetyValidator's class doc). Only a
+                // local type in a compilation that DOES own an entry point (dynamic modules, an
+                // incomplete graph, etc.) still errors immediately below.
                 val isExternalType = callSite.targetClass.origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
-                if (isExternalType || dslDefinitions.isEmpty()) {
+                if (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint) {
                     unresolvedCallSites.add(callSite)
-                    KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType)" }
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                    KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType, hasEntryPoint=$hasKoinEntryPoint)" }
                     continue
                 }
             }
 
-            // Report error — either full graph available, or local type with local definitions
+            // Report error — full graph available (or local type with local definitions), and this
+            // compilation owns a Koin entry point to judge against. No shape check here — a call
+            // site already getting KOIN-D002 doesn't need a second, compounding diagnostic.
             KoinPluginLogger.report(
                 KoinDiagnostic.MissingCallSite(
                     type = callSite.targetFqName,
@@ -198,14 +210,6 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         // Deduplicate by target FQ name
         val uniqueCallSites = unresolvedCallSites.distinctBy { it.targetFqName }
-
-        // Module-specific prefix for hint filenames so two Gradle modules that both
-        // koinInject<SameType>() don't produce identical class names — which otherwise
-        // trips the Android dex merger (issue #20). Composes the Gradle `project.path`
-        // (when available via koin.moduleId) with the FIR module-data name so KMP
-        // targets within the same Gradle module also stay distinct.
-        val modulePrefix = HintFilePrefix.of(firModuleData.name.asString())
-            .ifEmpty { "module__" }
 
         for (callSite in uniqueCallSites) {
             val targetClass = callSite.targetClass
@@ -296,12 +300,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
             // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
             function.addDeprecatedHiddenAnnotation(context)
 
-            // Build deterministic file name, prefixed by module identifier to keep
-            // hint class names unique across Gradle modules (see above — issue #20).
-            val sanitizedName = callSite.targetFqName.split(".")
-                .joinToString("") { it.replaceFirstChar { c -> c.uppercaseChar() } }
-                .replaceFirstChar { it.lowercaseChar() }
-            val fileName = "${modulePrefix}${sanitizedName}_callsite.kt"
+            // Deterministic file name, module-disambiguated (issue #20) and Gradle-module +
+            // KMP-target + target-FQN collision-resistant (#75) — see HintFileNaming.
+            val fileName = HintFileNaming.fileName(
+                "callsite_", KoinPluginLogger.moduleId, firModuleData.name.asString(), callSite.targetFqName,
+            )
 
             // Anchor the synthetic hint file on the call site's source file so the path stays
             // stable across incremental rebuilds (see issue #32). Fall back to the

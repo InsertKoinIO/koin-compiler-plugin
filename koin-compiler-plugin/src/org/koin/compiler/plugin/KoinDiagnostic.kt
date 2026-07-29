@@ -223,6 +223,45 @@ sealed class KoinDiagnostic(
     )
 
     /**
+     * KOIN-D008 — Two distinct DSL module ids encode to the same identifier when generating
+     * cross-module hint function names (see [KoinPluginConstants.flattenFqNameForHint]).
+     *
+     * That encoder collapses `.` and `$` to `_` so a cross-module consumer can independently
+     * reconstruct a producer's hint name without any lookup table — but two distinct ids CAN
+     * encode identically (e.g. `p.q_r.mod` and `p.q.r_mod` both flatten to `p_q_r_mod`). Left
+     * undetected this produces either a silently-wrong hint (JVM overwrites one facade class
+     * with the other) or a KLIB `SignatureClashDetector` `AssertionError` with no source
+     * location (native/wasm targets) — a hard error naming both raw ids is far more actionable
+     * than either failure mode.
+     *
+     * Same-compilation-unit detection only (Tier 1): this catches two colliding module ids
+     * declared in one Gradle module's own compile. A true cross-Gradle-module collision is a
+     * separate, deferred problem (see release notes for 1.1.0).
+     *
+     * No opt-out: there is no legitimate scenario where two distinct module ids should collide
+     * here — this always means two modules will be silently confused with each other.
+     */
+    class DuplicateModuleHintIdentity(
+        moduleIdA: String,
+        moduleIdB: String,
+        encoded: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-D008",
+        severity = Severity.ERROR,
+        message = buildString {
+            append("Module id collision: '")
+            append(moduleIdA)
+            append("' and '")
+            append(moduleIdB)
+            append("' both encode to '")
+            append(encoded)
+            append("' when generating cross-module hint names.")
+            append("\n  Rename one of these `module { }` declarations so they no longer collide")
+            append(" once non-alphanumeric characters are replaced with '_'.")
+        },
+    )
+
+    /**
      * KOIN-W001 — A DSL module is not loaded at `startKoin`, so its definitions are unreachable.
      *
      * Warning, not error: a user mid-refactor commonly has a module defined but not yet wired
@@ -239,52 +278,6 @@ sealed class KoinDiagnostic(
         message = "Module '$module' is not loaded at startKoin — ${types.size} definitions unreachable: " +
             types.joinToString(", ") +
             "\n  Add it to modules() or includes() to make these definitions available",
-    )
-
-    /**
-     * KOIN-W002 — A binding dependency could not be resolved within the module currently being
-     * validated in isolation, and no complete `@KoinApplication` / `startKoin` closure was present
-     * in this compilation to prove whether the dependency is genuinely missing.
-     *
-     * Warning, not error (contrast with the authoritative [MissingBinding] / KOIN-D001): in a clean,
-     * layered multi-module build a `@Module` is compiled without visibility of the *sibling* modules
-     * that a downstream `@KoinApplication(modules = [...])` will assemble alongside it. The provider
-     * may legitimately live in a sibling module (GH #51) or in an `implementation`-hidden transitive
-     * dependency that isn't on this compile classpath. The plugin cannot prove the dependency missing
-     * here, so it defers: the complete closed closure at `@KoinApplication` (KOIN-D001) or the runtime
-     * `checkModules()` is authoritative. Emitting a hard error here is the false positive KTZ-4256 fixes.
-     *
-     * The W prefix matches the catalog's warning convention (see [UnreachableModule] / KOIN-W001).
-     * The KOIN-D001 code is deliberately NOT reused so the Kotzilla MCP classifier contract stays stable.
-     */
-    class DeferredMissingBinding(
-        type: String,
-        qualifier: String?,
-        def: String,
-        param: String,
-        module: String,
-    ) : KoinDiagnostic(
-        code = "KOIN-W002",
-        severity = Severity.WARNING,
-        message = buildString {
-            append("Unresolved dependency (deferred): ")
-            append(type)
-            if (qualifier != null) {
-                append(" qualified with ")
-                append(qualifier)
-            }
-            append("\n  required by: ")
-            append(def)
-            append(" (parameter '")
-            append(param)
-            append("')")
-            append("\n  in module: ")
-            append(module)
-            append("\n  No provider is visible while validating this module in isolation. If it is ")
-            append("provided by a sibling module assembled at @KoinApplication / startKoin, or by a ")
-            append("transitive dependency not on this compile classpath, this is expected and validated ")
-            append("at the application entry point (KOIN-D001) or at runtime via checkModules().")
-        },
     )
 
     /**

@@ -20,7 +20,7 @@ FILE fqName:<root> fileName:/featureModuleModule.kt
                       BLOCK_BODY
                         RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.FeatureService declared in <root>.module.<anonymous>'
                           CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.FeatureService' type=<root>.FeatureService origin=null
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_featureModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_FeatureModule_c2bd394d7b24ce25.kt
   FUN name:componentscan_featureModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.FeatureService
     annotations:
