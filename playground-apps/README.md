@@ -118,6 +118,14 @@ Removing a *definition* is not the only way to break a graph. Two more edits bel
 ./gradlew :app:compileDebugKotlin        # MUST fail with KOIN-D002 at the inject() call site
 ```
 
+> **Edit 1 is currently stale for `app-dsl`'s topology (found during 1.1.0 release verification).**
+> `app/…/AppModule.kt` now ALSO lists `databaseModule` directly in its own `modules(...)`/`includes(...)`
+> list, alongside `DataModule.kt`'s transitive edge — so dropping the transitive edge alone leaves the
+> graph genuinely complete via the direct edge, and the build correctly succeeds (not a plugin bug,
+> just doesn't exercise "sole transitive edge" anymore). Pick a module that reaches the root through
+> exactly one transitive path with no direct edge before running this check, or restructure `app-dsl`
+> to restore that shape.
+
 Edit 2 is the one that used to compile and crash at runtime — `by inject<ActivityTracker>()` resolved
 against a module nobody loaded. Note that Gradle suppresses `w:` lines on a failing task, so the
 `KOIN-W001` that fires alongside the D002 will not appear in the console.

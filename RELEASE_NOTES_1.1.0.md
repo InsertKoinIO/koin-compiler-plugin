@@ -40,6 +40,21 @@ provider exists somewhere" oracle) is deleted outright. A3 — the full-graph ch
 
 ## 🐛 Fixes
 
+### Orphaned `@Module` classes were silently treated as reachable (found during this release's own verification)
+A plain `@Module @ComponentScan(...)` class with no `@Configuration` and not referenced by anyone's
+`includes = [...]` was silently treated as part of the graph anyway, as long as the entry point used
+a bare/default-labeled `@KoinApplication`/`startKoin` — the overwhelmingly common case. Its
+`@ComponentScan`-discovered definitions (including cross-module ones) were folded into A3's resolved
+graph and validated as satisfied, when the actual generated module tree never wired them in at all:
+build green, runtime crash. Root cause: the entry-point module-discovery step accidentally called a
+label-reader meant for the *entry-point class's* `@KoinApplication(configurations=[...])` argument
+against *module* classes, which never carry that annotation — so it always hit that reader's
+"annotation absent" fallback (`["default"]`), making any `@Module` class match. This bug predates
+1.1.0 (traced to `1.0.0-GA1`) but was masked by A2, which used to validate each such module in
+isolation too; removing A2 made it load-bearing. Fixed, with a regression test
+(`entry_orphan_module_not_reachable_d001`) proving an orphaned module without `@Configuration` or an
+`includes` edge is now correctly excluded from the graph.
+
 ### `KOIN-D001` now names the real culprit module and source location
 Missing-dependency errors now carry `file:line` for the failing definition and the actual owning
 module's name (previously degraded to a generic app/root label once every `KOIN-D001` funnels
