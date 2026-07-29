@@ -70,6 +70,24 @@ object KoinPluginConstants {
     const val OPTION_MODULE_ID = "moduleId"
 
     /**
+     * Option controlling the severity of the plugin's informational output — [user]/[debug]/
+     * [userFir]/[debugFir]/[warn] in [KoinPluginLogger] (issue #73: under Gradle's
+     * `allWarningsAsErrors`, WARNING-severity output fails the build even though it's purely
+     * informational). Values: `"warning"` (default, preserves prior behavior) | `"info"` (safe
+     * under `allWarningsAsErrors`). Does NOT affect real diagnostics (KOIN-Dxxx/Wxxx/etc, see
+     * [OPTION_VERSION_CHECK_SEVERITY] for the separate Kotlin-version-gate setting).
+     */
+    const val OPTION_LOG_SEVERITY = "logSeverity"
+
+    /**
+     * Option controlling the severity of the Kotlin-version-compatibility warning, independent
+     * of [OPTION_LOG_SEVERITY] — a user muting informational plugin noise should not also lose
+     * visibility into "you're on an unverified Kotlin version" by the same toggle. Values:
+     * `"warning"` (default) | `"info"`.
+     */
+    const val OPTION_VERSION_CHECK_SEVERITY = "versionCheckSeverity"
+
+    /**
      * URL printed in the AI-assist CTA.
      *
      * Short redirect to the canonical doc page at https://doc.kotzilla.io/docs/fixIssues/koinMcp.
