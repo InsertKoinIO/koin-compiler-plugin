@@ -84,17 +84,21 @@ build** with `KOIN-D001` instead of letting it compile and crash at runtime. Run
 cd app-dsl
 ./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
 
-# Annotations — same, caught at the owning module during its own compile
+# Annotations — same, caught at :app's full-graph check when it recompiles
 cd app-annotations
 ./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
 ```
 
 ### Expected result
 
+**Since 1.1.0, per-module validation is gone — both apps are caught the same way**: only the
+aggregator's (`:app`'s) full-graph check catches a removed definition now, never the definition's
+own module compiling in isolation.
+
 | App | After commenting a used definition | Where it's caught |
 |-----|-----------------------------------|-------------------|
-| `app-annotations` | build **FAILS** with `KOIN-D001` (incremental is fine) | the definition's own module (A2, real class symbols) |
-| `app-dsl` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`) via cross-module hints |
+| `app-annotations` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`), via its full-graph check |
+| `app-dsl` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`), via cross-module hints |
 
 > **History:** DSL removal detection previously required `:<module>:clean` because DSL hints were
 > emitted one class *per definition* (`…Dsl_singleKt.class`); Kotlin IC regenerated hints for the

@@ -1,20 +1,21 @@
-A compile-safety architecture release: **A2 (per-module validation) is removed entirely** in favor
-of a single, authoritative full-graph check at each Koin entry point (A3). This closes a real,
+A compile-safety architecture release: **per-module validation is removed entirely** in favor
+of a single, authoritative full-graph check at each Koin entry point. This closes a real,
 measured false-positive class, at the cost of leaf modules with no entry point of their own now
 getting **no compile-time safety diagnostics** until something assembles a real graph around them.
 Also ships incremental-compilation freshness hardening, `allWarningsAsErrors` compatibility, and a
 collision-safe hint-file-naming scheme.
 
-## ⚠️ Behavior change — A2 per-module validation removed (#32, #51)
+## ⚠️ Behavior change — per-module validation removed, full-graph validation only (#32, #51)
 
 **Why.** A module validated in isolation cannot know how it will be wired into a larger app. This
 stopped being theoretical: `:core:notifications` in a real playground app genuinely false-positived
 on a dependency (`PeerService`) that a peer module provides — with no Gradle edge between the two,
-the two are only unified downstream at the app's entry point. Per-module (A1: local + includes, A2:
-`@Configuration`-sibling) validation cannot see that far and reported a hard `KOIN-D001` for a
-dependency that resolves correctly once the real app assembles both modules together. Rather than
-keep tuning the per-module oracle around each new false-positive shape, A2 (and its "defer iff a
-provider exists somewhere" oracle) is deleted outright. A3 — the full-graph check that runs at
+the two are only unified downstream at the app's entry point. Per-module validation — checking a
+module against its own definitions, its `includes = [...]`, and its `@Configuration` siblings —
+cannot see that far, and reported a hard `KOIN-D001` for a dependency that resolves correctly once
+the real app assembles both modules together. Rather than keep tuning the per-module oracle around
+each new false-positive shape, per-module validation (and its "defer iff a provider exists
+somewhere" oracle) is deleted outright. Full-graph validation — the check that runs at
 `startKoin`/`koinApplication`/`@KoinApplication` — is now the **sole** compile-safety verifier.
 
 **What this means for you:**
@@ -33,7 +34,8 @@ provider exists somewhere" oracle) is deleted outright. A3 — the full-graph ch
   is no more deferral machinery to warn about.
 - Circular-dependency detection (`KOIN-D004`) going silent for a leaf module is intentional, not a
   regression: detecting a cycle requires seeing the whole graph, and a same-module-only check was
-  never a complete cycle detector even under the old A2 (it only ever saw local/sibling visibility).
+  never a complete cycle detector even under the old per-module validation (it only ever saw
+  local/sibling visibility).
 
 **Full account, including the design docs this reverses:** `docs/COMPILE_SAFETY_A3_PLAN.md`
 (superseded-banner) and `docs/COMPILE_TIME_SAFETY.md`.
@@ -44,21 +46,22 @@ provider exists somewhere" oracle) is deleted outright. A3 — the full-graph ch
 A plain `@Module @ComponentScan(...)` class with no `@Configuration` and not referenced by anyone's
 `includes = [...]` was silently treated as part of the graph anyway, as long as the entry point used
 a bare/default-labeled `@KoinApplication`/`startKoin` — the overwhelmingly common case. Its
-`@ComponentScan`-discovered definitions (including cross-module ones) were folded into A3's resolved
+`@ComponentScan`-discovered definitions (including cross-module ones) were folded into the resolved
 graph and validated as satisfied, when the actual generated module tree never wired them in at all:
 build green, runtime crash. Root cause: the entry-point module-discovery step accidentally called a
 label-reader meant for the *entry-point class's* `@KoinApplication(configurations=[...])` argument
 against *module* classes, which never carry that annotation — so it always hit that reader's
 "annotation absent" fallback (`["default"]`), making any `@Module` class match. This bug predates
-1.1.0 (traced to `1.0.0-GA1`) but was masked by A2, which used to validate each such module in
-isolation too; removing A2 made it load-bearing. Fixed, with a regression test
+1.1.0 (traced to `1.0.0-GA1`) but was masked by the old per-module validation, which used to
+validate each such module in isolation too; removing it made this bug load-bearing. Fixed, with a
+regression test
 (`entry_orphan_module_not_reachable_d001`) proving an orphaned module without `@Configuration` or an
 `includes` edge is now correctly excluded from the graph.
 
 ### `KOIN-D001` now names the real culprit module and source location
 Missing-dependency errors now carry `file:line` for the failing definition and the actual owning
 module's name (previously degraded to a generic app/root label once every `KOIN-D001` funnels
-through the one remaining A3 check). Also fixed: attribution for `FunctionDef`-shaped definitions
+through the one remaining full-graph check). Also fixed: attribution for `FunctionDef`-shaped definitions
 used a bare simple name, which could collide across same-named modules in different packages — now
 uses the fully-qualified name.
 
@@ -77,19 +80,20 @@ and stays silent without one — the two diagnostics no longer share a gate they
 dependency on.
 
 ### Cross-module qualifier and typed-scope resolution verified under the new sole-verifier design
-New regression coverage confirms A3 matches `@Named` qualifiers and typed `@Scope(X::class)` keys
-correctly across Gradle module boundaries, not just "some provider of this type exists somewhere" —
-this matters more now that A3 has no per-module fallback to catch a wrong match.
+New regression coverage confirms full-graph validation matches `@Named` qualifiers and typed
+`@Scope(X::class)` keys correctly across Gradle module boundaries, not just "some provider of this
+type exists somewhere" — this matters more now that there's no per-module fallback to catch a wrong
+match.
 
 **Known pre-existing limitation, found while writing this coverage (not new, not fixed this
 release):** `BindingRegistry.findProvider`'s scope-visibility check only matches a **typed**
 `@Scope(X::class)`; a **named** `@Scope(name = "...")` provider has no `scopeClass` and is treated
 as visible everywhere regardless of name.
 
-## 🔒 Incremental-compilation freshness (Gate 3)
+## 🔒 Incremental-compilation freshness
 
-Removing A2's leaf-local checking made A3's own freshness across incremental (IC) rebuilds load-
-bearing in a way it wasn't before — these changes close that gap:
+Removing per-module leaf-local checking made full-graph validation's own freshness across
+incremental (IC) rebuilds load-bearing in a way it wasn't before — these changes close that gap:
 
 - **`strictSafety` is now mandatory once an aggregator is auto-detected**, not opt-in. Previously,
   an explicit `strictSafety = false` silently won over the plugin's own `startKoin`/
@@ -136,18 +140,22 @@ koinCompiler {
 
 ## 🧷 Hint-file collision safety (#75)
 
-Five internal call sites that generate synthetic hint file names for cross-module discovery used
+Five internal call sites that generate synthetic hint **file names** for cross-module discovery used
 unbounded-length, collision-prone name sanitization (e.g. `p.q_r.mod` and `p.q.r_mod` both
 flattening to `p_q_r_mod`). All five now go through one shared utility: a bounded, readable prefix
 plus a 64-bit hash suffix computed over the untruncated input, so truncation itself can never cause
-a collision. (The frozen, cross-version-reconstructed *function*-name encoding — `flattenFqNameForHint`
-— is untouched; only file names, which have no external reconstructors, changed shape.)
+a collision — this is a plain naming fix, not a diagnostic; file names have no external
+reconstructors, so this changes freely.
 
-New diagnostic **`KOIN-D008`** hard-errors on a same-compilation hint-name collision (e.g. two
-zero-parameter keep-alive hints sharing a signature, a real KLIB `SignatureClashDetector` failure
-mode) — there is no legitimate scenario where two distinct modules should collide, so there's no
-opt-out. Detecting a **cross-Gradle-module** collision is a known, explicitly deferred gap (would
-need to run at the entry-point aggregator over already-decoded ids) — documented, not silent.
+Separately, the frozen, cross-version-reconstructed *function*-name encoder
+(`flattenFqNameForHint`) stays unchanged (other Kotlin modules built with an older plugin version
+reconstruct it, so it can't just be swapped for a hash) — but two distinct DSL module ids can still
+flatten to the same identifier through it. New diagnostic **`KOIN-D008`** hard-errors on that
+specific collision when it happens within one compilation (e.g. two zero-parameter keep-alive hints
+sharing a signature, a real KLIB `SignatureClashDetector` failure mode) — there is no legitimate
+scenario where two distinct modules should collide, so there's no opt-out. Detecting the same
+collision **across Gradle modules** is a known, explicitly deferred gap (would need to run at the
+entry-point aggregator over already-decoded ids) — documented, not silent.
 
 ## ✅ Compatibility
 
