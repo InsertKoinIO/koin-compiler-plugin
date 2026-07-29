@@ -1,13 +1,13 @@
-FILE fqName:org.koin.plugin.hints fileName:/main__greeterDsl_factory.kt
-  FUN name:dsl_factory visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Greeter
-    VALUE_PARAMETER kind:Regular name:module_myModule index:1 type:kotlin.Unit
+FILE fqName:org.koin.plugin.hints fileName:/injectedparams_main__Greeter_541c60e361b1e40e.kt
+  FUN name:injectedparams_Greeter visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:name index:0 type:kotlin.String
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/main__injectedparams_Greeter.kt
-  FUN name:injectedparams_Greeter visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:name index:0 type:kotlin.String
+FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__myModule_eed866a891d9f542.kt
+  FUN name:dsl_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Greeter
+    VALUE_PARAMETER kind:Regular name:module_myModule index:1 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY

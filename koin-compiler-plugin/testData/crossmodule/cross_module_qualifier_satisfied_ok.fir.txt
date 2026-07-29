@@ -1,0 +1,94 @@
+Module: contracts
+FILE: Repository.kt
+    package contracts
+
+    public abstract interface Repository : R|kotlin/Any| {
+    }
+Module: prodRepo
+FILE: ProdRepository.kt
+    package prodrepo
+
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(prod)) public final class ProdRepository : R|contracts/Repository| {
+        public constructor(): R|prodrepo/ProdRepository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: ProdModule.kt
+    package prodrepo
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(prodrepo))) public final class ProdModule : R|kotlin/Any| {
+        public constructor(): R|prodrepo/ProdModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: prodrepo/prodrepoProdModuleModule.kt
+    package prodrepo
+
+    public final fun R|prodrepo/ProdModule|.module(): R|org/koin/core/module/Module|
+Module: testRepo
+FILE: TestRepository.kt
+    package testrepo
+
+    @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(test)) public final class TestRepository : R|contracts/Repository| {
+        public constructor(): R|testrepo/TestRepository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: TestModule.kt
+    package testrepo
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testrepo))) public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|testrepo/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: testrepo/testrepoTestModuleModule.kt
+    package testrepo
+
+    public final fun R|testrepo/TestModule|.module(): R|org/koin/core/module/Module|
+Module: consumer
+FILE: Service.kt
+    package consumer
+
+    @R|org/koin/core/annotation/Singleton|() public final class Service : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(prod)) repo: R|contracts/Repository|): R|consumer/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|contracts/Repository| = R|<local>/repo|
+            public get(): R|contracts/Repository|
+
+    }
+FILE: ConsumerModule.kt
+    package consumer
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(consumer))) public final class ConsumerModule : R|kotlin/Any| {
+        public constructor(): R|consumer/ConsumerModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: consumer/consumerConsumerModuleModule.kt
+    package consumer
+
+    public final fun R|consumer/ConsumerModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|consumer/ConsumerModule|), <getClass>(Q|prodrepo/ProdModule|), <getClass>(Q|testrepo/TestModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|app/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }

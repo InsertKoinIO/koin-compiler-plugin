@@ -1,8 +1,10 @@
 package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.ir.declarations.IrClass
+import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.util.fileOrNull
 import org.jetbrains.kotlin.name.FqName
 
 /**
@@ -80,6 +82,26 @@ sealed class Definition {
     abstract val scopeName: String? // null = no string-named scope — `@Scope(name = "...")`
     abstract val scopeArchetype: ScopeArchetype? // null = no archetype
     abstract val createdAtStart: Boolean
+
+    // ── A3 durable-model carrier (PR1, purely additive) ──────────────────────────────────────
+    // Requirements and source origin attached at COLLECTION time so the A3 verifier can read them
+    // instead of re-deriving. See docs/COMPILE_SAFETY_A3_PLAN.md §4d.
+    //
+    // IMPORTANT: these are MUTABLE BODY properties with defaults, NOT primary-constructor
+    // parameters. For a `data class` only primary-constructor properties participate in
+    // equals/hashCode/copy, so keeping these in the (base) class body leaves all existing dedup
+    // (`.distinctBy`, `definitionDedupeKey`, set membership, `putIfAbsent`) UNCHANGED. Do not
+    // promote them into any subclass primary constructor.
+    //
+    // Corollary: `copy()` re-runs the primary constructor, so it DROPS both. Any copy() of a
+    // Definition must be followed by [retainA3Metadata].
+
+    /** Constructor/function parameter requirements of this definition (empty until populated). */
+    var requirements: List<Requirement> = emptyList()
+
+    /** Where this definition was declared (module/file/line), or null when unrecoverable. */
+    var origin: SourceOrigin? = null
+
 
     data class ClassDef(
         val irClass: IrClass,
@@ -165,6 +187,83 @@ sealed class Definition {
 
 enum class DefinitionType {
     SINGLE, FACTORY, SCOPED, VIEW_MODEL, WORKER
+}
+
+/**
+ * Source origin of a definition — where the provider was declared. Attached at collection time so
+ * the future A3 verifier can attribute a diagnostic to the culprit's own file/line rather than to
+ * the aggregator (see docs/COMPILE_SAFETY_A3_PLAN.md §4d).
+ *
+ * Every field degrades to null when unavailable. Native/klib-declared symbols routinely lack a file
+ * entry — nulls are expected and fine there.
+ *
+ * @param moduleFqName package FqName of the declaring file, used as a coarse origin locator. (The
+ *   Gradle-module identity isn't available at the IR level; the package FqName is the closest stable
+ *   proxy we have here.)
+ * @param filePath source file path from the IR file entry, or null.
+ * @param line 1-based line number of the declaration, or null.
+ */
+data class SourceOrigin(
+    val moduleFqName: String?,
+    val filePath: String?,
+    val line: Int?,
+) {
+    companion object {
+        /**
+         * Best-effort origin for an IR declaration (class or function). Never throws — any missing
+         * piece degrades to null. Safe on cross-module / native symbols that lack a file entry.
+         */
+        fun of(declaration: IrDeclaration): SourceOrigin {
+            val file = declaration.fileOrNull
+            val fileEntry = file?.fileEntry
+            val startOffset = declaration.startOffset
+            val line = if (fileEntry != null && startOffset >= 0) {
+                runCatching { fileEntry.getLineNumber(startOffset) + 1 }.getOrNull()
+            } else null
+            return SourceOrigin(
+                moduleFqName = file?.packageFqName?.asString(),
+                filePath = fileEntry?.name,
+                line = line,
+            )
+        }
+    }
+}
+
+/**
+ * Attach A3 durable-model metadata (origin + requirements) to a freshly-constructed [Definition] and
+ * return the same instance for fluent use at collection sites. PR1, purely additive — no consumer
+ * reads these yet. `requirements` is a lambda so callers that already have the backing IR compute it
+ * only here. See docs/COMPILE_SAFETY_A3_PLAN.md §4d.
+ */
+internal inline fun <T : Definition> T.attachA3Metadata(
+    declaration: IrDeclaration,
+    requirements: () -> List<Requirement>,
+): T {
+    this.origin = SourceOrigin.of(declaration)
+    this.requirements = requirements()
+    return this
+}
+
+/**
+ * Carry the A3 body properties across a `copy()` of the SAME definition.
+ *
+ * [Definition.requirements] and [Definition.origin] live in the class body (see the note on
+ * [Definition]) so that data-class `equals`/`hashCode`/dedup stay unchanged. Body properties are
+ * exactly what `copy()` drops, though — it re-runs the PRIMARY constructor, so both silently reset
+ * to their defaults.
+ *
+ * That was not theoretical. `single<X>() bind Y::class` rebuilt its definition through `copy()` to
+ * append the binding, and the rebuilt definition carried zero requirements. Both consumers of
+ * [BindingRegistry] `extractRequirements` then saw nothing: KOIN-D001 missing-dependency validation
+ * AND KOIN-D004 cycle detection. A missing constructor dependency, or a cycle, compiled green — a
+ * regression against 1.0.2, which re-derived requirements from the constructor at validation time.
+ *
+ * [source] is typed `T` rather than `Definition` so a `ClassDef`'s metadata cannot be grafted onto a
+ * `DslDef`. Regression test: `testData/diagnostics/dsl_bind_missing_dependency_d001.kt`.
+ */
+internal fun <T : Definition> T.retainA3Metadata(source: T): T = apply {
+    requirements = source.requirements
+    origin = source.origin
 }
 
 /**

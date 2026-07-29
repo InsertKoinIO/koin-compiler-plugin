@@ -1,0 +1,31 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface Alpha : R|kotlin/Any| {
+    }
+    public final class MissingDep : R|kotlin/Any| {
+        public constructor(): R|testpkg/MissingDep| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class FactoryImpl : R|testpkg/Alpha| {
+        public constructor(dep: R|testpkg/MissingDep|): R|testpkg/FactoryImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|testpkg/MissingDep| = R|<local>/dep|
+            public get(): R|testpkg/MissingDep|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|testpkg/FactoryImpl|>().R|org/koin/dsl/bind|<R|testpkg/Alpha|>(<getClass>(Q|testpkg/Alpha|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

@@ -1,4 +1,4 @@
-FILE fqName:org.koin.plugin.hints fileName:/main__myService_callsite.kt
+FILE fqName:org.koin.plugin.hints fileName:/callsite_main__MyService_1c2cbfb63bda5fcd.kt
   FUN name:callsite visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:required index:0 type:<root>.MyService
     annotations:

@@ -1,0 +1,3 @@
+[Koin][KOIN-W003] Graph not verifiable at compile time: startKoin { … } is loaded with a dynamically-computed module set (a conditional, spread, or variable), so the assembled graph is unknowable here.
+  at: test.kt:35
+  Compile-time dependency checks are skipped for this entry point; it is validated at runtime via checkModules(). Pass module classes directly — e.g. modules(MyModule::class) — to enable full compile-time verification.

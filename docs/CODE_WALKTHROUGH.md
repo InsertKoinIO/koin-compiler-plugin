@@ -5,6 +5,15 @@
 > Line-by-line debugging reference for the Koin maintainer.
 > Every file, every method, every data flow.
 
+> **PARTIALLY STALE (1.1.0):** this doc predates the 1.1.0 A2 removal. Every reference below to
+> "A1" (per-module local+includes validation) or "A2" (`@Configuration`-sibling validation,
+> `buildVisibleDefinitions`, `CompileSafetyValidator.validate`) describes code that **no longer
+> exists** — both were deleted; A3 (full-graph validation at a Koin entry point) is now the sole
+> compile-safety verifier. See `docs/COMPILE_TIME_SAFETY.md` and `docs/COMPILE_SAFETY_A3_PLAN.md`
+> (superseded-banner) for the current design and the false-positive that motivated the removal.
+> This walkthrough has not been re-swept line-by-line for the change — treat any A1/A2 mention
+> below as historical.
+
 ---
 
 ## Table of Contents
@@ -1626,7 +1635,7 @@ q_<sanitized>: Unit                  // Roster entry (one per qualifier on roste
 
 **Error severity**:
 - A2/A3/A4 missing dependency → `KoinPluginLogger.error()` → **compilation fails**
-- @Property missing → `KoinPluginLogger.warn()` → **warning only**
+- @Property missing → `KoinDiagnostic.MissingPropertyValue` (`KOIN-P001`) via `KoinPluginLogger.report()` → **warning only** (not `warn()` — that's reserved for `@Monitor` tracing-enabled summaries)
 - Unreachable modules → `KoinPluginLogger.error()` → **compilation fails**
 
 ---

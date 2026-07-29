@@ -77,35 +77,78 @@ build** with `KOIN-D001` instead of letting it compile and crash at runtime. Run
 3. Recompile and confirm the build **fails** with `KOIN-D001: Missing dependency: …NewsRepository`.
 4. Restore the line; confirm the build passes again.
 
-### ⚠️ DSL requires cleaning the edited module first
-
-DSL cross-module detection reads generated hint classes (`org/koin/plugin/hints/…Dsl_singleKt.class`)
-from the dependency's output. Kotlin **incremental** compilation regenerates hints for the definitions
-that remain but does **not delete** the hint class of a *removed* definition — it survives as an orphan
-and makes the deleted provider still look present. An incremental-only rebuild therefore **passes
-silently** (false green → runtime crash). Always clean the edited leaf module for the DSL app:
+### No clean needed (as of 1.1.0-Beta3 — orphan-hint fix)
 
 ```bash
-# DSL — clean the edited module so stale hints can't mask the removal
+# DSL — incremental is fine; a removed definition is caught without any clean
 cd app-dsl
-./gradlew :core:data:clean :app:compileDebugKotlin      # MUST fail with KOIN-D001
+./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
 
-# Annotations — no clean needed; caught at the owning module during its own compile
+# Annotations — same, caught at :app's full-graph check when it recompiles
 cd app-annotations
 ./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
 ```
 
 ### Expected result
 
+**Since 1.1.0, per-module validation is gone — both apps are caught the same way**: only the
+aggregator's (`:app`'s) full-graph check catches a removed definition now, never the definition's
+own module compiling in isolation.
+
 | App | After commenting a used definition | Where it's caught |
 |-----|-----------------------------------|-------------------|
-| `app-annotations` | build **FAILS** with `KOIN-D001` (incremental is fine) | the definition's own module (A2, real class symbols) |
-| `app-dsl` | build **FAILS** with `KOIN-D001` **after `:<module>:clean`** | the aggregator (`:app`) via cross-module hints |
+| `app-annotations` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`), via its full-graph check |
+| `app-dsl` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`), via cross-module hints |
 
-> The DSL clean requirement is a known **incremental-compilation limitation** (orphaned generated hint
-> classes), not a validation-logic bug — a clean / `--rerun-tasks` build catches every case, in every
-> version tested. Tracked for the KCP 1.1 incremental-compilation work. Until it's fixed, a DSL
-> stress-test run **without** the clean step is not a valid result.
+> **History:** DSL removal detection previously required `:<module>:clean` because DSL hints were
+> emitted one class *per definition* (`…Dsl_singleKt.class`); Kotlin IC regenerated hints for the
+> remaining defs but never deleted a *removed* def's orphan class, so an incremental rebuild passed
+> silently. Fixed in **1.1.0-Beta3** by batching each module's DSL hints into one
+> `koin_dsl_hints_<module>.kt` file regenerated wholesale (same shape the annotation module-scan hints
+> always used) — a removed def leaves no orphan class. Verified incremental (no clean), `:module:clean`,
+> and full-clean all detect. A full clean / `--rerun-tasks` remains a safe belt-and-suspenders check.
+
+### Also worth commenting out (as of 1.1.0-Beta8/Beta9)
+
+Removing a *definition* is not the only way to break a graph. Two more edits belong in the sweep:
+
+```bash
+# 1. Remove a transitive `includes()` edge in a dependency module.
+#    app-dsl: drop `databaseModule` from core/data/…/DataModule.kt's includes(...)
+./gradlew :app:compileDebugKotlin        # MUST fail with KOIN-D001 (incremental is fine)
+
+# 2. Remove a module from the root's includes(), where a call site still resolves it.
+#    app-dsl: comment `activityModule` out of app/…/AppModule.kt
+./gradlew :app:compileDebugKotlin        # MUST fail with KOIN-D002 at the inject() call site
+```
+
+> **Edit 1 is currently stale for `app-dsl`'s topology (found during 1.1.0 release verification).**
+> `app/…/AppModule.kt` now ALSO lists `databaseModule` directly in its own `modules(...)`/`includes(...)`
+> list, alongside `DataModule.kt`'s transitive edge — so dropping the transitive edge alone leaves the
+> graph genuinely complete via the direct edge, and the build correctly succeeds (not a plugin bug,
+> just doesn't exercise "sole transitive edge" anymore). Pick a module that reaches the root through
+> exactly one transitive path with no direct edge before running this check, or restructure `app-dsl`
+> to restore that shape.
+
+Edit 2 is the one that used to compile and crash at runtime — `by inject<ActivityTracker>()` resolved
+against a module nobody loaded. Note that Gradle suppresses `w:` lines on a failing task, so the
+`KOIN-W001` that fires alongside the D002 will not appear in the console.
+
+> **Known limitation — a module that goes COMPLETELY empty.** If a `module { }` val loses its last
+> `includes()` *and* has no definitions of its own, an incremental rebuild does **not** detect it:
+> the build passes and the missing providers surface at runtime. `:<module>:clean` does not help
+> either; only a full `clean` (with `--no-build-cache`) catches it.
+>
+> The plugin emits a zero-parameter keep-alive hint for exactly this case, so the *artifact* is
+> correct — `javap` on the module's `classes.jar` shows the edge gone. The residual is K2 re-resolving
+> a changed hint signature within one incremental session: the consumer keeps seeing the old
+> signature even though the jar it compiles against no longer contains it. Both tasks re-execute and
+> clearing the consumer's IC caches does not help, so this sits past what the plugin can reach.
+>
+> Scope is narrow: changing *one edge among several* propagates correctly (verified — 3 correct
+> `KOIN-D001` on a no-clean rebuild). It is also not specific to `includes()` — the same shape applies
+> to a module whose last *definition* is deleted, which predates the includes-edge carrier. If you are
+> deliberately emptying a module, run a full clean before trusting a green build.
 
 ## Key Patterns Covered
 

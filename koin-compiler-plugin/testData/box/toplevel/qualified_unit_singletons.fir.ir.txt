@@ -1,4 +1,4 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_AppModule.kt
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_AppModule_16f6e1b7fad089ec.kt
   FUN name:componentscanfunc_testpkg_AppModule_single__q_initFlagsAndLogging visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:qualifier_initFlagsAndLogging index:1 type:kotlin.Unit

@@ -70,6 +70,24 @@ object KoinPluginConstants {
     const val OPTION_MODULE_ID = "moduleId"
 
     /**
+     * Option controlling the severity of the plugin's informational output — [user]/[debug]/
+     * [userFir]/[debugFir]/[warn] in [KoinPluginLogger] (issue #73: under Gradle's
+     * `allWarningsAsErrors`, WARNING-severity output fails the build even though it's purely
+     * informational). Values: `"warning"` (default, preserves prior behavior) | `"info"` (safe
+     * under `allWarningsAsErrors`). Does NOT affect real diagnostics (KOIN-Dxxx/Wxxx/etc, see
+     * [OPTION_VERSION_CHECK_SEVERITY] for the separate Kotlin-version-gate setting).
+     */
+    const val OPTION_LOG_SEVERITY = "logSeverity"
+
+    /**
+     * Option controlling the severity of the Kotlin-version-compatibility warning, independent
+     * of [OPTION_LOG_SEVERITY] — a user muting informational plugin noise should not also lose
+     * visibility into "you're on an unverified Kotlin version" by the same toggle. Values:
+     * `"warning"` (default) | `"info"`.
+     */
+    const val OPTION_VERSION_CHECK_SEVERITY = "versionCheckSeverity"
+
+    /**
      * URL printed in the AI-assist CTA.
      *
      * Short redirect to the canonical doc page at https://doc.kotzilla.io/docs/fixIssues/koinMcp.
@@ -148,6 +166,41 @@ object KoinPluginConstants {
     const val INJECTED_PARAMS_HINT_PREFIX = "injectedparams_"
 
     /**
+     * Prefix for the A3 function-requirements carrier hint (Gate-3). For a function-based provider
+     * discovered cross-module as [Definition.ExternalFunctionDef] — a top-level `@Single fun`
+     * reached via a dependency's @ComponentScan roster — the hint carries what the function NEEDS
+     * (its must-validate constructor/parameter requirements) so the A3 verifier at the consumer's
+     * entry point can check them. Without it, ExternalFunctionDef.requirements is empty and the
+     * verifier is blind to the provider's transitive deps (a silent false negative).
+     *
+     * The hint IS the shape: `funcreqs_<flat-return-fqn>(param0: T0, param1: T1, …)`, one value
+     * parameter per must-validate requirement, mirroring [INJECTED_PARAMS_HINT_PREFIX]. Consumers
+     * rebuild the requirement list by walking `IrFunction.valueParameters` — no string parsing.
+     */
+    const val FUNCTION_REQS_HINT_PREFIX = "funcreqs_"
+
+    /**
+     * Name of the requirements carrier for one function provider, keyed by return type AND qualifier.
+     *
+     * The qualifier belongs in the key because two qualified providers of the same type is ordinary
+     * Koin (`@Named("auth")` / `@Named("plain")` returning `HttpClient`). Keyed on the return type
+     * alone, the second provider's carrier was never emitted and BOTH consumers decoded the first
+     * one's requirements: one provider's dependencies went unvalidated (a silent false negative) and
+     * the other's were falsely attributed to it. This is also the key the consumer already dedupes
+     * ExternalFunctionDefs by, so the two now agree.
+     *
+     * Unqualified providers keep the bare `funcreqs_<flat-return-fqn>` name, so nothing that existed
+     * before this change moves. Qualified ones get a `__q_<sanitized>` suffix, matching the
+     * convention `componentscanfunc_…__q_…` already uses — which also keeps signatures distinct on
+     * KLIB, where duplicates are a hard error rather than a silent overwrite.
+     */
+    fun funcReqsHintFunctionName(returnFqn: String, qualifierDiscriminator: String?): String {
+        val flat = flattenFqNameForHint(returnFqn)
+        return if (qualifierDiscriminator == null) "$FUNCTION_REQS_HINT_PREFIX$flat"
+        else "$FUNCTION_REQS_HINT_PREFIX${flat}__q_$qualifierDiscriminator"
+    }
+
+    /**
      * Flatten an FqName (dots → underscores) into a Kotlin-identifier-safe segment usable as
      * the suffix of an [INJECTED_PARAMS_HINT_PREFIX] hint function name. `$` (nested-class
      * separator in some FqName renderings) also collapses to `_`.
@@ -163,6 +216,39 @@ object KoinPluginConstants {
 
     /** Prefix for module property ID parameter in DSL hint functions (cross-module reachability). */
     const val DSL_MODULE_PARAM_PREFIX = "module_"
+
+    /**
+     * Prefix for the DSL includes-edge hint — the topology carrier for `module { includes(…) }`.
+     *
+     * A DSL module's membership lives in its lambda BODY, which is not part of any declaration's
+     * ABI, so an `includes()` edge declared in a dependency module does not survive compilation.
+     * Without this hint a consumer only knows the edges it can walk locally, so any module reached
+     * ONLY through a dependency's `includes()` looks unreachable — its definitions get dropped from
+     * the provider set and every consumer of them hard-errors (a false KOIN-D001 on a graph that
+     * resolves fine at runtime, plus a false KOIN-W001). This is the DSL analog of what
+     * `@Module(includes = […])` gives the annotation side for free, since that IS ABI.
+     *
+     * Shape: `dslincludes_<flattened-owner-module-id>(module_<included$module$id>: Unit, …)`.
+     * The owner's id is in the NAME (not a parameter) so every module val gets a unique signature —
+     * all parameters are `Unit`-typed, so two modules with the same include count would otherwise
+     * collide on JVM/KLIB. Consumers rebuild the name from a module id they already know and read
+     * the edges off the parameter names, walking them breadth-first so relay chains resolve.
+     */
+    const val DSL_INCLUDES_HINT_PREFIX = "dslincludes_"
+
+    /**
+     * Marker parameter on a [DSL_INCLUDES_HINT_PREFIX] hint: this module's `includes(...)` had an
+     * argument the producer could not resolve, so the edges it carries are PARTIAL.
+     *
+     * Incompleteness must travel with the edges. Without it a consumer reads a partial list as the
+     * whole truth and reports everything beyond it unreachable — a false KOIN-D001/D002/W001 on a
+     * graph that resolves fine at runtime, one module away from where the ambiguity actually is.
+     */
+    const val DSL_INCLUDES_INCOMPLETE_MARKER = "incomplete_topology"
+
+    /** Hint function name carrying the `includes()` edges declared by [ownerModuleId]'s `module { }`. */
+    fun dslIncludesHintFunctionName(ownerModuleId: String): String =
+        "$DSL_INCLUDES_HINT_PREFIX${flattenFqNameForHint(ownerModuleId)}"
 
     /** Default label for @Configuration modules. */
     const val DEFAULT_LABEL = "default"

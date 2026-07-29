@@ -80,24 +80,6 @@ data class InjectedParamSlot(
     val isNullable: Boolean,
 )
 
-/**
- * An unresolved binding requirement that was NOT reported as a hard error because it was found while
- * validating an *open* (per-module / leaf) closure rather than a *complete closed* closure. Carried
- * back to the orchestrator ([CompileSafetyValidator]) which decides whether it becomes a KOIN-D001
- * error (re-validated against the full assembled graph at `@KoinApplication`) or a KOIN-W002 warning
- * (no complete closure in this compilation — defer to runtime). See KTZ-4256 / GH #51.
- *
- * @property moduleFqName FQName of the module whose isolated validation produced the deferral (null
- *   when the module has no resolvable FqName). Used to skip re-emitting once A3 authoritatively
- *   validates the same module.
- */
-data class DeferredRequirement(
-    val defName: String,
-    val moduleName: String,
-    val moduleFqName: String?,
-    val requirement: Requirement,
-    val qualifierDisplay: String?,
-)
 
 /**
  * Registry of all provided bindings, with per-module validation.
@@ -295,39 +277,29 @@ class BindingRegistry {
      *
      * @param moduleName Name of the module (for error messages)
      * @param definitions All definitions collected for this module (used to build provided types)
-     * @param parameterAnalyzer Analyzer for extracting parameter requirements
      * @param qualifierExtractor Extractor for reading qualifier annotations from definitions
      * @param definitionsToValidate Subset of definitions whose requirements should be checked.
-     *   If null, all definitions are validated. Use this to skip re-validating definitions
-     *   that were already checked at A2 while still including them as providers.
-     * @param closureComplete Whether the [definitions] set is the *complete closed* closure assembled
-     *   at a `@KoinApplication` / `startKoin` entry point (A3). When true the graph is authoritative,
-     *   so an unresolved binding is always a genuine missing dependency → KOIN-D001 ERROR and deferral
-     *   never happens. When false (A2, per-module), an unresolved binding is deferred ONLY if a
-     *   [crossModuleHintLookup] proves a provider exists elsewhere on the build graph (KTZ-4256 / #51);
-     *   with no such hint it is still a hard KOIN-D001 here.
-     * @param deferredSink Collector for deferred (cross-module) unresolved requirements. Deferral only
-     *   fires when a [crossModuleHintLookup] is supplied AND it reports a provider hint for the type.
-     * @param moduleFqName FQName of the module being validated, carried into deferrals.
-     * @param crossModuleHintLookup Oracle "does a provider hint for this type exist ANYWHERE on the
-     *   build graph?" (KTZ-4256 / #51). When an unresolved binding's type IS provided by a hint
-     *   somewhere, it is a real cross-module dep the local module can't see → recorded in [deferredSink]
-     *   instead of erroring (settled at A3 / KOIN-W002). When it is NOT (or the lookup is null), the
-     *   binding is genuinely missing → hard KOIN-D001. Ignored — no deferral — when [closureComplete]
-     *   is true at A3 (the assembled graph is already authoritative).
-     * @return Number of errors found (deferred requirements are NOT counted as errors)
+     *   If null, all definitions are validated.
+     * @return Number of errors found
+     *
+     * A3 is the sole verifier (A2's per-module pass was removed in 1.1.0 — see
+     * docs/COMPILE_SAFETY_A3_PLAN.md): [definitions] is always the complete closed closure
+     * assembled at a `@KoinApplication` / `startKoin` entry point, so an unresolved binding is
+     * always a genuine missing dependency → hard KOIN-D001. There is no cross-module deferral —
+     * that concept only existed to give A2 a way to avoid false-positiving on a module it saw in
+     * isolation, which is exactly the unsoundness that motivated removing A2.
      */
     fun validateModule(
         moduleName: String,
         definitions: List<Definition>,
-        parameterAnalyzer: ParameterAnalyzer,
         qualifierExtractor: QualifierExtractor,
         definitionsToValidate: List<Definition>? = null,
         reportedCycles: MutableSet<String>? = null,
-        closureComplete: Boolean = true,
-        deferredSink: MutableList<DeferredRequirement>? = null,
-        moduleFqName: String? = null,
-        crossModuleHintLookup: ((TypeKey) -> Boolean)? = null,
+        // Dedup for KOIN-D001, analogous to [reportedCycles] for KOIN-D004: a shared definition
+        // reachable from multiple entry points (test-apps has ~9 per compile) gets fully
+        // re-validated once per entry point — without this, the SAME missing dependency would be
+        // reported once per root that reaches it. Null (the default) means no dedup.
+        reportedMissingDeps: MutableSet<String>? = null,
     ): Int {
         // Build the set of provided types from ALL definitions
         val providedTypes = mutableSetOf<ProviderKey>()
@@ -358,14 +330,6 @@ class BindingRegistry {
             }
         }
 
-        // Bare (qualifier/scope-agnostic) FQNames of every type provided in THIS module's visibility
-        // set. Used by the KTZ-4256 gate to tell a cross-module gap apart from a same-module
-        // qualifier/scope mismatch: if the type is already visible here, an unresolved requirement is
-        // a genuine LOCAL miss (wrong @Named / wrong @Scope) → hard D001, never a cross-module defer.
-        val locallyProvidedTypeFqNames = providedTypes.mapNotNullTo(hashSetOf()) {
-            it.typeKey.fqName?.asString() ?: it.typeKey.classId?.asFqNameString()
-        }
-
         // Only validate requirements from the specified subset (or all if not specified)
         val toValidate = definitionsToValidate ?: definitions
 
@@ -375,10 +339,23 @@ class BindingRegistry {
         // Validate each definition's requirements
         var errorCount = 0
         for (def in toValidate) {
-            val requirements = extractRequirements(def, parameterAnalyzer)
+            val requirements = extractRequirements(def)
             val defName = definitionDisplayName(def)
             val defScopeClass = def.scopeClass
-            KoinPluginLogger.debug { "    validating: $defName (${requirements.size} requirements)" }
+            KoinPluginLogger.debug {
+                val o = def.origin
+                val originStr = if (o != null) " [${o.moduleFqName ?: "?"}${o.filePath?.let { " ${it.substringAfterLast('/')}:${o.line ?: "?"}" } ?: ""}]" else ""
+                val reqStr = requirements.joinToString(", ") { r -> r.typeKey.render() + if (r.requiresValidation()) "" else "(skip)" }
+                val note = when {
+                    def !is Definition.ExternalFunctionDef -> ""
+                    // A3 Gate-3: an external provider now carries its requirements via the funcreqs
+                    // hint; empty still means provider-only (nothing carried, or a qualified req cut-1
+                    // can't encode yet).
+                    requirements.isEmpty() -> " (provider-only; no cross-module reqs carried)"
+                    else -> " (cross-module reqs carried via funcreqs)"
+                }
+                "    validating: $defName$originStr — ${requirements.size} req(s): [$reqStr]$note"
+            }
 
             for (req in requirements) {
                 if (!req.requiresValidation()) {
@@ -421,45 +398,51 @@ class BindingRegistry {
 
                 // Look for a matching provider
                 val found = findProvider(req, providedTypes, defScopeClass)
-                // KTZ-4256 / #51: at A2 (open closure), defer ONLY when a provider hint for this type
-                // exists somewhere on the build graph — i.e. it is a real cross-module dep the local
-                // module can't see. With no hint anywhere, the type is genuinely missing and must stay
-                // a hard KOIN-D001 (single-module typo, @ComponentScan untyped-entry, etc.). At A3
-                // (closureComplete) the assembled graph is authoritative, so never defer.
-                val reqTypeFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
-                val visibleLocally = reqTypeFqName != null && reqTypeFqName in locallyProvidedTypeFqNames
-                val hasCrossModuleHint = !closureComplete &&
-                    deferredSink != null &&
-                    !visibleLocally &&
-                    crossModuleHintLookup?.invoke(req.typeKey) == true
                 if (found) {
                     KoinPluginLogger.debug { "      OK '${req.paramName}': ${req.typeKey.render()}" }
-                } else if (hasCrossModuleHint) {
-                    // Provider hint exists in a sibling / dependency module not visible here — defer to
-                    // the complete closed closure at @KoinApplication (KOIN-D001) or to runtime (KOIN-W002).
-                    KoinPluginLogger.debug { "      DEFERRED '${req.paramName}': ${req.typeKey.render()} (cross-module provider hint exists)" }
-                    deferredSink?.add(
-                        DeferredRequirement(
-                            defName = defName,
-                            moduleName = moduleName,
-                            moduleFqName = moduleFqName,
-                            requirement = req,
-                            qualifierDisplay = qualifierDisplay(req.qualifier),
-                        )
-                    )
                 } else {
-                    // No provider hint anywhere on the graph → genuinely missing → authoritative D001.
-                    KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}" }
-                    reportMissingDependency(req, defName, moduleName, providedTypes)
-                    errorCount++
+                    // definitions is always the complete closed closure (A3 is the sole verifier —
+                    // see the class doc) → an unresolved binding is always a genuine missing
+                    // dependency, never deferred.
+                    KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}  [culprit ${def.origin?.let { "${it.filePath?.substringAfterLast('/') ?: it.moduleFqName ?: "?"}:${it.line ?: "?"}" } ?: definitionDisplayName(def)}]" }
+                    // Attribute to the definition's OWN owner whenever we can derive one, not the
+                    // generic validation-context moduleName. This matters far more once A3 is the
+                    // sole verifier (no per-module A2 pass): every def, of every kind, then reaches
+                    // here through ONE call with a single generic moduleName (the app/entry-point
+                    // label) — without this, EVERY missing-dependency error in a multi-module app
+                    // would misattribute to the app root instead of the culprit's own module.
+                    //   - DslDef: its `module { }` val (modulePropertyId) — a real Kotlin identifier.
+                    //   - FunctionDef: its owning @Module class — equally precise, always available.
+                    //   - Everything else (ClassDef/TopLevelFunctionDef/ExternalFunctionDef, incl.
+                    //     cross-module KLIB symbols): no direct "owning module" back-reference
+                    //     exists, so fall back to the definition's own source package (def.origin,
+                    //     best-effort — null for genuinely cross-module symbols with no IR file,
+                    //     where the generic moduleName is the best information available).
+                    val owningModule = when {
+                        def is Definition.DslDef && def.modulePropertyId != null -> def.modulePropertyId
+                        def is Definition.FunctionDef -> def.moduleInstance.fqNameWhenAvailable?.asString() ?: moduleName
+                        // Root-package files (common in tests) yield an EMPTY moduleFqName, not
+                        // null — SourceOrigin.of derives it from packageFqName.asString(), which
+                        // is "" for the root package. `?:` alone only catches null, so a blank
+                        // result would silently produce "in module: " instead of falling back.
+                        else -> def.origin?.moduleFqName?.takeIf { it.isNotBlank() } ?: moduleName
+                    }
+                    // Dedup key: (definition, parameter, missing type+qualifier) — deliberately NOT
+                    // including moduleName/owningModule, since the same requirement reached from a
+                    // different root is still the same underlying miss and should collapse to one
+                    // report, not one per root.
+                    val dedupKey = "$defName|${req.paramName}|${req.typeKey.render()}|${qualifierDisplay(req.qualifier)}"
+                    if (reportedMissingDeps == null || reportedMissingDeps.add(dedupKey)) {
+                        reportMissingDependency(req, defName, owningModule, providedTypes, def.origin?.filePath, def.origin?.line)
+                        errorCount++
+                    }
                 }
             }
         }
 
-        // Cycle detection runs over the full provider set (not just toValidate) so a back-edge
-        // through an already-validated definition still surfaces. Dedup happens via [reportedCycles]
-        // so the same cycle isn't reported at both A2 and A3.
-        val cycleErrors = detectCycles(definitions, parameterAnalyzer, qualifierExtractor, reportedCycles)
+        // Cycle detection runs over the full provider set (not just toValidate). Dedup via
+        // [reportedCycles] so the same cycle isn't reported once per entry point that reaches it.
+        val cycleErrors = detectCycles(definitions, qualifierExtractor, reportedCycles)
         errorCount += cycleErrors
 
         if (errorCount == 0) {
@@ -493,7 +476,6 @@ class BindingRegistry {
      */
     private fun detectCycles(
         definitions: List<Definition>,
-        parameterAnalyzer: ParameterAnalyzer,
         qualifierExtractor: QualifierExtractor,
         reportedCycles: MutableSet<String>?,
     ): Int {
@@ -532,7 +514,7 @@ class BindingRegistry {
         val adj = HashMap<ProviderKey, List<ProviderKey>>(primaryToDef.size)
         for ((primary, def) in primaryToDef) {
             val edges = LinkedHashSet<ProviderKey>()
-            for (req in extractRequirements(def, parameterAnalyzer)) {
+            for (req in extractRequirements(def)) {
                 if (!req.requiresValidation()) continue
                 if (req.isLazy) continue
                 val reqFqName = req.typeKey.fqName?.asString() ?: req.typeKey.classId?.asFqNameString()
@@ -657,7 +639,9 @@ class BindingRegistry {
         req: Requirement,
         defName: String,
         moduleName: String,
-        providedTypes: Set<ProviderKey>
+        providedTypes: Set<ProviderKey>,
+        originFilePath: String? = null,
+        originLine: Int? = null,
     ) {
         val typeName = req.typeKey.render()
         val qualifierStr = qualifierDisplay(req.qualifier)
@@ -692,7 +676,9 @@ class BindingRegistry {
                 param = req.paramName,
                 module = moduleName,
                 hint = hint,
-            )
+            ),
+            filePath = originFilePath,
+            line = originLine ?: -1,
         )
     }
 
@@ -726,42 +712,28 @@ class BindingRegistry {
         }
     }
 
-    private fun extractRequirements(def: Definition, analyzer: ParameterAnalyzer): List<Requirement> {
-        return when (def) {
-            is Definition.ClassDef -> {
-                val constructor = findConstructorToUse(def.irClass)
-                if (constructor != null) analyzer.analyzeConstructor(constructor) else emptyList()
-            }
-            is Definition.FunctionDef -> analyzer.analyzeFunction(def.irFunction)
-            is Definition.TopLevelFunctionDef -> analyzer.analyzeFunction(def.irFunction)
-            is Definition.DslDef -> {
-                val constructor = findConstructorToUse(def.irClass)
-                if (constructor != null) analyzer.analyzeConstructor(constructor) else emptyList()
-            }
-            is Definition.ExternalFunctionDef -> emptyList() // Provider-only, requirements validated in source module
-        }
-    }
-
-    /**
-     * Find the constructor to use for injection.
-     * Prefers @Inject annotated constructor, otherwise uses primary constructor.
-     */
-    private fun findConstructorToUse(targetClass: IrClass): org.jetbrains.kotlin.ir.declarations.IrConstructor? {
-        val injectConstructor = targetClass.declarations
-            .filterIsInstance<org.jetbrains.kotlin.ir.declarations.IrConstructor>()
-            .firstOrNull { constructor ->
-                constructor.annotations.any { annotation ->
-                    val fqName = annotation.type.classFqName?.asString()
-                    fqName == "jakarta.inject.Inject" || fqName == "javax.inject.Inject"
-                }
-            }
-        return injectConstructor ?: targetClass.primaryConstructor
-    }
+    // The verifier consumes the model: requirements are attached at collection time (the metadata
+    // contract, A3 §2) — a single source of truth, no re-derivation and no classifier drift.
+    // ExternalFunctionDef carries an empty list (provider-only; the Gate-2 carrier fills it).
+    //
+    // A whole-suite differential against on-demand re-derivation reported 0 mismatches, but that
+    // was a BLIND SPOT, not a proof: the suite had no `bind` + missing-dependency case to differ on.
+    // `single<X>() bind Y::class` rebuilds its definition via copy(), which resets the body-held
+    // requirements, and this bare field read has no fallback — so BOTH consumers below went silent
+    // (KOIN-D001 at :376 and KOIN-D004 cycle detection at :550). Fixed by Definition.retainA3Metadata;
+    // covered by testData/diagnostics/dsl_bind_missing_dependency_d001.kt and its variants. Treat an
+    // unpopulated `requirements` as a bug at the collection site, never as "no requirements".
+    private fun extractRequirements(def: Definition): List<Requirement> = def.requirements
 
     private fun definitionDisplayName(def: Definition): String {
         return when (def) {
             is Definition.ClassDef -> def.irClass.fqNameWhenAvailable?.asString() ?: def.irClass.name.asString()
-            is Definition.FunctionDef -> "${def.moduleInstance.name}.${def.irFunction.name}()"
+            // Fully-qualified moduleInstance, not just its simple name: two @Module classes with
+            // the same simple name in different packages (a realistic pattern — feature modules
+            // commonly reuse names like "NetworkModule") would otherwise render identically here.
+            // This string is now also a dedup-key input (KOIN-D001 across entry points), which
+            // raises the bar from "human-readable" to "collision-safe identity".
+            is Definition.FunctionDef -> "${def.moduleInstance.fqNameWhenAvailable?.asString() ?: def.moduleInstance.name.asString()}.${def.irFunction.name}()"
             is Definition.TopLevelFunctionDef -> def.irFunction.fqNameWhenAvailable?.asString()
                 ?: def.irFunction.name.asString()
             is Definition.DslDef -> "dsl:${def.irClass.fqNameWhenAvailable?.asString() ?: def.irClass.name.asString()}"

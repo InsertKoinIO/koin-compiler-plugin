@@ -1,5 +1,10 @@
 # Plan: Module-Scoped Component Scan Hints
 
+> **STALE (1.1.0):** this plan is framed around A2 (`@Configuration`-sibling per-module
+> validation) "seeing" or "deferring" on cross-module definitions. A2 was removed entirely in
+> 1.1.0 — there is no per-module validation left to defer or consolidate for. Historical record
+> only; see `docs/COMPILE_TIME_SAFETY.md` for the current (A3-only) design.
+
 ## Problem
 
 When a `@Module @ComponentScan @Configuration` class is in Gradle module A, and a `@Configuration` sibling is in Gradle module B, module B **can't see** what module A's `@ComponentScan` discovered.

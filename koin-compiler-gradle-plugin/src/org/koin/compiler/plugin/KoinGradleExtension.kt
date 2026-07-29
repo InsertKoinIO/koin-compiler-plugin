@@ -63,8 +63,14 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      *
      * When left unset (the default), the Gradle plugin scans source files for `startKoin`,
      * `koinApplication`, or `@KoinApplication` and **auto-enables** this on detected
-     * aggregator modules. A lifecycle log line announces the decision. Set explicitly
-     * (`true` or `false`) to override the auto-detection.
+     * aggregator modules. A lifecycle log line announces the decision. Set explicitly to `true`
+     * to force it on regardless of detection.
+     *
+     * **Setting this to `false` no longer has any effect once an entry point is detected**
+     * (mandatory as of 1.1.0 — see [strictSafetyForceOff] for the real escape hatch, and
+     * `KoinGradlePlugin.configureStrictSafety` for the rationale). Full-graph validation no
+     * longer has a redundant per-module safety net once compiled, so silently skipping
+     * re-validation on an aggregator's incremental rebuild is a correctness gap, not a knob.
      *
      * Background: Kotlin's incremental compilation skips `compileKotlin` when no source file
      * directly references a changed declaration. DSL lambda bodies are not part of any
@@ -83,6 +89,19 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
     val strictSafety: Property<Boolean> = objectFactory.property(Boolean::class.java)
 
     /**
+     * Explicit acknowledgement that [strictSafety]'s auto-detection is a confirmed misfire on
+     * this module — the `startKoin`/`koinApplication`/`@KoinApplication` marker it found only
+     * appears in a comment or string literal, not a real entry point (default: `false`).
+     *
+     * This is a SEPARATE flag from `strictSafety = false` on purpose: since 1.1.0 a plain
+     * `strictSafety = false` is silently ignored whenever detection fires, because the two
+     * cases ("this really isn't an aggregator" vs. "I just don't want the cost") are otherwise
+     * indistinguishable from the Gradle side, and the wrong guess there reopens a real
+     * freshness gap. Set this to `true` only when you've confirmed the detection is wrong.
+     */
+    val strictSafetyForceOff: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(false)
+
+    /**
      * Append a single AI-assist hint at the end of compilation if any Koin diagnostic fires (default: true).
      * Emitted once per build (not per error), pointing developers to the Kotzilla MCP Server,
      * which can classify Koin errors and walk an AI coding assistant through the fix.
@@ -90,4 +109,23 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      * See: https://doc.kotzilla.io/docs/fixIssues/koinMcp
      */
     val aiAssist: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
+
+    /**
+     * Severity of the plugin's informational output — `userLogs`/`debugLogs` messages and
+     * `@Monitor` tracing-enabled summaries (default: `"warning"`, preserving today's behavior).
+     *
+     * Set to `"info"` if your build uses `allWarningsAsErrors` / `-Werror`: WARNING-severity
+     * output fails such a build even though this is purely informational (issue #73). Does NOT
+     * affect real diagnostics (KOIN-Dxxx/Wxxx/etc.) — those stay at their own severity regardless
+     * of this setting. See [versionCheckSeverity] for the separate Kotlin-version-gate control.
+     */
+    val logSeverity: Property<String> = objectFactory.property(String::class.java).convention("warning")
+
+    /**
+     * Severity of the "you're on an unverified Kotlin version" compatibility warning (default:
+     * `"warning"`). Deliberately a separate setting from [logSeverity]: muting informational
+     * plugin noise shouldn't also hide compiler-compatibility risk. Set to `"info"` if this is
+     * blocking an `allWarningsAsErrors` build and you've already assessed the compatibility risk.
+     */
+    val versionCheckSeverity: Property<String> = objectFactory.property(String::class.java).convention("warning")
 }

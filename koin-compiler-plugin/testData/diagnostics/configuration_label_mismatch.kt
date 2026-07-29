@@ -1,4 +1,14 @@
 // RUN_PIPELINE_TILL: BACKEND
+// 1.1.0 — A2 removed; this leaf compilation now emits NO diagnostic at all (empty golden).
+//
+// Two @Configuration groups in a LEAF compilation (no startKoin / @KoinApplication here):
+// CoreModule @Configuration("core") scans core.Repository; ServiceModule @Configuration("service")
+// scans service.Service, which needs Repository. Whether Repository resolves depends entirely on
+// the DOWNSTREAM app's @KoinApplication(configurations=[…]) label selection — unknowable at this
+// leaf. A2 used to defer this (KOIN-W002, now deleted); A3 is now the sole verifier and only runs
+// at an entry point, which this compilation doesn't have — generation only, no verification (see
+// CompileSafetyValidator's class doc). The remedy is an entry point, where a genuinely-absent
+// Repository still emits KOIN-D001.
 // FILE: core/Repository.kt
 package core
 

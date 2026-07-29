@@ -18,6 +18,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
+import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
@@ -37,7 +38,13 @@ import org.jetbrains.kotlin.ir.expressions.IrGetField
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
 class KoinDSLTransformer(
     private val context: IrPluginContext,
-    private val lookupTracker: LookupTracker? = null
+    private val lookupTracker: LookupTracker? = null,
+    // Gate 3 (freshness): links a DSL call site's file to its target class's file for IC, so a
+    // NEW declaration in the target's file (which LookupTracker can't see — it never existed
+    // before) still invalidates this call site's compile task. Mirrors what
+    // KoinAnnotationProcessor/KoinStartTransformer already do for annotation definitions and
+    // entry-point modules; the DSL path was missing it.
+    private val expectActualTracker: ExpectActualTracker? = null,
 ) : IrElementTransformerVoid() {
 
     private val unsafeDslChecksEnabled = KoinPluginLogger.unsafeDslChecksEnabled
@@ -56,8 +63,49 @@ class KoinDSLTransformer(
     private val _moduleIncludes = mutableMapOf<String, MutableList<String>>()
     val moduleIncludes: Map<String, List<String>> get() = _moduleIncludes
 
+    /**
+     * Every `module { }` val seen in this compilation, whether or not it declares definitions or
+     * `includes()` edges.
+     *
+     * Needed so hint generation can emit a file for a module that currently contributes NOTHING.
+     * Without it, a module whose last definition or last include is deleted drops out of the hint
+     * groups entirely, no file is written, and the previous compile's class survives — the module
+     * keeps looking populated on an incremental build. That is the orphan-hint failure this project
+     * already hit once with per-definition DSL hints (fixed in 80584c8 by regenerating each module's
+     * file wholesale); regeneration only helps if the file is still written at all.
+     */
+    private val _allModuleIds = linkedSetOf<String>()
+    val allModuleIds: Set<String> get() = _allModuleIds
+
     private val _startKoinModules = mutableListOf<String>()
     val startKoinModules: List<String> get() = _startKoinModules
+
+    /**
+     * Set when any `modules(...)` / `includes(...)` argument could not be resolved to a `Module` val
+     * — a list variable, a spread, a function call, a conditional.
+     *
+     * Reachability is only meaningful over a COMPLETE topology. With an unresolved argument the
+     * loaded set is unknown, so consumers must fail OPEN (verify nothing) instead of treating what
+     * they did resolve as the whole truth. See [resolveModuleReferences].
+     */
+    private var _entryModulesIncomplete = false
+    val entryModulesIncomplete: Boolean get() = _entryModulesIncomplete
+
+    /**
+     * Module vals whose own `includes(...)` had an argument we could not resolve, so their edge set
+     * is PARTIAL.
+     *
+     * Scoped per module rather than per compilation on purpose. One boolean for the whole transformer
+     * meant a single `includes(makeDebugModule())` anywhere in the Gradle module switched reachability
+     * off for every entry point in it — including production ones in unrelated files. Recorded per
+     * owner, an incomplete module only costs verification when the walk actually reaches it.
+     */
+    private val _modulesWithIncompleteIncludes = linkedSetOf<String>()
+    val modulesWithIncompleteIncludes: Set<String> get() = _modulesWithIncompleteIncludes
+
+    private companion object {
+        const val KOIN_MODULE_FQNAME = "org.koin.core.module.Module"
+    }
 
     override fun visitFile(declaration: IrFile): IrFile {
         currentFile = declaration
@@ -66,6 +114,10 @@ class KoinDSLTransformer(
 
     // Qualifier extraction helper
     private val qualifierExtractor = QualifierExtractor(context)
+
+    // Parameter analyzer — attaches requirements to DslDefs at collection time (A3 durable model,
+    // PR1). Shares qualifierExtractor so the metadata matches what BindingRegistry re-derives today.
+    private val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
 
     // Reuse argument generator and lambda builder from the annotation processor infrastructure
     private val argumentGenerator = KoinArgumentGenerator(context, qualifierExtractor)
@@ -145,6 +197,7 @@ class KoinDSLTransformer(
             val propertyId = buildModulePropertyId(declaration)
             if (propertyId != null) {
                 KoinPluginLogger.debug { "Module property: $propertyId" }
+                _allModuleIds.add(propertyId)
                 return withContext(transformContext.copy(modulePropertyId = propertyId)) {
                     super.visitProperty(declaration)
                 }
@@ -379,6 +432,7 @@ class KoinDSLTransformer(
                 } else null
                 val qualifier = outerQualifier ?: qualifierExtractor.extractFromClass(providedClass)
                 trackClassLookup(lookupTracker, currentFile, providedClass)
+                linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
                 _dslDefinitions.add(Definition.DslDef(
                     irClass = providedClass,
                     definitionType = defType,
@@ -388,7 +442,7 @@ class KoinDSLTransformer(
                     providerOnly = true,
                     qualifier = qualifier,
                     registrationSourceFile = currentFile
-                ))
+                ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
                 KoinPluginLogger.user { "Intercepting $functionName<${providedClass.name}> { ... } (provider-only)" }
             }
         }
@@ -459,6 +513,7 @@ class KoinDSLTransformer(
 
         // IC: call site file depends on the target class
         trackClassLookup(lookupTracker, currentFile, targetClass)
+        linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
     }
 
     /**
@@ -599,9 +654,12 @@ class KoinDSLTransformer(
         // Update the last DslDef with the additional binding
         val lastDef = _dslDefinitions.last()
         if (boundClass.fqNameWhenAvailable?.asString() !in lastDef.bindings.mapNotNull { it.fqNameWhenAvailable?.asString() }) {
+            // retainA3Metadata is REQUIRED here: copy() re-runs the primary constructor, so the
+            // body-held requirements/origin would reset and this definition's constructor
+            // dependencies would go unvalidated (see Definition.retainA3Metadata).
             _dslDefinitions[_dslDefinitions.lastIndex] = lastDef.copy(
                 bindings = lastDef.bindings + boundClass
-            )
+            ).retainA3Metadata(lastDef)
             KoinPluginLogger.debug { "  bind: ${lastDef.returnTypeClass.name} -> ${boundClass.name}" }
         }
     }
@@ -613,7 +671,11 @@ class KoinDSLTransformer(
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.module.Module") {
                 val currentModuleId = transformContext.modulePropertyId ?: return
-                val includedModules = resolveModuleReferences(expression)
+                val (includedModules, complete) = resolveModuleReferences(expression)
+                if (!complete) {
+                    _modulesWithIncompleteIncludes.add(currentModuleId)
+                    KoinPluginLogger.debug { "  includes: $currentModuleId has an UNRESOLVABLE argument — its edge set is partial" }
+                }
                 if (includedModules.isNotEmpty()) {
                     _moduleIncludes.getOrPut(currentModuleId) { mutableListOf() }.addAll(includedModules)
                     KoinPluginLogger.debug { "  includes: $currentModuleId -> $includedModules" }
@@ -625,7 +687,11 @@ class KoinDSLTransformer(
             val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.KoinApplication") {
-                val loadedModules = resolveModuleReferences(expression)
+                val (loadedModules, complete) = resolveModuleReferences(expression)
+                if (!complete) {
+                    _entryModulesIncomplete = true
+                    KoinPluginLogger.debug { "  modules() at startKoin has an UNRESOLVABLE argument — loaded set unknown" }
+                }
                 if (loadedModules.isNotEmpty()) {
                     _startKoinModules.addAll(loadedModules)
                     KoinPluginLogger.debug { "  modules() at startKoin: $loadedModules" }
@@ -634,38 +700,58 @@ class KoinDSLTransformer(
         }
     }
 
-    private fun resolveModuleReferences(call: IrCall): List<String> {
+    /**
+     * Resolve the module vals referenced by a `modules(...)` / `includes(...)` call.
+     *
+     * Any argument we cannot resolve to a `Module`-typed property marks the topology INCOMPLETE
+     * ([moduleTopologyIncomplete]). That distinction matters: an unresolved argument means we do not
+     * know the full loaded set, and treating a partial set as authoritative turns correct code into
+     * errors. `modules(listOf(appModule, coreModule))` used to record the LIST property as the loaded
+     * module, leaving the real modules "unreachable" — historically two harmless KOIN-W001s, but once
+     * call-site validation began withholding unreachable-only types it became a KOIN-D002 build
+     * failure on a valid graph. Regression test: `entry_modules_list_variable_ok.kt`.
+     */
+    private fun resolveModuleReferences(call: IrCall): ResolvedModules {
         val result = mutableListOf<String>()
+        var complete = true
         for (i in 0 until call.regularArgumentsCount) {
-            val arg = call.getRegularArgument(i) ?: continue
-            resolveModuleRef(arg, result)
+            val arg = call.getRegularArgument(i)
+            if (arg == null || !resolveModuleRef(arg, result)) {
+                complete = false
+                KoinPluginLogger.debug {
+                    "  modules()/includes(): argument #$i is not a resolvable Module val"
+                }
+            }
         }
-        return result
+        return ResolvedModules(result, complete)
     }
 
-    private fun resolveModuleRef(expression: IrExpression, result: MutableList<String>) {
-        when (expression) {
-            is IrGetField -> {
-                val property = expression.symbol.owner.correspondingPropertySymbol?.owner
-                if (property != null) {
-                    val propId = buildModulePropertyId(property)
-                    if (propId != null) result.add(propId)
-                }
-            }
-            is IrCall -> {
-                val calledFunction = expression.symbol.owner
-                val property = calledFunction.correspondingPropertySymbol?.owner
-                if (property != null) {
-                    val propId = buildModulePropertyId(property)
-                    if (propId != null) result.add(propId)
-                }
-            }
-            is IrVararg -> {
-                for (element in expression.elements) {
-                    if (element is IrExpression) resolveModuleRef(element, result)
-                }
-            }
-            else -> {}
+    /** Module ids read off a `modules(...)`/`includes(...)` call, and whether ALL arguments resolved. */
+    data class ResolvedModules(val ids: List<String>, val complete: Boolean)
+
+    /** @return true when this expression resolved to a `Module`-typed property (or all of them, for a vararg). */
+    private fun resolveModuleRef(expression: IrExpression, result: MutableList<String>): Boolean {
+        // The type guard is the point: without it ANY argument was recorded as a module, including a
+        // `List<Module>` passed to Koin's `modules(modules: List<Module>)` overload.
+        fun record(property: IrProperty?, isModuleTyped: Boolean): Boolean {
+            if (!isModuleTyped || property == null) return false
+            val propId = buildModulePropertyId(property) ?: return false
+            result.add(propId)
+            return true
+        }
+        return when (expression) {
+            is IrGetField -> record(
+                expression.symbol.owner.correspondingPropertySymbol?.owner,
+                expression.symbol.owner.type.classFqName?.asString() == KOIN_MODULE_FQNAME
+            )
+            is IrCall -> record(
+                expression.symbol.owner.correspondingPropertySymbol?.owner,
+                expression.type.classFqName?.asString() == KOIN_MODULE_FQNAME
+            )
+            // A vararg counts as resolved only if EVERY element did; a partially-read spread is
+            // exactly the "we don't know the whole set" case.
+            is IrVararg -> expression.elements.all { it is IrExpression && resolveModuleRef(it, result) }
+            else -> false
         }
     }
 
@@ -688,6 +774,7 @@ class KoinDSLTransformer(
 
         // IC: file containing DSL call depends on the target class
         trackClassLookup(lookupTracker, currentFile, targetClass)
+        linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
 
         // Get qualifier from @Named or @Qualifier annotation on class
         val qualifier = qualifierExtractor.extractFromClass(targetClass)
@@ -703,7 +790,7 @@ class KoinDSLTransformer(
                 modulePropertyId = transformContext.modulePropertyId,
                 qualifier = qualifier,
                 registrationSourceFile = currentFile
-            ))
+            ).attachA3Metadata(targetClass) { parameterAnalyzer.requirementsForClass(targetClass) })
         }
 
         val receiverClassName = receiverClassifier.name.asString()
@@ -783,6 +870,7 @@ class KoinDSLTransformer(
                 val targetClass = referencedFunction.parent as IrClass
                 // IC: file containing create(::T) depends on the target class
                 trackClassLookup(lookupTracker, currentFile, targetClass)
+                linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
                 // Extract qualifier from class for propagation to enclosing definition
                 val classQualifier = transformContext.definitionQualifier ?: qualifierExtractor.extractFromClass(targetClass)
                 if (classQualifier != null && currentDefinitionCall != null) {
@@ -803,7 +891,7 @@ class KoinDSLTransformer(
                         modulePropertyId = transformContext.modulePropertyId,
                         qualifier = classQualifier,
                         registrationSourceFile = currentFile
-                    ))
+                    ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
                 }
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${providedClass.name}" }
@@ -834,6 +922,7 @@ class KoinDSLTransformer(
                 val providedClass = transformContext.definitionCallTypeArg ?: returnTypeClass
                 if (enclosingDefType != null && compileSafetyEnabled && providedClass != null) {
                     trackClassLookup(lookupTracker, currentFile, providedClass)
+                    linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
                     _dslDefinitions.add(Definition.DslDef(
                         irClass = providedClass,
                         definitionType = enclosingDefType,
@@ -843,7 +932,7 @@ class KoinDSLTransformer(
                         providerOnly = true,
                         qualifier = funcQualifier,
                         registrationSourceFile = currentFile
-                    ))
+                    ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
                 }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"

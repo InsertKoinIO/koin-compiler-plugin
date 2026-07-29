@@ -1,0 +1,34 @@
+Module: core
+FILE: Core.kt
+    package core
+
+    public final class AnalyticsTracker : R|kotlin/Any| {
+        public constructor(): R|core/AnalyticsTracker| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun track(koin: R|org/koin/core/Koin|): R|core/AnalyticsTracker| {
+        ^track R|<local>/koin|.R|org/koin/core/Koin.get|<R|core/AnalyticsTracker|>()
+    }
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    public final class FeatureThing : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val featureModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|feature/FeatureThing|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun preview(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|feature/featureModule|)
+        }
+        )
+    }

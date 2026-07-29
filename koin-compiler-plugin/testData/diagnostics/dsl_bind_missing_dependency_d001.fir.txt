@@ -1,0 +1,31 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface UserRepository : R|kotlin/Any| {
+    }
+    public final class ApiService : R|kotlin/Any| {
+        public constructor(): R|testpkg/ApiService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class UserRepositoryImpl : R|testpkg/UserRepository| {
+        public constructor(api: R|testpkg/ApiService|): R|testpkg/UserRepositoryImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val api: R|testpkg/ApiService| = R|<local>/api|
+            public get(): R|testpkg/ApiService|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/UserRepositoryImpl|>().R|org/koin/dsl/bind|<R|testpkg/UserRepository|>(<getClass>(Q|testpkg/UserRepository|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

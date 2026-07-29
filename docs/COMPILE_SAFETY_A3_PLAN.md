@@ -1,0 +1,230 @@
+# Compile Safety — A3 Reshape Plan
+
+> Status: design, PR1 landed (metadata contract). Organizing spine: a **common verifier meta-model** + a **gap matrix**.
+> Grounding this session: three code audits, a comparable-K2-DI-plugin carrier study, an A2 collect-only
+> spike (falsified the blunt version), a Step-1 baseline diagnostics matrix, a playground reality-check,
+> a red-team review, and a meta-model critique. Evidence in §9.
+
+> **SUPERSEDED (1.1.0): this doc's central conclusion — "keep A2 + a completed oracle as the leaf net"
+> (§1, §7, §8, §9 below) — was explicitly overridden.** A2 was removed **entirely** in 1.1.0, including
+> the oracle. The reversal was a deliberate, user-approved decision, not a silent drift: a module
+> validated in isolation cannot know how it will be wired into a larger app, and this stopped being
+> theoretical — `:core:notifications` in `playground-apps/app-annotations` genuinely false-positived
+> A2/oracle-side on a dependency that a peer module provides, resolved only once both modules are
+> assembled together. That measured false positive is what this doc's own §1 leaf-net argument said
+> should not be possible; it happened anyway, so the leaf net was cut rather than patched further.
+> **Trade-off accepted, not eliminated:** an entry-point-less leaf library now gets zero compile-time
+> safety diagnostics (D001/D004/D005/D006/P001 all silent) until something in the same compilation
+> assembles a real Koin entry point — down from A2's leaf-local (but false-positive-prone) checking.
+> This is disclosed to users via a default-visible (INFO-severity) message, never silent-silent. See
+> `CLAUDE.md`'s Compile Safety section and `RELEASE_NOTES_1.1.0.md` for the user-facing writeup. The
+> rest of this document remains as the historical record of the reasoning that preceded the reversal —
+> read it for *why* the leaf net was originally proposed, not as the current design.
+
+## 1. Principle
+
+A2 **collects** metadata + generates code; A3 **verifies** the assembled graph at the entry point. Both
+sides populate **one source-agnostic meta-model** (§2), consumed by **one verifier**. The reshape does not
+delete the `Definition` hierarchy — the meta-model is a *verifier projection* over it (codegen keeps its
+IR-bearing fields).
+
+**The boundary that scopes it — "is module membership in ABI?"** (the correction the red team forced):
+
+- **Annotation roots** — `@KoinApplication(modules=[…])` class lists + `@Configuration` labels + `@Module(includes=…)` are **ABI**, so A3 can authoritatively reconstruct the loaded set → **A3 verifies, A2 collect-only.**
+- **DSL / Compose-`koinConfiguration`** — membership lives in `includes()`/`modules()` **lambda bodies (non-ABI)**. A3 verifies **same-compile** graphs today; **cross-Gradle-module** membership is lost → needs the **includes-edge carrier** (§5) to reach annotation parity.
+- **Entry-point-less leaves** (e.g. KMP `@Module` libraries compiled without their app) — no A3 in the compilation → ~~keep A2 + a *completed* oracle as the net (hard-error genuine-local misses, defer cross-module). The oracle is **not deleted** — the ClassDef-exclusion *tuning* was the hack; the oracle *concept* (defer iff a provider exists somewhere) is load-bearing for cases A3 structurally cannot reach.~~ **Superseded (1.1.0): no net at all.** A2 and the oracle are both fully deleted; a leaf with no entry point in its own compilation gets no compile-safety diagnostics, disclosed via an INFO-severity message. See the banner at the top of this doc.
+
+### The three gates (exit criteria before A2 stops emitting for a given path)
+- **Gate 1** — A3 actually EMITS (today it's bookkeeping; A2 is the de-facto emitter, §9) at the root with culprit `origin`, for all statically-resolvable roots.
+- **Gate 2** — the carrier carries the "need" cells (requirements incl. function providers, origin, DSL includes-edges).
+- **Gate 3** — freshness (§6): A3 stays correct across incremental builds.
+
+## 2. The common meta-model (the spine — a verifier *projection*, not a replacement for `Definition`)
+
+Both annotation and DSL populate the same shapes; only *discovery* differs. `Definition` stays for codegen
+(it carries `createdAtStart`, `moduleInstance`, `registrationSourceFile` (#32 IC anchor), raw IR refs the
+verifier has no reason to hold).
+
+```
+Definition {                       // provider node (projection)
+  origin: SourceOrigin             // module fqn + file + line
+  providedType; bindings; qualifier
+  scope: ScopeKey                  // typed | named | archetype | root   (FIX-1)
+  kind
+  requirements: [Requirement]      // WHOLE struct; validate the requiresValidation() subset (FIX-2)
+  ownerModuleId
+}
+Module {
+  id: ModuleId?                    // null ⇒ always-loaded / unclassifiable (FIX-6)
+  origin; kind (ANNO_CLASS | DSL_VAL); labels (@Configuration | ∅)
+  declaredDefinitions: [DefId]
+  includes: [ModuleId]             // topology edge
+}
+EntryPoint { origin; classification (Root | Dynamic); loadedModules (label-resolved, FIX-8) }
+CallSite  { origin; requiredType; injectedParamSlots }        // D005/D006 (FIX-7)
+
+Verifier.verify(entry, world)
+  world = { propertyDefaults,        // PropertyValueRegistry → KOIN-P001 (FIX-3)
+            trustedTypes }           // framework whitelist ∪ @Provided ∪ Scope-receiver (FIX-4)
+```
+
+Verifier job (source-agnostic): `entry.loadedModules` + transitive `Module.includes` → loaded set → union
+`declaredDefinitions` → provided index (keyed by type + qualifier + `ScopeKey`) → for each loaded
+`Definition`, resolve the `requiresValidation()` subset of `requirements` against the index and
+`trustedTypes` → emit at `origin`. Plus cycle detection (keep the `isLazy` edge exclusion) and `CallSite`
+`parametersOf` checks.
+
+**Baked-in fixes (from the meta-model critique):** FIX-1 `ScopeKey` unifies typed/named/archetype/root
+(a release-noted matching improvement — today only `scopeClass` is matched); FIX-2 keep `Requirement`
+whole; FIX-3 `propertyDefaults` input; FIX-4 `trustedTypes` input; FIX-6 nullable `ModuleId` semantics;
+FIX-7 first-class `CallSite`; FIX-8 label-resolved `loadedModules` preserving the label-mismatch invariant;
+FIX-9 function-provider `requirements` must be populated (not `emptyList()`).
+
+## 3. The gap matrix (what each side must produce to fill the model)
+
+| Model element | **Annotation** cross-module source | **DSL** cross-module source |
+|---|---|---|
+| Definition: type/bindings/qualifier/scope | ✅ `definition_*` / `componentscan_*` hints | ✅ `dsl_*` hints |
+| Definition.**requirements** | ⚠️ re-derived from class ABI; `ExternalFunctionDef` empty (FIX-9) | ⚠️ stored locally (PR1); cross-module needs carry |
+| Definition.**origin** | ❌ not carried (PR1 = local only) | ❌ not carried |
+| Module **identity** | ✅ class FqName | ⚠️ top-level `val` FqName ok; inline/local/fn-returned = null (FIX-6) |
+| Module.**includes** (topology) | ✅ `@Module(includes=…)` is ABI | ✅ **includes-edge hint** (`dslincludes_*`, DONE) |
+| Module.labels (`@Configuration`) | ✅ `configuration_*` hints | n/a |
+| Root.**loadedModules** | ✅ `@KoinApplication(modules)` ABI (+ label resolution) | ⚠️ `startKoin{modules()}` same-compile ok |
+
+**Per-side gap:**
+- **Annotation** — model is almost fully populatable from existing ABI+hints. Fills needed: **origin**, **function-provider requirements** (FIX-9), and the **@ComponentScan-new-file freshness** hole (§6). Then A3 emits; A2 → collect-only for rooted compiles, A2+oracle-net for leaves.
+- **DSL** — fills needed: **includes-edge topology** (DSL's *only* membership mechanism — no `@ComponentScan`/`@Configuration` shortcuts), **origin**, function-provider requirements. Then DSL flows through the identical verifier. Same-compile already works today; the carrier closes cross-module.
+
+## 4. EntryPoint classification & forms
+
+Every detected entry point is a **Root**: its assembled closure must be a complete, self-consistent graph
+on its own. `koinConfiguration<T>()` / `koinApplication` / `startKoin` are each verified standalone —
+**separate config calls do NOT pool to complete each other's missing references** (deliberate design: a
+config missing a dependency fails, rather than silently relying on a sibling). `withConfiguration { }` is
+**also an independent sealed unit** — no dependency outside its own config. A chained
+`koinApplication{A}.withConfiguration{B}` is **NOT** modeled as B-borrows-from-A: A and B are independent
+sealed units, each verified on its own modules+includes closure; they share code by *each including the
+common module*, never by B relying on A. The cascading "B relies on A" pattern is unsupported/undocumented,
+so a B missing a dependency fails (it must include what it needs) rather than silently borrowing across the
+runtime merge. No cross-config aggregation. The only non-Root class is **Dynamic** (`modules(if…)`, runtime lists → module set not statically resolvable →
+disclose "unverified", never silent). So classification is **Root | Dynamic** (no Fragment — the
+self-consistency rule dissolves the cross-compile fragment-detection problem; no Koin-core API change).
+Forms: `startKoin` / `koinApplication` / `koinConfiguration` / `withConfiguration` / Compose
+`KoinApplication()` / `@KoinApplication`.
+
+Playground reality (§9): the flagship apps use the *harder* static forms — real koin-core `startKoin{}`
+(not yet routed to A3) and **bare `@KoinApplication` + `@Configuration` discovery** (not
+`@KoinApplication(modules=[…])`). Gate 1 must handle both. No dynamic-module assembly was found in any
+playground app; no fragment/`withConfiguration` coverage exists (untested classifier branch).
+
+## 5. Carrier — filling the "need" cells, portably
+
+Resource files are dead on KMP. Decision: **typed-mirror + annotation-arg, NO protobuf, NO `@Metadata` blob.**
+Do not serialize the graph — each provider exposes its own edges; the verifier reconstructs the chain.
+
+- **Requirements → a generated typed mirror declaration** (param types + per-param annotations ARE the
+  requirement list). Closes FIX-9 (function providers). Class providers already expose edges via constructor ABI.
+- **Origin → annotation argument** (module FqName + file/line).
+- **DSL includes-edge (topology) → a new includes-edge hint — DONE.** Per `val a = module { includes(b) }`,
+  emits `dslincludes_<flattened-a>(module_<b>: Unit, …)` into `a`'s existing per-module batched hint file, so
+  it regenerates wholesale and cannot orphan. The owner id is in the function NAME (not a parameter) because
+  every parameter is `Unit`-typed — two owners with the same include count would otherwise share a descriptor
+  and clash on KLIB. `CallSiteValidator.computeReachableModules` consults it at every hop of the BFS
+  alongside the local edge map, so chains that alternate local/dependency modules and relay modules (includes
+  but no definitions) both resolve. An absent hint (older dependency) degrades to local-edges-only — the
+  pre-carrier behavior — so the carrier can only ever ADD reachability, never invent it. This brings DSL to
+  the parity annotations get free from `@Module(includes=…)`.
+- **Channel** stays the existing generated-declaration hints package. The `@Metadata` route is a separate
+  1.1+ upgrade (only payoff: IC freshness) behind a native/wasm gate — never for carrying the graph.
+- **Per-cell survival is one question, one harness:** does this cell survive cross-module on klib/native?
+  Every "need" cell (origin, typed-mirror requirements, includes-edge) gets a native+wasm survival box test
+  **before** we rely on it (the `@SerialInfo` precedent is same-compile FIR, not cross-module IR read — not
+  proof for our path).
+
+## 6. Gate 3 — freshness (incremental compilation)
+
+A3-sole-verify removes A2's per-module freshness-robustness. Levers:
+1. **strictSafety MANDATORY** whenever an entry point is present (was opt-in). Bounded cost: only the aggregator recompiles. **Done (1.1.0)** — `strictSafety = false` is now ignored once `looksLikeAggregator` fires; escape hatch is a separate, explicit `strictSafetyForceOff = true` for a confirmed detector misfire.
+2. **Both `LookupTracker` + `ExpectActualTracker`** + **link each hint → source class** so change/removal forces recompile/removal (cures the DSL orphan-hint false-green). **Done (1.1.0)** — `KoinDSLTransformer`'s 5 DSL call sites now call `linkDeclarationsForIC` alongside the existing `trackClassLookup`, matching the pairing `KoinAnnotationProcessor`/`KoinStartTransformer` already had.
+3. ~~**`@ComponentScan` new-file** (no source edge) — hard K2 residual: strictSafety re-run + package-scope lookup; else **disclose**, never silent.~~ **Corrected, empirically (1.1.0):** this theorized gap does not reproduce. Adding a new `@Singleton`/`@Factory` class to a scanned package IS a Gradle-level source-set input change (a new file in the tree), which invalidates the owning module's `compileKotlin` task independent of anything Koin-specific — verified live on `playground-apps/app-annotations`: a new class added to `core/notifications` (no entry point, no `strictSafety`) was correctly discovered, hinted, and validated by `:app` on a plain no-clean rebuild. No `@ComponentScan`-detection heuristic was needed. The one freshness gap that IS real and remains open is narrower and already documented: a module going **completely empty** (last definition/`includes()` removed with nothing replacing it) — see `playground-apps/README.md`'s "Known limitation" note. That is a genuine K2-internals residual (hint signature staying resolved within one IC session), not a missing source edge, and is out of scope for 1.1.0.
+
+**Exit test — incremental stress matrix in `playground-apps`** (real Gradle modules + IC): for each of
+{add def, **remove** def, change qualifier, add scanned class} in a dependency module, rebuild **without a
+clean**, assert A3 reacts correctly. The current bed covers only *remove-with-clean* and structurally can't
+run the no-clean DSL leg (orphan-hint bug it documents) — the rest must be built. **Clean-build green ≠ done.**
+
+**Decision:** IC-trackers + mandatory strictSafety, NOT a bespoke content-hash dirty tracker.
+
+**Status (Beta8/Beta9) — measured, not assumed.** The includes-edge carrier (§5) inherits the
+per-module batched-file shape, so the common edit propagates: removing one `includes()` edge among
+several in a dependency module is caught on a no-clean, cache-on rebuild (verified on app-dsl, 3
+correct KOIN-D001). **Residual hole:** a module that goes COMPLETELY empty — last `includes()` gone
+AND no definitions of its own — is not detected incrementally, and `:module:clean` does not help;
+only a full clean with `--no-build-cache`. The plugin emits a zero-parameter keep-alive hint so the
+*artifact* is correct (javap-verified on the packaged jar); what remains is K2 re-resolving a changed
+hint signature within one IC session — the consumer keeps the old signature even though the jar it
+compiles against no longer holds it, both tasks re-execute, and clearing the consumer's IC caches
+does not help. Not specific to `includes()`: the same shape applies to a module losing its last
+*definition*, which predates this carrier. This is the §6 "clean-build green ≠ done" warning landing
+exactly where it predicted, and it is the strongest current argument for the `@Metadata`-on-owned-
+declaration route (§5), whose stated payoff is precisely IC freshness.
+
+## 7. Diagnostics the single verifier MUST preserve (guard — silent loss is the worst failure class)
+
+| Diagnostic | Today at | Preservation requirement |
+|---|---|---|
+| **KOIN-D001** MissingBinding (+ "similar binding" hint) | `BindingRegistry.kt:656` | move to A3 with culprit `origin`, not aggregator |
+| **KOIN-D004** CircularDependency (Lazy-broken) | `BindingRegistry.kt:494` | keep `isLazy` cycle-edge exclusion (`:537`) |
+| **KOIN-P001** MissingPropertyValue | `BindingRegistry.kt:398` | `propertyDefaults` must be a verifier input (FIX-3) |
+| **KOIN-D005/D006** parametersOf + MissingInjectedParams | `CallSiteValidator.kt:492` | needs `CallSite` node (FIX-7) |
+| **KOIN-W001** UnreachableModule (DSL) | `CallSiteValidator.kt:464` | needs stable `ModuleId` + includes edges (FIX-6) |
+| MissingCallSite (koinInject cross-module) | `CallSiteValidator.kt:135` | keep its hint round-trip; don't fold into the graph loop |
+| Qualifier-mismatch (`@Named`/typed) | `BindingRegistry.kt:644` | preserve in qualifier/`ScopeKey` matching |
+| Skip-sets: whitelist, `@Provided`, `@ScopeId`, Scope receiver | `BindingRegistry.kt:117,413`; `ParameterAnalyzer.kt:149` | `trustedTypes` (FIX-4) |
+
+**Correctly deleted once gates hold (each release-noted):** `KOIN-W002` + deferral machinery, the
+`providerHintTypeFqNames` oracle ~~*tuning* (kept as the leaf net, completed)~~ **and the oracle itself,
+fully (1.1.0) — see the superseded banner at the top of this doc**, `hasCrossModuleHint`.
+
+## 8. Work breakdown — fill the matrix against one verifier
+
+- **PR1 — DONE (metadata contract).** `SourceOrigin` + `requirements`/`origin` on `Definition`, additive, green, zero golden diffs. Parked in a worktree; salvage onto branch. Valid in every version of this design.
+- **Fill annotation cells:** origin in the carrier; function-provider requirements (typed mirror); route all annotation roots (incl. bare `@KoinApplication`+`@Configuration`) through the one verifier; A3 emits (Gate 1).
+- **Fill DSL cells:** includes-edge hint (topology) + consumer reconstruction — **DONE** (§5). Still open: `origin`,
+  and the `null ⇒ reachable` fallback in `partitionByReachability` for definitions with no resolvable
+  `modulePropertyId` (inline/local/function-returned modules), which stays deliberately permissive — it is a
+  false-NEGATIVE risk, unrelated to the transitive-includes false POSITIVE the carrier fixed.
+- **Reify `EntryPoint` + classifier** (Root/Dynamic) — replaces `hasKoinEntryPoint`. Internal plugin model
+  only; works with existing Koin entry-point APIs (no API extension).
+- **Freshness (Gate 3):** trackers + mandatory strictSafety + the incremental stress matrix.
+- **Then, per path where its gates hold:** demote A2 to collect-only (rooted annotation compiles); ~~keep A2+completed-oracle net for leaves~~ **superseded (1.1.0) — A2 and the oracle are deleted outright, leaves get no net at all; see the banner at the top of this doc.** Never delete a diagnostic in §7 without its replacement proven.
+
+## 9. Evidence (this session)
+
+**Step-1 baseline matrix** (`testData/diagnostics/entry_*.kt` + salvaged `cross_module_scanned_class_koinapp_ok.kt`):
+every diagnostic is attributed to a **module**, never the root → **A2 is the de-facto emitter; A3 emits
+nothing user-visible today.** Two probes documented the cross-module scanned-class false positive on both
+typed `@KoinApplication` and real `startKoin{}`.
+
+**Red team:** the "A3 sole verifier, delete A2+oracle" design is sound for the annotation path, **unsound if
+generalized to DSL/Compose/entry-point-less leaves** (non-ABI or absent membership). Recalibrated by the
+follow-up: DSL is *already* entry-point-only (no per-module DSL pass to lose), so the residual is the
+**pre-existing cross-module transitive-includes over-approximation**, not a regression the reshape
+introduces — closed by the §5 includes-edge carrier. Surviving structural point (at the time): keep the
+oracle as the leaf net.
+
+**Superseded (1.1.0):** this red-team conclusion was overridden after the leaf-oracle's own predicted
+failure mode showed up empirically — a genuine cross-module false positive on `:core:notifications`
+in `playground-apps/app-annotations` (a peer-provided dependency, no Gradle edge between the two
+modules). The oracle's "defer iff a provider exists somewhere" logic could not distinguish that
+legitimate shape from a real missing dependency without the same full-graph knowledge A3 already has,
+so keeping it added false positives without a compensating false-negative guarantee. Decision: cut the
+net entirely rather than keep patching it. See the banner at the top of this doc.
+
+**Playground:** no dynamic module assembly anywhere (the "degrades to unverified" fear did not materialize
+on the sample); flagship apps use the harder static forms; zero fragment coverage; freshness bed is ¼ of the
+§6 matrix and can't run the no-clean DSL leg.
+
+**Meta-model critique:** adopt the common model WITH FIX-1…9 (§2); it's a genuine shared core, not a
+trench-coat union; the 3 silent-loss risks (P001, W001, D005/D006) are the must-fixes.

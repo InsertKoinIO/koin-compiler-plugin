@@ -1,0 +1,44 @@
+FILE: Repository.kt
+    package core
+
+    @R|org/koin/core/annotation/Singleton|() public final class Repository : R|kotlin/Any| {
+        public constructor(): R|core/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: Service.kt
+    package feature
+
+    @R|org/koin/core/annotation/Singleton|() public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|core/Repository|): R|feature/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|core/Repository| = R|<local>/repo|
+            public get(): R|core/Repository|
+
+    }
+FILE: app.kt
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(core))) public final class CoreModule : R|kotlin/Any| {
+        public constructor(): R|CoreModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/modules|(vararg(<getClass>(Q|CoreModule|), <getClass>(Q|FeatureModule|)))
+        }
+        )
+    }
+FILE: /coreModuleModule.kt
+    public final fun R|CoreModule|.module(): R|org/koin/core/module/Module|
+FILE: /featureModuleModule.kt
+    public final fun R|FeatureModule|.module(): R|org/koin/core/module/Module|

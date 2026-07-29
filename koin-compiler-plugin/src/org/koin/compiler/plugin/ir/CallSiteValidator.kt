@@ -32,6 +32,24 @@ import kotlin.io.path.absolutePathString
 class CallSiteValidator(private val context: IrPluginContext) {
 
     /**
+     * Types that ONLY an unreachable DSL module provides, published by the DSL-graph pass
+     * (Phase 3.1) for the call-site pass (Phase 3.5) that runs after it.
+     *
+     * Constructor-dependency validation resolves against the reachable provider set, but call-site
+     * validation used to build its universe from every definition DECLARED in the compilation. So a
+     * `get<T>()` / `inject<T>()` resolved against a module nobody loads, and the two passes
+     * contradicted each other in one compile: KOIN-W001 reporting the module unreachable, and the
+     * call site reporting OK. Build green, crash at runtime.
+     *
+     * Only types with NO reachable provider land here, so subtracting them can never hide a type
+     * something else supplies. The set stays empty whenever reachability is unknown — a leaf module
+     * with no entry point, or a compile where the DSL-graph pass does not run — which keeps those
+     * compiles exactly as permissive as before. That matters: over-eager call-site errors in leaves
+     * are the false-positive class this whole reshape set out to remove.
+     */
+    private var unreachableOnlyTypes: Set<String> = emptySet()
+
+    /**
      * A4: Validate pending call-site resolutions against the assembled graph.
      * Simple loop -- no tree walk needed.
      *
@@ -47,6 +65,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
         annotationProcessor: KoinAnnotationProcessor?,
         dslHintGenerator: DslHintGenerator,
         injectedParamHints: InjectedParamHintGenerator? = null,
+        // No Koin entry point anywhere in this compilation ⇒ no assembled graph exists to judge an
+        // unresolved call site against — KOIN-D002 requires one (generation only otherwise, see
+        // CompileSafetyValidator's class doc). Defaults to true so existing callers/tests that
+        // don't pass it keep today's behavior.
+        hasKoinEntryPoint: Boolean = true,
     ) {
         val hasFullGraph = assembledGraphTypes.isNotEmpty()
 
@@ -74,6 +97,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
                     for (b in def.bindings) { b.fqNameWhenAvailable?.asString()?.let { add(it) } }
                 }
             }
+            // Declared is not the same as loaded. Drop the types only an UNREACHABLE module provides
+            // (see [unreachableOnlyTypes]) — otherwise a `get<T>()` resolves against a module that
+            // never reaches the entry point and the failure is deferred to runtime. Empty whenever
+            // reachability is unknown, so leaf compiles keep resolving exactly as before.
+            removeAll(unreachableOnlyTypes)
         }
 
         // Also check for definition annotations on the target class (heuristic when no graph)
@@ -121,17 +149,24 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
             // Not resolved locally
             if (!hasFullGraph) {
-                // Defer external types (from dependency JARs) — they may be defined in a downstream module.
-                // Local types or modules with local DSL definitions should error immediately.
+                // Defer external types (from dependency JARs) — they may be defined in a downstream
+                // module. Also defer when this compilation has no Koin entry point at all: a leaf
+                // has no assembled graph to judge a local type against either, so treat it the same
+                // as external (generation only — see CompileSafetyValidator's class doc). Only a
+                // local type in a compilation that DOES own an entry point (dynamic modules, an
+                // incomplete graph, etc.) still errors immediately below.
                 val isExternalType = callSite.targetClass.origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
-                if (isExternalType || dslDefinitions.isEmpty()) {
+                if (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint) {
                     unresolvedCallSites.add(callSite)
-                    KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType)" }
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                    KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType, hasEntryPoint=$hasKoinEntryPoint)" }
                     continue
                 }
             }
 
-            // Report error — either full graph available, or local type with local definitions
+            // Report error — full graph available (or local type with local definitions), and this
+            // compilation owns a Koin entry point to judge against. No shape check here — a call
+            // site already getting KOIN-D002 doesn't need a second, compounding diagnostic.
             KoinPluginLogger.report(
                 KoinDiagnostic.MissingCallSite(
                     type = callSite.targetFqName,
@@ -176,14 +211,6 @@ class CallSiteValidator(private val context: IrPluginContext) {
         // Deduplicate by target FQ name
         val uniqueCallSites = unresolvedCallSites.distinctBy { it.targetFqName }
 
-        // Module-specific prefix for hint filenames so two Gradle modules that both
-        // koinInject<SameType>() don't produce identical class names — which otherwise
-        // trips the Android dex merger (issue #20). Composes the Gradle `project.path`
-        // (when available via koin.moduleId) with the FIR module-data name so KMP
-        // targets within the same Gradle module also stay distinct.
-        val modulePrefix = HintFilePrefix.of(firModuleData.name.asString())
-            .ifEmpty { "module__" }
-
         for (callSite in uniqueCallSites) {
             val targetClass = callSite.targetClass
 
@@ -224,7 +251,48 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 isHidden = false
             )
             requiredParam.parent = function
-            function.parameters = listOf(requiredParam)
+
+            // Carry enough for a clear KOIN-D003 at the consumer (this call site is in a dependency
+            // module, so the app can't see its IR expression — only this hint). Encoded as Unit-typed
+            // marker params, name-encoded like the DSL module / qualifier markers:
+            //   fn_<callFunctionName>       — the resolver (e.g. koinViewModel) → "resolved by: koinViewModel<T>()"
+            //   mod_<sanitized-moduleId>    — the dependency's Gradle module id (:feature:home), when known
+            fun marker(markerName: String) = context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier(markerName),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+
+            // Everything below is emitted ONLY in a real Gradle build (koin.moduleId set); golden/CLI
+            // compiles have no moduleId, so the `callsite` hint keeps just `required` there — nothing
+            // machine-specific reaches an IR-dump golden. In a real build we carry:
+            //   mod_<moduleId>          → names the dependency module in the D003 message.
+            //   abs_<path>/line_/col_   → the call site's absolute location, passed to report() so
+            //                             Android Studio renders a clickable prefix like the local
+            //                             KOIN-D002 (the app can't see the dependency's call site
+            //                             otherwise — only this hint; the abs path is valid on disk
+            //                             here, same machine).
+            val markerParams = buildList {
+                add(requiredParam)
+                KoinPluginLogger.moduleId?.takeIf { it.isNotBlank() }?.let { moduleId ->
+                    add(marker("mod_${KoinPluginConstants.sanitizeQualifierName(moduleId)}"))
+                    callSite.filePath?.takeIf { it.isNotBlank() }?.let { fullPath ->
+                        add(marker("abs_${KoinPluginConstants.sanitizeQualifierName(fullPath)}"))
+                        add(marker("line_${callSite.line}"))
+                        add(marker("col_${callSite.column}"))
+                    }
+                }
+            }
+            function.parameters = markerParams
 
             // Empty body (stub — hint functions are never called)
             function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
@@ -232,12 +300,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
             // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
             function.addDeprecatedHiddenAnnotation(context)
 
-            // Build deterministic file name, prefixed by module identifier to keep
-            // hint class names unique across Gradle modules (see above — issue #20).
-            val sanitizedName = callSite.targetFqName.split(".")
-                .joinToString("") { it.replaceFirstChar { c -> c.uppercaseChar() } }
-                .replaceFirstChar { it.lowercaseChar() }
-            val fileName = "${modulePrefix}${sanitizedName}_callsite.kt"
+            // Deterministic file name, module-disambiguated (issue #20) and Gradle-module +
+            // KMP-target + target-FQN collision-resistant (#75) — see HintFileNaming.
+            val fileName = HintFileNaming.fileName(
+                "callsite_", KoinPluginLogger.moduleId, firModuleData.name.asString(), callSite.targetFqName,
+            )
 
             // Anchor the synthetic hint file on the call site's source file so the path stays
             // stable across incremental rebuilds (see issue #32). Fall back to the
@@ -348,10 +415,31 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 (hintFunc.parent as? IrFile)?.fileEntry?.getColumnNumber(hintFunc.startOffset)?.plus(1) ?: 0
             } else 0
 
-            // Report error with best-available location info
+            // Decode the markers the producer encoded (see generateCallSiteHints) so the cross-module
+            // D003 is as actionable as the local D002: resolver fn, dependency module, and the ORIGINAL
+            // call-site location (for the clickable file:line:col prefix).
+            var callModule: String? = null
+            var origAbsPath: String? = null
+            var origLine: Int? = null
+            var origCol: Int? = null
+            for (p in hintFunc.regularParameters) {
+                val n = p.name.asString()
+                when {
+                    n.startsWith("mod_") -> callModule = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("mod_"))
+                    n.startsWith("abs_") -> origAbsPath = KoinPluginConstants.unsanitizeQualifierName(n.removePrefix("abs_"))
+                    n.startsWith("line_") -> origLine = n.removePrefix("line_").toIntOrNull()
+                    n.startsWith("col_") -> origCol = n.removePrefix("col_").toIntOrNull()
+                }
+            }
+
+            // Real Gradle build carried the call site's absolute path → pass it as the source location
+            // so Android Studio renders a clickable `file://…:line:col` prefix at the real call site,
+            // like the local KOIN-D002. Otherwise fall back to the hint file's location.
             KoinPluginLogger.report(
-                KoinDiagnostic.MissingCallSiteDeferred(type = targetFqName),
-                hintFilePath, hintLine, hintColumn
+                KoinDiagnostic.MissingCallSiteDeferred(type = targetFqName, module = callModule),
+                origAbsPath ?: hintFilePath,
+                if (origAbsPath != null) (origLine ?: hintLine) else hintLine,
+                if (origAbsPath != null) (origCol ?: hintColumn) else hintColumn,
             )
         }
     }
@@ -368,7 +456,10 @@ class CallSiteValidator(private val context: IrPluginContext) {
         safetyValidator: CompileSafetyValidator,
         dslHintGenerator: DslHintGenerator,
         startKoinModules: List<String> = emptyList(),
-        moduleIncludes: Map<String, List<String>> = emptyMap()
+        moduleIncludes: Map<String, List<String>> = emptyMap(),
+        entryModulesIncomplete: Boolean = false,
+        modulesWithIncompleteIncludes: Set<String> = emptySet(),
+        ownsAuthoritativeGraph: Boolean = true
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -382,7 +473,28 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         if (allDefinitions.isEmpty()) return
 
-        val reachableModuleIds = computeReachableModules(startKoinModules, moduleIncludes)
+        // Fail OPEN when the loaded set isn't fully known. An empty reachable set makes
+        // partitionByReachability treat every definition as reachable, so no KOIN-W001 is reported
+        // and nothing is withheld from call sites — the pre-reachability behavior. Trusting a
+        // partially-resolved set instead is what turned `modules(listOf(a, b))` into a KOIN-D002 on
+        // a valid graph.
+        // null = the loaded set is not knowable, so fail OPEN (empty set ⇒ everything counts as
+        // reachable ⇒ no KOIN-W001, nothing withheld from call sites). Disclosed, never silent:
+        // a green build must not imply a guarantee that was never checked.
+        val resolvedReachable = computeReachableModules(
+            startKoinModules, moduleIncludes, dslHintGenerator,
+            entryModulesIncomplete, modulesWithIncompleteIncludes
+        )
+        if (resolvedReachable == null) {
+            KoinPluginLogger.report(
+                KoinDiagnostic.UnverifiableDynamicGraph(
+                    entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
+                        ?.let { "the entry point loading $it" } ?: "this entry point",
+                    origin = null,
+                )
+            )
+        }
+        val reachableModuleIds = resolvedReachable ?: emptySet()
         val allDslDefs = dslDefinitions + dependencyDslDefs.filterIsInstance<Definition.DslDef>()
         val (reachableDefs, unreachableDefs) = partitionByReachability(allDslDefs, reachableModuleIds)
 
@@ -397,17 +509,59 @@ class CallSiteValidator(private val context: IrPluginContext) {
         val defsToValidate = reachableDefs.filter { !(it is Definition.DslDef && it.providerOnly) }
         val registry = BindingRegistry()
         val qualifierExtractor = safetyValidator.qualifierExtractor
-        val parameterAnalyzer = ParameterAnalyzer(qualifierExtractor)
         val errorCount = registry.validateModule(
             "DSL graph",
             providerDefinitions,
-            parameterAnalyzer,
             qualifierExtractor,
             defsToValidate
         )
 
-        if (unreachableDefs.isNotEmpty()) {
-            reportUnreachableModules(unreachableDefs, reachableModuleIds)
+        // KOIN-W001 means "you declared this module and never loaded it". Whose module it is decides
+        // whether that is actionable:
+        //
+        //  - declared in THIS compilation → always report. Leaving a module you just wrote unloaded
+        //    is a genuine mistake whatever the entry-point kind, and the fix is local.
+        //  - declared in a DEPENDENCY → report only where this compilation owns the authoritative
+        //    application graph. An isolated `koinApplication { }` (Compose preview, test fixture)
+        //    legitimately loads a subset; telling it a dependency's module is unloaded is noise, and
+        //    following the advice would defeat the isolation. The real application root still sees it.
+        //
+        // Locality comes free: `dslDefinitions` is this compilation's own list, while the rest were
+        // reconstructed from dependency hints above.
+        val localModuleIds = dslDefinitions.mapNotNullTo(mutableSetOf()) { it.modulePropertyId }
+        val reportableUnreachable =
+            if (ownsAuthoritativeGraph) unreachableDefs
+            else unreachableDefs.filter { it.modulePropertyId in localModuleIds }
+        if (reportableUnreachable.isNotEmpty()) {
+            reportUnreachableModules(reportableUnreachable, reachableModuleIds)
+        }
+        val withheld = unreachableDefs.size - reportableUnreachable.size
+        if (withheld > 0) {
+            KoinPluginLogger.debug {
+                "  $withheld unreachable DEPENDENCY def(s) not reported — this compilation does not " +
+                    "own an authoritative graph (isolated koinApplication/koinConfiguration)"
+            }
+        }
+
+        // Publish the unreachable-only types for the call-site pass (Phase 3.5), which runs next and
+        // would otherwise resolve `get<T>()` against a module nobody loads. Subtracting the reachable
+        // providers first means a type supplied from anywhere else is never withheld.
+        unreachableOnlyTypes = buildSet {
+            for (def in unreachableDefs) {
+                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
+                for (binding in def.bindings) {
+                    binding.fqNameWhenAvailable?.asString()?.let { add(it) }
+                }
+            }
+            for (def in providerDefinitions) {
+                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { remove(it) }
+                for (binding in def.bindings) {
+                    binding.fqNameWhenAvailable?.asString()?.let { remove(it) }
+                }
+            }
+        }
+        if (unreachableOnlyTypes.isNotEmpty()) {
+            KoinPluginLogger.debug { "  unreachable-only types (withheld from call sites): $unreachableOnlyTypes" }
         }
 
         for (def in providerDefinitions) {
@@ -424,17 +578,47 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
     }
 
+    /**
+     * Breadth-first walk of the loaded-module closure, from the entry point's `modules(...)` down
+     * through every `includes()` edge.
+     *
+     * Two edge sources, because a DSL module's membership lives in a lambda body and so only half of
+     * it is locally visible:
+     *  - [moduleIncludes] — edges walked from THIS compilation's IR (same-compile modules);
+     *  - the includes-edge hint — edges a DEPENDENCY module declared, which have no other way to
+     *    cross the module boundary.
+     *
+     * Both are consulted at every hop, so a chain that alternates between local and dependency
+     * modules still resolves, as does a relay module that includes others but defines nothing.
+     * When a dependency predates the carrier its hint is simply absent and the walk falls back to
+     * local edges only — the pre-carrier behavior.
+     */
     private fun computeReachableModules(
         startKoinModules: List<String>,
-        moduleIncludes: Map<String, List<String>>
-    ): Set<String> {
+        moduleIncludes: Map<String, List<String>>,
+        dslHintGenerator: DslHintGenerator?,
+        entryModulesIncomplete: Boolean = false,
+        modulesWithIncompleteIncludes: Set<String> = emptySet()
+    ): Set<String>? {
+        // An unresolvable argument at the entry point means the loaded set itself is unknown.
+        if (entryModulesIncomplete) return null
         if (startKoinModules.isEmpty()) return emptySet()
         val reachable = mutableSetOf<String>()
         val queue = ArrayDeque(startKoinModules)
         while (queue.isNotEmpty()) {
             val moduleId = queue.removeFirst()
+            // Reaching a module whose own includes() were only partly readable means everything
+            // below it is unknown. Scoped this way, an unresolvable includes() in a module the entry
+            // point never loads costs nothing.
+            if (moduleId in modulesWithIncompleteIncludes) return null
             if (reachable.add(moduleId)) {
-                moduleIncludes[moduleId]?.forEach { included ->
+                val localEdges = moduleIncludes[moduleId].orEmpty()
+                val crossModule = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId)
+                // A dependency that could not read all of its own includes() carries a marker saying
+                // so. Its edge list is partial, so anything below it is unknown — same conclusion as
+                // for a local module with unreadable includes.
+                if (crossModule?.incomplete == true) return null
+                for (included in localEdges + crossModule?.edges.orEmpty()) {
                     if (included !in reachable) queue.add(included)
                 }
             }

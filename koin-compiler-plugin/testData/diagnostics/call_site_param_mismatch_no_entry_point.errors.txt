@@ -1,0 +1,3 @@
+[Koin][KOIN-D005] Mismatched parametersOf(...) for testpkg.Greeter: expected 1 argument(s), got 2
+  Expected @InjectedParam slots: name: kotlin.String
+  Got parametersOf arguments: kotlin.String, kotlin.String

@@ -96,15 +96,18 @@ single<Service>()
 
 ### 2.3 Compile-Time Dependency Validation ✅
 Detect missing dependencies at compile time instead of runtime crashes.
-- [x] Per-module validation (A1): local definitions + explicit includes
+- [x] ~~Per-module validation (A1): local definitions + explicit includes~~ **Removed in 1.1.0** —
+  a module validated in isolation cannot know how it's wired into a larger app; superseded by A3
+  as the sole verifier (see `docs/COMPILE_TIME_SAFETY.md`, `docs/COMPILE_SAFETY_A3_PLAN.md`)
 - [x] Validate non-nullable parameters have definitions
 - [x] Validate `Lazy<T>` inner type is provided
 - [x] Validate `@Named`/`@Qualifier` qualifiers match (with hints for mismatches)
 - [x] Validate scoped dependencies are in correct scope
 - [x] Skip safe parameters: nullable, `@InjectedParam`, `@Property`, `List<T>`, defaults
 - [x] Clear error messages with module/parameter context
-- [x] Configuration group validation (A2): `@Configuration` sibling modules share definitions
-- [x] startKoin full-graph validation (A3): validates all modules assembled by `startKoin<T>()`
+- [x] ~~Configuration group validation (A2): `@Configuration` sibling modules share definitions~~
+  **Removed in 1.1.0** along with A1 — `@Configuration` is now purely a module-discovery signal for A3
+- [x] startKoin full-graph validation (A3): validates all modules assembled by `startKoin<T>()` — the **sole** compile-safety verifier as of 1.1.0
 - [x] Cross-Gradle-module validation (C): definitions from dependency JARs via hint functions
 - [x] `@Provided` annotation: marks types as externally available, skips safety validation
 - [x] Android framework whitelist: `Context`, `Activity`, `Application`, `Fragment`, `SavedStateHandle`, `WorkerParameters`

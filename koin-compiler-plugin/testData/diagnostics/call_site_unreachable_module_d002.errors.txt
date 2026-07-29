@@ -1,0 +1,6 @@
+[Koin][KOIN-D002] Missing definition: testpkg.Tracker
+  resolved by: get<Tracker>()
+  No matching definition found in any loaded module.
+  Check your declaration with Annotation or DSL.
+[Koin][KOIN-W001] Module 'unloadedModule' is not loaded at startKoin — 1 definitions unreachable: Tracker
+  Add it to modules() or includes() to make these definitions available

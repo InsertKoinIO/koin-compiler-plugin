@@ -1,13 +1,12 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
-// KTZ-4256 regression guard — the fix must NOT neuter real missing-dependency detection.
+// Regression guard — a genuinely missing cross-module dependency must still hard-error.
 //
 // FeatureModule.service() needs Repository, but NO module provides Repository anywhere on the graph
-// (DataModule provides only Unrelated). The KTZ-4256 discriminator keys off provider-hint EXISTENCE:
-// since no provider hint for Repository exists anywhere, the miss is genuine and is caught as an
-// authoritative KOIN-D001 ERROR at A2 (module: FeatureModule) — NOT deferred, NOT downgraded to the
-// KOIN-W002 warning. (Contrast the closure-state PoC, which deferred every A2 miss and only surfaced
-// this at A3's startKoin<MyApp> closure; the hint-existence design catches it earlier and precisely.)
+// (DataModule provides only Unrelated). Caught as an authoritative KOIN-D001 ERROR at A3 (the
+// startKoin<MyApp> entry point below) — A2's old per-module pass is gone (1.1.0), so this is now
+// the ONLY place a cross-module miss like this can be caught. No entry point ⇒ this would go
+// silent instead (see CompileSafetyValidator's class doc).
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 import org.koin.core.annotation.Factory

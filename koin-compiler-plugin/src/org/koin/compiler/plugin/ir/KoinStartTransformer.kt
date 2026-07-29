@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.koin.compiler.plugin.KoinPluginConstants
+import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import org.jetbrains.kotlin.ir.IrElement
@@ -58,6 +59,37 @@ import org.jetbrains.kotlin.name.Name
  * koinApplication { }.withConfigurationWith(listOf(MyModule().module()))
  * ```
  */
+/**
+ * Internal reification of a detected entry point (A3 §4). Purely a plugin-side model built from the
+ * EXISTING Koin entry-point APIs — no public/Koin-core API change. Every entry point is a self-consistent
+ * ROOT (its graph resolves within itself); DYNAMIC = module set not statically resolvable → disclose.
+ */
+enum class EntryKind { START_KOIN, KOIN_APPLICATION, KOIN_CONFIGURATION, WITH_CONFIGURATION }
+enum class EntryClassification { ROOT, DYNAMIC }
+
+/**
+ * Result of walking an entry-point lambda for `modules(...)` calls: the statically-resolvable module
+ * classes, plus whether ANY argument was non-static (conditional / spread / variable) — which makes
+ * the assembled graph unverifiable at compile time (→ [EntryClassification.DYNAMIC], KOIN-W003).
+ */
+data class LambdaModules(val classes: List<IrClass>, val dynamic: Boolean)
+data class EntryPoint(
+    val kind: EntryKind,
+    // Mutable: the plugin-stub path reifies the entry as ROOT, then reclassifies to DYNAMIC once the
+    // lambda walk finds a non-static modules(...) argument (assigned once, single-threaded IR walk).
+    var classification: EntryClassification,
+    // Mutable so the entry point can be reified at detection time and its closure filled in once
+    // resolved a few lines later in the same visitCall (Gate-1: each root resolves its OWN
+    // modules + includes + @ComponentScan/@Configuration set). Assigned exactly once, on the
+    // single-threaded IR walk, immediately after construction.
+    var resolvedModules: List<IrClass>,
+    val origin: SourceOrigin?,
+    // Display name passed to the verifier (leaks into KOIN-D001's `module = …`). Typed roots use
+    // the app class simple name; untyped roots use a fixed `startKoin { … }`-style label. Assigned
+    // alongside resolvedModules so [verifyEntryPoints] reproduces the exact pre-refactor message.
+    var appName: String = "",
+)
+
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
 class KoinStartTransformer(
@@ -72,9 +104,85 @@ class KoinStartTransformer(
 
     private var currentFile: IrFile? = null
 
-    /** True if a startKoin { } or koinApplication { } call was found (generic or non-generic). */
-    var hasKoinEntryPoint = false
-        private set
+    /**
+     * Reified entry points detected in this compilation (A3 §4). Each ROOT carries its own resolved
+     * module closure; [verifyEntryPoints] routes them all through the single graph verifier.
+     */
+    val entryPoints = mutableListOf<EntryPoint>()
+
+    /** True if any entry point (startKoin / koinApplication / koinConfiguration, generic or not) was found. */
+    val hasKoinEntryPoint: Boolean get() = entryPoints.isNotEmpty()
+
+    /**
+     * True if this compilation owns an AUTHORITATIVE application graph — i.e. an entry point that
+     * installs the global Koin context and is therefore expected to be able to resolve everything
+     * the whole application asks for.
+     *
+     * Deliberately narrower than [hasKoinEntryPoint], because "is there an entry point here" and
+     * "is this the application" are different questions and only the second licenses judging OTHER
+     * modules:
+     *
+     *  - `startKoin { }` / `@KoinApplication` install the global context → authoritative.
+     *  - `koinApplication { }` launches an ISOLATED context. It is a perfectly real entry point and
+     *    its own graph is validated (Phase 3.1) — but it is the idiom you reach for when you want a
+     *    deliberately partial graph: a Compose preview, a test fixture, a KMP helper holding its own
+     *    Koin instance. It does not own the application, so a call-site hint deferred by some other
+     *    module is none of its business.
+     *  - `koinConfiguration { }` / `withConfiguration { }` are configuration fragments, same
+     *    reasoning.
+     *
+     * Gating Phase 3.6 on [hasKoinEntryPoint] made any library module containing a
+     * `koinApplication { }` hard-error KOIN-D003 for every unresolved call-site hint on its
+     * classpath — types it neither owns nor should provide. Regression test:
+     * `testData/crossmodule/cross_module_koinapplication_library_ok.kt`.
+     */
+    val ownsAuthoritativeGraph: Boolean
+        get() = entryPoints.any { it.kind == EntryKind.START_KOIN }
+
+    /**
+     * A3 §4 — the SINGLE graph-verification pass. Runs over every reified [EntryPoint] AFTER the IR
+     * walk (called from [KoinIrExtension] Phase 3, before Phase 3.1) instead of validating inline
+     * mid-visit. Behavior-preserving: each ROOT with a resolved closure is validated with the exact
+     * (appName, modules, …) arguments the inline calls used, so KOIN-D001 output is unchanged.
+     *
+     * Roots with an empty closure (today: the real koin-core `startKoin{}` / `koinConfiguration{}`
+     * path, still flag-only) are skipped here — their resolution is wired in a later Gate-1 sub-step.
+     */
+    fun verifyEntryPoints() {
+        val validator = safetyValidator ?: return
+        val processor = annotationProcessor ?: return
+        KoinPluginLogger.debug { "── A3 verify: ${entryPoints.size} reified entry point(s) ──" }
+        for (ep in entryPoints) {
+            if (ep.resolvedModules.isEmpty()) {
+                KoinPluginLogger.debug { "  skip ${ep.kind} @ ${ep.origin} — no resolved modules (closure resolution pending)" }
+                continue
+            }
+            KoinPluginLogger.debug {
+                "  verify ${ep.kind} '${ep.appName}' [${ep.classification}] — ${ep.resolvedModules.size} module(s) @ ${ep.origin}"
+            }
+            validator.validateFullGraph(
+                "${ep.appName} (${entryKindDisplayLabel(ep.kind)})",
+                ep.resolvedModules,
+                processor.collectedModuleClasses,
+                processor::getDefinitionsForModule,
+                processor::getDefinitionsForDependencyModule,
+                dslDefinitions
+            )
+        }
+    }
+
+    /**
+     * Short label for the KOIN-D001 fallback module display (`"$appName ($label)"`), e.g. when a
+     * definition's real origin is unavailable (an `ExternalFunctionDef` reconstructed from a
+     * cross-module hint). Was hardcoded to "startKoin" for every entry kind — misleading for a
+     * genuine `koinApplication`/`koinConfiguration`/`withConfiguration` entry point.
+     */
+    private fun entryKindDisplayLabel(kind: EntryKind): String = when (kind) {
+        EntryKind.START_KOIN -> "startKoin"
+        EntryKind.KOIN_APPLICATION -> "koinApplication"
+        EntryKind.KOIN_CONFIGURATION -> "koinConfiguration"
+        EntryKind.WITH_CONFIGURATION -> "withConfiguration"
+    }
 
     override fun visitFile(declaration: IrFile): IrFile {
         currentFile = declaration
@@ -107,6 +215,25 @@ class KoinStartTransformer(
     private fun appClassCacheKey(appClass: IrClass): String =
         appClass.fqNameWhenAvailable?.asString() ?: "<anon>@${System.identityHashCode(appClass)}"
 
+    /** Best-effort source origin of a call site (for the reified EntryPoint / debug logs). */
+    private fun originOf(expression: IrCall): SourceOrigin {
+        val fe = currentFile?.fileEntry
+        val line = fe?.let { runCatching { it.getLineNumber(expression.startOffset) + 1 }.getOrNull() }
+        return SourceOrigin(moduleFqName = null, filePath = fe?.name, line = line)
+    }
+
+    /**
+     * A3 §4 — disclose a DYNAMIC entry point (KOIN-W003): its module set is computed at runtime
+     * (conditional / spread / variable), so the assembled graph can't be verified at compile time.
+     * Emitting this warning keeps the "unverifiable" state visible rather than letting a green build
+     * imply a guarantee it didn't make (see KoinDiagnostic.UnverifiableDynamicGraph).
+     */
+    private fun discloseDynamicEntryPoint(entryLabel: String, expression: IrCall) {
+        val o = originOf(expression)
+        val originStr = o.filePath?.let { "${it.substringAfterLast('/')}:${o.line ?: "?"}" }
+        KoinPluginLogger.report(KoinDiagnostic.UnverifiableDynamicGraph(entryLabel, originStr))
+    }
+
     override fun visitCall(expression: IrCall): IrExpression {
         val callee = expression.symbol.owner
         val calleeFqName = callee.fqNameWhenAvailable
@@ -123,11 +250,45 @@ class KoinStartTransformer(
         // recognizing it flips on the DSL-graph full validation (Phase 3.1) for that entry path.
         // We only mark it as an entry point here — we do NOT rewrite the call, so koin-core's
         // koinConfiguration behaves normally at runtime.
+        // Real koin-core entry points. These are NOT rewritten (koin-core runs them normally at
+        // runtime) — we only reify them as ROOTs and resolve their module closure so the A3 verifier
+        // (verifyEntryPoints) validates the assembled graph at the root, exactly like the plugin-stub
+        // and typed @KoinApplication forms.
+        //   - org.koin.core.context.startKoin / GlobalContext.startKoin / KoinApplication.Companion.init
+        //   - org.koin.dsl.koinApplication  (KMP-style `koinApplication { modules(...) }.koin`)
+        //   - org.koin.dsl.koinConfiguration (Compose `KoinApplication(configuration = koinConfiguration { … })`, #38)
+        // Each is a SEALED self-consistent root (its graph must resolve within its own module set).
         if (fqNameStr == "org.koin.core.context.startKoin" ||
             fqNameStr == "org.koin.core.context.GlobalContext.startKoin" ||
             fqNameStr == "org.koin.core.KoinApplication.Companion.init" ||
+            fqNameStr == "org.koin.dsl.koinApplication" ||
             fqNameStr == "org.koin.dsl.koinConfiguration") {
-            hasKoinEntryPoint = true
+            val kind = when (fqNameStr) {
+                "org.koin.dsl.koinConfiguration" -> EntryKind.KOIN_CONFIGURATION
+                "org.koin.dsl.koinApplication" -> EntryKind.KOIN_APPLICATION
+                else -> EntryKind.START_KOIN
+            }
+            val label = when (kind) {
+                EntryKind.KOIN_CONFIGURATION -> "koinConfiguration { … }"
+                EntryKind.KOIN_APPLICATION -> "koinApplication { … }"
+                else -> "startKoin { … }"
+            }
+            // Resolve this root's own closure by walking its trailing lambda for plugin-stub
+            // modules(vararg KClass) calls — the same walk the untyped-stub path uses. Without this,
+            // the root stays flag-only and A3 never sees its modules.
+            val lambdaModules = collectModuleClassesFromLambda(expression)
+            val classification = if (lambdaModules.dynamic) EntryClassification.DYNAMIC else EntryClassification.ROOT
+            entryPoints.add(EntryPoint(kind, classification, lambdaModules.classes, originOf(expression), label))
+            val entryFile = currentFile
+            for (moduleClass in lambdaModules.classes) {
+                trackClassLookup(lookupTracker, entryFile, moduleClass)
+                linkDeclarationsForIC(expectActualTracker, entryFile, moduleClass)
+            }
+            if (lambdaModules.dynamic) discloseDynamicEntryPoint(label, expression)
+            KoinPluginLogger.debug {
+                "  entry point (koin-core): $kind [$classification] @ ${originOf(expression)} — ${lambdaModules.classes.size} module(s): " +
+                    lambdaModules.classes.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+            }
         }
 
         val isStartKoin = fqNameStr == "org.koin.plugin.module.dsl.startKoin"
@@ -156,8 +317,19 @@ class KoinStartTransformer(
             return super.visitCall(expression)
         }
 
-        // Mark generic versions as entry points too
-        hasKoinEntryPoint = true
+        // Reify the generic-stub entry point (resolvedModules filled at Gate-1 wiring).
+        val entryKind = when {
+            isStartKoin -> EntryKind.START_KOIN
+            isKoinApplication -> EntryKind.KOIN_APPLICATION
+            isKoinConfiguration -> EntryKind.KOIN_CONFIGURATION
+            isWithConfiguration -> EntryKind.WITH_CONFIGURATION
+            else -> EntryKind.START_KOIN
+        }
+        // Reify the entry point now; resolvedModules is populated below once we resolve this
+        // root's own closure (typed → @KoinApplication annotation; untyped → lambda modules(...) walk).
+        val entryPoint = EntryPoint(entryKind, EntryClassification.ROOT, emptyList(), originOf(expression))
+        entryPoints.add(entryPoint)
+        KoinPluginLogger.debug { "  entry point (stub): $entryKind @ ${originOf(expression)}" }
 
         // Untyped variants — `startKoin { modules(A::class) }`, `koinApplication { modules(...) }`,
         // and especially the Compose Composable-friendly `koinConfiguration { modules(...) }`
@@ -168,27 +340,33 @@ class KoinStartTransformer(
         // typed entry point.
         if (callee.typeParameters.isEmpty()) {
             val lambdaModuleClasses = collectModuleClassesFromLambda(expression)
-            if (lambdaModuleClasses.isNotEmpty() && safetyValidator != null && annotationProcessor != null) {
+            val entryName = when {
+                isStartKoin -> "startKoin { … }"
+                isKoinApplication -> "koinApplication { … }"
+                isKoinConfiguration -> "koinConfiguration { … }"
+                isWithConfiguration -> "withConfiguration { … }"
+                else -> "<unknown-entry>"
+            }
+            // Reify this root's own closure (Gate-1). Verification is now centralized in
+            // [verifyEntryPoints], which runs over `entryPoints` after this IR walk.
+            entryPoint.resolvedModules = lambdaModuleClasses.classes
+            entryPoint.appName = entryName
+            if (lambdaModuleClasses.dynamic) {
+                entryPoint.classification = EntryClassification.DYNAMIC
+                discloseDynamicEntryPoint(entryName, expression)
+            }
+            KoinPluginLogger.debug {
+                "  -> resolved closure ($entryName, untyped) [${entryPoint.classification}]: ${lambdaModuleClasses.classes.size} module(s): " +
+                    lambdaModuleClasses.classes.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+            }
+            // IC: entry-point file depends on each discovered module class. Guard kept identical to
+            // the pre-refactor validation guard so incremental edges are recorded exactly as before.
+            if (lambdaModuleClasses.classes.isNotEmpty() && safetyValidator != null && annotationProcessor != null) {
                 val startKoinFile = currentFile
-                for (moduleClass in lambdaModuleClasses) {
+                for (moduleClass in lambdaModuleClasses.classes) {
                     trackClassLookup(lookupTracker, startKoinFile, moduleClass)
                     linkDeclarationsForIC(expectActualTracker, startKoinFile, moduleClass)
                 }
-                val entryName = when {
-                    isStartKoin -> "startKoin { … }"
-                    isKoinApplication -> "koinApplication { … }"
-                    isKoinConfiguration -> "koinConfiguration { … }"
-                    isWithConfiguration -> "withConfiguration { … }"
-                    else -> "<unknown-entry>"
-                }
-                safetyValidator.validateFullGraph(
-                    entryName,
-                    lambdaModuleClasses,
-                    annotationProcessor.collectedModuleClasses,
-                    annotationProcessor::getDefinitionsForModule,
-                    annotationProcessor::getDefinitionsForDependencyModule,
-                    dslDefinitions
-                )
             }
             return super.visitCall(expression)
         }
@@ -201,23 +379,19 @@ class KoinStartTransformer(
         // Get modules from @KoinApplication(modules = [...]) annotation
         val moduleClasses = extractModulesFromKoinApplicationAnnotation(appClass)
 
+        // Reify this root's own closure (Gate-1). Verification is centralized in [verifyEntryPoints].
+        entryPoint.resolvedModules = moduleClasses
+        entryPoint.appName = appClass.name.asString()
+        KoinPluginLogger.debug {
+            "  -> resolved closure (${entryPoint.appName}, typed <${appClass.name.asString()}>): ${moduleClasses.size} module(s): " +
+                moduleClasses.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+        }
+
         // IC: startKoin file depends on each discovered module class
         val startKoinFile = currentFile
         for (moduleClass in moduleClasses) {
             trackClassLookup(lookupTracker, startKoinFile, moduleClass)
             linkDeclarationsForIC(expectActualTracker, startKoinFile, moduleClass)
-        }
-
-        // A3: Validate the full assembled graph at the startKoin entry point
-        if (safetyValidator != null && moduleClasses.isNotEmpty() && annotationProcessor != null) {
-            safetyValidator.validateFullGraph(
-                appClass.name.asString(),
-                moduleClasses,
-                annotationProcessor.collectedModuleClasses,
-                annotationProcessor::getDefinitionsForModule,
-                annotationProcessor::getDefinitionsForDependencyModule,
-                dslDefinitions
-            )
         }
 
         // Log interception (guard to avoid precomputation when logging is disabled)
@@ -325,7 +499,7 @@ class KoinStartTransformer(
 
     private fun computeModuleClasses(appClass: IrClass): List<IrClass> {
         val explicitModules = extractExplicitModules(appClass)
-        val configurationLabels = extractConfigurationLabels(appClass)
+        val configurationLabels = extractAppRequestedConfigurationLabels(appClass)
 
         KoinPluginLogger.debug { "  -> Configuration labels from @KoinApplication: $configurationLabels" }
 
@@ -357,7 +531,7 @@ class KoinStartTransformer(
      * @KoinApplication(configurations = ["test", "prod"]) -> ["test", "prod"]
      * @KoinApplication() or @KoinApplication(configurations = []) -> ["default"]
      */
-    private fun extractConfigurationLabels(appClass: IrClass): List<String> {
+    private fun extractAppRequestedConfigurationLabels(appClass: IrClass): List<String> {
         val koinAppAnnotation = appClass.annotations.firstOrNull { annotation ->
             annotation.type.classFqName?.asString() == "org.koin.core.annotation.KoinApplication"
         } ?: return listOf(KoinPluginConstants.DEFAULT_LABEL)
@@ -517,6 +691,19 @@ class KoinStartTransformer(
     /**
      * Check if a class has @Module and @Configuration annotations with matching labels.
      * A module matches if it has ANY of the requested labels.
+     *
+     * Bug fixed (1.1.0): this used to call extractAppRequestedConfigurationLabels below — which
+     * reads @KoinApplication(configurations=[...]), meant for the ENTRY-POINT class, not the
+     * module being checked here. Because module classes never carry @KoinApplication, that call
+     * always fell through to the "annotation absent" fallback (["default"]), making ANY @Module
+     * class in the same Gradle module as a default-labeled entry point match "default" regardless
+     * of whether it actually had @Configuration or was ever included by anyone — a silent
+     * over-broad reachability false-negative, newly consequential now that A2 is gone and A3 is
+     * the sole verifier. extractModuleConfigurationLabels (ConfigurationUtils.kt) reads the
+     * MODULE's own @Configuration annotation and returns an EMPTY list — no match — when absent.
+     * The two extractors are deliberately named differently now so they can never shadow each
+     * other again (the original bug was exactly this: two same-named functions, member resolution
+     * silently picking the wrong one).
      */
     private fun hasConfigurationWithMatchingLabels(declaration: IrClass, labels: List<String>): Boolean {
         val hasModule = declaration.annotations.any {
@@ -524,7 +711,7 @@ class KoinStartTransformer(
         }
         if (!hasModule) return false
 
-        return extractConfigurationLabels(declaration).any { it in labels }
+        return extractModuleConfigurationLabels(declaration).any { it in labels }
     }
 
     /**
@@ -555,8 +742,13 @@ class KoinStartTransformer(
      * can't get modules from `@KoinApplication(modules = [...])`, but the user's `modules(...)`
      * call inside the lambda gives us the same list at the IR level.
      */
-    private fun collectModuleClassesFromLambda(call: IrCall): List<IrClass> {
+    private fun collectModuleClassesFromLambda(call: IrCall): LambdaModules {
         val result = LinkedHashSet<IrClass>()
+        // dynamic = at least one modules(...) argument is NOT a statically-resolvable KClass — a
+        // conditional (`modules(if (x) A else B)`), a spread of a runtime list (`modules(*list)`),
+        // or a variable. The loaded set then depends on runtime values, so the graph is unverifiable
+        // at compile time for this root (A3 §4, DYNAMIC classification → KOIN-W003 disclosure).
+        var dynamic = false
         // Identity-based visited set — IrFunctionReference resolves to a function whose body
         // may be revisited from elsewhere in the tree (Compose `remember` scaffolding, captured
         // lambdas, etc.). Without a guard, pathological IR with cycles would recurse forever
@@ -575,13 +767,19 @@ class KoinStartTransformer(
                     nc.regularParameters[0].varargElementType != null
                 if (isModulesCall) {
                     val varargArg = node.getRegularArgument(0) as? IrVararg
-                    varargArg?.elements?.forEach { element ->
-                        val cls = when (element) {
-                            is IrClassReference -> (element.classType.classifierOrNull as? IrClassSymbol)?.owner
-                            is IrExpression -> extractClassFromKClassExpression(element)
-                            else -> null
+                    if (varargArg == null) {
+                        // modules(...) present but the argument isn't a plain vararg (e.g. a spread
+                        // of a runtime array) → the module set is not statically resolvable.
+                        dynamic = true
+                    } else {
+                        varargArg.elements.forEach { element ->
+                            val cls = when (element) {
+                                is IrClassReference -> (element.classType.classifierOrNull as? IrClassSymbol)?.owner
+                                is IrExpression -> extractClassFromKClassExpression(element)
+                                else -> null // e.g. IrSpreadElement
+                            }
+                            if (cls != null) result.add(cls) else dynamic = true
                         }
-                        if (cls != null) result.add(cls)
                     }
                 }
                 for (i in 0 until node.regularArgumentsCount) visit(node.getRegularArgument(i))
@@ -600,7 +798,7 @@ class KoinStartTransformer(
         }
 
         for (i in 0 until call.regularArgumentsCount) visit(call.getRegularArgument(i))
-        return result.toList()
+        return LambdaModules(result.toList(), dynamic)
     }
 
     /**

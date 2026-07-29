@@ -60,30 +60,44 @@ class KoinIrExtension(
         // Phase 1: Process @Module/@ComponentScan/@Singleton/@Factory annotations
         // Generates: fun MyModule.module() = module { single<A>(); factory<B>() }
         KoinPluginLogger.debug { "Phase 1: Processing annotations" }
-        val annotationProcessor = KoinAnnotationProcessor(pluginContext, qualifierExtractor, safetyValidator, lookupTracker, expectActualTracker)
+        val annotationProcessor = KoinAnnotationProcessor(pluginContext, qualifierExtractor, lookupTracker, expectActualTracker)
         annotationProcessor.collectAnnotations(moduleFragment)
         annotationProcessor.generateModuleExtensions(moduleFragment)
 
         // Phase 2: Transform single<T>() -> single(T::class, null) { T(get()) }
         // Also collects DSL definitions and pending call-site validations
         KoinPluginLogger.debug { "Phase 2: Transforming DSL calls" }
-        val koinTransformer = KoinDSLTransformer(pluginContext, lookupTracker)
+        val koinTransformer = KoinDSLTransformer(pluginContext, lookupTracker, expectActualTracker)
         moduleFragment.transform(koinTransformer, null)
         val dslDefinitions = koinTransformer.dslDefinitions
         val pendingCallSites = koinTransformer.collectedCallSites
         KoinPluginLogger.debug { "Phase 2: Collected ${dslDefinitions.size} DSL definitions, ${pendingCallSites.size} pending call sites" }
 
         // Instantiate extracted helper classes
-        val dslHintGenerator = DslHintGenerator(pluginContext)
+        val dslHintGenerator = DslHintGenerator(pluginContext, ParameterAnalyzer(qualifierExtractor))
         val callSiteValidator = CallSiteValidator(pluginContext)
         val injectedParamHints = InjectedParamHintGenerator(pluginContext, qualifierExtractor)
 
         // Phase 2.5: Generate DSL definition hints for cross-module discovery
         // Each DSL definition (single<T>, factory<T>, etc.) generates a hint function
         // so downstream modules can discover these definitions via referenceFunctions()
-        if (dslDefinitions.isNotEmpty() && KoinPluginLogger.compileSafetyEnabled) {
-            KoinPluginLogger.debug { "Phase 2.5: Generating ${dslDefinitions.size} DSL definition hints" }
-            dslHintGenerator.generateDslDefinitionHints(moduleFragment, dslDefinitions)
+        // Definitions are not the only reason to run. A module that only relays
+        // (`module { includes(…) }`) has topology to export, and a named module that now contributes
+        // nothing still needs its file rewritten so the previous compile's class cannot linger (see
+        // the keep-alive marker in DslHintGenerator). Definitions stay in the condition because an
+        // inline `modules(module { … })` has no val at all — allModuleIds is empty there.
+        if ((dslDefinitions.isNotEmpty()
+                || koinTransformer.moduleIncludes.isNotEmpty()
+                || koinTransformer.allModuleIds.isNotEmpty())
+            && KoinPluginLogger.compileSafetyEnabled) {
+            KoinPluginLogger.debug {
+                "Phase 2.5: Generating ${dslDefinitions.size} DSL definition hints" +
+                    " + ${koinTransformer.moduleIncludes.size} includes-edge hint(s)"
+            }
+            dslHintGenerator.generateDslDefinitionHints(
+                moduleFragment, dslDefinitions, koinTransformer.moduleIncludes, koinTransformer.allModuleIds,
+                koinTransformer.modulesWithIncompleteIncludes
+            )
         }
 
         // Phase 2.6: Generate `@InjectedParam` shape hints for cross-module call-site validation.
@@ -109,6 +123,11 @@ class KoinIrExtension(
         val startKoinTransformer = KoinStartTransformer(pluginContext, moduleFragment, annotationProcessor, safetyValidator, lookupTracker, expectActualTracker, dslDefinitions)
         moduleFragment.transform(startKoinTransformer, null)
 
+        // A3 §4: single graph-verification pass over the reified entry points. Must run before
+        // Phase 3.1 so it populates assembledGraphTypes first — Phase 3.1 skips when that set is
+        // non-empty, exactly as when validation happened inline during the transform.
+        startKoinTransformer.verifyEntryPoints()
+
         // Phase 3.1: DSL-only A3 validation (when startKoin { } is present but no startKoin<T>() / @KoinApplication)
         // Validates constructor parameters of local DSL definitions against all known definitions.
         // This catches missing definitions like commenting out single<Repository>() that a ViewModel needs.
@@ -120,38 +139,62 @@ class KoinIrExtension(
             KoinPluginLogger.debug { "Phase 3.1: DSL-only A3 validation (${dslDefinitions.size} local DSL definitions)" }
             callSiteValidator.validateDslDefinitionGraph(
                 dslDefinitions, annotationProcessor, safetyValidator, dslHintGenerator,
-                koinTransformer.startKoinModules, koinTransformer.moduleIncludes
+                koinTransformer.startKoinModules, koinTransformer.moduleIncludes,
+                entryModulesIncomplete = koinTransformer.entryModulesIncomplete,
+                modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
+                ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph
             )
         }
 
         // Phase 3.5: Validate pending call sites (simple loop, no tree walk)
         // Checks collected call sites against the assembled graph + DSL definitions.
-        // Unresolved call sites (when no full graph) generate call-site hints for deferred validation.
+        // Unresolved call sites (when no full graph, OR no Koin entry point at all in this
+        // compilation) generate call-site hints for deferred validation instead of hard-erroring —
+        // KOIN-D002 requires an assembled graph to judge against (see CompileSafetyValidator's
+        // class doc: no entry point ⇒ generation only, never verification). The D005/D006
+        // parametersOf shape check is NOT graph-dependent (constructor-derived), so it still runs
+        // on every call site regardless — including the deferred ones — inside the function below.
         if (safetyValidator != null && pendingCallSites.isNotEmpty()) {
             KoinPluginLogger.debug { "Phase 3.5: Validating ${pendingCallSites.size} call-site resolutions (graph types: ${safetyValidator.assembledGraphTypes.size})" }
-            callSiteValidator.validatePendingCallSites(moduleFragment, pendingCallSites, safetyValidator.assembledGraphTypes, dslDefinitions, annotationProcessor, dslHintGenerator, injectedParamHints)
+            callSiteValidator.validatePendingCallSites(
+                moduleFragment, pendingCallSites, safetyValidator.assembledGraphTypes, dslDefinitions,
+                annotationProcessor, dslHintGenerator, injectedParamHints, startKoinTransformer.hasKoinEntryPoint,
+            )
         }
 
-        // Phase 3.6: Validate call-site hints from dependency modules against known definitions
+        // Phase 3.6: Validate call-site hints from dependency modules against known definitions.
         // Call-site hints are generated by feature modules that can't resolve call sites locally.
-        // The app module (which sees all definitions via @KoinApplication) validates them here.
-        // Only runs when a Koin entry point is present (startKoin / @KoinApplication / koinApplication).
-        // Without an entry point, library modules would produce false positives because they don't
-        // have visibility into all modules. With an entry point, we MUST validate even with an empty
-        // local graph — otherwise missing Gradle dependencies (e.g., forgetting :data) go undetected.
+        // The app module (which sees all definitions via @KoinApplication) validates them here — and
+        // that framing is the gate: this pass judges OTHER modules' deferred resolutions, so it is
+        // only licensed where this compilation owns the authoritative application graph.
+        //
+        // Hence ownsAuthoritativeGraph, not hasKoinEntryPoint. `koinApplication { }` is a real entry
+        // point launching an isolated context, and its own graph IS validated (Phase 3.1) — but it is
+        // exactly the idiom used for deliberately partial graphs (Compose previews, test fixtures,
+        // KMP helpers). Gating here on "any entry point" made every library module containing one
+        // hard-error KOIN-D003 for types it neither owns nor should provide.
+        //
+        // Without an authoritative graph, library modules would produce false positives because they
+        // don't have visibility into all modules. With one, we MUST validate even with an empty local
+        // graph — otherwise missing Gradle dependencies (e.g. forgetting :data) go undetected.
         if (safetyValidator != null && KoinPluginLogger.compileSafetyEnabled
-            && startKoinTransformer.hasKoinEntryPoint) {
+            && startKoinTransformer.ownsAuthoritativeGraph) {
             callSiteValidator.validateCallSiteHintsFromDependencies(safetyValidator.assembledGraphTypes, dslDefinitions, annotationProcessor, dslHintGenerator)
         }
 
-        // Phase 3.7: Flush A2 deferrals (KTZ-4256 / #51).
-        // A2 validates each @Module in isolation and can't see sibling modules that only become
-        // visible at @KoinApplication(modules=[…]). Rather than hard-error KOIN-D001 for a dep a
-        // sibling provides, A2 defers. By now all A3 passes have run: deferrals whose module A3
-        // re-validated (or whose type is in the assembled graph) are settled silently; the rest —
-        // leaf modules with no entry point, or incomplete subgraphs — surface as KOIN-W002 warnings.
-        if (safetyValidator != null) {
-            safetyValidator.flushDeferred()
+        // Disclosure: no Koin entry point anywhere in this compilation means compile-safety
+        // validation never ran on it — generation only (see CompileSafetyValidator's class doc).
+        // Silent is worse than broken, so this is disclosed even though it's not a diagnostic:
+        // `warn()` is unconditional (not gated behind userLogs) and respects the informational
+        // severity setting (default WARNING, downgradable to INFO under allWarningsAsErrors) —
+        // NOT a plain WARNING-severity KoinDiagnostic, which would fire on every library module
+        // and recreate #73. Gated on having something to disclose about (this module actually
+        // carries Koin definitions), so a module with no Koin usage at all stays silent.
+        if (safetyValidator != null && !startKoinTransformer.hasKoinEntryPoint) {
+            val hasAnyDefinitions = dslDefinitions.isNotEmpty() || annotationProcessor.getAllKnownDefinitions().isNotEmpty()
+            if (hasAnyDefinitions) {
+                KoinPluginLogger.warn("compile-safety validation skipped — no Koin entry point in this compilation.")
+            }
         }
 
         // Phase 4: Transform @Monitor annotated functions

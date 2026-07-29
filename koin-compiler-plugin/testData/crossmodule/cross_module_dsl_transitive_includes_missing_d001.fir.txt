@@ -1,0 +1,62 @@
+Module: base
+FILE: Base.kt
+    package base
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|base/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Unrelated : R|kotlin/Any| {
+        public constructor(): R|base/Unrelated| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val baseModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|base/Unrelated|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|base/Repository|): R|lib/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|base/Repository| = R|<local>/repo|
+            public get(): R|base/Repository|
+
+    }
+    public final val libModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|base/baseModule|))
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|lib/Service|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    public final class AppThing : R|kotlin/Any| {
+        public constructor(): R|app/AppThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|lib/libModule|))
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/AppThing|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/appModule|)
+        }
+        )
+    }

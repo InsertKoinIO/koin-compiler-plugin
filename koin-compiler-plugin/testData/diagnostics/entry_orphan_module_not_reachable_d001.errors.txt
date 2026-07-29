@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: testpkg.OrphanDep
+  required by: testpkg.consumer.Consumer (parameter 'dep')
+  in module: testpkg.consumer

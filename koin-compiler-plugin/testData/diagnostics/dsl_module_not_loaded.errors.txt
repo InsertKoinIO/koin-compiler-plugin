@@ -1,5 +1,5 @@
 [Koin][KOIN-D001] Missing dependency: Repository
   required by: dsl:Service (parameter 'repo')
-  in module: DSL graph
+  in module: appModule
 [Koin][KOIN-W001] Module 'coreModule' is not loaded at startKoin — 1 definitions unreachable: Repository
   Add it to modules() or includes() to make these definitions available

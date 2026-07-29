@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: base.Repository
+  required by: lib.Service (parameter 'repo')
+  in module: MyApp (koinApplication)

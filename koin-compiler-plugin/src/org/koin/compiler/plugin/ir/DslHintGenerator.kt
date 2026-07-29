@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
+import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
@@ -27,7 +28,14 @@ import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
-class DslHintGenerator(private val context: IrPluginContext) {
+class DslHintGenerator(
+    private val context: IrPluginContext,
+    // Used to re-derive a cross-module DSL provider's requirements from its provided class's
+    // constructor (A3 — see discoverDslDefinitionsFromHints). Optional so bare-CLI/test paths that
+    // don't need requirement carrying can still construct the generator; when null, cross-module
+    // DslDefs keep empty requirements (pre-fix behavior).
+    private val parameterAnalyzer: ParameterAnalyzer? = null,
+) {
 
     /**
      * Generate DSL definition hint functions for cross-module discovery.
@@ -36,16 +44,150 @@ class DslHintGenerator(private val context: IrPluginContext) {
      *
      * Downstream modules discover these via context.referenceFunctions(dsl_<type>).
      */
+    /**
+     * Emit DSL definition hints for cross-module discovery, batched ONE FILE PER MODULE.
+     *
+     * Orphan-hint fix: previously this emitted one synthetic file PER DEFINITION, named by the
+     * definition's target type. Removing a `single<T>()` left that per-def file's `.class` behind —
+     * IC/build never deleted it — so the removed provider still looked present (silent false green on
+     * an incremental rebuild). Now every DSL definition in the same `module { }` (keyed by
+     * [Definition.DslDef.modulePropertyId], falling back to its source file) is batched into ONE
+     * stable-named file `koin_dsl_hints_<module>.kt`, regenerated wholesale each compile — exactly how
+     * the annotation module-scan hints (`koin_hints_<moduleId>.kt`) already work, which is why they
+     * never orphan. A removed definition simply isn't in the regenerated file, and the single class is
+     * overwritten, so no stale per-def class can survive.
+     *
+     * Function shape is unchanged (generic `dsl_<defType>` names → same-signature-distinct overloads
+     * within the file), so [discoverDslDefinitionsFromHints] finds them by name exactly as before.
+     */
     fun generateDslDefinitionHints(
         moduleFragment: IrModuleFragment,
-        dslDefinitions: List<Definition.DslDef>
+        dslDefinitions: List<Definition.DslDef>,
+        moduleIncludes: Map<String, List<String>> = emptyMap(),
+        allModuleIds: Set<String> = emptySet(),
+        modulesWithIncompleteIncludes: Set<String> = emptySet()
     ) {
         val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
 
-        for (def in dslDefinitions) {
+        // Group by owning module (its `module { }` val), so each module's hints live in one file.
+        // Fallback for a definition with no modulePropertyId: its registration source file's SIMPLE
+        // name (path-free → deterministic across machines/CI; the full path is a temp dir under test).
+        // Either way it lands in a stable, overwrite-per-compile file — never a per-def file.
+        val byModule = dslDefinitions.groupBy { def ->
+            def.modulePropertyId
+                ?: def.registrationSourceFile?.fileEntry?.name?.substringAfterLast('/')?.substringAfterLast('\\')
+                ?: "anonymous"
+        }
+
+        // A module that only relays (`module { includes(a, b) }` with no definitions of its own) has
+        // no group above, but its edges still have to reach consumers — otherwise a relay breaks the
+        // transitive walk. Union the include owners in so those get a file too.
+        val groupKeys = LinkedHashSet<String>().apply {
+            addAll(byModule.keys)
+            addAll(moduleIncludes.keys)
+            addAll(allModuleIds)
+        }
+
+        // KOIN-D008 (#75, Tier 1): two distinct module ids that flatten to the same identifier
+        // would collide in every hint function name keyed by flattenFqNameForHint (dslincludes_*
+        // today). Detect same-compilation collisions before generating anything for the
+        // colliding ids, so the build fails with a clear diagnostic instead of a silently-wrong
+        // hint (JVM) or a location-less KLIB SignatureClashDetector crash (native/wasm).
+        val collidingGroupKeys: Set<String> = run {
+            val byEncoded = groupKeys.groupBy { KoinPluginConstants.flattenFqNameForHint(it) }
+            val colliding = mutableSetOf<String>()
+            for ((encoded, rawIds) in byEncoded) {
+                if (rawIds.size <= 1) continue
+                for (i in 1 until rawIds.size) {
+                    KoinPluginLogger.report(KoinDiagnostic.DuplicateModuleHintIdentity(rawIds[0], rawIds[i], encoded))
+                }
+                colliding.addAll(rawIds)
+            }
+            colliding
+        }
+
+        for (groupKey in groupKeys) {
+            if (groupKey in collidingGroupKeys) continue
+            val groupDefs = byModule[groupKey].orEmpty()
+            val functions = groupDefs.mapNotNull { buildDslHintFunction(it) }.toMutableList()
+            // Topology carrier: this module's own `includes()` edges, in the same per-module file so
+            // they are regenerated wholesale and can never orphan (same reason as the defs above).
+            val edges = moduleIncludes[groupKey].orEmpty()
+            val edgesIncomplete = groupKey in modulesWithIncompleteIncludes
+            buildDslIncludesHintFunction(groupKey, edges, incomplete = edgesIncomplete)
+                ?.let { functions.add(it) }
+
+            // Keep-alive marker. A module that currently contributes NOTHING — last definition or
+            // last `includes()` deleted — would otherwise produce no file, leaving the previous
+            // compile's class on disk for IC to find: the module still looks populated and the
+            // removal goes undetected (verified on app-dsl — incremental AND `:module:clean` both
+            // false-greened; only a full clean caught it). Emitting a zero-parameter includes hint
+            // keeps the file written and regenerated wholesale, so the stale class is overwritten.
+            // Decoding reads zero `module_` params → no edges, which is the truth.
+            if (functions.isEmpty() && groupKey in allModuleIds) {
+                buildDslIncludesHintFunction(groupKey, emptyList(), emitWhenEmpty = true)
+                    ?.let { functions.add(it) }
+            }
+            if (functions.isEmpty()) continue
+
+            // FIR module data + source anchor from the group (all defs share the module val's file).
+            val firModuleData = groupDefs.firstNotNullOfOrNull { extractFirModuleData(it.returnTypeClass) }
+                ?: extractFirModuleDataFromModule(moduleFragment)
+            if (firModuleData == null) {
+                KoinPluginLogger.debug { "  WARN: No FIR module data for DSL module '$groupKey', skipping ${functions.size} hint(s)" }
+                continue
+            }
+
+            // Anchor on a stable source path (issue #32): the module val's registration file dirties
+            // whenever any of its definitions change, so the batched file is regenerated then.
+            val anchorDef = groupDefs.firstOrNull { it.registrationSourceFile != null }
+            val targetClassFile = groupDefs.firstNotNullOfOrNull { def ->
+                try {
+                    val entry = def.returnTypeClass.fileEntry
+                    if (entry.name.contains("/") || entry.name.contains("\\")) entry.name else null
+                } catch (_: NotImplementedError) { null }
+            }
+            val basePath = anchorDef?.registrationSourceFile?.fileEntry?.name
+                ?: targetClassFile
+                ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
+                ?: "/synthetic"
+
+            val fileName = HintFileNaming.fileName(
+                "koin_dsl_hints_", KoinPluginLogger.moduleId, firModuleData.name.asString(), groupKey,
+            )
+            val fakeNewPath = Path(basePath).parent.resolve(fileName)
+
+            val firFile = buildFile {
+                moduleData = firModuleData
+                origin = FirDeclarationOrigin.Synthetic.PluginFile
+                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
+                name = fileName
+                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+            }
+            val hintFile = IrFileImpl(
+                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, hintsPackage),
+                module = moduleFragment
+            ).also { it.metadata = FirMetadataSource.File(firFile) }
+
+            moduleFragment.addFile(hintFile)
+            for (function in functions) {
+                hintFile.addChild(function)
+                context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+            }
+            val includeCount = moduleIncludes[groupKey].orEmpty().size
+            KoinPluginLogger.debug {
+                "  Generated DSL module hints: $fileName (${groupDefs.size} definition(s)" +
+                    if (includeCount > 0) ", $includeCount includes edge(s))" else ")"
+            }
+        }
+    }
+
+    /** Build one DSL hint function encoding a definition (contributed type + bindings + moduleId +
+     *  providerOnly + qualifier). Returns null when the target type has no resolvable FqName. */
+    private fun buildDslHintFunction(def: Definition.DslDef): IrSimpleFunction? {
             val targetClass = def.returnTypeClass
-            val targetFqName = targetClass.fqNameWhenAvailable ?: continue
-            val targetClassId = ClassId.topLevel(targetFqName)
+            targetClass.fqNameWhenAvailable ?: return null
 
             val defTypeString = when (def.definitionType) {
                 DefinitionType.SINGLE -> KoinPluginConstants.DEF_TYPE_SINGLE
@@ -209,70 +351,99 @@ class DslHintGenerator(private val context: IrPluginContext) {
             // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
             function.addDeprecatedHiddenAnnotation(context)
 
-            // Create synthetic FirFile for metadata
-            val firModuleData = extractFirModuleData(targetClass)
-                ?: extractFirModuleDataFromModule(moduleFragment)
-            if (firModuleData == null) {
-                KoinPluginLogger.debug { "  WARN: No FIR module data for ${targetClass.name}, skipping DSL hint" }
-                continue
-            }
+            return function
+    }
 
-            // Build deterministic file name, prefixed with a Gradle-module-unique segment so
-            // two modules emitting hints for the same target type produce distinct class names
-            // (no dex merge collision). See KoinPluginConstants.OPTION_MODULE_ID.
-            val prefix = HintFilePrefix.of(firModuleData.name.asString())
-            val fileName = prefix + buildDslHintFileName(targetClassId, hintName)
+    /**
+     * Build the includes-edge hint for one module val — the DSL topology carrier.
+     *
+     * `module { includes(a, b) }` records its membership in a LAMBDA BODY, which never reaches the
+     * ABI, so a consumer compiling against this module cannot see the edge. This hint re-exposes it
+     * as a declaration: `dslincludes_<flattened-owner-id>(module_<a>: Unit, module_<b>: Unit)`.
+     *
+     * The owner id lives in the function NAME rather than a parameter, which is what keeps signatures
+     * unique — every parameter here is `Unit`-typed, so two module vals with the same number of
+     * includes would otherwise produce an identical descriptor and clash on JVM and, more sharply, on
+     * KLIB (native/wasm) where duplicate signatures are a hard serialization error.
+     *
+     * Returns null when the module includes nothing, so no empty hint is emitted — unless
+     * [emitWhenEmpty] is set, which produces the zero-parameter keep-alive form used to stop a
+     * now-empty module's hint file from orphaning (see the call site).
+     */
+    private fun buildDslIncludesHintFunction(
+        ownerModuleId: String,
+        includedModuleIds: List<String>,
+        emitWhenEmpty: Boolean = false,
+        incomplete: Boolean = false
+    ): IrSimpleFunction? {
+        val included = includedModuleIds.distinct()
+        // An incomplete module MUST emit even with nothing readable — the marker is the payload.
+        if (included.isEmpty() && !emitWhenEmpty && !incomplete) return null
 
-            // Anchor the synthetic hint file on a stable source path from the current compile
-            // unit (see issue #32). Priority:
-            //   1. The DSL call's own source file — always a file in the current module, and
-            //      changing the call always dirties this file. Best invalidation signal.
-            //   2. The target class's source file — works for local types; meaningless when the
-            //      target is cross-module.
-            //   3. Alphabetically-first module file — deterministic fallback so the path stays
-            //      stable across incremental rebuilds even when 1 and 2 are unavailable.
-            val targetClassFile = try {
-                val entry = targetClass.fileEntry
-                if (entry.name.contains("/") || entry.name.contains("\\")) entry.name
-                else null
-            } catch (_: NotImplementedError) {
-                null
-            }
-            val basePath = def.registrationSourceFile?.fileEntry?.name
-                ?: targetClassFile
-                ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
-                ?: "/synthetic"
-            val fakeNewPath = Path(basePath).parent.resolve(fileName)
+        val function = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId)),
+            visibility = DescriptorVisibilities.PUBLIC,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
 
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = fileName
-                // KLIB metadata serialization (Native/JS/Wasm) requires a resolvable io
-                // File per file; a null sourceFile fails the wasm/js serializer (KT-82395).
-                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-            }
+        // One Unit-typed parameter per included module, using the same `module_<id with . → $>`
+        // encoding the definition hints already use for modulePropertyId, so decoding is symmetric.
+        // Marker: this module's includes() had an argument the producer could not read, so the edge
+        // list below is PARTIAL. Without it the consumer treats a partial list as authoritative and
+        // reports everything beyond it unreachable — a false KOIN-D001/D002/W001 on a graph that is
+        // correct at runtime. Incompleteness has to cross the module boundary with the edges.
+        val markerParams = if (incomplete) listOf(
+            context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier(KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+        ) else emptyList()
 
-            val hintFile = IrFileImpl(
-                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
-                    moduleFragment.descriptor,
-                    hintsPackage
-                ),
-                module = moduleFragment
-            ).also { it.metadata = FirMetadataSource.File(firFile) }
-
-            moduleFragment.addFile(hintFile)
-            hintFile.addChild(function)
-
-            // Register for downstream visibility
-            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
-
-            val bindingNames = def.bindings.mapNotNull { it.fqNameWhenAvailable?.shortName()?.asString() }
-            val bindingInfo = if (bindingNames.isNotEmpty()) " (bindings: ${bindingNames.joinToString()})" else ""
-            KoinPluginLogger.debug { "  Generated DSL hint: $hintName -> ${targetClass.name}$bindingInfo" }
+        function.parameters = markerParams + included.map { includedId ->
+            context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier("${KoinPluginConstants.DSL_MODULE_PARAM_PREFIX}${includedId.replace('.', '$')}"),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
         }
+
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+        // @Deprecated(HIDDEN) — same reason as the definition hints: keeps these out of ObjC export.
+        function.addDeprecatedHiddenAnnotation(context)
+        return function
     }
 
     /** Extract FIR module data from an IR class's metadata. */
@@ -345,6 +516,44 @@ class DslHintGenerator(private val context: IrPluginContext) {
     }
 
     /**
+     * Read the `includes()` edges a module val declares, from its cross-module includes hint.
+     *
+     * This is the decode half of the DSL topology carrier. The caller already knows [ownerModuleId]
+     * (it came from `modules(...)` at the entry point, or from a previously-decoded edge), so the
+     * hint name is reconstructed rather than enumerated.
+     *
+     * Returns empty when there is no hint — a dependency built by an older plugin, or a module that
+     * includes nothing. That degrades exactly to the pre-carrier behavior (fewer modules considered
+     * reachable), so a missing hint can only ever cost reachability, never invent it.
+     */
+    /** Edges a dependency declared, plus whether that list is known to be PARTIAL. */
+    data class ModuleIncludes(val edges: List<String>, val incomplete: Boolean)
+
+    fun discoverModuleIncludesFromHints(ownerModuleId: String): ModuleIncludes =
+        cachedModuleIncludes.getOrPut(ownerModuleId) {
+            val hintName = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId))
+            val callableId = CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
+            val prefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
+            val params = context.referenceFunctions(callableId).flatMap { it.owner.regularParameters }
+                .map { it.name.asString() }
+            val edges = params.filter { it.startsWith(prefix) }
+                .map { it.removePrefix(prefix).replace('$', '.') }
+                .distinct()
+            val incomplete = params.any { it == KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER }
+            if (edges.isNotEmpty() || incomplete) {
+                KoinPluginLogger.debug {
+                    "  includes (cross-module hint): $ownerModuleId -> $edges" +
+                        if (incomplete) " (PARTIAL — producer could not read all arguments)" else ""
+                }
+            }
+            ModuleIncludes(edges, incomplete)
+        }
+
+    /** Memoized per owner id — `referenceFunctions` is invariant within a compile and the
+     *  reachability walk can revisit the same module through several paths. */
+    private val cachedModuleIncludes = mutableMapOf<String, ModuleIncludes>()
+
+    /**
      * Discover DSL definitions from dependency hints as Definition objects.
      * Returns synthetic DslDef objects that serve as providers in graph validation.
      */
@@ -400,6 +609,13 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     else -> null
                 }
 
+                // A3: re-derive requirements from the provided class's constructor — the class is on
+                // the consumer's classpath (targetClass), so its constructor is ABI-available, exactly
+                // like a cross-module ClassDef. Without this the cross-module DslDef carried ZERO
+                // requirements, so a downstream entry point never validated a DSL provider's
+                // constructor dependencies (silent false negative — e.g. single<OfflineFirstNewsRepository>()
+                // whose Notifier/NetworkDataSource/NewsResourceDao deps went unchecked at the app root).
+                // Mirrors how the LOCAL DslDef derives requirements (KoinDSLTransformer.attachA3Metadata).
                 definitions.add(Definition.DslDef(
                     irClass = targetClass,
                     definitionType = defType,
@@ -407,7 +623,10 @@ class DslHintGenerator(private val context: IrPluginContext) {
                     modulePropertyId = modulePropertyId,
                     providerOnly = providerOnly,
                     qualifier = qualifier
-                ))
+                ).also { def ->
+                    parameterAnalyzer?.let { def.requirements = it.requirementsForClass(targetClass) }
+                    def.origin = SourceOrigin.of(targetClass)
+                })
             }
         }
 

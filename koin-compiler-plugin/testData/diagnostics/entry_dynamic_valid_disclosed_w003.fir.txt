@@ -1,0 +1,43 @@
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Singleton|() public final class Repo : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|testpkg/Repo|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|testpkg/Repo| = R|<local>/repo|
+            public get(): R|testpkg/Repo|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        lval flag: R|kotlin/Boolean| = Boolean(true)
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/modules|(vararg(when () {
+                R|<local>/flag| ->  {
+                    <getClass>(Q|testpkg/AppModule|)
+                }
+                else ->  {
+                    <getClass>(Q|testpkg/AppModule|)
+                }
+            }
+            ))
+        }
+        )
+    }
+FILE: testpkg/testpkgAppModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/AppModule|.module(): R|org/koin/core/module/Module|

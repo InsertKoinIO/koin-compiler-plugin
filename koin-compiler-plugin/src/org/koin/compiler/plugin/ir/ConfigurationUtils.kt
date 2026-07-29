@@ -10,9 +10,9 @@ import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginConstants
 
 /**
- * Shared utilities for reading @Configuration annotation data from IR classes.
- * Used by both KoinAnnotationProcessor (A2: configuration-group validation)
- * and KoinStartTransformer (A3: startKoin full-graph validation).
+ * Shared utilities for reading @Configuration annotation data from a MODULE's own IrClass — not
+ * to be confused with reading @KoinApplication(configurations = [...]) off an entry-point class
+ * (see KoinStartTransformer's own, differently-named helper for that).
  */
 
 private val configurationFqNameStr = KoinAnnotationFqNames.CONFIGURATION.asString()
@@ -29,16 +29,17 @@ fun hasConfigurationAnnotation(irClass: IrClass): Boolean {
 }
 
 /**
- * Extract configuration labels from @Configuration annotation on an IrClass.
- * Returns empty list if the class has no @Configuration annotation.
+ * Extract configuration labels from a MODULE class's own @Configuration annotation.
+ * Returns an EMPTY list if the class has no @Configuration annotation at all — a module without
+ * @Configuration must never be treated as matching any label (including "default").
  *
- * @Configuration("test", "prod") → ["test", "prod"]
- * @Configuration() or @Configuration → ["default"]
- * No @Configuration → []
+ * @Configuration("test", "prod") -> ["test", "prod"]
+ * @Configuration() or bare @Configuration -> ["default"]
+ * No @Configuration -> []
  */
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
-fun extractConfigurationLabels(irClass: IrClass): List<String> {
+fun extractModuleConfigurationLabels(irClass: IrClass): List<String> {
     val configAnnotation = irClass.annotations.firstOrNull {
         it.type.classFqName?.asString() == configurationFqNameStr
     } ?: return emptyList()
@@ -46,9 +47,6 @@ fun extractConfigurationLabels(irClass: IrClass): List<String> {
     return parseAnnotationLabelArgs(configAnnotation)
 }
 
-/**
- * Parse label arguments from a @Configuration annotation IR constructor call.
- */
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
 private fun parseAnnotationLabelArgs(annotation: IrConstructorCall): List<String> {
@@ -77,3 +75,4 @@ private fun parseAnnotationLabelArgs(annotation: IrConstructorCall): List<String
 
     return labels.ifEmpty { listOf(KoinPluginConstants.DEFAULT_LABEL) }
 }
+

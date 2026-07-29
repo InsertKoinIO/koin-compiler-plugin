@@ -1,0 +1,32 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Tracker : R|kotlin/Any| {
+        public constructor(): R|testpkg/Tracker| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|testpkg/Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val loadedModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Other|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val unloadedModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Tracker|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/loadedModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval tracker: R|testpkg/Tracker| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/Tracker|>()
+    }
