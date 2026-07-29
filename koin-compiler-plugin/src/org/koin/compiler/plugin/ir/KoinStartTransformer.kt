@@ -486,7 +486,7 @@ class KoinStartTransformer(
 
     private fun computeModuleClasses(appClass: IrClass): List<IrClass> {
         val explicitModules = extractExplicitModules(appClass)
-        val configurationLabels = extractConfigurationLabels(appClass)
+        val configurationLabels = extractAppRequestedConfigurationLabels(appClass)
 
         KoinPluginLogger.debug { "  -> Configuration labels from @KoinApplication: $configurationLabels" }
 
@@ -518,7 +518,7 @@ class KoinStartTransformer(
      * @KoinApplication(configurations = ["test", "prod"]) -> ["test", "prod"]
      * @KoinApplication() or @KoinApplication(configurations = []) -> ["default"]
      */
-    private fun extractConfigurationLabels(appClass: IrClass): List<String> {
+    private fun extractAppRequestedConfigurationLabels(appClass: IrClass): List<String> {
         val koinAppAnnotation = appClass.annotations.firstOrNull { annotation ->
             annotation.type.classFqName?.asString() == "org.koin.core.annotation.KoinApplication"
         } ?: return listOf(KoinPluginConstants.DEFAULT_LABEL)
@@ -678,6 +678,19 @@ class KoinStartTransformer(
     /**
      * Check if a class has @Module and @Configuration annotations with matching labels.
      * A module matches if it has ANY of the requested labels.
+     *
+     * Bug fixed (1.1.0): this used to call extractAppRequestedConfigurationLabels below — which
+     * reads @KoinApplication(configurations=[...]), meant for the ENTRY-POINT class, not the
+     * module being checked here. Because module classes never carry @KoinApplication, that call
+     * always fell through to the "annotation absent" fallback (["default"]), making ANY @Module
+     * class in the same Gradle module as a default-labeled entry point match "default" regardless
+     * of whether it actually had @Configuration or was ever included by anyone — a silent
+     * over-broad reachability false-negative, newly consequential now that A2 is gone and A3 is
+     * the sole verifier. extractModuleConfigurationLabels (ConfigurationUtils.kt) reads the
+     * MODULE's own @Configuration annotation and returns an EMPTY list — no match — when absent.
+     * The two extractors are deliberately named differently now so they can never shadow each
+     * other again (the original bug was exactly this: two same-named functions, member resolution
+     * silently picking the wrong one).
      */
     private fun hasConfigurationWithMatchingLabels(declaration: IrClass, labels: List<String>): Boolean {
         val hasModule = declaration.annotations.any {
@@ -685,7 +698,7 @@ class KoinStartTransformer(
         }
         if (!hasModule) return false
 
-        return extractConfigurationLabels(declaration).any { it in labels }
+        return extractModuleConfigurationLabels(declaration).any { it in labels }
     }
 
     /**

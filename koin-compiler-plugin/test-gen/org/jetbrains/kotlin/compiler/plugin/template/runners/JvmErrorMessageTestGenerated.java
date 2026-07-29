@@ -204,6 +204,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("entry_orphan_module_not_reachable_d001.kt")
+    public void testEntry_orphan_module_not_reachable_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/entry_orphan_module_not_reachable_d001.kt");
+    }
+
+    @Test
     @TestMetadata("entry_shared_module_missing_dedup.kt")
     public void testEntry_shared_module_missing_dedup() {
       runTest("koin-compiler-plugin/testData/diagnostics/entry_shared_module_missing_dedup.kt");
