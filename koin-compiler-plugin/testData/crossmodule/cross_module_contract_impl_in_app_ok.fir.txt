@@ -1,0 +1,72 @@
+Module: feature
+FILE: AnalyticsBackend.kt
+    package feature
+
+    public abstract interface AnalyticsBackend : R|kotlin/Any| {
+        public abstract fun track(event: R|kotlin/String|): R|kotlin/Unit|
+
+    }
+FILE: AnalyticsService.kt
+    package feature
+
+    @R|org/koin/core/annotation/Singleton|() public final class AnalyticsService : R|kotlin/Any| {
+        public constructor(backend: R|feature/AnalyticsBackend|): R|feature/AnalyticsService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val backend: R|feature/AnalyticsBackend| = R|<local>/backend|
+            public get(): R|feature/AnalyticsBackend|
+
+    }
+FILE: FeatureModule.kt
+    package feature
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: AnalyticsBackendImpl.kt
+    package app
+
+    @R|org/koin/core/annotation/Singleton|() public final class AnalyticsBackendImpl : R|feature/AnalyticsBackend| {
+        public constructor(): R|app/AnalyticsBackendImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun track(event: R|kotlin/String|): R|kotlin/Unit| {
+            ^track R|kotlin/io/println|(R|<local>/event|)
+        }
+
+    }
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(app))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|feature/FeatureModule|), <getClass>(Q|app/AppModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|app/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|

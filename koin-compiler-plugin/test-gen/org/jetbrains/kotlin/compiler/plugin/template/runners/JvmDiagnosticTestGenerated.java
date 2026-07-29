@@ -39,6 +39,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("call_site_param_mismatch_no_entry_point.kt")
+  public void testCall_site_param_mismatch_no_entry_point() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_mismatch_no_entry_point.kt");
+  }
+
+  @Test
   @TestMetadata("call_site_param_missing_d006.kt")
   public void testCall_site_param_missing_d006() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_missing_d006.kt");
@@ -141,6 +147,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_hint_name_collision.kt")
+  public void testDsl_hint_name_collision() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_hint_name_collision.kt");
+  }
+
+  @Test
   @TestMetadata("dsl_module_not_loaded.kt")
   public void testDsl_module_not_loaded() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_not_loaded.kt");
@@ -186,6 +198,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @TestMetadata("entry_modules_partial_resolution_w003.kt")
   public void testEntry_modules_partial_resolution_w003() {
     runTest("koin-compiler-plugin/testData/diagnostics/entry_modules_partial_resolution_w003.kt");
+  }
+
+  @Test
+  @TestMetadata("entry_shared_module_missing_dedup.kt")
+  public void testEntry_shared_module_missing_dedup() {
+    runTest("koin-compiler-plugin/testData/diagnostics/entry_shared_module_missing_dedup.kt");
   }
 
   @Test

@@ -1,0 +1,77 @@
+Module: contracts
+FILE: Contracts.kt
+    package contracts
+
+    public abstract interface SessionData : R|kotlin/Any| {
+    }
+    public final class SessionScope : R|kotlin/Any| {
+        public constructor(): R|contracts/SessionScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+Module: sessionProvider
+FILE: SessionDataImpl.kt
+    package sessionprovider
+
+    @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|contracts/SessionScope|)) @R|org/koin/core/annotation/Scoped|() public final class SessionDataImpl : R|contracts/SessionData| {
+        public constructor(): R|sessionprovider/SessionDataImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: SessionProviderModule.kt
+    package sessionprovider
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(sessionprovider))) public final class SessionProviderModule : R|kotlin/Any| {
+        public constructor(): R|sessionprovider/SessionProviderModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: sessionprovider/sessionproviderSessionProviderModuleModule.kt
+    package sessionprovider
+
+    public final fun R|sessionprovider/SessionProviderModule|.module(): R|org/koin/core/module/Module|
+Module: consumer
+FILE: SessionConsumer.kt
+    package consumer
+
+    @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|contracts/SessionScope|)) @R|org/koin/core/annotation/Scoped|() public final class SessionConsumer : R|kotlin/Any| {
+        public constructor(data: R|contracts/SessionData|): R|consumer/SessionConsumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val data: R|contracts/SessionData| = R|<local>/data|
+            public get(): R|contracts/SessionData|
+
+    }
+FILE: ConsumerModule.kt
+    package consumer
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(consumer))) public final class ConsumerModule : R|kotlin/Any| {
+        public constructor(): R|consumer/ConsumerModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: consumer/consumerConsumerModuleModule.kt
+    package consumer
+
+    public final fun R|consumer/ConsumerModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|consumer/ConsumerModule|), <getClass>(Q|sessionprovider/SessionProviderModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|app/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }

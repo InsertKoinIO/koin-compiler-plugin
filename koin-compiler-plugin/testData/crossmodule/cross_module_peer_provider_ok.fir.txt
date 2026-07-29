@@ -1,0 +1,77 @@
+Module: contracts
+FILE: PeerService.kt
+    package contracts
+
+    public abstract interface PeerService : R|kotlin/Any| {
+        public abstract fun ping(): R|kotlin/String|
+
+    }
+Module: notifications
+FILE: NotificationService.kt
+    package notifications
+
+    @R|org/koin/core/annotation/Singleton|() public final class NotificationService : R|kotlin/Any| {
+        public constructor(peer: R|contracts/PeerService|): R|notifications/NotificationService| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val peer: R|contracts/PeerService| = R|<local>/peer|
+            public get(): R|contracts/PeerService|
+
+    }
+FILE: NotificationsModule.kt
+    package notifications
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(notifications))) public final class NotificationsModule : R|kotlin/Any| {
+        public constructor(): R|notifications/NotificationsModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: notifications/notificationsNotificationsModuleModule.kt
+    package notifications
+
+    public final fun R|notifications/NotificationsModule|.module(): R|org/koin/core/module/Module|
+Module: peer
+FILE: PeerServiceImpl.kt
+    package peer
+
+    @R|org/koin/core/annotation/Singleton|() public final class PeerServiceImpl : R|contracts/PeerService| {
+        public constructor(): R|peer/PeerServiceImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun ping(): R|kotlin/String| {
+            ^ping String(pong)
+        }
+
+    }
+FILE: PeerModule.kt
+    package peer
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(peer))) public final class PeerModule : R|kotlin/Any| {
+        public constructor(): R|peer/PeerModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: peer/peerPeerModuleModule.kt
+    package peer
+
+    public final fun R|peer/PeerModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|notifications/NotificationsModule|), <getClass>(Q|peer/PeerModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|app/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }

@@ -335,12 +335,6 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
-    @TestMetadata("dsl_hint_name_collision.kt")
-    public void testDsl_hint_name_collision() {
-      runTest("koin-compiler-plugin/testData/box/safety/dsl_hint_name_collision.kt");
-    }
-
-    @Test
     @TestMetadata("dsl_injected_param_d006.kt")
     public void testDsl_injected_param_d006() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_injected_param_d006.kt");
