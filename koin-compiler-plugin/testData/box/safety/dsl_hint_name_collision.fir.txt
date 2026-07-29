@@ -1,0 +1,36 @@
+FILE: alpha.kt
+    package p.q_r
+
+    public final class Alpha : R|kotlin/Any| {
+        public constructor(): R|p/q_r/Alpha| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val mod: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|p/q_r/Alpha|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+FILE: beta.kt
+    package p.q
+
+    public final class Beta : R|kotlin/Any| {
+        public constructor(): R|p/q/Beta| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val r_mod: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|p/q/Beta|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+FILE: main.kt
+    public final fun box(): R|kotlin/String| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|p/q_r/mod|, R|p/q/r_mod|))
+        }
+        )
+        ^box String(OK)
+    }

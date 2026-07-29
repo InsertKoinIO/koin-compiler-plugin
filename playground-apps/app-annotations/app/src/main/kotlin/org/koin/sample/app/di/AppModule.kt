@@ -21,7 +21,6 @@ class AppModule {
     // Cycle Case
 //    @Factory
 //    fun a(b: B) = A(b)
-//
 //    @Factory
 //    fun b(a: A) = B(a)
 
