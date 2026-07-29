@@ -5,6 +5,22 @@
 > spike (falsified the blunt version), a Step-1 baseline diagnostics matrix, a playground reality-check,
 > a red-team review, and a meta-model critique. Evidence in §9.
 
+> **SUPERSEDED (1.1.0): this doc's central conclusion — "keep A2 + a completed oracle as the leaf net"
+> (§1, §7, §8, §9 below) — was explicitly overridden.** A2 was removed **entirely** in 1.1.0, including
+> the oracle. The reversal was a deliberate, user-approved decision, not a silent drift: a module
+> validated in isolation cannot know how it will be wired into a larger app, and this stopped being
+> theoretical — `:core:notifications` in `playground-apps/app-annotations` genuinely false-positived
+> A2/oracle-side on a dependency that a peer module provides, resolved only once both modules are
+> assembled together. That measured false positive is what this doc's own §1 leaf-net argument said
+> should not be possible; it happened anyway, so the leaf net was cut rather than patched further.
+> **Trade-off accepted, not eliminated:** an entry-point-less leaf library now gets zero compile-time
+> safety diagnostics (D001/D004/D005/D006/P001 all silent) until something in the same compilation
+> assembles a real Koin entry point — down from A2's leaf-local (but false-positive-prone) checking.
+> This is disclosed to users via a default-visible (INFO-severity) message, never silent-silent. See
+> `CLAUDE.md`'s Compile Safety section and `RELEASE_NOTES_1.1.0.md` for the user-facing writeup. The
+> rest of this document remains as the historical record of the reasoning that preceded the reversal —
+> read it for *why* the leaf net was originally proposed, not as the current design.
+
 ## 1. Principle
 
 A2 **collects** metadata + generates code; A3 **verifies** the assembled graph at the entry point. Both
@@ -16,7 +32,7 @@ IR-bearing fields).
 
 - **Annotation roots** — `@KoinApplication(modules=[…])` class lists + `@Configuration` labels + `@Module(includes=…)` are **ABI**, so A3 can authoritatively reconstruct the loaded set → **A3 verifies, A2 collect-only.**
 - **DSL / Compose-`koinConfiguration`** — membership lives in `includes()`/`modules()` **lambda bodies (non-ABI)**. A3 verifies **same-compile** graphs today; **cross-Gradle-module** membership is lost → needs the **includes-edge carrier** (§5) to reach annotation parity.
-- **Entry-point-less leaves** (e.g. KMP `@Module` libraries compiled without their app) — no A3 in the compilation → **keep A2 + a *completed* oracle** as the net (hard-error genuine-local misses, defer cross-module). The oracle is **not deleted** — the ClassDef-exclusion *tuning* was the hack; the oracle *concept* (defer iff a provider exists somewhere) is load-bearing for cases A3 structurally cannot reach.
+- **Entry-point-less leaves** (e.g. KMP `@Module` libraries compiled without their app) — no A3 in the compilation → ~~keep A2 + a *completed* oracle as the net (hard-error genuine-local misses, defer cross-module). The oracle is **not deleted** — the ClassDef-exclusion *tuning* was the hack; the oracle *concept* (defer iff a provider exists somewhere) is load-bearing for cases A3 structurally cannot reach.~~ **Superseded (1.1.0): no net at all.** A2 and the oracle are both fully deleted; a leaf with no entry point in its own compilation gets no compile-safety diagnostics, disclosed via an INFO-severity message. See the banner at the top of this doc.
 
 ### The three gates (exit criteria before A2 stops emitting for a given path)
 - **Gate 1** — A3 actually EMITS (today it's bookkeeping; A2 is the de-facto emitter, §9) at the root with culprit `origin`, for all statically-resolvable roots.
@@ -129,9 +145,9 @@ Do not serialize the graph — each provider exposes its own edges; the verifier
 ## 6. Gate 3 — freshness (incremental compilation)
 
 A3-sole-verify removes A2's per-module freshness-robustness. Levers:
-1. **strictSafety MANDATORY** whenever an entry point is present (was opt-in). Bounded cost: only the aggregator recompiles.
-2. **Both `LookupTracker` + `ExpectActualTracker`** + **link each hint → source class** so change/removal forces recompile/removal (cures the DSL orphan-hint false-green).
-3. **`@ComponentScan` new-file** (no source edge) — hard K2 residual: strictSafety re-run + package-scope lookup; else **disclose**, never silent.
+1. **strictSafety MANDATORY** whenever an entry point is present (was opt-in). Bounded cost: only the aggregator recompiles. **Done (1.1.0)** — `strictSafety = false` is now ignored once `looksLikeAggregator` fires; escape hatch is a separate, explicit `strictSafetyForceOff = true` for a confirmed detector misfire.
+2. **Both `LookupTracker` + `ExpectActualTracker`** + **link each hint → source class** so change/removal forces recompile/removal (cures the DSL orphan-hint false-green). **Done (1.1.0)** — `KoinDSLTransformer`'s 5 DSL call sites now call `linkDeclarationsForIC` alongside the existing `trackClassLookup`, matching the pairing `KoinAnnotationProcessor`/`KoinStartTransformer` already had.
+3. ~~**`@ComponentScan` new-file** (no source edge) — hard K2 residual: strictSafety re-run + package-scope lookup; else **disclose**, never silent.~~ **Corrected, empirically (1.1.0):** this theorized gap does not reproduce. Adding a new `@Singleton`/`@Factory` class to a scanned package IS a Gradle-level source-set input change (a new file in the tree), which invalidates the owning module's `compileKotlin` task independent of anything Koin-specific — verified live on `playground-apps/app-annotations`: a new class added to `core/notifications` (no entry point, no `strictSafety`) was correctly discovered, hinted, and validated by `:app` on a plain no-clean rebuild. No `@ComponentScan`-detection heuristic was needed. The one freshness gap that IS real and remains open is narrower and already documented: a module going **completely empty** (last definition/`includes()` removed with nothing replacing it) — see `playground-apps/README.md`'s "Known limitation" note. That is a genuine K2-internals residual (hint signature staying resolved within one IC session), not a missing source edge, and is out of scope for 1.1.0.
 
 **Exit test — incremental stress matrix in `playground-apps`** (real Gradle modules + IC): for each of
 {add def, **remove** def, change qualifier, add scanned class} in a dependency module, rebuild **without a
@@ -168,7 +184,8 @@ declaration route (§5), whose stated payoff is precisely IC freshness.
 | Skip-sets: whitelist, `@Provided`, `@ScopeId`, Scope receiver | `BindingRegistry.kt:117,413`; `ParameterAnalyzer.kt:149` | `trustedTypes` (FIX-4) |
 
 **Correctly deleted once gates hold (each release-noted):** `KOIN-W002` + deferral machinery, the
-`providerHintTypeFqNames` oracle *tuning* (kept as the leaf net, completed), `hasCrossModuleHint`.
+`providerHintTypeFqNames` oracle ~~*tuning* (kept as the leaf net, completed)~~ **and the oracle itself,
+fully (1.1.0) — see the superseded banner at the top of this doc**, `hasCrossModuleHint`.
 
 ## 8. Work breakdown — fill the matrix against one verifier
 
@@ -181,7 +198,7 @@ declaration route (§5), whose stated payoff is precisely IC freshness.
 - **Reify `EntryPoint` + classifier** (Root/Dynamic) — replaces `hasKoinEntryPoint`. Internal plugin model
   only; works with existing Koin entry-point APIs (no API extension).
 - **Freshness (Gate 3):** trackers + mandatory strictSafety + the incremental stress matrix.
-- **Then, per path where its gates hold:** demote A2 to collect-only (rooted annotation compiles); keep A2+completed-oracle net for leaves. Never delete a diagnostic in §7 without its replacement proven.
+- **Then, per path where its gates hold:** demote A2 to collect-only (rooted annotation compiles); ~~keep A2+completed-oracle net for leaves~~ **superseded (1.1.0) — A2 and the oracle are deleted outright, leaves get no net at all; see the banner at the top of this doc.** Never delete a diagnostic in §7 without its replacement proven.
 
 ## 9. Evidence (this session)
 
@@ -194,8 +211,16 @@ typed `@KoinApplication` and real `startKoin{}`.
 generalized to DSL/Compose/entry-point-less leaves** (non-ABI or absent membership). Recalibrated by the
 follow-up: DSL is *already* entry-point-only (no per-module DSL pass to lose), so the residual is the
 **pre-existing cross-module transitive-includes over-approximation**, not a regression the reshape
-introduces — closed by the §5 includes-edge carrier. Surviving structural point: **keep the oracle as the
-leaf net.**
+introduces — closed by the §5 includes-edge carrier. Surviving structural point (at the time): keep the
+oracle as the leaf net.
+
+**Superseded (1.1.0):** this red-team conclusion was overridden after the leaf-oracle's own predicted
+failure mode showed up empirically — a genuine cross-module false positive on `:core:notifications`
+in `playground-apps/app-annotations` (a peer-provided dependency, no Gradle edge between the two
+modules). The oracle's "defer iff a provider exists somewhere" logic could not distinguish that
+legitimate shape from a real missing dependency without the same full-graph knowledge A3 already has,
+so keeping it added false positives without a compensating false-negative guarantee. Decision: cut the
+net entirely rather than keep patching it. See the banner at the top of this doc.
 
 **Playground:** no dynamic module assembly anywhere (the "degrades to unverified" fear did not materialize
 on the sample); flagship apps use the harder static forms; zero fragment coverage; freshness bed is ¼ of the

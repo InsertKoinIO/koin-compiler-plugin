@@ -203,13 +203,35 @@ koinCompiler {
     unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
     skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
     compileSafety = true       // Compile-time dependency validation (default: true)
-    strictSafety = true        // Force safety pass to bypass Kotlin IC on this module (default: auto-detect)
+    strictSafety = true        // Force safety pass to bypass Kotlin IC on this module (default: auto-detect; `false` is ignored once an entry point is detected)
+    strictSafetyForceOff = true // Escape hatch: confirms a detected entry point is a misfire, actually disables strictSafety (default: false)
+    logSeverity = "warning"           // Severity of informational output (default: "warning"; set "info" under allWarningsAsErrors)
+    versionCheckSeverity = "warning"  // Severity of the Kotlin-version-compatibility warning (default: "warning"; independent of logSeverity)
 }
 ```
 
+### Informational output severity (`allWarningsAsErrors` compatibility, #73)
+
+`userLogs`/`debugLogs` messages and `@Monitor` tracing-enabled summaries are emitted at WARNING
+severity by default, which fails a build compiled with Gradle's `allWarningsAsErrors` (`-Werror`)
+even though this output is purely informational. Set `logSeverity = "info"` to downgrade it —
+`INFO` is not treated as a build-failing warning under `-Werror`.
+
+The Kotlin-version-compatibility check ("you're on an unverified Kotlin version") has its own,
+**separate** `versionCheckSeverity` setting — deliberately not tied to `logSeverity`, since muting
+informational plugin noise shouldn't also hide a real compiler-compatibility risk. Set it to
+`"info"` only if you've already assessed that risk and it's blocking your `-Werror` build.
+
+Neither setting affects real diagnostics (`KOIN-Dxxx`/`KOIN-Wxxx`/etc.) — those always report at
+their own severity (see [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.md)).
+
 ### Strict Safety (incremental compilation bypass)
 
-**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans source files at configuration time, detects the aggregator, and emits a one-line lifecycle log so the decision is visible. Set `strictSafety = true` or `false` in `koinCompiler { }` to override the auto-detection.
+**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans source files at configuration time, detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
+
+**Mandatory once detected (1.1.0+).** `strictSafety = false` no longer silently wins on a module where detection fires — the plugin ignores it, forces the safety pass on anyway, and logs a warning explaining why. Full-graph validation no longer has a redundant per-module safety net once A2 stops verifying (see [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.md)), so an aggregator silently skipping re-validation on an incremental rebuild is a correctness gap, not a preference. `strictSafety = true` still works everywhere (forces it on regardless of detection).
+
+**Escape hatch for a genuine detector misfire**: if the `startKoin`/`koinApplication`/`@KoinApplication` marker only appears in a comment or string literal (not a real entry point), set `strictSafetyForceOff = true` — a separate, explicit acknowledgement from a plain `strictSafety = false`, since the two cases ("this isn't really an aggregator" vs. "I just don't want the cost") are otherwise indistinguishable from the Gradle side.
 
 **Why**: full-graph safety only runs in the aggregator's `compileKotlin`, and Kotlin's IC — today, in K2 with the Build Tools API path that AGP uses — doesn't give the aggregator a reason to re-run when the graph actually changed. Two places where IC's tracking is too coarse for a DI graph:
 
@@ -228,7 +250,7 @@ We already record file-pair links via `ExpectActualTracker` to plug some of this
 | DSL (`startKoin { modules(...) }`, `koinApplication { … }`) | `startKoin` / `koinApplication` string in source |
 | Annotation (`@KoinApplication`) | `@KoinApplication` string in source |
 
-When the auto-detection misfires (e.g. test fixtures referencing `startKoin` in comments, or a non-aggregator helper file with the marker), set `strictSafety = false` explicitly to opt out.
+When the auto-detection misfires (e.g. test fixtures referencing `startKoin` in comments, or a non-aggregator helper file with the marker), set `strictSafetyForceOff = true` explicitly to opt out — plain `strictSafety = false` alone is ignored once detection fires (see above).
 
 Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
 

@@ -92,10 +92,9 @@ META-INF/services/
 │  │         - Classes                                                     │   │
 │  │         - Functions inside @Module classes                            │   │
 │  │         - Top-level functions (discovered by @ComponentScan)          │   │
-│  │     └── VALIDATES dependency graph (compile-time safety):            │   │
-│  │         - A1: per-module (local defs + includes)                     │   │
-│  │         - A2: @Configuration group (sibling modules, same label)     │   │
-│  │         - Uses BindingRegistry + ParameterAnalyzer                   │   │
+│  │     └── Collects definitions only — does NOT validate here (1.1.0):  │   │
+│  │         per-module validation (A1/A2) was removed; the full graph    │   │
+│  │         is validated once, at the entry point (Phase 3, A3)          │   │
 │  │     └── FILLS BODY of FIR-generated .module property:                │   │
 │  │         val MyModule.module = module {                               │   │
 │  │             buildSingle(A::class, null) { A(get()) }                 │   │
@@ -178,11 +177,11 @@ This is why `.module` property is declared in FIR but its body is filled in IR.
 |------|---------|
 | `KoinIrExtension.kt` | Orchestrates all IR transformers in correct order (Phases 0-4 + validation phases). |
 | `KoinHintTransformer.kt` | Fills bodies for FIR-generated hint functions. |
-| `KoinAnnotationProcessor.kt` | Processes @Singleton/@Factory on classes, module functions, and top-level functions. Fills `.module` body. Runs A1/A2 safety validation. |
+| `KoinAnnotationProcessor.kt` | Processes @Singleton/@Factory on classes, module functions, and top-level functions. Fills `.module` body. Collection only — no per-module (A1/A2) validation as of 1.1.0. |
 | `KoinDSLTransformer.kt` | Transforms `single<T>()` DSL calls. Collects `DslDef` definitions and `PendingCallSiteValidation` entries. |
-| `KoinStartTransformer.kt` | Transforms `startKoin<MyApp>()` calls. Runs A3 full-graph validation. |
+| `KoinStartTransformer.kt` | Transforms `startKoin<MyApp>()` calls. Runs A3 full-graph validation — the sole compile-safety verifier as of 1.1.0. |
 | `KoinMonitorTransformer.kt` | Processes `@Monitor` annotated functions, wraps bodies with trace calls. |
-| `CompileSafetyValidator.kt` | Orchestrates A2/A3 safety validation, manages assembled graph types, tracks validated modules. |
+| `CompileSafetyValidator.kt` | Orchestrates A3 full-graph safety validation (sole verifier, 1.1.0+). |
 | `DefinitionCallBuilder.kt` | Builds definition call IR (`buildSingle`, `buildFactory`, etc.) for annotation-based definitions. |
 | `AnnotationModels.kt` | `Definition` sealed class hierarchy (`ClassDef`, `FunctionDef`, `TopLevelFunctionDef`, `DslDef`, `ExternalFunctionDef`), plus `ModuleClass`, `DefinitionClass`, etc. |
 | `QualifierExtractor.kt` | Extracts qualifier annotations (`@Named`, `@Qualifier`). Used by both DSL and annotation processors. |
@@ -190,7 +189,7 @@ This is why `.module` property is declared in FIR but its body is filled in IR.
 | `ScopeBlockBuilder.kt` | Builds `scope { }` DSL blocks for scoped definitions. |
 | `BindingRegistry.kt` | Compile-time safety validation engine. Matches requirements against provided types. |
 | `ParameterAnalyzer.kt` | Classifies constructor/function parameters for safety validation. |
-| `ConfigurationUtils.kt` | Shared `@Configuration` label extraction for A2/A3 validation. |
+| `ConfigurationUtils.kt` | `@Configuration` annotation-presence check, used for module discovery ahead of A3 validation. |
 
 ### Cross-Phase
 
@@ -359,7 +358,7 @@ and four iterate pre-collected lists with zero tree walking.
 | Phase | Transformer | Purpose |
 |-------|-------------|---------|
 | 0 | `KoinHintTransformer` | Fill bodies for FIR-generated hint functions |
-| 1 | `KoinAnnotationProcessor` | Collect annotations, fill `.module` bodies, A1/A2 validation |
+| 1 | `KoinAnnotationProcessor` | Collect annotations, fill `.module` bodies (no validation — see `docs/COMPILE_TIME_SAFETY.md`) |
 | 2 | `KoinDSLTransformer` | Transform DSL calls + collect `DslDef` + collect `PendingCallSiteValidation` |
 | 3 | `KoinStartTransformer` | Transform `startKoin<T>()`/`koinApplication<T>()` + A3 validation |
 | 4 | `KoinMonitorTransformer` | Process `@Monitor` annotations |
