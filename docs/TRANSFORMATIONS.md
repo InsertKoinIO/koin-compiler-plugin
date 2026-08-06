@@ -88,6 +88,20 @@ val MyModule.module: Module get() = module {
 }
 ```
 
+**On an `object`** the definition references the singleton `INSTANCE` instead of calling a
+constructor (an object has no public constructor). This applies to every definition
+annotation and to the `single<T>()` / `factory<T>()` DSL:
+
+```kotlin
+@Single
+object MyService
+```
+```kotlin
+buildSingle(MyService::class, null) { scope, params ->
+    MyService   // GET_OBJECT — the object's INSTANCE, not `MyService(...)`
+}
+```
+
 ### 2.2 @Factory
 
 **Input**:

@@ -831,16 +831,22 @@ class KoinDSLTransformer(
             // Arg 1: Qualifier? (for workers, always use class name as qualifier)
             putRegularArgument(1, qualifierExtractor.createQualifierCall(effectiveQualifier, builder) ?: builder.irNull())
 
-            // Arg 2: Definition lambda { T(get(), get(), ...) }
+            // Arg 2: Definition lambda { T(get(), get(), ...) }, or { T } when T is an `object`.
+            // An object has no public constructor, so referencing its INSTANCE via irGetObject
+            // is required — emitting irCallConstructor produces IR that fails lowering (issue #77).
             val parentFunc = currentFunction ?: return call
             putRegularArgument(2, lambdaBuilder.create(targetClass, builder, parentFunc) { lb, scopeParam, paramsParam ->
-                lb.irCallConstructor(constructor.symbol, emptyList()).apply {
-                    constructor.regularParameters.forEachIndexed { index, param ->
-                        val scopeGet = lb.irGet(scopeParam)
-                        val paramsGet = lb.irGet(paramsParam)
-                        val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, lb)
-                        if (argument != null) {
-                            putRegularArgument(index, argument)
+                if (targetClass.isObject) {
+                    lb.irGetObject(targetClass.symbol)
+                } else {
+                    lb.irCallConstructor(constructor.symbol, emptyList()).apply {
+                        constructor.regularParameters.forEachIndexed { index, param ->
+                            val scopeGet = lb.irGet(scopeParam)
+                            val paramsGet = lb.irGet(paramsParam)
+                            val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, lb)
+                            if (argument != null) {
+                                putRegularArgument(index, argument)
+                            }
                         }
                     }
                 }

@@ -79,7 +79,7 @@ koin-compiler-plugin/
 
 ### Definition Annotations
 
-These annotations can be applied to **classes**, **functions inside @Module classes**, or **top-level functions**.
+These annotations can be applied to **classes**, **objects**, **functions inside @Module classes**, or **top-level functions**. An annotated `object` resolves to its singleton `INSTANCE` (no constructor call).
 
 | Annotation | Effect |
 |------------|--------|
