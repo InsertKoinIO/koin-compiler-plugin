@@ -84,6 +84,7 @@ koinCompiler {
     debugLogs = true          // Log internal processing (verbose)
     unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
     skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
+    jsr330 = true             // Process jakarta.inject.*/javax.inject.* annotations (default: true)
 }
 ```
 

@@ -207,6 +207,7 @@ koinCompiler {
     strictSafetyForceOff = true // Escape hatch: confirms a detected entry point is a misfire, actually disables strictSafety (default: false)
     logSeverity = "warning"           // Severity of informational output (default: "warning"; set "info" under allWarningsAsErrors)
     versionCheckSeverity = "warning"  // Severity of the Kotlin-version-compatibility warning (default: "warning"; independent of logSeverity)
+    jsr330 = true              // Process jakarta.inject.*/javax.inject.* (JSR-330) annotations (default: true)
 }
 ```
 
@@ -296,6 +297,14 @@ single<Service>()
 ```
 
 Set `skipDefaultValues = false` to always inject all parameters from the DI container, ignoring Kotlin default values.
+
+### JSR-330 Support
+
+`jsr330` (default: `true`) controls whether `jakarta.inject.*` / `javax.inject.*` annotations
+(`@Singleton`, `@Inject`, `@Named`, `@Qualifier`) are recognized alongside Koin's own annotations.
+Set `jsr330 = false` to disable this entirely — only `org.koin.core.annotation.*` annotations are
+then processed, and JSR-330-only annotated classes are silently skipped (not registered under any
+type), matching a definition-annotation-less class today.
 
 ## Compatibility — verified range + version gate
 
