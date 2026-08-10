@@ -152,6 +152,29 @@ object KoinAnnotationFqNames {
     /** javax.inject.Qualifier - JSR-330 qualifier meta-annotation (legacy). */
     val JAVAX_QUALIFIER = FqName("javax.inject.Qualifier")
 
+    /**
+     * FqNames recognized as a string-qualifier annotation (`@Named("x")`): Koin's own [NAMED],
+     * plus [JAKARTA_NAMED]/[JAVAX_NAMED] when [jsr330Enabled]. Single source of truth for the
+     * three call sites that used to re-derive this same jsr330-gated OR chain independently
+     * (FIR's `extractQualifierNameFromAnnotations`, IR's `QualifierExtractor.extractFromDeclaration`
+     * and `extractFromParameter`).
+     */
+    fun namedAnnotationFqNames(jsr330Enabled: Boolean): Set<FqName> =
+        if (jsr330Enabled) setOf(NAMED, JAKARTA_NAMED, JAVAX_NAMED) else setOf(NAMED)
+
+    /**
+     * FqNames that mark an annotation class as a qualifier meta-annotation, i.e. `@Named`
+     * itself counts (a custom annotation meta-annotated with plain `@Named` is a valid custom
+     * qualifier — see `QualifierAndJsr330Test.kt`'s `@Named annotation class InMemory`).
+     * Includes [JAKARTA_QUALIFIER]/[JAVAX_QUALIFIER] when [jsr330Enabled].
+     *
+     * Only used by [org.koin.compiler.plugin.ir.QualifierExtractor.isQualifierMetaAnnotation] —
+     * the FIR cross-module `qualifierAnnotationPredicate` matches a narrower, pre-existing set
+     * (no [NAMED]) and is intentionally left alone here to avoid a silent behavior change.
+     */
+    fun qualifierMetaAnnotationFqNames(jsr330Enabled: Boolean): Set<FqName> =
+        if (jsr330Enabled) setOf(QUALIFIER, NAMED, JAKARTA_QUALIFIER, JAVAX_QUALIFIER) else setOf(QUALIFIER, NAMED)
+
     // ================================================================================
     // Koin Core Classes
     // ================================================================================

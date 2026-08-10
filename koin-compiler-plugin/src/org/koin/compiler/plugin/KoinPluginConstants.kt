@@ -87,6 +87,9 @@ object KoinPluginConstants {
      */
     const val OPTION_VERSION_CHECK_SEVERITY = "versionCheckSeverity"
 
+    /** Option to enable processing of jakarta.inject.* / javax.inject.* (JSR-330) annotations. */
+    const val OPTION_JSR330 = "jsr330"
+
     /**
      * URL printed in the AI-assist CTA.
      *

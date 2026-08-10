@@ -57,6 +57,9 @@ dependencies {
     // Kotzilla SDK for @Monitor annotation testing
     annotationsRuntimeClasspath(libs.kotzilla.core)
 
+    // jakarta.inject.* (JSR-330) for jsr330 option box tests
+    annotationsRuntimeClasspath(libs.jakarta.inject)
+
     // Dependencies required to run the internal test framework.
     testRuntimeOnly(libs.junit)
     testRuntimeOnly(kotlin("reflect"))

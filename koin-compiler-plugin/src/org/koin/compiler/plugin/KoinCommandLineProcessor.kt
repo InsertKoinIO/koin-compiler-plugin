@@ -20,6 +20,7 @@ object KoinConfigurationKeys {
     val MODULE_ID: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("koin.moduleId")
     val LOG_SEVERITY: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("koin.logSeverity")
     val VERSION_CHECK_SEVERITY: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("koin.versionCheckSeverity")
+    val JSR330: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("koin.jsr330")
 }
 
 @Suppress("unused") // Used via reflection.
@@ -35,6 +36,7 @@ class KoinCommandLineProcessor : CommandLineProcessor {
         const val OPTION_MODULE_ID = KoinPluginConstants.OPTION_MODULE_ID
         const val OPTION_LOG_SEVERITY = KoinPluginConstants.OPTION_LOG_SEVERITY
         const val OPTION_VERSION_CHECK_SEVERITY = KoinPluginConstants.OPTION_VERSION_CHECK_SEVERITY
+        const val OPTION_JSR330 = KoinPluginConstants.OPTION_JSR330
     }
 
     override val pluginId: String = BuildConfig.KOTLIN_PLUGIN_ID
@@ -93,6 +95,12 @@ class KoinCommandLineProcessor : CommandLineProcessor {
             valueDescription = "<warning|info>",
             description = "Severity of the Kotlin-version-compatibility warning, independent of logSeverity. 'info' is safe under allWarningsAsErrors.",
             required = false
+        ),
+        CliOption(
+            optionName = OPTION_JSR330,
+            valueDescription = "<true|false>",
+            description = "Enable processing of jakarta.inject.* / javax.inject.* (JSR-330) annotations",
+            required = false
         )
     )
 
@@ -107,6 +115,7 @@ class KoinCommandLineProcessor : CommandLineProcessor {
             OPTION_MODULE_ID -> configuration.put(KoinConfigurationKeys.MODULE_ID, value)
             OPTION_LOG_SEVERITY -> configuration.put(KoinConfigurationKeys.LOG_SEVERITY, value)
             OPTION_VERSION_CHECK_SEVERITY -> configuration.put(KoinConfigurationKeys.VERSION_CHECK_SEVERITY, value)
+            OPTION_JSR330 -> configuration.put(KoinConfigurationKeys.JSR330, value.toBoolean())
             else -> error("Unexpected config option: '${option.optionName}'")
         }
     }

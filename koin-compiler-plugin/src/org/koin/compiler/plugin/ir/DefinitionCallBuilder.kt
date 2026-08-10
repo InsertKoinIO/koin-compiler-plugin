@@ -142,14 +142,16 @@ class DefinitionCallBuilder(
      */
     private fun findConstructorToUse(targetClass: IrClass): IrConstructor? {
         // Look for @Inject annotated constructor (JSR-330 - jakarta.inject or javax.inject)
-        val injectConstructor = targetClass.declarations
-            .filterIsInstance<IrConstructor>()
-            .firstOrNull { constructor ->
-                constructor.annotations.any { annotation ->
-                    val fqName = annotation.type.classFqName?.asString()
-                    fqName == jakartaInjectFqName.asString() || fqName == javaxInjectFqName.asString()
+        val injectConstructor = if (KoinPluginLogger.jsr330Enabled) {
+            targetClass.declarations
+                .filterIsInstance<IrConstructor>()
+                .firstOrNull { constructor ->
+                    constructor.annotations.any { annotation ->
+                        val fqName = annotation.type.classFqName?.asString()
+                        fqName == jakartaInjectFqName.asString() || fqName == javaxInjectFqName.asString()
+                    }
                 }
-            }
+        } else null
 
         return injectConstructor ?: targetClass.primaryConstructor
     }

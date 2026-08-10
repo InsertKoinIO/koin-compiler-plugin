@@ -448,12 +448,10 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      */
     private fun extractQualifierNameFromAnnotations(annotations: List<FirAnnotationCall>): String? {
         // Check for @Named("x")
+        val namedFqNames = KoinAnnotationFqNames.namedAnnotationFqNames(KoinPluginLogger.jsr330Enabled)
         val namedAnnotation = annotations.firstOrNull { annotation ->
             val annotationClassId = annotation.annotationTypeRef.coneTypeOrNull?.classId
-            val fqName = annotationClassId?.asSingleFqName()
-            fqName == KoinAnnotationFqNames.NAMED ||
-            fqName == KoinAnnotationFqNames.JAKARTA_NAMED ||
-            fqName == KoinAnnotationFqNames.JAVAX_NAMED
+            annotationClassId?.asSingleFqName() in namedFqNames
         }
         if (namedAnnotation != null) {
             val value = extractStringArgument(namedAnnotation)
@@ -472,6 +470,12 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
         return null
     }
+
+    /** True if [classSymbol] (an annotation class) is meta-annotated with Koin's own `@Qualifier`. */
+    private fun hasKoinQualifierMetaAnnotation(classSymbol: FirClassSymbol<*>): Boolean =
+        classSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>().any { annotation ->
+            annotation.annotationTypeRef.coneTypeOrNull?.classId?.asSingleFqName() == KoinAnnotationFqNames.QUALIFIER
+        }
 
     private fun extractQualifierName(functionSymbol: FirNamedFunctionSymbol): String? =
         extractQualifierNameFromAnnotations(functionSymbol.fir.annotations.filterIsInstance<FirAnnotationCall>())
@@ -1147,16 +1151,18 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         collectDefinitions(activityScopePredicate, DEF_TYPE_SCOPED)
         collectDefinitions(activityRetainedScopePredicate, DEF_TYPE_SCOPED)
         collectDefinitions(fragmentScopePredicate, DEF_TYPE_SCOPED)
-        // JSR-330 annotations - class-level @Singleton
-        collectDefinitions(jakartaSingletonPredicate, DEF_TYPE_SINGLE)
-        collectDefinitions(javaxSingletonPredicate, DEF_TYPE_SINGLE)
-        // JSR-330: class-level @Inject
-        collectDefinitions(jakartaInjectPredicate, DEF_TYPE_FACTORY)
-        collectDefinitions(javaxInjectPredicate, DEF_TYPE_FACTORY)
+        if (KoinPluginLogger.jsr330Enabled) {
+            // JSR-330 annotations - class-level @Singleton
+            collectDefinitions(jakartaSingletonPredicate, DEF_TYPE_SINGLE)
+            collectDefinitions(javaxSingletonPredicate, DEF_TYPE_SINGLE)
+            // JSR-330: class-level @Inject
+            collectDefinitions(jakartaInjectPredicate, DEF_TYPE_FACTORY)
+            collectDefinitions(javaxInjectPredicate, DEF_TYPE_FACTORY)
 
-        // Find classes with @Inject constructor (annotation on constructor, not class)
-        // FIR predicates can't match constructor annotations, so we use PSI-based scanning
-        collectInjectConstructorClasses(definitions)
+            // Find classes with @Inject constructor (annotation on constructor, not class)
+            // FIR predicates can't match constructor annotations, so we use PSI-based scanning
+            collectInjectConstructorClasses(definitions)
+        }
 
         log { "Found ${definitions.size} orphan definition classes (need hints for cross-module discovery)" }
         definitions
@@ -1331,7 +1337,10 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             .filterIsInstance<FirRegularClassSymbol>()
             .filter { classSymbol ->
                 classSymbol.classKind == org.jetbrains.kotlin.descriptors.ClassKind.ANNOTATION_CLASS &&
-                !classSymbol.rawStatus.isExpect
+                !classSymbol.rawStatus.isExpect &&
+                // qualifierAnnotationPredicate also matches jakarta/javax @Qualifier meta-annotations;
+                // exclude those here when jsr330 is disabled instead of splitting the predicate.
+                (KoinPluginLogger.jsr330Enabled || hasKoinQualifierMetaAnnotation(classSymbol))
             }
             .forEach { classSymbol ->
                 val containingFileName = getContainingFileName(classSymbol)
@@ -1558,15 +1567,19 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         register(activityScopePredicate)
         register(activityRetainedScopePredicate)
         register(fragmentScopePredicate)
-        // JSR-330 predicates
-        register(jakartaSingletonPredicate)
-        register(jakartaInjectPredicate)
-        register(javaxSingletonPredicate)
-        register(javaxInjectPredicate)
-        // Custom qualifier annotation discovery (for cross-module @Qualifier meta-annotation)
+        if (KoinPluginLogger.jsr330Enabled) {
+            // JSR-330 predicates
+            register(jakartaSingletonPredicate)
+            register(jakartaInjectPredicate)
+            register(javaxSingletonPredicate)
+            register(javaxInjectPredicate)
+            // Catch-all for @Inject constructor discovery (needed for modules with only @Inject constructor classes)
+            register(anyClassPredicate)
+        }
+        // Custom qualifier annotation discovery (for cross-module @Qualifier meta-annotation).
+        // Always registered — also covers Koin's own @Qualifier meta-annotation; jsr330-only
+        // matches are filtered out at the consumption site (qualifierAnnotationInfos).
         register(qualifierAnnotationPredicate)
-        // Catch-all for @Inject constructor discovery (needed for modules with only @Inject constructor classes)
-        register(anyClassPredicate)
         // Note: We can't trigger hint discovery here because symbolNamesProvider isn't ready yet
     }
 
