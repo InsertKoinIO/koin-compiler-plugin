@@ -96,6 +96,7 @@ object KoinPluginLogger {
         val lookupTracker: LookupTracker? = null,
         val logSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
         val versionCheckSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
+        val jsr330: Boolean = true,
     )
 
     private val threadFlags: InheritableThreadLocal<Flags?> = InheritableThreadLocal()
@@ -112,6 +113,7 @@ object KoinPluginLogger {
     val skipDefaultValuesEnabled: Boolean get() = effectiveFlags.skipDefaultValues
     val compileSafetyEnabled: Boolean get() = effectiveFlags.compileSafety
     val aiAssistEnabled: Boolean get() = effectiveFlags.aiAssist
+    val jsr330Enabled: Boolean get() = effectiveFlags.jsr330
 
     /**
      * Compiler severity to use for [user]/[debug]/[userFir]/[debugFir]/[warn] — the plugin's
@@ -208,7 +210,7 @@ object KoinPluginLogger {
      * stay scoped) and to the volatile fallback (for callers reached outside the compilation
      * thread group — primarily the legacy [KoinPluginMessageCollector] alias).
      */
-    fun init(collector: MessageCollector, userLogs: Boolean, debugLogs: Boolean, unsafeDslChecks: Boolean = true, skipDefaultValues: Boolean = true, compileSafety: Boolean = true, aiAssist: Boolean = true, moduleId: String? = null, lookupTracker: LookupTracker? = null, logSeverity: KoinLogSeverity = KoinLogSeverity.WARNING, versionCheckSeverity: KoinLogSeverity = KoinLogSeverity.WARNING) {
+    fun init(collector: MessageCollector, userLogs: Boolean, debugLogs: Boolean, unsafeDslChecks: Boolean = true, skipDefaultValues: Boolean = true, compileSafety: Boolean = true, aiAssist: Boolean = true, moduleId: String? = null, lookupTracker: LookupTracker? = null, logSeverity: KoinLogSeverity = KoinLogSeverity.WARNING, versionCheckSeverity: KoinLogSeverity = KoinLogSeverity.WARNING, jsr330: Boolean = true) {
         threadCollector.set(collector)
         fallbackCollector = collector
         val flags = Flags(
@@ -222,6 +224,7 @@ object KoinPluginLogger {
             lookupTracker = lookupTracker,
             logSeverity = logSeverity,
             versionCheckSeverity = versionCheckSeverity,
+            jsr330 = jsr330,
         )
         threadFlags.set(flags)
         fallbackFlags = flags
@@ -390,12 +393,13 @@ class KoinPluginComponentRegistrar: CompilerPluginRegistrar() {
         val moduleId = configuration.get(KoinConfigurationKeys.MODULE_ID)
         val logSeverity = KoinLogSeverity.parse(configuration.get(KoinConfigurationKeys.LOG_SEVERITY))
         val versionCheckSeverity = KoinLogSeverity.parse(configuration.get(KoinConfigurationKeys.VERSION_CHECK_SEVERITY))
+        val jsr330 = configuration.get(KoinConfigurationKeys.JSR330, true)
 
         // IC trackers for incremental compilation support
         val lookupTracker = configuration.get(CommonConfigurationKeys.LOOKUP_TRACKER)
 
         // Initialize the centralized logger (includes lookupTracker for FIR-level IC recording)
-        KoinPluginLogger.init(messageCollector, userLogs, debugLogs, unsafeDslChecks, skipDefaultValues, compileSafety, aiAssist, moduleId, lookupTracker, logSeverity, versionCheckSeverity)
+        KoinPluginLogger.init(messageCollector, userLogs, debugLogs, unsafeDslChecks, skipDefaultValues, compileSafety, aiAssist, moduleId, lookupTracker, logSeverity, versionCheckSeverity, jsr330)
         val expectActualTracker = configuration.get(
             CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER,
             ExpectActualTracker.DoNothing

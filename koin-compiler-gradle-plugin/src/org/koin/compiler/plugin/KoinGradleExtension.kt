@@ -128,4 +128,11 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      * blocking an `allWarningsAsErrors` build and you've already assessed the compatibility risk.
      */
     val versionCheckSeverity: Property<String> = objectFactory.property(String::class.java).convention("warning")
+
+    /**
+     * Enable processing of `jakarta.inject.*` / `javax.inject.*` (JSR-330) annotations (default: true).
+     * Set to false to skip JSR-330 annotation processing entirely — only Koin's own annotations
+     * (`@Single`, `@Factory`, etc.) are then recognized.
+     */
+    val jsr330: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
 }

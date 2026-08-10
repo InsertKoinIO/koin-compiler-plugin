@@ -23,6 +23,7 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         const val OPTION_MODULE_ID = "moduleId"
         const val OPTION_LOG_SEVERITY = "logSeverity"
         const val OPTION_VERSION_CHECK_SEVERITY = "versionCheckSeverity"
+        const val OPTION_JSR330 = "jsr330"
     }
 
     private fun configureStrictSafety(
@@ -174,7 +175,8 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
                 SubpluginOption(OPTION_AI_ASSIST, extension.aiAssist.get().toString()),
                 SubpluginOption(OPTION_MODULE_ID, moduleId),
                 SubpluginOption(OPTION_LOG_SEVERITY, extension.logSeverity.get()),
-                SubpluginOption(OPTION_VERSION_CHECK_SEVERITY, extension.versionCheckSeverity.get())
+                SubpluginOption(OPTION_VERSION_CHECK_SEVERITY, extension.versionCheckSeverity.get()),
+                SubpluginOption(OPTION_JSR330, extension.jsr330.get().toString())
             )
         }
     }
