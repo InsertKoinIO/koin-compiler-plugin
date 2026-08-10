@@ -160,6 +160,28 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   }
 
   @Nested
+  @TestMetadata("koin-compiler-plugin/testData/box/jsr330")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Jsr330 {
+    @Test
+    public void testAllFilesPresentInJsr330() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/jsr330"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("jsr330_disabled_skips_processing.kt")
+    public void testJsr330_disabled_skips_processing() {
+      runTest("koin-compiler-plugin/testData/box/jsr330/jsr330_disabled_skips_processing.kt");
+    }
+
+    @Test
+    @TestMetadata("jsr330_singleton_enabled_by_default.kt")
+    public void testJsr330_singleton_enabled_by_default() {
+      runTest("koin-compiler-plugin/testData/box/jsr330/jsr330_singleton_enabled_by_default.kt");
+    }
+  }
+
+  @Nested
   @TestMetadata("koin-compiler-plugin/testData/box/modules")
   @TestDataPath("$PROJECT_ROOT")
   public class Modules {

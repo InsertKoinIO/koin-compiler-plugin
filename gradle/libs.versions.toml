@@ -6,12 +6,14 @@ build-config = "5.6.5"
 bcv = "0.16.3"
 junit = "4.13.2"
 nmcp = "1.0.1"
+jakarta-inject = "2.0.1"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
 koin-annotations = { module = "io.insert-koin:koin-annotations-jvm", version.ref = "koin" }
 koin-core = { module = "io.insert-koin:koin-core-jvm", version.ref = "koin" }
 kotzilla-core = { module = "io.kotzilla:kotzilla-core-jvm", version.ref = "kotzilla-sdk" }
+jakarta-inject = { module = "jakarta.inject:jakarta.inject-api", version.ref = "jakarta-inject" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
