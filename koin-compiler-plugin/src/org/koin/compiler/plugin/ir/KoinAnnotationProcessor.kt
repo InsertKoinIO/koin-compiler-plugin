@@ -387,10 +387,10 @@ class KoinAnnotationProcessor(
             declaration.hasAnnotation(KoinAnnotationFqNames.ACTIVITY_SCOPE) -> "ActivityScope"
             declaration.hasAnnotation(KoinAnnotationFqNames.ACTIVITY_RETAINED_SCOPE) -> "ActivityRetainedScope"
             declaration.hasAnnotation(KoinAnnotationFqNames.FRAGMENT_SCOPE) -> "FragmentScope"
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_SINGLETON) -> "jakarta.inject.Singleton"
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_INJECT) -> "jakarta.inject.Inject"
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_SINGLETON) -> "javax.inject.Singleton"
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_INJECT) -> "javax.inject.Inject"
+            KoinPluginLogger.jsr330Enabled && declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_SINGLETON) -> "jakarta.inject.Singleton"
+            KoinPluginLogger.jsr330Enabled && declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_INJECT) -> "jakarta.inject.Inject"
+            KoinPluginLogger.jsr330Enabled && declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_SINGLETON) -> "javax.inject.Singleton"
+            KoinPluginLogger.jsr330Enabled && declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_INJECT) -> "javax.inject.Inject"
             // JSR-330: @Inject on constructor
             declaration is IrClass && hasInjectConstructor(declaration) -> "Inject constructor"
             else -> null
@@ -492,12 +492,11 @@ class KoinAnnotationProcessor(
             declaration.hasAnnotation(KoinAnnotationFqNames.ACTIVITY_SCOPE) -> DefinitionType.SCOPED
             declaration.hasAnnotation(KoinAnnotationFqNames.ACTIVITY_RETAINED_SCOPE) -> DefinitionType.SCOPED
             declaration.hasAnnotation(KoinAnnotationFqNames.FRAGMENT_SCOPE) -> DefinitionType.SCOPED
-            // JSR-330 annotations (jakarta.inject)
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_SINGLETON) -> DefinitionType.SINGLE
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_INJECT) -> DefinitionType.FACTORY // @Inject on class generates factory
-            // JSR-330 annotations (javax.inject) - legacy package
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_SINGLETON) -> DefinitionType.SINGLE
-            declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_INJECT) -> DefinitionType.FACTORY // @Inject on class generates factory
+            // JSR-330 annotations (jakarta.inject and javax.inject)
+            KoinPluginLogger.jsr330Enabled &&
+                (declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_SINGLETON) || declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_SINGLETON)) -> DefinitionType.SINGLE
+            KoinPluginLogger.jsr330Enabled &&
+                (declaration.hasAnnotation(KoinAnnotationFqNames.JAKARTA_INJECT) || declaration.hasAnnotation(KoinAnnotationFqNames.JAVAX_INJECT)) -> DefinitionType.FACTORY // @Inject on class generates factory
             // JSR-330: @Inject on constructor also generates factory
             declaration is IrClass && hasInjectConstructor(declaration) -> DefinitionType.FACTORY
             else -> null
@@ -508,6 +507,7 @@ class KoinAnnotationProcessor(
      * Check if the class has a constructor annotated with @Inject (jakarta.inject or javax.inject)
      */
     private fun hasInjectConstructor(irClass: IrClass): Boolean {
+        if (!KoinPluginLogger.jsr330Enabled) return false
         return irClass.declarations
             .filterIsInstance<IrConstructor>()
             .any { constructor ->

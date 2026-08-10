@@ -95,11 +95,9 @@ class QualifierExtractor(private val context: IrPluginContext) {
      */
     fun extractFromDeclaration(declaration: IrDeclaration, logContext: String? = null): QualifierValue? {
         // Check for @Named (Koin, jakarta.inject, or javax.inject)
+        val namedFqNames = KoinAnnotationFqNames.namedAnnotationFqNames(KoinPluginLogger.jsr330Enabled)
         val namedAnnotation = declaration.annotations.firstOrNull { annotation ->
-            val fqName = annotation.type.classFqName?.asString()
-            fqName == KoinAnnotationFqNames.NAMED.asString() ||
-            fqName == KoinAnnotationFqNames.JAKARTA_NAMED.asString() ||
-            fqName == KoinAnnotationFqNames.JAVAX_NAMED.asString()
+            annotation.type.classFqName in namedFqNames
         }
 
         if (namedAnnotation != null) {
@@ -164,11 +162,9 @@ class QualifierExtractor(private val context: IrPluginContext) {
      */
     fun extractFromParameter(param: IrValueParameter): QualifierValue? {
         // Check for @Named (Koin, jakarta.inject, or javax.inject)
+        val namedFqNames = KoinAnnotationFqNames.namedAnnotationFqNames(KoinPluginLogger.jsr330Enabled)
         val namedAnnotation = param.annotations.firstOrNull { annotation ->
-            val fqName = annotation.type.classFqName?.asString()
-            fqName == KoinAnnotationFqNames.NAMED.asString() ||
-            fqName == KoinAnnotationFqNames.JAKARTA_NAMED.asString() ||
-            fqName == KoinAnnotationFqNames.JAVAX_NAMED.asString()
+            annotation.type.classFqName in namedFqNames
         }
 
         if (namedAnnotation != null) {
@@ -273,20 +269,15 @@ class QualifierExtractor(private val context: IrPluginContext) {
      * than type-based resolution for cross-module deserialized annotation classes.
      */
     private fun isQualifierMetaAnnotation(metaAnnotation: IrConstructorCall): Boolean {
+        val qualifierMetaFqNames = KoinAnnotationFqNames.qualifierMetaAnnotationFqNames(KoinPluginLogger.jsr330Enabled)
         // Primary: check via type (works for same-module classes)
-        val metaFqName = metaAnnotation.type.classFqName?.asString()
+        val metaFqName = metaAnnotation.type.classFqName
         if (metaFqName != null) {
-            return metaFqName == KoinAnnotationFqNames.QUALIFIER.asString() ||
-                metaFqName == KoinAnnotationFqNames.NAMED.asString() ||
-                metaFqName == KoinAnnotationFqNames.JAKARTA_QUALIFIER.asString() ||
-                metaFqName == KoinAnnotationFqNames.JAVAX_QUALIFIER.asString()
+            return metaFqName in qualifierMetaFqNames
         }
         // Fallback: check via constructor symbol's parent class (works for cross-module deserialized classes)
-        val parentFqName = (metaAnnotation.symbol.owner.parent as? IrClass)?.fqNameWhenAvailable?.asString()
-        return parentFqName == KoinAnnotationFqNames.QUALIFIER.asString() ||
-            parentFqName == KoinAnnotationFqNames.NAMED.asString() ||
-            parentFqName == KoinAnnotationFqNames.JAKARTA_QUALIFIER.asString() ||
-            parentFqName == KoinAnnotationFqNames.JAVAX_QUALIFIER.asString()
+        val parentFqName = (metaAnnotation.symbol.owner.parent as? IrClass)?.fqNameWhenAvailable
+        return parentFqName in qualifierMetaFqNames
     }
 
     // Instance-level registry of known custom qualifier annotation FQ names

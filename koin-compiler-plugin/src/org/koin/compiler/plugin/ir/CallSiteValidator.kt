@@ -106,9 +106,14 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         // Also check for definition annotations on the target class (heuristic when no graph)
         val definitionAnnotationFqNames: Set<String> by lazy {
-            (org.koin.compiler.plugin.KoinAnnotationFqNames.KOIN_DEFINITION_ANNOTATIONS.map { it.asString() } +
-                org.koin.compiler.plugin.KoinAnnotationFqNames.JAKARTA_SINGLETON.asString() +
-                org.koin.compiler.plugin.KoinAnnotationFqNames.JAVAX_SINGLETON.asString()).toSet()
+            val base = org.koin.compiler.plugin.KoinAnnotationFqNames.KOIN_DEFINITION_ANNOTATIONS.map { it.asString() }
+            if (KoinPluginLogger.jsr330Enabled) {
+                (base +
+                    org.koin.compiler.plugin.KoinAnnotationFqNames.JAKARTA_SINGLETON.asString() +
+                    org.koin.compiler.plugin.KoinAnnotationFqNames.JAVAX_SINGLETON.asString()).toSet()
+            } else {
+                base.toSet()
+            }
         }
 
         // Collect unresolved call sites for deferred validation via hints
