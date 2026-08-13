@@ -130,11 +130,19 @@ class CompileSafetyValidator(
         KoinPluginLogger.debug { "  graph summary: ${allDefinitions.size} total providers/consumers, from ${allModuleIrClasses.size} modules" }
         KoinPluginLogger.debug { "  -> VALIDATING..." }
 
+        // providerOnly DSL defs (lambda-body singles, create(::fn) calls) must remain in
+        // allDefinitions so their bound type is registered as provided, but they must not be
+        // validated as consumers — the plugin never calls their bound type's constructor, so its
+        // constructor parameters are not requirements (#83). Mirror the filter that
+        // CallSiteValidator uses for its Phase 3.1 path.
+        val definitionsToValidate = allDefinitions.filter { !(it is Definition.DslDef && it.providerOnly) }
+
         val fullGraphRegistry = BindingRegistry()
         val errorCount = fullGraphRegistry.validateModule(
             appName,
             allDefinitions,
             qualifierExtractor,
+            definitionsToValidate,
             reportedCycles = reportedCycles,
             reportedMissingDeps = reportedMissingDeps,
         )
