@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -61,8 +62,11 @@ class DefinitionCallBuilder(
         builder: DeclarationIrBuilder
     ): IrExpression? {
         val targetClass = definition.irClass
-        val constructor = findConstructorToUse(targetClass)
-        if (constructor == null) {
+
+        // Objects have no accessible constructor — use INSTANCE reference instead.
+        val isObjectTarget = targetClass.isObject
+        val constructor = if (isObjectTarget) null else findConstructorToUse(targetClass)
+        if (!isObjectTarget && constructor == null) {
             KoinPluginLogger.debug { "No constructor found for ${targetClass.fqNameWhenAvailable} - definition skipped" }
             return null
         }
@@ -113,7 +117,11 @@ class DefinitionCallBuilder(
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(effectiveQualifier, builder) ?: builder.irNull()
             putRegularArgument(1, qualifierArg)
 
-            val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
+            val definitionLambda = if (isObjectTarget) {
+                createObjectDefinitionLambda(targetClass, builder, parentFunction)
+            } else {
+                createDefinitionLambda(constructor!!, targetClass, builder, parentFunction)
+            }
             putRegularArgument(2, definitionLambda)
 
             // Add createdAtStart parameter if applicable (only for SINGLE)
@@ -318,8 +326,10 @@ class DefinitionCallBuilder(
         builder: DeclarationIrBuilder
     ): IrExpression? {
         val targetClass = definition.irClass
-        val constructor = findConstructorToUse(targetClass)
-        if (constructor == null) {
+
+        val isObjectTarget = targetClass.isObject
+        val constructor = if (isObjectTarget) null else findConstructorToUse(targetClass)
+        if (!isObjectTarget && constructor == null) {
             KoinPluginLogger.debug { "No constructor found for scoped ${targetClass.fqNameWhenAvailable} - definition skipped" }
             return null
         }
@@ -369,7 +379,11 @@ class DefinitionCallBuilder(
             val qualifierCall = qualifierExtractor.createQualifierCall(effectiveQualifier, builder)
             putRegularArgument(1, qualifierCall ?: builder.irNull())
 
-            val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
+            val definitionLambda = if (isObjectTarget) {
+                createObjectDefinitionLambda(targetClass, builder, parentFunction)
+            } else {
+                createDefinitionLambda(constructor!!, targetClass, builder, parentFunction)
+            }
             putRegularArgument(2, definitionLambda)
         }
 
@@ -600,6 +614,20 @@ class DefinitionCallBuilder(
                     }
                 }
             }
+        }
+    }
+
+    /**
+     * Create a lambda expression for an object singleton: { MyObject }
+     * Objects have no constructor to call — the singleton instance is accessed via INSTANCE.
+     */
+    private fun createObjectDefinitionLambda(
+        targetClass: IrClass,
+        builder: DeclarationIrBuilder,
+        parentFunction: IrFunction
+    ): IrExpression {
+        return lambdaBuilder.create(targetClass, builder, parentFunction) { irBuilder, _, _ ->
+            irBuilder.irGetObject(targetClass.symbol)
         }
     }
 
