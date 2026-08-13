@@ -1,0 +1,45 @@
+FILE: test.kt
+    public final class Probe : R|kotlin/Any| {
+        public constructor(a: R|kotlin/String|, b: R|kotlin/Int|): R|Probe| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val a: R|kotlin/String| = R|<local>/a|
+            public get(): R|kotlin/String|
+
+        public final val b: R|kotlin/Int| = R|<local>/b|
+            public get(): R|kotlin/Int|
+
+    }
+    private final fun makeProbe(): R|Probe| {
+        ^makeProbe R|/Probe.Probe|(String(x), Int(1))
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|Probe|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|Probe| <inline=NoInline>  {
+                    ^ R|/Probe.Probe|(String(x), Int(1))
+                }
+                )
+            }
+            ), R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|Probe|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|Probe| <inline=NoInline>  {
+                    ^ R|/makeProbe|()
+                }
+                )
+            }
+            )))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval p1: R|Probe| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Probe|>()
+        R|org/koin/core/context/stopKoin|()
+        ^box when () {
+            ==(R|<local>/p1|.R|/Probe.a|, String(x)) && ==(R|<local>/p1|.R|/Probe.b|, Int(1)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }
