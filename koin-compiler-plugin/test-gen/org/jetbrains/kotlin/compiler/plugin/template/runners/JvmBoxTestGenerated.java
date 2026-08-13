@@ -43,6 +43,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("object_singleton.kt")
+    public void testObject_singleton() {
+      runTest("koin-compiler-plugin/testData/box/annotations/object_singleton.kt");
+    }
+
+    @Test
     @TestMetadata("single_fun_created_at_start.kt")
     public void testSingle_fun_created_at_start() {
       runTest("koin-compiler-plugin/testData/box/annotations/single_fun_created_at_start.kt");
@@ -544,6 +550,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @Test
     public void testAllFilesPresentInStartkoin() {
       KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/startkoin"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("configuration_const_val_label.kt")
+    public void testConfiguration_const_val_label() {
+      runTest("koin-compiler-plugin/testData/box/startkoin/configuration_const_val_label.kt");
     }
 
     @Test
