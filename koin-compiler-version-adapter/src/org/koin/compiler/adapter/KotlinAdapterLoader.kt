@@ -13,8 +13,12 @@ import java.util.Properties
  *
  * Selection picks the adapter with the highest Kotlin line at or below the
  * running compiler's line (pre-releases select their line's adapter: 2.4.0-Beta1
- * carries the 2.4 ABI). A compiler newer than every adapter gets the newest
- * adapter plus a warning; one older than every adapter is unsupported.
+ * carries the 2.4 ABI). A compiler older than every adapter is unsupported.
+ *
+ * The "newer than tested" warning fires only on a new `major.minor` line — a
+ * patch bump within a registered line (e.g. 2.4.10 vs registered 2.4.0) reuses
+ * that adapter silently. See CLAUDE.md's version-gate policy for the `abi-check`
+ * step this relies on to verify new patches.
  */
 object KotlinAdapterLoader {
 
@@ -46,11 +50,14 @@ object KotlinAdapterLoader {
             }
         }
 
-    fun load(compilerVersion: String = KotlinCompilerVersion.VERSION ?: "unknown"): Selection {
-        val registry = readRegistry()
-        if (registry.isEmpty()) {
-            return Selection(null, emptyList(), "Koin compiler plugin: no Kotlin version adapters found on the plugin classpath ($REGISTRY_PATH)")
-        }
+    /** Which registry entry to use, and any warnings/error — no classloading. Pure, for testing. */
+    internal data class Decision(
+        val entry: Pair<KotlinReleaseVersion, String>?,
+        val warnings: List<String>,
+        val error: String?,
+    )
+
+    internal fun decide(registry: List<Pair<KotlinReleaseVersion, String>>, compilerVersion: String): Decision {
         val newest = registry.last()
         val warnings = mutableListOf<String>()
 
@@ -61,26 +68,37 @@ object KotlinAdapterLoader {
                 newest
             }
             else -> registry.lastOrNull { current.lineAtLeast(it.first) }
-                ?: return Selection(
+                ?: return Decision(
                     null, warnings,
                     "Koin compiler plugin: Kotlin $compilerVersion is older than the oldest supported version (${registry.first().first.raw}). " +
                         "Upgrade Kotlin or use a koin-compiler-plugin release matching your Kotlin version. Supported versions: ${supportedList(registry)}.",
                 )
         }
 
-        if (current != null && !newest.first.lineAtLeast(current)) {
-            warnings += "Koin compiler plugin: Kotlin $compilerVersion is newer than the newest tested version (${newest.first.raw}) — proceeding with the ${newest.first.raw} adapter. " +
+        if (current != null && !newest.first.minorLineAtLeast(current)) {
+            warnings += "Koin compiler plugin: Kotlin $compilerVersion is newer than the newest tested line (${newest.first.raw}) — proceeding with the ${newest.first.raw} adapter. " +
                 "If compilation fails, check for a koin-compiler-plugin update. Supported versions: ${supportedList(registry)}."
         }
+
+        return Decision(entry, warnings, null)
+    }
+
+    fun load(compilerVersion: String = KotlinCompilerVersion.VERSION ?: "unknown"): Selection {
+        val registry = readRegistry()
+        if (registry.isEmpty()) {
+            return Selection(null, emptyList(), "Koin compiler plugin: no Kotlin version adapters found on the plugin classpath ($REGISTRY_PATH)")
+        }
+        val decision = decide(registry, compilerVersion)
+        val entry = decision.entry ?: return Selection(null, decision.warnings, decision.error)
 
         return try {
             val adapter = Class.forName(entry.second, true, KotlinAdapterLoader::class.java.classLoader)
                 .getDeclaredConstructor()
                 .newInstance() as KotlinVersionAdapter
             loaded = adapter
-            Selection(adapter, warnings, null)
+            Selection(adapter, decision.warnings, null)
         } catch (e: Throwable) {
-            Selection(null, warnings, "Koin compiler plugin: failed to load Kotlin version adapter '${entry.second}' for Kotlin $compilerVersion: $e")
+            Selection(null, decision.warnings, "Koin compiler plugin: failed to load Kotlin version adapter '${entry.second}' for Kotlin $compilerVersion: $e")
         }
     }
 

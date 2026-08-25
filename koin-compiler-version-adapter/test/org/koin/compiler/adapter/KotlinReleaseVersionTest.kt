@@ -59,4 +59,26 @@ class KotlinReleaseVersionTest {
         assertFalse(v("2.3.10").lineAtLeast(v("2.3.20")))
         assertFalse(v("2.3.0").lineAtLeast(v("2.3.20")))
     }
+
+    @Test
+    fun minorLineIgnoresPatch() {
+        // A patch bump within the same major.minor is the same minor line.
+        assertTrue(v("2.4.10").minorLineAtLeast(v("2.4.0")))
+        assertTrue(v("2.4.99").minorLineAtLeast(v("2.4.0")))
+        assertTrue(v("2.4.0").minorLineAtLeast(v("2.4.10")))
+    }
+
+    @Test
+    fun minorLineDistinguishesMinorAndMajor() {
+        assertFalse(v("2.4.0").minorLineAtLeast(v("2.5.0")))
+        assertTrue(v("2.5.0").minorLineAtLeast(v("2.4.99")))
+        assertFalse(v("1.9.20").minorLineAtLeast(v("2.4.0")))
+        assertTrue(v("3.0.0").minorLineAtLeast(v("2.4.0")))
+    }
+
+    @Test
+    fun minorLineIgnoresMaturity() {
+        assertTrue(v("2.4.0-Beta1").minorLineAtLeast(v("2.4.0")))
+        assertTrue(v("2.4.0").minorLineAtLeast(v("2.4.20-dev-835")))
+    }
 }
