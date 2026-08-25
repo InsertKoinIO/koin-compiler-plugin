@@ -25,13 +25,18 @@ data class KotlinReleaseVersion(
     override fun compareTo(other: KotlinReleaseVersion): Int =
         compareValuesBy(this, other, { it.major }, { it.minor }, { it.patch }, { it.maturity })
 
-    /** Same numeric line regardless of maturity (2.4.0-Beta1 ~ 2.4.0). */
-    fun sameLineAs(other: KotlinReleaseVersion): Boolean =
-        major == other.major && minor == other.minor && patch == other.patch
-
     /** True if this version's line is at or above [other]'s line. */
     fun lineAtLeast(other: KotlinReleaseVersion): Boolean =
         compareValuesBy(this, other, { it.major }, { it.minor }, { it.patch }) >= 0
+
+    /**
+     * True if this version's `major.minor` is at or above [other]'s — patch ignored.
+     * Used to decide whether a compiler is within an already-verified minor line
+     * (e.g. 2.4.10 vs a registered 2.4.0 adapter), as opposed to [lineAtLeast]'s
+     * exact-line comparison used for adapter selection.
+     */
+    fun minorLineAtLeast(other: KotlinReleaseVersion): Boolean =
+        compareValuesBy(this, other, { it.major }, { it.minor }) >= 0
 
     override fun toString(): String = raw
 

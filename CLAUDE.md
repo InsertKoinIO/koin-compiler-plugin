@@ -300,10 +300,11 @@ Set `skipDefaultValues = false` to always inject all parameters from the DI cont
 ## Compatibility — verified range + version gate
 
 - **Koin**: 4.2.0+
-- **Kotlin**: K2 compiler required. **Verified range: 2.3.0–2.3.10.** Known broken: 2.3.20 (`IrDeclarationOrigin` NoSuchMethodError, #42) and 2.4.0 (`FirExtensionRegistrarAdapter` cast, #19) — fix in progress.
+- **Kotlin**: K2 compiler required. One artifact spans **Kotlin 2.3.20 → 2.4.x** via `koin-compiler-version-adapter` (per-line adapter classes, selected at plugin load — see `KotlinAdapterLoader`).
 
 **Version-gate policy** (the plugin binds to unstable compiler internals — every Kotlin minor is a potential break):
 
-- **Known-broken Kotlin version** → fail fast with a clear diagnostic naming the version, the supported range, and the tracking issue — never let a raw `ClassCastException`/`NoSuchMethodError` surface as the error.
-- **Unknown future version** (above the verified ceiling) → WARN + proceed, never hard-block: "Kotlin X.Y is newer than the verified range (…) — proceeding, report issues at …".
-- Keep the verified range in this section AND the README in sync on every release.
+- **Known-broken Kotlin version** (below the registered floor) → fail fast with a clear diagnostic naming the version, the supported range, and the tracking issue — never let a raw `ClassCastException`/`NoSuchMethodError` surface as the error.
+- **Unknown future minor line** (above the newest registered line) → WARN + proceed with the newest adapter, never hard-block.
+- **A new patch within an already-registered minor line** (e.g. 2.4.10 vs registered 2.4.0) reuses that adapter silently — no warning. Before relying on this for a new patch, run `tools/abi-check/check-kotlin-abi.sh <version>` to confirm the plugin's compiler-API refs still resolve; a break there means the line-level trust just failed and needs its own adapter entry.
+- Keep `supported-kotlin-versions.txt`, the adapter registry, and the README in sync on every release.
