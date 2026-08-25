@@ -150,6 +150,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("dsl_function_module_virtual_dispatch_w003.kt")
+    public void testDsl_function_module_virtual_dispatch_w003() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_function_module_virtual_dispatch_w003.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_hint_name_collision.kt")
     public void testDsl_hint_name_collision() {
       runTest("koin-compiler-plugin/testData/diagnostics/dsl_hint_name_collision.kt");
@@ -367,6 +373,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_funcreqs_two_qualified_same_type_d001.kt")
     public void testCross_module_funcreqs_two_qualified_same_type_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_two_qualified_same_type_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_function_module_includes_ok.kt")
+    public void testCross_module_function_module_includes_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_function_module_includes_ok.kt");
     }
 
     @Test

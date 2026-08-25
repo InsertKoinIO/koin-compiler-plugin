@@ -19,14 +19,15 @@ FILE: test.kt
         }
 
     }
-    public final fun makeDebugExtras(): R|org/koin/core/module/Module| {
-        ^makeDebugExtras R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
-            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/DebugOnly|>()
-        }
-        )
+    public final val debugExtras: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/DebugOnly|>()
     }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val debugExtrasList: R|kotlin/collections/List<org/koin/core/module/Module>| = R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|testpkg/debugExtras|)
+        public get(): R|kotlin/collections/List<org/koin/core/module/Module>|
     public final val debugModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
-        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|testpkg/makeDebugExtras|()))
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(R|testpkg/debugExtrasList|)
     }
     )
         public get(): R|org/koin/core/module/Module|

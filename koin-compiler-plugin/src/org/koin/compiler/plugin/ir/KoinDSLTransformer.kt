@@ -184,7 +184,16 @@ class KoinDSLTransformer(
     }
 
     override fun visitFunction(declaration: IrFunction): IrStatement {
-        return withContext(transformContext.copy(function = declaration)) {
+        var newContext = transformContext.copy(function = declaration)
+        if (compileSafetyEnabled && declaration is IrSimpleFunction) {
+            val functionModuleId = buildModuleFunctionId(declaration)
+            if (functionModuleId != null) {
+                KoinPluginLogger.debug { "Module-returning function: $functionModuleId" }
+                _allModuleIds.add(functionModuleId)
+                newContext = newContext.copy(modulePropertyId = functionModuleId)
+            }
+        }
+        return withContext(newContext) {
             super.visitFunction(declaration)
         }
     }
@@ -216,6 +225,29 @@ class KoinDSLTransformer(
         } ?: return null
         return if (packageName.isEmpty()) property.name.asString()
         else "$packageName.${property.name.asString()}"
+    }
+
+    /**
+     * Module id for a function returning `Module` (e.g. `fun awsModule(): Module = module {...}`) —
+     * the function-based counterpart of [buildModulePropertyId]. Bare fqName: a `()` suffix would
+     * flow unescaped into a synthetic hint function name, risky for KLIB/native serialization.
+     *
+     * Known limitation: a `val x: Module` and `fun x(): Module` sharing a name collide onto the same
+     * id — not observed in real usage, not worth guarding against here.
+     */
+    private fun buildModuleFunctionId(function: IrSimpleFunction): String? {
+        // Exclude property getters (e.g. `<get-appModule>`) — already identified via visitProperty.
+        if (function.correspondingPropertySymbol != null) return null
+        // Exclude the plugin's own generated `fun T.module()` extension (one per @Module class) —
+        // would otherwise collide onto the same bare "module" id for every annotated class.
+        if (function.extensionReceiverParam != null) return null
+        if (function.returnType.classFqName?.asString() != KOIN_MODULE_FQNAME) return null
+        val ownerOk = when (function.parent) {
+            is IrFile, is IrClass, is IrPackageFragment -> true
+            else -> false
+        }
+        if (!ownerOk) return null
+        return function.fqNameWhenAvailable?.asString()
     }
 
     /**
@@ -744,10 +776,23 @@ class KoinDSLTransformer(
                 expression.symbol.owner.correspondingPropertySymbol?.owner,
                 expression.symbol.owner.type.classFqName?.asString() == KOIN_MODULE_FQNAME
             )
-            is IrCall -> record(
-                expression.symbol.owner.correspondingPropertySymbol?.owner,
-                expression.type.classFqName?.asString() == KOIN_MODULE_FQNAME
-            )
+            is IrCall -> {
+                val callee = expression.symbol.owner
+                val isModuleTyped = expression.type.classFqName?.asString() == KOIN_MODULE_FQNAME
+                val property = callee.correspondingPropertySymbol?.owner
+                when {
+                    property != null -> record(property, isModuleTyped)
+                    // Virtual dispatch excluded: an override's fqName doesn't identify which body runs.
+                    isModuleTyped && expression.dispatchReceiver == null && callee is IrSimpleFunction -> {
+                        val fnId = buildModuleFunctionId(callee)
+                        if (fnId != null) {
+                            result.add(fnId)
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            }
             // A vararg counts as resolved only if EVERY element did; a partially-read spread is
             // exactly the "we don't know the whole set" case.
             is IrVararg -> expression.elements.all { it is IrExpression && resolveModuleRef(it, result) }

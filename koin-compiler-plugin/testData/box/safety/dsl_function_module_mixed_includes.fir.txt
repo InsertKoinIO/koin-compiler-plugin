@@ -1,0 +1,58 @@
+FILE: test.kt
+    public final class Foo : R|kotlin/Any| {
+        public constructor(): R|Foo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Bar : R|kotlin/Any| {
+        public constructor(): R|Bar| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Baz : R|kotlin/Any| {
+        public constructor(foo: R|Foo|, bar: R|Bar|): R|Baz| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val foo: R|Foo| = R|<local>/foo|
+            public get(): R|Foo|
+
+        public final val bar: R|Bar| = R|<local>/bar|
+            public get(): R|Bar|
+
+    }
+    public final val fooModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Foo|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun barModule(): R|org/koin/core/module/Module| {
+        ^barModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Bar|>()
+        }
+        )
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|/fooModule|, R|/barModule|()))
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Baz|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval baz: R|Baz| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Baz|>()
+        ^box when () {
+            !=(R|<local>/baz|.R|/Baz.foo|, Null(null)) && !=(R|<local>/baz|.R|/Baz.bar|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

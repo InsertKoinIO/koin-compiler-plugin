@@ -147,6 +147,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_function_module_virtual_dispatch_w003.kt")
+  public void testDsl_function_module_virtual_dispatch_w003() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_function_module_virtual_dispatch_w003.kt");
+  }
+
+  @Test
   @TestMetadata("dsl_hint_name_collision.kt")
   public void testDsl_hint_name_collision() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_hint_name_collision.kt");

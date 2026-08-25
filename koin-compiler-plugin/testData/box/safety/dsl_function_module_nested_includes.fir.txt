@@ -1,0 +1,41 @@
+FILE: test.kt
+    public final class Database : R|kotlin/Any| {
+        public constructor(): R|Database| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun dbModule(): R|org/koin/core/module/Module| {
+        ^dbModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Database|>()
+        }
+        )
+    }
+    public final fun dataModule(): R|org/koin/core/module/Module| {
+        ^dataModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|/dbModule|()))
+        }
+        )
+    }
+    public final fun joinedModule(): R|org/koin/core/module/Module| {
+        ^joinedModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|/dataModule|()))
+        }
+        )
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/joinedModule|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval db: R|Database| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Database|>()
+        ^box when () {
+            !=(R|<local>/db|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

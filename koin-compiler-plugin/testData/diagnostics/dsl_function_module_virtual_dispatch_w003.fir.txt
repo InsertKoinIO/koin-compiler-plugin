@@ -1,0 +1,53 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|testpkg/Repository|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|testpkg/Repository| = R|<local>/repo|
+            public get(): R|testpkg/Repository|
+
+    }
+    public final val coreModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Repository|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public abstract interface ModuleProvider : R|kotlin/Any| {
+        public abstract fun provide(): R|org/koin/core/module/Module|
+
+    }
+    public final class RealProvider : R|testpkg/ModuleProvider| {
+        public constructor(): R|testpkg/RealProvider| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override fun provide(): R|org/koin/core/module/Module| {
+            ^provide R|testpkg/coreModule|
+        }
+
+    }
+    public final val provider: R|testpkg/ModuleProvider| = R|testpkg/RealProvider.RealProvider|()
+        public get(): R|testpkg/ModuleProvider|
+    public final fun appModule(): R|org/koin/core/module/Module| {
+        ^appModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|testpkg/provider|.R|testpkg/ModuleProvider.provide|()))
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Service|>()
+        }
+        )
+    }
+    public final fun useIt(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval repo: R|testpkg/Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/Repository|>()
+    }
