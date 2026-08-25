@@ -49,6 +49,9 @@ class CallSiteValidator(private val context: IrPluginContext) {
      */
     private var unreachableOnlyTypes: Set<String> = emptySet()
 
+    /** Set by [validateDslDefinitionGraph] on KOIN-W003; makes [validatePendingCallSites] defer instead of hard KOIN-D002. */
+    private var topologyUnverifiable: Boolean = false
+
     /**
      * A4: Validate pending call-site resolutions against the assembled graph.
      * Simple loop -- no tree walk needed.
@@ -148,7 +151,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             }
 
             // Not resolved locally
-            if (!hasFullGraph) {
+            if (!hasFullGraph || topologyUnverifiable) {
                 // Defer external types (from dependency JARs) — they may be defined in a downstream
                 // module. Also defer when this compilation has no Koin entry point at all: a leaf
                 // has no assembled graph to judge a local type against either, so treat it the same
@@ -156,10 +159,10 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 // local type in a compilation that DOES own an entry point (dynamic modules, an
                 // incomplete graph, etc.) still errors immediately below.
                 val isExternalType = callSite.targetClass.origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
-                if (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint) {
+                if (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint || topologyUnverifiable) {
                     unresolvedCallSites.add(callSite)
                     if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
-                    KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType, hasEntryPoint=$hasKoinEntryPoint)" }
+                    KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType, hasEntryPoint=$hasKoinEntryPoint, topologyUnverifiable=$topologyUnverifiable)" }
                     continue
                 }
             }
@@ -473,19 +476,15 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         if (allDefinitions.isEmpty()) return
 
-        // Fail OPEN when the loaded set isn't fully known. An empty reachable set makes
-        // partitionByReachability treat every definition as reachable, so no KOIN-W001 is reported
-        // and nothing is withheld from call sites — the pre-reachability behavior. Trusting a
-        // partially-resolved set instead is what turned `modules(listOf(a, b))` into a KOIN-D002 on
-        // a valid graph.
-        // null = the loaded set is not knowable, so fail OPEN (empty set ⇒ everything counts as
-        // reachable ⇒ no KOIN-W001, nothing withheld from call sites). Disclosed, never silent:
-        // a green build must not imply a guarantee that was never checked.
+        // null = loaded set unknowable → fail OPEN: no KOIN-W001, nothing withheld from call sites,
+        // and (topologyUnknown/topologyUnverifiable below) KOIN-D001/D002 withheld too — an
+        // incomplete provider set can't be trusted for a hard "not found". Disclosed via KOIN-W003.
         val resolvedReachable = computeReachableModules(
             startKoinModules, moduleIncludes, dslHintGenerator,
             entryModulesIncomplete, modulesWithIncompleteIncludes
         )
         if (resolvedReachable == null) {
+            topologyUnverifiable = true
             KoinPluginLogger.report(
                 KoinDiagnostic.UnverifiableDynamicGraph(
                     entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
@@ -513,7 +512,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
             "DSL graph",
             providerDefinitions,
             qualifierExtractor,
-            defsToValidate
+            defsToValidate,
+            topologyUnknown = resolvedReachable == null
         )
 
         // KOIN-W001 means "you declared this module and never loaded it". Whose module it is decides

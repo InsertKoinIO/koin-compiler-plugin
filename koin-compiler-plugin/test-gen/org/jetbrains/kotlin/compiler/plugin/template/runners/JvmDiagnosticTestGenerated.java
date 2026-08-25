@@ -21,6 +21,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("call_site_dsl_dynamic_missing_softened_w003.kt")
+  public void testCall_site_dsl_dynamic_missing_softened_w003() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_dsl_dynamic_missing_softened_w003.kt");
+  }
+
+  @Test
   @TestMetadata("call_site_param_arity_mismatch.kt")
   public void testCall_site_param_arity_mismatch() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_arity_mismatch.kt");
@@ -168,6 +174,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @TestMetadata("dsl_module_unreachable.kt")
   public void testDsl_module_unreachable() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_unreachable.kt");
+  }
+
+  @Test
+  @TestMetadata("entry_dsl_dynamic_modules_missing_softened.kt")
+  public void testEntry_dsl_dynamic_modules_missing_softened() {
+    runTest("koin-compiler-plugin/testData/diagnostics/entry_dsl_dynamic_modules_missing_softened.kt");
   }
 
   @Test

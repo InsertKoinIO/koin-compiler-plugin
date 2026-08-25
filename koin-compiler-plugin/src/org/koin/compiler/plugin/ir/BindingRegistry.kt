@@ -283,11 +283,9 @@ class BindingRegistry {
      * @return Number of errors found
      *
      * A3 is the sole verifier (A2's per-module pass was removed in 1.1.0 — see
-     * docs/COMPILE_SAFETY_A3_PLAN.md): [definitions] is always the complete closed closure
-     * assembled at a `@KoinApplication` / `startKoin` entry point, so an unresolved binding is
-     * always a genuine missing dependency → hard KOIN-D001. There is no cross-module deferral —
-     * that concept only existed to give A2 a way to avoid false-positiving on a module it saw in
-     * isolation, which is exactly the unsoundness that motivated removing A2.
+     * docs/COMPILE_SAFETY_A3_PLAN.md): [definitions] is the complete closed closure assembled at a
+     * `@KoinApplication` / `startKoin` entry point, so an unresolved binding is a genuine missing
+     * dependency → hard KOIN-D001 — unless [topologyUnknown], in which case it's withheld instead.
      */
     fun validateModule(
         moduleName: String,
@@ -300,6 +298,9 @@ class BindingRegistry {
         // re-validated once per entry point — without this, the SAME missing dependency would be
         // reported once per root that reaches it. Null (the default) means no dedup.
         reportedMissingDeps: MutableSet<String>? = null,
+        // Set when [definitions] is a known-incomplete provider set (KOIN-W003 already reported) —
+        // withholds KOIN-D001 instead of hard-failing. Cycle/@Property checks stay live.
+        topologyUnknown: Boolean = false,
     ): Int {
         // Build the set of provided types from ALL definitions
         val providedTypes = mutableSetOf<ProviderKey>()
@@ -400,10 +401,10 @@ class BindingRegistry {
                 val found = findProvider(req, providedTypes, defScopeClass)
                 if (found) {
                     KoinPluginLogger.debug { "      OK '${req.paramName}': ${req.typeKey.render()}" }
+                } else if (topologyUnknown) {
+                    // Incomplete provider set — not found here doesn't mean not provided anywhere.
+                    KoinPluginLogger.debug { "      WITHHELD '${req.paramName}': ${req.typeKey.render()} — topology unknown, not reported as KOIN-D001" }
                 } else {
-                    // definitions is always the complete closed closure (A3 is the sole verifier —
-                    // see the class doc) → an unresolved binding is always a genuine missing
-                    // dependency, never deferred.
                     KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}  [culprit ${def.origin?.let { "${it.filePath?.substringAfterLast('/') ?: it.moduleFqName ?: "?"}:${it.line ?: "?"}" } ?: definitionDisplayName(def)}]" }
                     // Attribute to the definition's OWN owner whenever we can derive one, not the
                     // generic validation-context moduleName. This matters far more once A3 is the
