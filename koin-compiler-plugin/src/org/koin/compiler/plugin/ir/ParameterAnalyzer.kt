@@ -66,17 +66,10 @@ class ParameterAnalyzer(
     /**
      * Requirements for a DSL definition's provided class, respecting `providerOnly`.
      *
-     * A `providerOnly` definition is a hand-written lambda body (`single { X(...) }`) — unsafe,
-     * opaque DSL, distinct from `create(::T)`/`singleOf(::T)`/`single<T>()`, where the plugin
-     * itself generates the injection code. Only in that generated case is the constructor's
-     * declared parameter type guaranteed to be what gets resolved; a hand-written lambda can
-     * freely narrow the actual dependency (e.g. `get<Subtype>()`), so deriving requirements from
-     * the constructor there is a guess, not a fact — one that produced a false KOIN-D004
-     * self-cycle for a decorator whose ctor param is typed as the interface it also `bind`s.
-     *
-     * Centralized here (rather than each call site re-deriving/re-guarding) because this exact
-     * mistake was independently made twice: once in [KoinDSLTransformer]'s same-module
-     * collection, once in [DslHintGenerator]'s cross-module hint reconstruction. See
+     * `providerOnly` (a hand-written `single { X(...) }` lambda) means the plugin never generated
+     * this construction, so the constructor's declared param types aren't guaranteed to be what
+     * actually gets resolved — deriving requirements from them is a guess, not a fact. Centralized
+     * here (not re-derived per call site) since this was independently gotten wrong twice: see
      * dsl_bind_narrowed_dependency_no_false_cycle.kt / cross_module_dsl_bind_narrowed_dependency_no_false_cycle.kt.
      */
     fun requirementsForDslDefinition(irClass: IrClass, providerOnly: Boolean): List<Requirement> =

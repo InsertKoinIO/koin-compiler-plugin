@@ -1,7 +1,10 @@
 FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__appModule_1d5d8c3abb4ee773.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Baz
-    VALUE_PARAMETER kind:Regular name:module_appModule index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:req0_foo index:2 type:<root>.Foo
+    VALUE_PARAMETER kind:Regular name:req1_bar index:3 type:<root>.Bar
+    VALUE_PARAMETER kind:Regular name:module_appModule index:4 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
@@ -14,14 +17,16 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__appModule_1d5d8
 FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__barModule_4063fa4996fd2559.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Bar
-    VALUE_PARAMETER kind:Regular name:module_barModule index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:module_barModule index:2 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
 FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__fooModule_f9c5c9a122a69fc4.kt
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Foo
-    VALUE_PARAMETER kind:Regular name:module_fooModule index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:module_fooModule index:2 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY

@@ -504,10 +504,8 @@ class KoinDSLTransformer(
         // The declared/inferred type argument T is what the definition provides, regardless of
         // the lambda body — register it as an available (provider-only) definition so
         // compile-safety doesn't raise a false missing-definition (issues #36, #49). The call
-        // is left untransformed: the user's own lambda constructs the instance, so we only need
-        // T to be visible to the validator, not to introspect/inject its construction — hence
-        // providerOnly = true, which keeps requirements empty; see
-        // ParameterAnalyzer.requirementsForDslDefinition for why.
+        // is left untransformed; providerOnly = true keeps requirements empty (see
+        // ParameterAnalyzer.requirementsForDslDefinition).
         // Skipped when visiting the lambda already registered a definition (inner create(::T)),
         // so we never emit a duplicate DslDef.
         if (functionName in definitionNames && compileSafetyEnabled &&

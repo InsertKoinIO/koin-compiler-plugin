@@ -37,6 +37,9 @@ class DslHintGenerator(
     private val parameterAnalyzer: ParameterAnalyzer? = null,
 ) {
 
+    /** Matches a requirement hint param name `req<index>_<originalParamName>` — see [buildDslHintFunction]. */
+    private val REQ_PARAM_NAME = Regex("^req\\d+_(.+)$")
+
     /**
      * Generate DSL definition hint functions for cross-module discovery.
      * For each DSL definition (single<T>, factory<T>, etc.), generates a hint function
@@ -256,6 +259,51 @@ class DslHintGenerator(
                 )
                 bindingParam.parent = function
                 params.add(bindingParam)
+            }
+
+            // Encode the definition's own REAL requirement types (req$i) instead of leaving the
+            // consumer to re-derive them by guessing from targetClass's constructor — wrong for
+            // providerOnly and for create(::function), where the referenced function's params
+            // (not the return type's constructor) are the real dependencies. reqsEncoded marks
+            // "zero requirements, correctly encoded" vs. an old hint with no requirement info; see
+            // discoverDslDefinitionsFromHints. A requirement with no resolvable ClassId is dropped.
+            val reqsEncodedParam = context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier("reqsEncoded"),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            )
+            reqsEncodedParam.parent = function
+            params.add(reqsEncodedParam)
+            var reqIndex = 0
+            for (req in def.requirements) {
+                val reqClassId = req.typeKey.classId ?: continue
+                val reqClass = context.referenceClass(reqClassId)?.owner ?: continue
+                val reqParam = context.irFactory.createValueParameter(
+                    startOffset = UNDEFINED_OFFSET,
+                    endOffset = UNDEFINED_OFFSET,
+                    origin = IrDeclarationOrigin.DEFINED,
+                    name = Name.identifier("req${reqIndex}_${req.paramName}"),
+                    type = reqClass.hintParameterType(context),
+                    isAssignable = false,
+                    symbol = IrValueParameterSymbolImpl(),
+                    kind = IrParameterKind.Regular,
+                    varargElementType = null,
+                    isCrossinline = false,
+                    isNoinline = false,
+                    isHidden = false
+                )
+                reqParam.parent = function
+                params.add(reqParam)
+                reqIndex++
             }
 
             // Encode modulePropertyId as a Unit-typed parameter (cross-module reachability)
@@ -581,10 +629,12 @@ class DslHintGenerator(
                 val targetClass = (params[0].type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
                 val modulePrefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
                 val qualifierPrefix = "qualifier_"
-                val metaParamNames = setOf("providerOnly", "qualifierType")
+                val reqPrefix = "req"
+                val metaParamNames = setOf("providerOnly", "qualifierType", "reqsEncoded")
                 val bindings = params.drop(1)
                     .filter { val name = it.name.asString()
-                        !name.startsWith(modulePrefix) && !name.startsWith(qualifierPrefix) && name !in metaParamNames
+                        !name.startsWith(modulePrefix) && !name.startsWith(qualifierPrefix) &&
+                            !name.startsWith(reqPrefix) && name !in metaParamNames
                     }
                     .mapNotNull { param ->
                         (param.type.classifierOrNull as? IrClassSymbol)?.owner
@@ -609,14 +659,39 @@ class DslHintGenerator(
                     else -> null
                 }
 
-                // A3: re-derive requirements from the provided class's constructor — the class is on
-                // the consumer's classpath (targetClass), so its constructor is ABI-available, exactly
-                // like a cross-module ClassDef. Without this the cross-module DslDef carried ZERO
-                // requirements, so a downstream entry point never validated a DSL provider's
-                // constructor dependencies (silent false negative — e.g. single<OfflineFirstNewsRepository>()
-                // whose Notifier/NetworkDataSource/NewsResourceDao deps went unchecked at the app root).
-                // See ParameterAnalyzer.requirementsForDslDefinition for the providerOnly exception
-                // (a hand-written lambda body) and why it's centralized there.
+                // Prefer the REAL requirement types the producer encoded (req0, req1, … behind the
+                // reqsEncoded marker) over guessing from targetClass's constructor, which is wrong
+                // whenever this definition wasn't literally "call targetClass's own primary
+                // constructor" (providerOnly, or create(::function)). Falls back to the old guess
+                // only for a hint from a producer module not yet rebuilt with this fix.
+                val reqsEncoded = params.any { it.name.asString() == "reqsEncoded" }
+                val requirements = if (reqsEncoded) {
+                    params.filter { it.name.asString().startsWith(reqPrefix) && it.name.asString() != "reqsEncoded" }
+                        .mapNotNull { param ->
+                            val reqClass = (param.type.classifierOrNull as? IrClassSymbol)?.owner ?: return@mapNotNull null
+                            val paramName = REQ_PARAM_NAME.matchEntire(param.name.asString())
+                                ?.groupValues?.get(1)
+                                ?: reqClass.name.asString().replaceFirstChar { it.lowercaseChar() }
+                            Requirement(
+                                typeKey = TypeKey(ParameterAnalyzer.classIdFromIrClass(reqClass), reqClass.fqNameWhenAvailable),
+                                paramName = paramName,
+                                isNullable = false,
+                                hasDefault = false,
+                                isInjectedParam = false,
+                                isProvided = false,
+                                isScopeId = false,
+                                scopeIdName = null,
+                                isLazy = false,
+                                isList = false,
+                                isProperty = false,
+                                propertyKey = null,
+                                qualifier = null
+                            )
+                        }
+                } else {
+                    parameterAnalyzer?.requirementsForDslDefinition(targetClass, providerOnly).orEmpty()
+                }
+
                 definitions.add(Definition.DslDef(
                     irClass = targetClass,
                     definitionType = defType,
@@ -625,7 +700,7 @@ class DslHintGenerator(
                     providerOnly = providerOnly,
                     qualifier = qualifier
                 ).also { def ->
-                    def.requirements = parameterAnalyzer?.requirementsForDslDefinition(targetClass, providerOnly).orEmpty()
+                    def.requirements = requirements
                     def.origin = SourceOrigin.of(targetClass)
                 })
             }

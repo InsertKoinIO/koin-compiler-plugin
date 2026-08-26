@@ -187,6 +187,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("cross_module_dsl_create_function_narrowed_dependency_no_false_cycle.kt")
+    public void testCross_module_dsl_create_function_narrowed_dependency_no_false_cycle() {
+      runTest("koin-compiler-plugin/testData/box/modules/cross_module_dsl_create_function_narrowed_dependency_no_false_cycle.kt");
+    }
+
+    @Test
     @TestMetadata("module_extension.kt")
     public void testModule_extension() {
       runTest("koin-compiler-plugin/testData/box/modules/module_extension.kt");
