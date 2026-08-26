@@ -1,0 +1,43 @@
+FILE: test.kt
+    public abstract interface ConnService : R|kotlin/Any| {
+    }
+    public final class RealConn : R|ConnService| {
+        public constructor(): R|RealConn| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Consumer : R|kotlin/Any| {
+        public constructor(svc: R|ConnService|): R|Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val svc: R|ConnService| = R|<local>/svc|
+            public get(): R|ConnService|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|RealConn|>().R|org/koin/core/module/dsl/withOptions|<R|RealConn|>(withOptions@fun R|org/koin/core/definition/BeanDefinition<RealConn>|.<anonymous>(): R|kotlin/Unit| <inline=Inline, kind=UNKNOWN>  {
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/bind|<R|ConnService|>()
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Consumer|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval consumer: R|Consumer| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Consumer|>()
+        ^box when () {
+            (R|<local>/consumer|.R|/Consumer.svc| is R|RealConn|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

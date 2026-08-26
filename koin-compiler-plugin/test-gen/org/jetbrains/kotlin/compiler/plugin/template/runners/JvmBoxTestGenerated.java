@@ -311,6 +311,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_bind_reified_withoptions_ok.kt")
+    public void testDsl_bind_reified_withoptions_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_bind_reified_withoptions_ok.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_create_function.kt")
     public void testDsl_create_function() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_create_function.kt");

@@ -305,6 +305,8 @@ class KoinDSLTransformer(
     private val KOIN_BIND_FQNAMES = setOf(
         "org.koin.plugin.module.dsl.bind",
         "org.koin.dsl.bind",
+        // Reified bind<Interface>() — no KClass value argument, used inside withOptions {}/singleOf(){}.
+        "org.koin.core.module.dsl.bind",
     )
 
     // Mapping from function names to DefinitionType
@@ -695,18 +697,23 @@ class KoinDSLTransformer(
     private fun collectBindType(expression: IrCall) {
         if (_dslDefinitions.isEmpty()) return
 
-        // Extract the KClass argument from bind(clazz: KClass<S>)
-        val classArg = expression.getRegularArgument(0) ?: return
-        val boundClass = when (classArg) {
-            is IrClassReference -> {
-                val classifier = classArg.classType.classifierOrNull
-                when (classifier) {
-                    is IrClassSymbol -> classifier.owner
-                    is IrClass -> classifier
-                    else -> null
+        // Extract the KClass argument from bind(clazz: KClass<S>), or fall back to the reified type
+        // argument of bind<Interface>() — a distinct Koin DSL shape with no value argument at all.
+        val classArg = expression.getRegularArgument(0)
+        val boundClass = if (classArg != null) {
+            when (classArg) {
+                is IrClassReference -> {
+                    val classifier = classArg.classType.classifierOrNull
+                    when (classifier) {
+                        is IrClassSymbol -> classifier.owner
+                        is IrClass -> classifier
+                        else -> null
+                    }
                 }
+                else -> null
             }
-            else -> null
+        } else {
+            (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
         } ?: return
 
         // Update the last DslDef with the additional binding
