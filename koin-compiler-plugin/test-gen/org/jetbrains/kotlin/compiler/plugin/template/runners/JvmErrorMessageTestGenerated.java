@@ -394,6 +394,18 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_configuration_transitive_missing_d001.kt")
+    public void testCross_module_configuration_transitive_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_transitive_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_configuration_transitive_ok.kt")
+    public void testCross_module_configuration_transitive_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_transitive_ok.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_contract_impl_in_app_ok.kt")
     public void testCross_module_contract_impl_in_app_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_contract_impl_in_app_ok.kt");

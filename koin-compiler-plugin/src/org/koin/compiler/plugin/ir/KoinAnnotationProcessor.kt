@@ -724,6 +724,11 @@ class KoinAnnotationProcessor(
         // shared dedupe set already contains scan-path return types → this only emits true orphans.
         emitOrphanFuncReqsHints(moduleFragment)
 
+        // Step 1d: relay @Configuration(default) modules discoverable only via THIS compilation's OWN
+        // classpath — see relayConfigurationHints for why this is needed in addition to the
+        // unconditional per-class FIR emission.
+        relayConfigurationHints(moduleFragment)
+
         // Map to track functions for each module class (FIR-generated or newly created)
         val moduleFunctions = mutableMapOf<ModuleClass, IrSimpleFunction>()
 
@@ -1558,6 +1563,105 @@ class KoinAnnotationProcessor(
             KoinPluginLogger.debug { "    + funcreqs carrier (orphan): $returnFqn (${hint.parameters.size} requirement(s))" }
         }
     }
+
+    /**
+     * Relay `@Configuration("default")`-labeled modules visible ONLY via this compilation's OWN
+     * direct classpath, under their own `configuration_default` hint shape, physically compiled
+     * into THIS compilation's hint output.
+     *
+     * `configuration_<label>` hints are already emitted unconditionally at FIR time for every
+     * `@Module` + `@Configuration`-annotated class, so a DIRECT reader always finds them. But
+     * discovery (`KoinStartTransformer.discoverModulesFromHints`) only runs `context.referenceFunctions`
+     * against the querying compilation's OWN classpath — a `@Configuration` module 2+
+     * `implementation` hops from the real entry point is never on that classpath at all, so no
+     * amount of querying finds it. Same root cause and same fix shape as the `includes()` carrier
+     * (see [relayIncludedModuleHints]): an intermediate module that CAN see the far module directly
+     * re-publishes it so a reader one hop further away can find it via ITS OWN classpath.
+     *
+     * Scoped to the "default" label only — the label a `@KoinApplication()`/`@KoinApplication(configurations=[])`
+     * entry point (i.e. no explicit `configurations=[...]`) resolves, which is the common case. A
+     * custom-labeled `@Configuration("test")` module 2+ hops away is not yet covered: relaying every
+     * label ever used anywhere would need enumerating labels this compilation has no way to know in
+     * advance. Tracked as a follow-up, not silently claimed.
+     */
+    private fun relayConfigurationHints(moduleFragment: IrModuleFragment) {
+        val label = KoinPluginConstants.DEFAULT_LABEL
+        val hintName = KoinModuleFirGenerator.hintFunctionNameForLabel(label)
+        val visible = cachedReferenceFunctions(CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName))
+        if (visible.isEmpty()) return
+
+        val localFqNames = moduleClasses.mapNotNullTo(mutableSetOf()) { it.irClass.fqNameWhenAvailable?.asString() }
+        val toRelay = mutableListOf<IrClass>()
+        for (hintFuncSymbol in visible) {
+            val paramType = hintFuncSymbol.owner.regularParameters.firstOrNull()?.type ?: continue
+            val moduleClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+            val fqName = moduleClass.fqNameWhenAvailable?.asString() ?: continue
+            // Declared in THIS compilation → FIR already emitted its own hint; no relay needed.
+            if (fqName in localFqNames) continue
+            if (!relayedConfigurationModuleFqNames.add(fqName)) continue
+            toRelay.add(moduleClass)
+        }
+        if (toRelay.isEmpty()) return
+
+        val hints = toRelay.mapNotNullTo(mutableListOf()) { createHintFunction(hintName, it) }
+        // The module hint above only makes the module ITSELF discoverable. Its own definitions
+        // (e.g. its @ComponentScan results) are a SEPARATE hint category, compiled into ITS OWN
+        // output — invisible to a reader 2+ hops away for exactly the same reason the module hint
+        // was. Without this, the module resolves as an external stub with no visible declarations,
+        // scanDefinitionsFound stays false, DependencyModuleResult.isComplete comes back false, and
+        // validateFullGraph's fail-OPEN policy on an incomplete provider set silently withholds
+        // validation for the WHOLE entry point — not just the relayed module. Reuse the same relay
+        // this uses for includes() edges (see [relayIncludedModuleHints]).
+        for (moduleClass in toRelay) {
+            val fqName = moduleClass.fqNameWhenAvailable?.asString() ?: continue
+            relayIncludedModuleHints(fqName, hints)
+        }
+        if (hints.isEmpty()) return
+
+        val firModuleData = toRelay.firstNotNullOfOrNull { extractFirModuleData(it) }
+            ?: moduleFragment.files.firstNotNullOfOrNull { f ->
+                when (val m = f.metadata) {
+                    is FirMetadataSource.File -> m.fir.moduleData
+                    is FirMetadataSource.Class -> m.fir.moduleData
+                    else -> null
+                }
+            }
+        if (firModuleData == null) {
+            KoinPluginLogger.debug { "    WARN: relayConfigurationHints: no FIR module data, skipping ${hints.size} hint(s)" }
+            return
+        }
+
+        val basePath = moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name ?: "/synthetic"
+        val fileName = HintFileNaming.fileName("koin_hints_configrelay_", KoinPluginLogger.moduleId, label)
+        val fakeNewPath = Path(basePath).parent.resolve(fileName)
+
+        val firFile = buildFile {
+            moduleData = firModuleData
+            origin = FirDeclarationOrigin.Synthetic.PluginFile
+            packageDirective = buildPackageDirective { packageFqName = KoinModuleFirGenerator.HINTS_PACKAGE }
+            name = fileName
+            sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+        }
+        val hintFile = IrFileImpl(
+            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+            packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, KoinModuleFirGenerator.HINTS_PACKAGE),
+            module = moduleFragment,
+        ).also { it.metadata = FirMetadataSource.File(firFile) }
+
+        moduleFragment.addFile(hintFile)
+        for (hint in hints) {
+            hintFile.addChild(hint)
+            hint.parent = hintFile
+            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(hint)
+        }
+        KoinPluginLogger.debug {
+            "    + relayed ${hints.size} @Configuration($label) hint(s) from classpath-invisible dependencies: " +
+                toRelay.mapNotNull { it.fqNameWhenAvailable?.asString() }
+        }
+    }
+
+    /** Compilation-wide dedupe for [relayConfigurationHints]. */
+    private val relayedConfigurationModuleFqNames = mutableSetOf<String>()
 
     /**
      * A3 Gate-3 — rebuild a cross-module function provider's requirements from its `funcreqs_*`

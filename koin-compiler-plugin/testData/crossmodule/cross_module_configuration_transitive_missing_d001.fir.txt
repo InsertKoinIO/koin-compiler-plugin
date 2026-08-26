@@ -1,0 +1,73 @@
+Module: data
+FILE: Data.kt
+    package data
+
+    public final class MainRepository : R|kotlin/Any| {
+        public constructor(): R|data/MainRepository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class Unrelated : R|kotlin/Any| {
+        public constructor(): R|data/Unrelated| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(data))) public final class DataModule : R|kotlin/Any| {
+        public constructor(): R|data/DataModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: data/dataDataModuleModule.kt
+    package data
+
+    public final fun R|data/DataModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/dataDataModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|data/DataModule|): R|kotlin/Unit|
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    @R|org/koin/core/annotation/Single|() public final class MainViewModel : R|kotlin/Any| {
+        public constructor(repository: R|data/MainRepository|): R|feature/MainViewModel| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|data/MainRepository| = R|<local>/repository|
+            public get(): R|data/MainRepository|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/featureFeatureModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|feature/FeatureModule|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|() public final object MainApplication : R|kotlin/Any| {
+        private constructor(): R|app/MainApplication| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MainApplication|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }

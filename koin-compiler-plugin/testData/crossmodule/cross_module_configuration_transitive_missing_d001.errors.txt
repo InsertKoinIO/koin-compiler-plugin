@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: data.MainRepository
+  required by: feature.MainViewModel (parameter 'repository')
+  in module: MainApplication (startKoin)
