@@ -263,17 +263,24 @@ class DslHintGenerator(
      * the provided class's constructor — wrong for providerOnly and for create(::function), where
      * the referenced function's params (not the return type's constructor) are the real deps.
      * `reqsEncoded` distinguishes "zero requirements, correctly encoded" from an old hint with no
-     * requirement info at all — see [discoverDslDefinitionsFromHints]. A requirement whose type has
-     * no resolvable ClassId is dropped, and the index only advances for requirements actually kept.
+     * requirement info at all — see [discoverDslDefinitionsFromHints].
+     *
+     * All-or-nothing: if ANY requirement's type has no resolvable ClassId, this returns empty
+     * (no `reqsEncoded` marker either) rather than encoding a partial list — a partial list marked
+     * "encoded" would tell the consumer the requirements are complete when one is silently missing,
+     * permanently hiding that dependency from cross-module validation. Mirrors how
+     * KoinAnnotationProcessor's analogous funcreqs carrier aborts the whole hint on the same case.
      */
     private fun buildRequirementParams(function: IrSimpleFunction, requirements: List<Requirement>): List<IrValueParameter> {
-        val params = mutableListOf(newValueParameter(function, Name.identifier("reqsEncoded"), context.irBuiltIns.unitType))
-        var reqIndex = 0
+        val resolved = mutableListOf<Pair<String, IrClass>>()
         for (req in requirements) {
-            val reqClassId = req.typeKey.classId ?: continue
-            val reqClass = context.referenceClass(reqClassId)?.owner ?: continue
-            params += newValueParameter(function, Name.identifier("req${reqIndex}_${req.paramName}"), reqClass.hintParameterType(context))
-            reqIndex++
+            val reqClassId = req.typeKey.classId ?: return emptyList()
+            val reqClass = context.referenceClass(reqClassId)?.owner ?: return emptyList()
+            resolved += req.paramName to reqClass
+        }
+        val params = mutableListOf(newValueParameter(function, Name.identifier("reqsEncoded"), context.irBuiltIns.unitType))
+        resolved.forEachIndexed { index, (paramName, reqClass) ->
+            params += newValueParameter(function, Name.identifier("req${index}_$paramName"), reqClass.hintParameterType(context))
         }
         return params
     }
@@ -498,6 +505,7 @@ class DslHintGenerator(
                 // consumer on a plugin older than the req$i requirement params (below) had no reason
                 // to exclude them, so it silently misread each dependency as an extra binding —
                 // definitions appeared to PROVIDE their own dependencies, masking a real missing one.
+                val targetClass = (params[0].type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
                 val modulePrefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
                 val qualifierPrefix = "qualifier_"
                 val reqPrefix = "req"
