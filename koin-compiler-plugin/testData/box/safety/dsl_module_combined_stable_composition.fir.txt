@@ -1,0 +1,78 @@
+FILE: test.kt
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Third : R|kotlin/Any| {
+        public constructor(): R|Third| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|Repository|, other: R|Other|, third: R|Third|): R|Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|Repository| = R|<local>/repo|
+            public get(): R|Repository|
+
+        public final val other: R|Other| = R|<local>/other|
+            public get(): R|Other|
+
+        public final val third: R|Third| = R|<local>/third|
+            public get(): R|Third|
+
+    }
+    public final fun repoModule(): R|org/koin/core/module/Module| {
+        ^repoModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Repository|>()
+        }
+        )
+    }
+    public final val otherModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Other|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun thirdModule(): R|org/koin/core/module/Module| {
+        ^thirdModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Third|>()
+        }
+        )
+    }
+    public final fun coreModules(): R|kotlin/collections/List<org/koin/core/module/Module>| {
+        ^coreModules R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(vararg(R|/repoModule|(), R|/otherModule|))
+    }
+    public final fun appModule(): R|org/koin/core/module/Module| {
+        lval extra: R|kotlin/collections/List<org/koin/core/module/Module>| = R|kotlin/arrayOf|<R|org/koin/core/module/Module|>(vararg(R|/thirdModule|())).R|kotlin/collections/toList|<R|org/koin/core/module/Module|>()
+        ^appModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(R|/coreModules|().R|kotlin/collections/plus|<R|org/koin/core/module/Module|>(R|<local>/extra|))
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Service|>()
+        }
+        )
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval service: R|Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Service|>()
+        ^box when () {
+            !=(R|<local>/service|.R|/Service.repo|, Null(null)) && !=(R|<local>/service|.R|/Service.other|, Null(null)) && !=(R|<local>/service|.R|/Service.third|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

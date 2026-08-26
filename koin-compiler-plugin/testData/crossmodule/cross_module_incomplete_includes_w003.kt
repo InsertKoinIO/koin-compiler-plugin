@@ -13,8 +13,10 @@
 //
 // Topology:
 //   feature : val featureModule = module { single<Repository>() }
-//   core    : val featureList = listOf(featureModule)          <- not statically readable
+//   core    : val featureList = if (isDynamic()) ... else ...   <- not statically readable
 //             val coreModule  = module { includes(featureList); single<Service>() }
+//   (`listOf(...)` alone is now resolved precisely — see dsl_module_listof_* — so a runtime
+//   conditional is used here to keep this genuinely unresolvable.)
 //   app     : val appModule = module { single<AppThing>() }   <- a local def, so the DSL graph pass runs
 //             startKoin { modules(coreModule, appModule) }; koin.get<Repository>()
 //
@@ -46,7 +48,8 @@ import feature.featureModule
 
 class Service(val repo: Repository)
 
-val featureList = listOf(featureModule)
+fun isDynamic(): Boolean = true
+val featureList = if (isDynamic()) listOf(featureModule) else listOf(featureModule)
 
 val coreModule = module {
     includes(featureList)

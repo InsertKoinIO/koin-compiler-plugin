@@ -359,9 +359,45 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_module_array_tolist_includes.kt")
+    public void testDsl_module_array_tolist_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_array_tolist_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_combined_stable_composition.kt")
+    public void testDsl_module_combined_stable_composition() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_combined_stable_composition.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_function_returns_list_includes.kt")
+    public void testDsl_module_function_returns_list_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_function_returns_list_includes.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_module_includes.kt")
     public void testDsl_module_includes() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_module_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_list_plus_includes.kt")
+    public void testDsl_module_list_plus_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_list_plus_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_listof_includes.kt")
+    public void testDsl_module_listof_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_listof_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_local_val_includes.kt")
+    public void testDsl_module_local_val_includes() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_module_local_val_includes.kt");
     }
 
     @Test

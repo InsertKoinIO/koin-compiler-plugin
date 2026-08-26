@@ -1,7 +1,8 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
 // Phase-3.1 (DSL-only) analogue of entry_dynamic_modules_missing.kt: a dynamically-computed module
-// set (unresolvable `modules(extras)`) plus a genuine, unrelated local miss (NeedsMissing needs
+// set (unresolvable `modules(extras)`, a runtime conditional — `listOf(...)` alone is now resolved
+// precisely, see dsl_module_listof_*) plus a genuine, unrelated local miss (NeedsMissing needs
 // Missing, provided nowhere). The typed startKoin<T>() path already withholds KOIN-D001
 // unconditionally when dynamic; this pins the same for validateDslDefinitionGraph.
 //
@@ -26,7 +27,8 @@ val appModule = module {
     single<NeedsMissing>()
 }
 
-val extras = listOf(coreModule)
+fun isDynamic(): Boolean = true
+val extras = if (isDynamic()) listOf(coreModule) else listOf(coreModule)
 
 fun useIt() {
     val koin = koinApplication {

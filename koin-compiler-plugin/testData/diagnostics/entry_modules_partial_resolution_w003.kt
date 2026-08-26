@@ -9,7 +9,10 @@
 // Here one call resolves and one does not:
 //
 //     modules(appModule)     // resolvable
-//     modules(extras)        // List<Module> — not resolvable
+//     modules(extras)        // a runtime conditional — not statically resolvable
+//
+// (`listOf(...)` is now resolved precisely, see dsl_module_listof_*, so a conditional is used here
+// to keep this genuinely unresolvable.)
 //
 // Without fail-open, `appModule` is treated as the WHOLE loaded set and everything reachable only
 // through `extras` is classified unreachable: KOIN-D001 for Service's constructor dependency,
@@ -36,7 +39,8 @@ val appModule = module {
     single<Service>()
 }
 
-val extras = listOf(coreModule)
+fun isDynamic(): Boolean = true
+val extras = if (isDynamic()) listOf(coreModule) else listOf(coreModule)
 
 fun useIt() {
     val koin = koinApplication {

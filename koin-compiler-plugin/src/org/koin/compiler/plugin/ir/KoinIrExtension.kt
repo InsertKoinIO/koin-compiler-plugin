@@ -141,6 +141,7 @@ class KoinIrExtension(
                 dslDefinitions, annotationProcessor, safetyValidator, dslHintGenerator,
                 koinTransformer.startKoinModules, koinTransformer.moduleIncludes,
                 entryModulesIncomplete = koinTransformer.entryModulesIncomplete,
+                entryModulesIncompleteOrigin = koinTransformer.entryModulesIncompleteOrigin,
                 modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
                 ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph
             )

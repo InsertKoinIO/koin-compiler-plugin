@@ -19,9 +19,12 @@
 // The graph below is complete and correct: both modules are loaded via the list, and Repository is
 // provided by coreModule.
 //
-// EXPECTED: completely silent. Any KOIN-D002 or KOIN-W001 here is a false positive. If the module
-// set cannot be resolved statically the walk must fail OPEN (verify nothing) rather than treat the
-// unresolved set as authoritative.
+// EXPECTED: completely silent. Any KOIN-D002 or KOIN-W001 here is a false positive.
+//
+// `listOf(...)` itself is now resolved precisely (see dsl_module_listof_*) rather than falling back
+// to fail-open — a stronger guarantee than before (full verification, not just "no false positive").
+// This test still pins the historical misread bug; entry_modules_partial_resolution_w003 covers a
+// genuinely unresolvable case instead.
 package testpkg
 
 import org.koin.dsl.koinApplication

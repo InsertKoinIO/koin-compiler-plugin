@@ -168,6 +168,36 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("dsl_module_array_tolist_precision_d001.kt")
+    public void testDsl_module_array_tolist_precision_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_array_tolist_precision_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_function_returns_list_precision_d001.kt")
+    public void testDsl_module_function_returns_list_precision_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_returns_list_precision_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_list_plus_precision_d001.kt")
+    public void testDsl_module_list_plus_precision_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_list_plus_precision_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_listof_precision_d001.kt")
+    public void testDsl_module_listof_precision_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_listof_precision_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_module_local_val_precision_d001.kt")
+    public void testDsl_module_local_val_precision_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_local_val_precision_d001.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_module_not_loaded.kt")
     public void testDsl_module_not_loaded() {
       runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_not_loaded.kt");

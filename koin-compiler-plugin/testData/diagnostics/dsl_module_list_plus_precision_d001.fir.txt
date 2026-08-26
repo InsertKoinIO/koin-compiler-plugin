@@ -1,0 +1,57 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|testpkg/Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|testpkg/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class NeedsMissing : R|kotlin/Any| {
+        public constructor(m: R|testpkg/Missing|): R|testpkg/NeedsMissing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val m: R|testpkg/Missing| = R|<local>/m|
+            public get(): R|testpkg/Missing|
+
+    }
+    public final fun repoModule(): R|org/koin/core/module/Module| {
+        ^repoModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Repository|>()
+        }
+        )
+    }
+    public final val otherModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Other|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val leftModules: R|kotlin/collections/List<org/koin/core/module/Module>| = R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|testpkg/repoModule|())
+        public get(): R|kotlin/collections/List<org/koin/core/module/Module>|
+    public final val rightModules: R|kotlin/collections/List<org/koin/core/module/Module>| = R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|testpkg/otherModule|)
+        public get(): R|kotlin/collections/List<org/koin/core/module/Module>|
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(R|testpkg/leftModules|.R|kotlin/collections/plus|<R|org/koin/core/module/Module|>(R|testpkg/rightModules|))
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/NeedsMissing|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

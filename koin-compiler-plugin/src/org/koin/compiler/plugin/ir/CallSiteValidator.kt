@@ -461,6 +461,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
         startKoinModules: List<String> = emptyList(),
         moduleIncludes: Map<String, List<String>> = emptyMap(),
         entryModulesIncomplete: Boolean = false,
+        entryModulesIncompleteOrigin: SourceOrigin? = null,
         modulesWithIncompleteIncludes: Set<String> = emptySet(),
         ownsAuthoritativeGraph: Boolean = true
     ) {
@@ -485,11 +486,13 @@ class CallSiteValidator(private val context: IrPluginContext) {
         )
         if (resolvedReachable == null) {
             topologyUnverifiable = true
+            val originStr = entryModulesIncompleteOrigin?.filePath
+                ?.let { "${it.substringAfterLast('/')}:${entryModulesIncompleteOrigin.line ?: "?"}" }
             KoinPluginLogger.report(
                 KoinDiagnostic.UnverifiableDynamicGraph(
                     entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
                         ?.let { "the entry point loading $it" } ?: "this entry point",
-                    origin = null,
+                    origin = originStr,
                 )
             )
         }

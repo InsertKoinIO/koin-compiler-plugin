@@ -91,6 +91,10 @@ class KoinDSLTransformer(
     private var _entryModulesIncomplete = false
     val entryModulesIncomplete: Boolean get() = _entryModulesIncomplete
 
+    /** File:line of the `modules(...)` call that set [_entryModulesIncomplete], for KOIN-W003's "at:". */
+    private var _entryModulesIncompleteOrigin: SourceOrigin? = null
+    val entryModulesIncompleteOrigin: SourceOrigin? get() = _entryModulesIncompleteOrigin
+
     /**
      * Module vals whose own `includes(...)` had an argument we could not resolve, so their edge set
      * is PARTIAL.
@@ -105,6 +109,14 @@ class KoinDSLTransformer(
 
     private companion object {
         const val KOIN_MODULE_FQNAME = "org.koin.core.module.Module"
+
+        // Stable List<Module> constructors: same content every time, no branching — safe to recurse
+        // into their arguments. Anything conditional (if/when) is a different, unstable case, not this.
+        val TRANSPARENT_LIST_BUILDERS = setOf(
+            "kotlin.collections.listOf", "kotlin.collections.listOfNotNull",
+            "kotlin.collections.emptyList", "kotlin.arrayOf",
+        )
+        val TRANSPARENT_LIST_CONVERTERS = setOf("kotlin.collections.toList", "kotlin.collections.asList")
     }
 
     override fun visitFile(declaration: IrFile): IrFile {
@@ -248,6 +260,20 @@ class KoinDSLTransformer(
         }
         if (!ownerOk) return null
         return function.fqNameWhenAvailable?.asString()
+    }
+
+    /** True for `List<Module>` — the collection counterpart of [KOIN_MODULE_FQNAME]. */
+    private fun isModuleListType(type: IrType): Boolean {
+        if (type.classFqName?.asString() != "kotlin.collections.List") return false
+        val typeArg = (type as? IrSimpleType)?.arguments?.singleOrNull() as? IrType ?: return false
+        return typeArg.classFqName?.asString() == KOIN_MODULE_FQNAME
+    }
+
+    /** Follows a function whose body is a single `return <expr>` — never guesses on anything more. */
+    private fun resolveSimpleBodyReturn(function: IrSimpleFunction, result: MutableList<String>): Boolean {
+        val body = function.body as? IrBlockBody ?: return false
+        val statement = body.statements.singleOrNull() as? IrReturn ?: return false
+        return resolveModuleRef(statement.value, result)
     }
 
     /**
@@ -722,6 +748,13 @@ class KoinDSLTransformer(
                 val (loadedModules, complete) = resolveModuleReferences(expression)
                 if (!complete) {
                     _entryModulesIncomplete = true
+                    if (_entryModulesIncompleteOrigin == null) {
+                        val file = currentFile
+                        val line = if (file != null && expression.startOffset >= 0) {
+                            file.fileEntry.getLineNumber(expression.startOffset) + 1
+                        } else null
+                        _entryModulesIncompleteOrigin = SourceOrigin(moduleFqName = null, filePath = file?.fileEntry?.name, line = line)
+                    }
                     KoinPluginLogger.debug { "  modules() at startKoin has an UNRESOLVABLE argument — loaded set unknown" }
                 }
                 if (loadedModules.isNotEmpty()) {
@@ -772,16 +805,29 @@ class KoinDSLTransformer(
             return true
         }
         return when (expression) {
-            is IrGetField -> record(
-                expression.symbol.owner.correspondingPropertySymbol?.owner,
-                expression.symbol.owner.type.classFqName?.asString() == KOIN_MODULE_FQNAME
-            )
+            is IrGetField -> {
+                val field = expression.symbol.owner
+                when {
+                    field.type.classFqName?.asString() == KOIN_MODULE_FQNAME ->
+                        record(field.correspondingPropertySymbol?.owner, true)
+                    // A List<Module>-typed property is just a container, not a module of its own —
+                    // look through to its initializer rather than minting an id for it.
+                    isModuleListType(field.type) ->
+                        field.initializer?.expression?.let { resolveModuleRef(it, result) } ?: false
+                    else -> false
+                }
+            }
             is IrCall -> {
                 val callee = expression.symbol.owner
+                val calleeFqName = callee.fqNameWhenAvailable?.asString()
                 val isModuleTyped = expression.type.classFqName?.asString() == KOIN_MODULE_FQNAME
                 val property = callee.correspondingPropertySymbol?.owner
                 when {
-                    property != null -> record(property, isModuleTyped)
+                    property != null && isModuleTyped -> record(property, true)
+                    // A List<Module>-typed property accessed via its getter call (not IrGetField, in
+                    // this context) — same "look through to the initializer" as the IrGetField case.
+                    property != null && isModuleListType(expression.type) ->
+                        property.backingField?.initializer?.expression?.let { resolveModuleRef(it, result) } ?: false
                     // Virtual dispatch excluded: an override's fqName doesn't identify which body runs.
                     isModuleTyped && expression.dispatchReceiver == null && callee is IrSimpleFunction -> {
                         val fnId = buildModuleFunctionId(callee)
@@ -790,12 +836,38 @@ class KoinDSLTransformer(
                             true
                         } else false
                     }
+                    // listOf/listOfNotNull/emptyList/arrayOf — same content every call, recurse into args.
+                    calleeFqName in TRANSPARENT_LIST_BUILDERS && expression.dispatchReceiver == null ->
+                        (0 until expression.regularArgumentsCount).all { i ->
+                            expression.getRegularArgument(i)?.let { resolveModuleRef(it, result) } ?: true
+                        }
+                    // a + b — both operands must resolve.
+                    calleeFqName == "kotlin.collections.plus" -> {
+                        val receiver = expression.extensionReceiverArgument
+                        val arg = expression.getRegularArgument(0)
+                        receiver != null && arg != null &&
+                            resolveModuleRef(receiver, result) && resolveModuleRef(arg, result)
+                    }
+                    // .toList()/.asList() — only as good as whatever they're converting.
+                    calleeFqName in TRANSPARENT_LIST_CONVERTERS ->
+                        expression.extensionReceiverArgument?.let { resolveModuleRef(it, result) } ?: false
+                    // A function returning List<Module> via a single-statement body — follow it, same
+                    // guard as the Module-returning case (no virtual dispatch).
+                    expression.dispatchReceiver == null && callee is IrSimpleFunction &&
+                        isModuleListType(expression.type) -> resolveSimpleBodyReturn(callee, result)
                     else -> false
                 }
             }
             // A vararg counts as resolved only if EVERY element did; a partially-read spread is
             // exactly the "we don't know the whole set" case.
             is IrVararg -> expression.elements.all { it is IrExpression && resolveModuleRef(it, result) }
+            // A local `val` (not `var`) — trace to its initializer. Parameters (incl. vararg params)
+            // are a different IrValueParameter case, deliberately excluded: not this compilation's to know.
+            is IrGetValue -> {
+                val variable = expression.symbol.owner as? IrVariable
+                if (variable == null || variable.isVar) false
+                else variable.initializer?.let { resolveModuleRef(it, result) } ?: false
+            }
             else -> false
         }
     }

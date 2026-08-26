@@ -26,7 +26,18 @@ FILE: test.kt
     }
     )
         public get(): R|org/koin/core/module/Module|
-    public final val extras: R|kotlin/collections/List<org/koin/core/module/Module>| = R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|testpkg/coreModule|)
+    public final fun isDynamic(): R|kotlin/Boolean| {
+        ^isDynamic Boolean(true)
+    }
+    public final val extras: R|kotlin/collections/List<org/koin/core/module/Module>| = when () {
+        R|testpkg/isDynamic|() ->  {
+            R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|testpkg/coreModule|)
+        }
+        else ->  {
+            R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|testpkg/coreModule|)
+        }
+    }
+
         public get(): R|kotlin/collections/List<org/koin/core/module/Module>|
     public final fun useIt(): R|kotlin/Unit| {
         lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {

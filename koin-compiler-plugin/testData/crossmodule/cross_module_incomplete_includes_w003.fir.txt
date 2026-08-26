@@ -26,7 +26,18 @@ FILE: Core.kt
             public get(): R|feature/Repository|
 
     }
-    public final val featureList: R|kotlin/collections/List<org/koin/core/module/Module>| = R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|feature/featureModule|)
+    public final fun isDynamic(): R|kotlin/Boolean| {
+        ^isDynamic Boolean(true)
+    }
+    public final val featureList: R|kotlin/collections/List<org/koin/core/module/Module>| = when () {
+        R|core/isDynamic|() ->  {
+            R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|feature/featureModule|)
+        }
+        else ->  {
+            R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(R|feature/featureModule|)
+        }
+    }
+
         public get(): R|kotlin/collections/List<org/koin/core/module/Module>|
     public final val coreModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
         this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(R|core/featureList|)
