@@ -437,6 +437,18 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_singleof_named_string_qualifier_ok.kt")
+    public void testDsl_singleof_named_string_qualifier_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_singleof_named_string_qualifier_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_singleof_named_type_qualifier_ok.kt")
+    public void testDsl_singleof_named_type_qualifier_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_singleof_named_type_qualifier_ok.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_singleof_trailing_bind_ok.kt")
     public void testDsl_singleof_trailing_bind_ok() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_singleof_trailing_bind_ok.kt");

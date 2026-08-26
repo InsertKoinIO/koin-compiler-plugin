@@ -1,0 +1,39 @@
+FILE: test.kt
+    public abstract interface Env : R|kotlin/Any| {
+    }
+    public final object Prod : R|Env| {
+        private constructor(): R|Prod| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|Config|>(::R|/Config.Config|, <L> = singleOf@fun R|org/koin/core/definition/BeanDefinition<Config>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/named|<R|Prod|>()
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval config: R|Config| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Config|>(R|org/koin/core/qualifier/named|<R|Prod|>())
+        ^box when () {
+            !=(R|<local>/config|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }

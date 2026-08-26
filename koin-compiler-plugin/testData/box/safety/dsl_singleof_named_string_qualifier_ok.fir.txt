@@ -1,0 +1,45 @@
+FILE: test.kt
+    public final class Repository : R|kotlin/Any| {
+        public constructor(label: R|kotlin/String|): R|Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val label: R|kotlin/String| = R|<local>/label|
+            public get(): R|kotlin/String|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|Repository|>(::R|/makeA|, <L> = singleOf@fun R|org/koin/core/definition/BeanDefinition<Repository>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/named|(String(a))
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|Repository|>(::R|/makeB|, <L> = singleOf@fun R|org/koin/core/definition/BeanDefinition<Repository>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/named|(String(b))
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun makeA(): R|Repository| {
+        ^makeA R|/Repository.Repository|(String(a))
+    }
+    public final fun makeB(): R|Repository| {
+        ^makeB R|/Repository.Repository|(String(b))
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval a: R|Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repository|>(R|org/koin/core/qualifier/named|(String(a)))
+        lval b: R|Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repository|>(R|org/koin/core/qualifier/named|(String(b)))
+        ^box when () {
+            ==(R|<local>/a|.R|/Repository.label|, String(a)) && ==(R|<local>/b|.R|/Repository.label|, String(b)) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: a=), R|<local>/a|.R|/Repository.label|, String(, b=), R|<local>/b|.R|/Repository.label|)
+            }
+        }
+
+    }

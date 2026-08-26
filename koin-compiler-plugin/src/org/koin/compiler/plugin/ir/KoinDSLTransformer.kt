@@ -447,6 +447,14 @@ class KoinDSLTransformer(
             collectBindType(transformedCall)
         }
 
+        // Detect the options-block named(...)/named<T>() (org.koin.core.module.dsl) — sets the
+        // qualifier on the last collected DslDef. Distinct from org.koin.core.qualifier.named(),
+        // which QualifierExtractor already handles as a qualifier ARGUMENT value, not a statement.
+        if (compileSafetyEnabled && functionName.asString() == "named" &&
+            callee.fqNameWhenAvailable?.asString() == "org.koin.core.module.dsl.named") {
+            collectNamedQualifier(transformedCall)
+        }
+
         // Only handle our target functions
         if (functionName != createName && functionName != singleName && functionName != factoryName &&
             functionName != scopedName && functionName != viewModelName && functionName != workerName) {
@@ -749,6 +757,23 @@ class KoinDSLTransformer(
         }
     }
 
+    /** Options-block `named("x")`/`named<T>()` — sets the qualifier on the last collected DslDef. */
+    private fun collectNamedQualifier(expression: IrCall) {
+        if (_dslDefinitions.isEmpty()) return
+
+        val nameArg = expression.getRegularArgument(0)
+        val qualifier = if (nameArg != null) {
+            ((nameArg as? IrConst)?.value as? String)?.let { QualifierValue.StringQualifier(it) }
+        } else {
+            (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
+                ?.let { QualifierValue.TypeQualifier(it) }
+        } ?: return
+
+        val lastDef = _dslDefinitions.last()
+        _dslDefinitions[_dslDefinitions.lastIndex] = lastDef.copy(qualifier = qualifier).retainA3Metadata(lastDef)
+        KoinPluginLogger.debug { "  named: ${lastDef.returnTypeClass.name} -> $qualifier" }
+    }
+
     private fun collectModuleLoadingInfo(expression: IrCall, callee: IrSimpleFunction) {
         val functionName = callee.name.asString()
         if (functionName == "includes") {
@@ -1009,6 +1034,13 @@ class KoinDSLTransformer(
         trackClassLookup(lookupTracker, currentFile, targetClass)
         linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
         val qualifier = qualifierExtractor.extractFromClass(targetClass)
+        // A plain function reference's own parameters are what DI actually resolves — NOT the
+        // returned class's constructor, which may take unrelated params the function never gets.
+        val requirements = when (referencedFunction) {
+            is IrConstructor -> parameterAnalyzer.analyzeConstructor(referencedFunction)
+            is IrSimpleFunction -> parameterAnalyzer.analyzeFunction(referencedFunction)
+            else -> emptyList()
+        }
         _dslDefinitions.add(Definition.DslDef(
             irClass = targetClass,
             definitionType = defType,
@@ -1017,7 +1049,7 @@ class KoinDSLTransformer(
             modulePropertyId = transformContext.modulePropertyId,
             qualifier = qualifier,
             registrationSourceFile = currentFile
-        ).attachA3Metadata(targetClass) { parameterAnalyzer.requirementsForClass(targetClass) })
+        ).attachA3Metadata(targetClass) { requirements })
         KoinPluginLogger.user { "Intercepting ${expression.symbol.owner.name}(::${targetClass.name})" }
     }
 
