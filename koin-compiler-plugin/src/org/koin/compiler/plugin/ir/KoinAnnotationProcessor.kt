@@ -901,12 +901,18 @@ class KoinAnnotationProcessor(
         // library module produced zero hints (orphan path skips scan-covered defs, scan path was
         // filtered out), breaking compileSafety validation in consumers.
         // Fix contributed by @wjz2001 (PR #25 — https://github.com/InsertKoinIO/koin-compiler-plugin/pull/25)
-        val modulesWithScan = moduleClasses.filter { it.hasComponentScan }
+        //
+        // ALSO include modules whose only cross-module-relevant fact is their own
+        // `includes = [...]` list — a pure relay module (includes others, scans/defines nothing
+        // itself) still needs its hint published, or a chain that alternates local/dependency
+        // modules breaks one hop past it. Same reasoning as the DSL includes-edge carrier
+        // (see KoinPluginConstants.ANNOTATION_INCLUDES_HINT_PREFIX).
+        val modulesWithScan = moduleClasses.filter { it.hasComponentScan || it.includedModules.isNotEmpty() }
         if (modulesWithScan.isEmpty()) return
 
         val configCount = modulesWithScan.count { hasConfigurationAnnotation(it.irClass) }
         KoinPluginLogger.debug {
-            "generateModuleScanHints: ${modulesWithScan.size} @Module modules with @ComponentScan (config=$configCount)"
+            "generateModuleScanHints: ${modulesWithScan.size} @Module modules with @ComponentScan and/or includes= (config=$configCount)"
         }
 
         // A3 Gate-3: funcreqs carrier hints are named `funcreqs_<return-fqn>` WITHOUT a module id
@@ -920,8 +926,11 @@ class KoinAnnotationProcessor(
         // [emitOrphanFuncReqsHints], which runs AFTER this and therefore only emits funcreqs for
         // top-level functions NOT already covered by a @ComponentScan module here (true orphans).
         for (moduleClass in modulesWithScan) {
-            val definitions = moduleDefinitions[moduleClass] ?: continue
-            if (definitions.isEmpty()) continue
+            // A pure relay module (includes others, scans/defines nothing itself) has no entry in
+            // moduleDefinitions — its includes hint below is still worth emitting, so don't bail out
+            // on an empty/missing definitions list when it has its own includes edges.
+            val definitions = moduleDefinitions[moduleClass].orEmpty()
+            if (definitions.isEmpty() && moduleClass.includedModules.isEmpty()) continue
 
             val moduleClassId = moduleClass.irClass.classIdOrFail
             val sanitizedModuleId = KoinModuleFirGenerator.sanitizeModuleIdForHint(moduleClassId)
@@ -1028,6 +1037,38 @@ class KoinAnnotationProcessor(
                 val rosterFunc = createRosterHintFunction(rosterName, discriminators.sorted())
                 hintFunctions.add(rosterFunc)
                 KoinPluginLogger.debug { "    + componentscanfunc roster: $defTypeStr lists ${discriminators.size} qualifier(s) -> $rosterName" }
+            }
+
+            // Topology carrier: this module's own `includes=[...]` edges, re-published as a hint so a
+            // reader 2+ hops away (whose classpath doesn't reach the included class directly) can still
+            // walk them — see KoinPluginConstants.ANNOTATION_INCLUDES_HINT_PREFIX.
+            val includedIds = moduleClass.includedModules.mapNotNull { it.fqNameWhenAvailable?.asString() }
+            if (includedIds.isNotEmpty()) {
+                val includesHintName = Name.identifier(
+                    KoinPluginConstants.annotationIncludesHintFunctionName(moduleClassId.asSingleFqName().asString())
+                )
+                createIncludesHintFunction(includesHintName, includedIds)?.let {
+                    hintFunctions.add(it)
+                    KoinPluginLogger.debug { "    + annotationincludes hint: $includedIds -> $includesHintName" }
+                }
+            }
+
+            // Relay: an included module that is NOT declared in THIS compilation is a genuine
+            // cross-Gradle-module include. Hints are ordinary compiled declarations — a reader can
+            // only find one that lives on ITS OWN classpath, and the includes-edge hint above only
+            // fixes discovering the EDGE, not the included module's OWN hints. A reader 2+
+            // `implementation` hops away never has the included module itself on its classpath, so
+            // it could never see those hints directly however many edges it walks. Since THIS module
+            // (the includer) DOES have direct classpath visibility into what it includes, re-publish
+            // the included module's definitions under its OWN hint names — physically compiled here,
+            // but named so a reader looking up the included module's id by name still finds them.
+            for (included in moduleClass.includedModules) {
+                val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
+                val isLocalToThisCompilation = collectedModuleClasses.any {
+                    it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
+                }
+                if (isLocalToThisCompilation) continue
+                relayIncludedModuleHints(includedFqName, hintFunctions)
             }
 
             if (hintFunctions.isEmpty()) continue
@@ -1272,6 +1313,61 @@ class KoinAnnotationProcessor(
                 endOffset = UNDEFINED_OFFSET,
                 origin = IrDeclarationOrigin.DEFINED,
                 name = Name.identifier("${KoinPluginConstants.COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX}$sanitized"),
+                type = context.irBuiltIns.unitType,
+                isAssignable = false,
+                symbol = IrValueParameterSymbolImpl(),
+                kind = IrParameterKind.Regular,
+                varargElementType = null,
+                isCrossinline = false,
+                isNoinline = false,
+                isHidden = false
+            ).also { it.parent = function }
+        }
+
+        function.parameters = params
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+        function.addDeprecatedHiddenAnnotation(context)
+
+        return function
+    }
+
+    /**
+     * Build the annotation includes-edge hint for one `@Module` class — the topology carrier
+     * documented at [KoinPluginConstants.ANNOTATION_INCLUDES_HINT_PREFIX]. One `module_<id>: Unit`
+     * marker per included module id, same encoding [DslHintGenerator] uses for its DSL counterpart.
+     *
+     * Returns null when the module includes nothing — there is nothing to re-publish.
+     */
+    private fun createIncludesHintFunction(hintName: Name, includedModuleIds: List<String>): IrSimpleFunction? {
+        val included = includedModuleIds.distinct()
+        if (included.isEmpty()) return null
+
+        val function = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = hintName,
+            visibility = DescriptorVisibilities.PUBLIC,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
+
+        val params = included.map { includedId ->
+            context.irFactory.createValueParameter(
+                startOffset = UNDEFINED_OFFSET,
+                endOffset = UNDEFINED_OFFSET,
+                origin = IrDeclarationOrigin.DEFINED,
+                name = Name.identifier("${KoinPluginConstants.DSL_MODULE_PARAM_PREFIX}${includedId.replace('.', '$')}"),
                 type = context.irBuiltIns.unitType,
                 isAssignable = false,
                 symbol = IrValueParameterSymbolImpl(),
@@ -2142,7 +2238,20 @@ class KoinAnnotationProcessor(
             definitions.addAll(orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
             definitions.addAll(orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
 
-            return DependencyModuleResult(definitions, isComplete = definitions.isNotEmpty())
+            // The module class itself isn't resolvable, so its own `includes=[...]` can't be read off
+            // the classpath either — but the owner already re-published those edges as a hint (see
+            // generateModuleScanHints), so the chain can still be walked past this hop.
+            val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
+            val knownFqNamesUnresolved = definitions.mapNotNullTo(mutableSetOf()) { it.returnTypeClass.fqNameWhenAvailable?.asString() }
+            for (includedFqName in hintIncludes) {
+                val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
+                val newDefs = includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable?.asString() !in knownFqNamesUnresolved }
+                definitions.addAll(newDefs)
+                knownFqNamesUnresolved.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable?.asString() })
+                KoinPluginLogger.debug { "      Included (hint-only, classpath-invisible) $includedFqName: ${newDefs.size} new definitions" }
+            }
+
+            return DependencyModuleResult(definitions, isComplete = definitions.isNotEmpty() || hintIncludes.isNotEmpty())
         }
 
         val moduleIrClass = moduleClassSymbol.owner
@@ -2226,6 +2335,21 @@ class KoinAnnotationProcessor(
             KoinPluginLogger.debug { "      Included ($source) $includedFqName: ${newDefs.size} new definitions" }
         }
 
+        // The classpath-resolved includes above miss an edge whenever the INCLUDED class itself
+        // isn't on this reader's classpath (e.g. 2+ `implementation` hops away) — getModuleIncludes
+        // silently drops what it can't resolve. moduleIrClass IS resolvable here (we're inside it),
+        // so it always published its own includes hint (see generateModuleScanHints); union in
+        // whatever edge classpath resolution above couldn't see.
+        val classpathIncludeFqNames = includedModules.mapNotNull { it.fqNameWhenAvailable?.asString() }.toSet()
+        val hintOnlyIncludes = discoverModuleIncludesFromHints(moduleFqName).filterNot { it in classpathIncludeFqNames }
+        for (includedFqName in hintOnlyIncludes) {
+            val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
+            val newDefs = includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
+            definitions.addAll(newDefs)
+            knownFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
+            KoinPluginLogger.debug { "      Included (hint-only, classpath-invisible) $includedFqName: ${newDefs.size} new definitions" }
+        }
+
         if (definitions.isNotEmpty()) {
             KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName (hasComponentScan=$hasComponentScan)" }
         }
@@ -2240,6 +2364,85 @@ class KoinAnnotationProcessor(
         }
         return DependencyModuleResult(definitions, isComplete = isComplete)
     }
+
+    /**
+     * Read the `includes=[...]` edges a `@Module` class declares, from its cross-module includes
+     * hint — the decode half of the annotation topology carrier (see [generateModuleScanHints] /
+     * [KoinPluginConstants.ANNOTATION_INCLUDES_HINT_PREFIX]). [ownerModuleId] is a plain dotted
+     * FqName, already known to the caller (from a locally-resolved `includes=[...]` reference, or a
+     * previously-decoded edge).
+     *
+     * Returns empty when there is no hint (older producer, or a module that includes nothing) —
+     * degrades to classpath-only resolution, so a missing hint can only cost reachability, never
+     * invent it.
+     */
+    private fun discoverModuleIncludesFromHints(ownerModuleId: String): List<String> =
+        cachedAnnotationModuleIncludes.getOrPut(ownerModuleId) {
+            val hintName = Name.identifier(KoinPluginConstants.annotationIncludesHintFunctionName(ownerModuleId))
+            val prefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
+            val edges = cachedReferenceFunctions(CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName))
+                .flatMap { it.owner.regularParameters }
+                .map { it.name.asString() }
+                .filter { it.startsWith(prefix) }
+                .map { it.removePrefix(prefix).replace('$', '.') }
+                .distinct()
+            if (edges.isNotEmpty()) {
+                KoinPluginLogger.debug { "      includes (annotation cross-module hint): $ownerModuleId -> $edges" }
+            }
+            edges
+        }
+
+    /**
+     * Relay [includedFqName]'s OWN definitions under ITS OWN hint names (`componentscan_<its-id>_*`),
+     * physically compiled as part of the CURRENT (includer) module's hint file — see the call site
+     * in [generateModuleScanHints] for why this is necessary in addition to the includes-edge hint.
+     *
+     * Scope: relays [Definition.ClassDef] and [Definition.ExternalFunctionDef] (component-scanned
+     * classes and top-level functions — covers @ComponentScan-based providers, the common shape).
+     * Does NOT relay [Definition.FunctionDef] (a `@Module`-member function, whose discovery normally
+     * reads the module class's own ABI directly rather than a hint — no relay-able hint form exists
+     * for it yet) or a qualified/funcreqs-carrying [Definition.TopLevelFunctionDef] (only the
+     * unqualified shape is relayed). A provider reached ONLY through one of those two shapes, 2+
+     * `implementation` hops away, is not yet covered — tracked as a follow-up, not silently claimed.
+     *
+     * Deduped compilation-wide: two local modules both including the same far module would otherwise
+     * relay identical hint functions twice — a hard KLIB duplicate-signature clash on native/wasm.
+     */
+    private fun relayIncludedModuleHints(includedFqName: String, into: MutableList<IrSimpleFunction>) {
+        if (!relayedIncludedModuleFqNames.add(includedFqName)) return
+        val result = collectDefinitionsFromDependencyModule(includedFqName)
+        if (result.definitions.isEmpty()) return
+        val sanitizedIncludedId = KoinModuleFirGenerator.sanitizeModuleIdForHint(ClassId.topLevel(FqName(includedFqName)))
+        var relayedCount = 0
+        for (definition in result.definitions) {
+            val defTypeStr = definitionTypeToString(definition.definitionType)
+            val targetClass = definition.returnTypeClass
+            val (bindings, scopeClass, qualifier) = when (definition) {
+                is Definition.ClassDef -> Triple(
+                    definition.bindings, definition.scopeClass,
+                    definition.qualifier ?: qualifierExtractor.extractFromClass(definition.irClass)
+                )
+                is Definition.ExternalFunctionDef -> Triple(definition.bindings, definition.scopeClass, definition.qualifier)
+                else -> continue // FunctionDef / DslDef / qualified-or-carrying TopLevelFunctionDef — see kdoc
+            }
+            val hintName = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedIncludedId, defTypeStr)
+            val func = createHintFunction(hintName, targetClass, bindings, scopeClass, qualifier)
+            if (func != null) {
+                into.add(func)
+                relayedCount++
+            }
+        }
+        if (relayedCount > 0) {
+            KoinPluginLogger.debug { "    + relayed $relayedCount hint(s) from classpath-invisible include $includedFqName (id=$sanitizedIncludedId)" }
+        }
+    }
+
+    /** Compilation-wide dedupe for [relayIncludedModuleHints] — see its kdoc. */
+    private val relayedIncludedModuleFqNames = mutableSetOf<String>()
+
+    /** Memoized per owner id — `referenceFunctions` is invariant within a compile and the includes
+     *  walk can revisit the same module through several paths. */
+    private val cachedAnnotationModuleIncludes = mutableMapOf<String, List<String>>()
 
     private fun discoverModuleFunctionBindingsFromHint(
         moduleIrClass: IrClass,
