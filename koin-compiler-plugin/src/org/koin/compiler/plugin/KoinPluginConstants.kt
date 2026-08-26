@@ -251,22 +251,13 @@ object KoinPluginConstants {
         "$DSL_INCLUDES_HINT_PREFIX${flattenFqNameForHint(ownerModuleId)}"
 
     /**
-     * Prefix for the annotation includes-edge hint — the topology carrier for
-     * `@Module(includes = [...])` when the included class is not on the READER's classpath.
-     *
-     * `@Module(includes=[X::class])` IS ABI, so a direct reader can normally resolve `X::class` by
-     * walking the annotation off the classpath — unlike DSL's `includes()`, which lives in a lambda
-     * body. That resolvability breaks down one hop further: reading X's OWN `includes=[...]`
-     * requires X's included classes to *also* be on the reader's classpath, and Gradle
-     * `implementation` (non-transitive) scoping deliberately hides anything beyond a direct
-     * dependency. X can always resolve its OWN `includes` list in its own compilation — it's a
-     * `KClass` literal array, which wouldn't compile otherwise — so X re-publishes that list as a
-     * hint, the same way [DSL_INCLUDES_HINT_PREFIX] does for DSL `module { includes(...) }`.
-     *
-     * Shape: `annotationincludes_<flattened-owner-fqname>(module_<included-fqname>: Unit, …)` —
-     * reuses [DSL_MODULE_PARAM_PREFIX] for the parameter encoding, so decoding is symmetric with the
-     * DSL carrier. Kept in a separate namespace from `dslincludes_*` since the two graphs are
-     * semantically distinct even where an owner id happens to coincide.
+     * Topology carrier for `@Module(includes = [...])` when the included class isn't on the reader's
+     * classpath (2+ `implementation` hops away). `includes=[X::class]` IS ABI, unlike DSL's lambda-body
+     * `includes()`, but a reader can only resolve `X::class` if X itself is on ITS classpath — the
+     * owner always CAN read its own list (it's a KClass literal array), so it re-publishes it here,
+     * the DSL-carrier analog of [DSL_INCLUDES_HINT_PREFIX]. Shape:
+     * `annotationincludes_<flattened-owner-fqname>(module_<included-fqname>: Unit, …)`, reusing
+     * [DSL_MODULE_PARAM_PREFIX] for the parameter encoding.
      */
     const val ANNOTATION_INCLUDES_HINT_PREFIX = "annotationincludes_"
 
