@@ -66,10 +66,9 @@ class ParameterAnalyzer(
     /**
      * Requirements for a DSL definition's provided class, respecting `providerOnly`.
      *
-     * `providerOnly` (a hand-written `single { X(...) }` lambda) means the plugin never generated
-     * this construction, so the constructor's declared param types aren't guaranteed to be what
-     * actually gets resolved — deriving requirements from them is a guess, not a fact. Centralized
-     * here (not re-derived per call site) since this was independently gotten wrong twice: see
+     * `providerOnly` (a hand-written `single { X(...) }` lambda) means the constructor's declared
+     * param types aren't guaranteed to be what actually gets resolved, so deriving requirements from
+     * them would be a guess. Centralized here since this was independently gotten wrong twice: see
      * dsl_bind_narrowed_dependency_no_false_cycle.kt / cross_module_dsl_bind_narrowed_dependency_no_false_cycle.kt.
      */
     fun requirementsForDslDefinition(irClass: IrClass, providerOnly: Boolean): List<Requirement> =

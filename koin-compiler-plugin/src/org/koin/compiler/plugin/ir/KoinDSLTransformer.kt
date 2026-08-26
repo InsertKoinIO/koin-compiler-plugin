@@ -67,12 +67,10 @@ class KoinDSLTransformer(
      * Every `module { }` val seen in this compilation, whether or not it declares definitions or
      * `includes()` edges.
      *
-     * Needed so hint generation can emit a file for a module that currently contributes NOTHING.
-     * Without it, a module whose last definition or last include is deleted drops out of the hint
-     * groups entirely, no file is written, and the previous compile's class survives — the module
-     * keeps looking populated on an incremental build. That is the orphan-hint failure this project
-     * already hit once with per-definition DSL hints (fixed in 80584c8 by regenerating each module's
-     * file wholesale); regeneration only helps if the file is still written at all.
+     * Needed so hint generation can emit a file for a module that currently contributes NOTHING —
+     * otherwise a module whose last definition/include is deleted drops out of the hint groups
+     * entirely, no file is written, and the previous compile's class survives as an orphan (the
+     * same failure class fixed for per-definition DSL hints in 80584c8).
      */
     private val _allModuleIds = linkedSetOf<String>()
     val allModuleIds: Set<String> get() = _allModuleIds
@@ -84,9 +82,8 @@ class KoinDSLTransformer(
      * Set when any `modules(...)` / `includes(...)` argument could not be resolved to a `Module` val
      * — a list variable, a spread, a function call, a conditional.
      *
-     * Reachability is only meaningful over a COMPLETE topology. With an unresolved argument the
-     * loaded set is unknown, so consumers must fail OPEN (verify nothing) instead of treating what
-     * they did resolve as the whole truth. See [resolveModuleReferences].
+     * Reachability is only meaningful over a COMPLETE topology, so an unresolved argument makes
+     * consumers fail OPEN (verify nothing) rather than trust a partial set. See [resolveModuleReferences].
      */
     private var _entryModulesIncomplete = false
     val entryModulesIncomplete: Boolean get() = _entryModulesIncomplete
@@ -99,10 +96,10 @@ class KoinDSLTransformer(
      * Module vals whose own `includes(...)` had an argument we could not resolve, so their edge set
      * is PARTIAL.
      *
-     * Scoped per module rather than per compilation on purpose. One boolean for the whole transformer
-     * meant a single `includes(makeDebugModule())` anywhere in the Gradle module switched reachability
-     * off for every entry point in it — including production ones in unrelated files. Recorded per
-     * owner, an incomplete module only costs verification when the walk actually reaches it.
+     * Scoped per module rather than per compilation: a single compilation-wide flag would let one
+     * `includes(makeDebugModule())` anywhere switch off reachability for every entry point in it,
+     * including unrelated production ones. Recorded per owner, an incomplete module only costs
+     * verification when the walk actually reaches it.
      */
     private val _modulesWithIncompleteIncludes = linkedSetOf<String>()
     val modulesWithIncompleteIncludes: Set<String> get() = _modulesWithIncompleteIncludes
@@ -392,12 +389,7 @@ class KoinDSLTransformer(
             val outerTypeArg = if (expression.typeArguments.size >= 1) {
                 (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
             } else null
-            val qualifierIndex = callee.regularParameters.indexOfFirst {
-                it.name.asString() == "qualifier"
-            }
-            val outerQualifier = if (qualifierIndex >= 0) {
-                qualifierExtractor.extractFromExpression(expression.getRegularArgument(qualifierIndex))
-            } else null
+            val outerQualifier = extractQualifierArgument(expression, callee)
             transformContext = transformContext.copy(
                 definitionCall = functionName,
                 definitionQualifier = outerQualifier,
@@ -514,23 +506,12 @@ class KoinDSLTransformer(
             val defType = definitionTypeMap[functionName]
             val providedClass = transformedCall.getTypeArgumentCompat(0)?.classifierOrNull?.owner as? IrClass
             if (defType != null && providedClass != null) {
-                val qualifierIndex = callee.regularParameters.indexOfFirst { it.name.asString() == "qualifier" }
-                val outerQualifier = if (qualifierIndex >= 0) {
-                    qualifierExtractor.extractFromExpression(transformedCall.getRegularArgument(qualifierIndex))
-                } else null
-                val qualifier = outerQualifier ?: qualifierExtractor.extractFromClass(providedClass)
+                val qualifier = extractQualifierArgument(transformedCall, callee) ?: qualifierExtractor.extractFromClass(providedClass)
                 trackClassLookup(lookupTracker, currentFile, providedClass)
                 linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
-                _dslDefinitions.add(Definition.DslDef(
-                    irClass = providedClass,
-                    definitionType = defType,
-                    bindings = emptyList(), // DSL: only explicit bind() adds bindings
-                    scopeClass = if (defType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
-                    modulePropertyId = transformContext.modulePropertyId,
-                    providerOnly = true,
-                    qualifier = qualifier,
-                    registrationSourceFile = currentFile
-                ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForDslDefinition(providedClass, providerOnly = true) })
+                _dslDefinitions.add(buildDslDef(providedClass, defType, qualifier, providerOnly = true) {
+                    parameterAnalyzer.requirementsForDslDefinition(providedClass, providerOnly = true)
+                })
                 KoinPluginLogger.user { "Intercepting $functionName<${providedClass.name}> { ... } (provider-only)" }
             }
         }
@@ -561,15 +542,8 @@ class KoinDSLTransformer(
             file.fileEntry.getColumnNumber(expression.startOffset) + 1
         } else 0
 
-        // Hunt for the `parametersOf(...)` call directly in the call-site arguments.
-        // We don't try to locate "the lambda" first because Compose's IR plugin wraps trailing
-        // lambdas passed to @Composable functions in arbitrary scaffolding (remember /
-        // sourceInformationMarker / local IrVariable indirections) that hides the user's lambda
-        // structurally — `koinViewModel<T> { parametersOf(...) }` becomes
-        // `IrBlock { ... val tmp = remember(..., { parametersOf(...) }); ... tmp }` after the
-        // Compose IR plugin runs. Walking the whole expression tree for `parametersOf` is
-        // robust to whatever shape Compose produces and falls back cleanly for non-Composable
-        // call sites (where the top-level arg is already an IrFunctionExpression).
+        // Walk the whole arg tree rather than locating "the lambda" first — Compose's IR plugin
+        // buries a Composable's trailing lambda inside scaffolding (see findParametersOfCall).
         var parametersOfCall: IrCall? = null
         for (i in 0 until expression.regularArgumentsCount) {
             val arg = expression.getRegularArgument(i) ?: continue
@@ -604,16 +578,6 @@ class KoinDSLTransformer(
         linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
     }
 
-    /**
-     * Extract `parametersOf(arg0, arg1, …)` args from the body of a trailing lambda. Returns:
-     *  - non-null list when the body is a single (possibly returned) `parametersOf(...)` call.
-     *    Each entry carries the arg's classifier FqName + nullability for shape comparison.
-     *  - `null` when the lambda body is anything else (non-trivial: `{ buildHolder() }`,
-     *    conditional, multi-statement) — treated as ambiguous downstream so we don't false-
-     *    positive KOIN-D005 on hand-written param builders.
-     *
-     * Strict by design — matches the `unsafeDslChecks` posture used elsewhere in the plugin.
-     */
     /**
      * Walk an arbitrary expression tree looking for the first `parametersOf(...)` call.
      *
@@ -665,6 +629,16 @@ class KoinDSLTransformer(
         return null
     }
 
+    /**
+     * Extract `parametersOf(arg0, arg1, …)` args from the body of a trailing lambda. Returns:
+     *  - non-null list when the body is a single (possibly returned) `parametersOf(...)` call.
+     *    Each entry carries the arg's classifier FqName + nullability for shape comparison.
+     *  - `null` when the lambda body is anything else (non-trivial: `{ buildHolder() }`,
+     *    conditional, multi-statement) — treated as ambiguous downstream so we don't false-
+     *    positive KOIN-D005 on hand-written param builders.
+     *
+     * Strict by design — matches the `unsafeDslChecks` posture used elsewhere in the plugin.
+     */
     private fun extractParametersOfArgs(
         call: IrCall,
     ): List<BindingRegistry.Companion.ParametersOfArg>? {
@@ -820,13 +794,12 @@ class KoinDSLTransformer(
     /**
      * Resolve the module vals referenced by a `modules(...)` / `includes(...)` call.
      *
-     * Any argument we cannot resolve to a `Module`-typed property marks the topology INCOMPLETE
-     * ([moduleTopologyIncomplete]). That distinction matters: an unresolved argument means we do not
-     * know the full loaded set, and treating a partial set as authoritative turns correct code into
-     * errors. `modules(listOf(appModule, coreModule))` used to record the LIST property as the loaded
-     * module, leaving the real modules "unreachable" — historically two harmless KOIN-W001s, but once
-     * call-site validation began withholding unreachable-only types it became a KOIN-D002 build
-     * failure on a valid graph. Regression test: `entry_modules_list_variable_ok.kt`.
+     * Any argument we cannot resolve to a `Module`-typed property marks [ResolvedModules.complete]
+     * false — treating a partial result as the whole loaded set turns correct code into errors.
+     * Regression: `modules(listOf(appModule, coreModule))` used to record the LIST property as the
+     * loaded module, leaving the real modules "unreachable"; once call-site validation began
+     * withholding unreachable-only types that became a KOIN-D002 on a valid graph. See
+     * `entry_modules_list_variable_ok.kt`.
      */
     private fun resolveModuleReferences(call: IrCall): ResolvedModules {
         val result = mutableListOf<String>()
@@ -951,15 +924,7 @@ class KoinDSLTransformer(
         // Collect DSL definition for safety validation
         val defType = definitionTypeMap[functionName]
         if (defType != null && compileSafetyEnabled) {
-            _dslDefinitions.add(Definition.DslDef(
-                irClass = targetClass,
-                definitionType = defType,
-                bindings = emptyList(), // DSL: only explicit bind() adds bindings (no auto-bind like annotations)
-                scopeClass = if (defType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
-                modulePropertyId = transformContext.modulePropertyId,
-                qualifier = qualifier,
-                registrationSourceFile = currentFile
-            ).attachA3Metadata(targetClass) { parameterAnalyzer.requirementsForClass(targetClass) })
+            _dslDefinitions.add(buildDslDef(targetClass, defType, qualifier) { parameterAnalyzer.requirementsForClass(targetClass) })
         }
 
         val receiverClassName = receiverClassifier.name.asString()
@@ -1029,20 +994,11 @@ class KoinDSLTransformer(
         val targetClass = when (referencedFunction) {
             is IrConstructor -> referencedFunction.parent as? IrClass
             is IrSimpleFunction -> referencedFunction.returnType.classifierOrNull?.owner as? IrClass
-            else -> null
         } ?: return
         trackClassLookup(lookupTracker, currentFile, targetClass)
         linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
         val qualifier = qualifierExtractor.extractFromClass(targetClass)
-        _dslDefinitions.add(Definition.DslDef(
-            irClass = targetClass,
-            definitionType = defType,
-            bindings = emptyList(), // DSL: only explicit bind() adds bindings
-            scopeClass = if (defType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
-            modulePropertyId = transformContext.modulePropertyId,
-            qualifier = qualifier,
-            registrationSourceFile = currentFile
-        ).attachA3Metadata(targetClass) { requirementsFor(referencedFunction) })
+        _dslDefinitions.add(buildDslDef(targetClass, defType, qualifier) { requirementsFor(referencedFunction) })
         KoinPluginLogger.user { "Intercepting ${expression.symbol.owner.name}(::${targetClass.name})" }
     }
 
@@ -1056,7 +1012,34 @@ class KoinDSLTransformer(
     private fun requirementsFor(referencedFunction: IrFunction): List<Requirement> = when (referencedFunction) {
         is IrConstructor -> parameterAnalyzer.analyzeConstructor(referencedFunction)
         is IrSimpleFunction -> parameterAnalyzer.analyzeFunction(referencedFunction)
-        else -> emptyList()
+    }
+
+    /**
+     * Build a DslDef for [providedClass] under the current [transformContext] (scope/module id),
+     * with A3 metadata attached. Shared shape for every DSL definition collection site in this file.
+     */
+    private fun buildDslDef(
+        providedClass: IrClass,
+        defType: DefinitionType,
+        qualifier: QualifierValue?,
+        providerOnly: Boolean = false,
+        requirements: () -> List<Requirement>,
+    ): Definition.DslDef = Definition.DslDef(
+        irClass = providedClass,
+        definitionType = defType,
+        bindings = emptyList(), // DSL: only explicit bind() adds bindings
+        scopeClass = if (defType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
+        modulePropertyId = transformContext.modulePropertyId,
+        providerOnly = providerOnly,
+        qualifier = qualifier,
+        registrationSourceFile = currentFile
+    ).attachA3Metadata(providedClass, requirements)
+
+    /** Resolve the `qualifier` value argument (by parameter name) of a Koin DSL definition call, if present. */
+    private fun extractQualifierArgument(call: IrCall, callee: IrSimpleFunction): QualifierValue? {
+        val qualifierIndex = callee.regularParameters.indexOfFirst { it.name.asString() == "qualifier" }
+        if (qualifierIndex < 0) return null
+        return qualifierExtractor.extractFromExpression(call.getRegularArgument(qualifierIndex))
     }
 
     /**
@@ -1094,15 +1077,7 @@ class KoinDSLTransformer(
                 val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] }
                 val providedClass = transformContext.definitionCallTypeArg ?: targetClass
                 if (enclosingDefType != null && compileSafetyEnabled) {
-                    _dslDefinitions.add(Definition.DslDef(
-                        irClass = providedClass,
-                        definitionType = enclosingDefType,
-                        bindings = emptyList(), // DSL: only explicit bind() adds bindings (no auto-bind like annotations)
-                        scopeClass = if (enclosingDefType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
-                        modulePropertyId = transformContext.modulePropertyId,
-                        qualifier = classQualifier,
-                        registrationSourceFile = currentFile
-                    ).attachA3Metadata(providedClass) { requirementsFor(referencedFunction) })
+                    _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, classQualifier) { requirementsFor(referencedFunction) })
                 }
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${providedClass.name}" }
@@ -1134,15 +1109,7 @@ class KoinDSLTransformer(
                 if (enclosingDefType != null && compileSafetyEnabled && providedClass != null) {
                     trackClassLookup(lookupTracker, currentFile, providedClass)
                     linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
-                    _dslDefinitions.add(Definition.DslDef(
-                        irClass = providedClass,
-                        definitionType = enclosingDefType,
-                        bindings = emptyList(), // DSL: only explicit bind() adds bindings
-                        scopeClass = if (enclosingDefType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
-                        modulePropertyId = transformContext.modulePropertyId,
-                        qualifier = funcQualifier,
-                        registrationSourceFile = currentFile
-                    ).attachA3Metadata(providedClass) { requirementsFor(referencedFunction) })
+                    _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, funcQualifier) { requirementsFor(referencedFunction) })
                 }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"

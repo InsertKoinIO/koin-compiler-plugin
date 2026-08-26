@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.CallableId
@@ -40,28 +41,33 @@ class DslHintGenerator(
     /** Matches a requirement hint param name `req<index>_<originalParamName>` — see [buildDslHintFunction]. */
     private val REQ_PARAM_NAME = Regex("^req\\d+_(.+)$")
 
+    /** Build one value parameter, parented to [function]. Shared boilerplate for synthetic hint functions. */
+    private fun newValueParameter(function: IrSimpleFunction, name: Name, type: IrType): IrValueParameter =
+        context.irFactory.createValueParameter(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = name,
+            type = type,
+            isAssignable = false,
+            symbol = IrValueParameterSymbolImpl(),
+            kind = IrParameterKind.Regular,
+            varargElementType = null,
+            isCrossinline = false,
+            isNoinline = false,
+            isHidden = false
+        ).also { it.parent = function }
+
     /**
-     * Generate DSL definition hint functions for cross-module discovery.
-     * For each DSL definition (single<T>, factory<T>, etc.), generates a hint function
-     * in org.koin.plugin.hints that encodes the provided type.
+     * Emit DSL definition hints for cross-module discovery, batched ONE FILE PER MODULE (keyed by
+     * [Definition.DslDef.modulePropertyId], falling back to the source file). Downstream modules
+     * discover these via `context.referenceFunctions(dsl_<type>)`.
      *
-     * Downstream modules discover these via context.referenceFunctions(dsl_<type>).
-     */
-    /**
-     * Emit DSL definition hints for cross-module discovery, batched ONE FILE PER MODULE.
-     *
-     * Orphan-hint fix: previously this emitted one synthetic file PER DEFINITION, named by the
-     * definition's target type. Removing a `single<T>()` left that per-def file's `.class` behind —
-     * IC/build never deleted it — so the removed provider still looked present (silent false green on
-     * an incremental rebuild). Now every DSL definition in the same `module { }` (keyed by
-     * [Definition.DslDef.modulePropertyId], falling back to its source file) is batched into ONE
-     * stable-named file `koin_dsl_hints_<module>.kt`, regenerated wholesale each compile — exactly how
-     * the annotation module-scan hints (`koin_hints_<moduleId>.kt`) already work, which is why they
-     * never orphan. A removed definition simply isn't in the regenerated file, and the single class is
-     * overwritten, so no stale per-def class can survive.
-     *
-     * Function shape is unchanged (generic `dsl_<defType>` names → same-signature-distinct overloads
-     * within the file), so [discoverDslDefinitionsFromHints] finds them by name exactly as before.
+     * Orphan-hint fix: this used to emit one file PER DEFINITION, so removing a `single<T>()` left
+     * its `.class` behind — IC never deleted it, a silent false green on an incremental rebuild.
+     * Batching into one file per module, regenerated wholesale each compile, means a removed
+     * definition is simply absent from the regenerated file — mirrors how the annotation
+     * module-scan hints (`koin_hints_<moduleId>.kt`) already work.
      */
     fun generateDslDefinitionHints(
         moduleFragment: IrModuleFragment,
@@ -189,234 +195,124 @@ class DslHintGenerator(
     /** Build one DSL hint function encoding a definition (contributed type + bindings + moduleId +
      *  providerOnly + qualifier). Returns null when the target type has no resolvable FqName. */
     private fun buildDslHintFunction(def: Definition.DslDef): IrSimpleFunction? {
-            val targetClass = def.returnTypeClass
-            targetClass.fqNameWhenAvailable ?: return null
+        val targetClass = def.returnTypeClass
+        targetClass.fqNameWhenAvailable ?: return null
 
-            val defTypeString = when (def.definitionType) {
-                DefinitionType.SINGLE -> KoinPluginConstants.DEF_TYPE_SINGLE
-                DefinitionType.FACTORY -> KoinPluginConstants.DEF_TYPE_FACTORY
-                DefinitionType.SCOPED -> KoinPluginConstants.DEF_TYPE_SCOPED
-                DefinitionType.VIEW_MODEL -> KoinPluginConstants.DEF_TYPE_VIEWMODEL
-                DefinitionType.WORKER -> KoinPluginConstants.DEF_TYPE_WORKER
-            }
-            val hintName = KoinModuleFirGenerator.dslDefinitionHintFunctionName(defTypeString)
+        val defTypeString = when (def.definitionType) {
+            DefinitionType.SINGLE -> KoinPluginConstants.DEF_TYPE_SINGLE
+            DefinitionType.FACTORY -> KoinPluginConstants.DEF_TYPE_FACTORY
+            DefinitionType.SCOPED -> KoinPluginConstants.DEF_TYPE_SCOPED
+            DefinitionType.VIEW_MODEL -> KoinPluginConstants.DEF_TYPE_VIEWMODEL
+            DefinitionType.WORKER -> KoinPluginConstants.DEF_TYPE_WORKER
+        }
+        val hintName = KoinModuleFirGenerator.dslDefinitionHintFunctionName(defTypeString)
 
-            // Build the IR function
-            val function = context.irFactory.createSimpleFunction(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = hintName,
-                visibility = DescriptorVisibilities.PUBLIC,
-                isInline = false,
-                isExpect = false,
-                returnType = context.irBuiltIns.unitType,
-                modality = Modality.FINAL,
-                symbol = IrSimpleFunctionSymbolImpl(),
-                isTailrec = false,
-                isSuspend = false,
-                isOperator = false,
-                isInfix = false,
-                isExternal = false,
-                containerSource = null,
-                isFakeOverride = false
-            )
+        val function = context.irFactory.createSimpleFunction(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = hintName,
+            visibility = DescriptorVisibilities.PUBLIC,
+            isInline = false,
+            isExpect = false,
+            returnType = context.irBuiltIns.unitType,
+            modality = Modality.FINAL,
+            symbol = IrSimpleFunctionSymbolImpl(),
+            isTailrec = false,
+            isSuspend = false,
+            isOperator = false,
+            isInfix = false,
+            isExternal = false,
+            containerSource = null,
+            isFakeOverride = false
+        )
 
-            // Add parameter with the target class type (erased to raw form for generics — see #18)
-            val params = mutableListOf<IrValueParameter>()
-            val contributedParam = context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier("contributed"),
-                type = targetClass.hintParameterType(context),
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            )
-            contributedParam.parent = function
-            params.add(contributedParam)
+        // Target class type erased to raw form for generics — see #18.
+        val contributedParam = newValueParameter(function, Name.identifier("contributed"), targetClass.hintParameterType(context))
 
-            // Add binding types as additional parameters
-            for ((bindingIndex, binding) in def.bindings.withIndex()) {
-                val bindingParam = context.irFactory.createValueParameter(
-                    startOffset = UNDEFINED_OFFSET,
-                    endOffset = UNDEFINED_OFFSET,
-                    origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier("binding$bindingIndex"),
-                    type = binding.hintParameterType(context),
-                    isAssignable = false,
-                    symbol = IrValueParameterSymbolImpl(),
-                    kind = IrParameterKind.Regular,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    isNoinline = false,
-                    isHidden = false
-                )
-                bindingParam.parent = function
-                params.add(bindingParam)
-            }
+        val params = mutableListOf(contributedParam)
+        params += buildBindingParams(function, def.bindings)
+        // The definition's own REAL requirement types (req$i), not a guess re-derived from
+        // targetClass's constructor — see [buildRequirementParams].
+        params += buildRequirementParams(function, def.requirements)
+        // Cross-module reachability marker.
+        def.modulePropertyId?.let { params += buildModuleIdParam(function, it) }
+        // create(::function) definitions.
+        if (def.providerOnly) params += newValueParameter(function, Name.identifier("providerOnly"), context.irBuiltIns.unitType)
+        buildQualifierParam(function, def.qualifier)?.let { params += it }
 
-            // Encode the definition's own REAL requirement types (req$i) instead of leaving the
-            // consumer to re-derive them by guessing from targetClass's constructor — wrong for
-            // providerOnly and for create(::function), where the referenced function's params
-            // (not the return type's constructor) are the real dependencies. reqsEncoded marks
-            // "zero requirements, correctly encoded" vs. an old hint with no requirement info; see
-            // discoverDslDefinitionsFromHints. A requirement with no resolvable ClassId is dropped.
-            val reqsEncodedParam = context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier("reqsEncoded"),
-                type = context.irBuiltIns.unitType,
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            )
-            reqsEncodedParam.parent = function
-            params.add(reqsEncodedParam)
-            var reqIndex = 0
-            for (req in def.requirements) {
-                val reqClassId = req.typeKey.classId ?: continue
-                val reqClass = context.referenceClass(reqClassId)?.owner ?: continue
-                val reqParam = context.irFactory.createValueParameter(
-                    startOffset = UNDEFINED_OFFSET,
-                    endOffset = UNDEFINED_OFFSET,
-                    origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier("req${reqIndex}_${req.paramName}"),
-                    type = reqClass.hintParameterType(context),
-                    isAssignable = false,
-                    symbol = IrValueParameterSymbolImpl(),
-                    kind = IrParameterKind.Regular,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    isNoinline = false,
-                    isHidden = false
-                )
-                reqParam.parent = function
-                params.add(reqParam)
-                reqIndex++
-            }
+        function.parameters = params
 
-            // Encode modulePropertyId as a Unit-typed parameter (cross-module reachability)
-            val moduleId = def.modulePropertyId
-            if (moduleId != null) {
-                val moduleParam = context.irFactory.createValueParameter(
-                    startOffset = UNDEFINED_OFFSET,
-                    endOffset = UNDEFINED_OFFSET,
-                    origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier("${KoinPluginConstants.DSL_MODULE_PARAM_PREFIX}${moduleId.replace('.', '$')}"),
-                    type = context.irBuiltIns.unitType,
-                    isAssignable = false,
-                    symbol = IrValueParameterSymbolImpl(),
-                    kind = IrParameterKind.Regular,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    isNoinline = false,
-                    isHidden = false
-                )
-                moduleParam.parent = function
-                params.add(moduleParam)
-            }
+        // Empty body (stub — hint functions are never called)
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
 
-            // Encode providerOnly flag (create(::function) definitions)
-            if (def.providerOnly) {
-                val providerOnlyParam = context.irFactory.createValueParameter(
-                    startOffset = UNDEFINED_OFFSET,
-                    endOffset = UNDEFINED_OFFSET,
-                    origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier("providerOnly"),
-                    type = context.irBuiltIns.unitType,
-                    isAssignable = false,
-                    symbol = IrValueParameterSymbolImpl(),
-                    kind = IrParameterKind.Regular,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    isNoinline = false,
-                    isHidden = false
-                )
-                providerOnlyParam.parent = function
-                params.add(providerOnlyParam)
-            }
+        // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
+        function.addDeprecatedHiddenAnnotation(context)
 
-            // Encode qualifier (same pattern as annotation hints)
-            val defQualifier = def.qualifier
-            when (defQualifier) {
-                is QualifierValue.StringQualifier -> {
-                    // String qualifier: "qualifier_<name>" with Unit type
-                    val qualifierParam = context.irFactory.createValueParameter(
-                        startOffset = UNDEFINED_OFFSET,
-                        endOffset = UNDEFINED_OFFSET,
-                        origin = IrDeclarationOrigin.DEFINED,
-                        name = Name.identifier("qualifier_${KoinPluginConstants.sanitizeQualifierName(defQualifier.name)}"),
-                        type = context.irBuiltIns.unitType,
-                        isAssignable = false,
-                        symbol = IrValueParameterSymbolImpl(),
-                        kind = IrParameterKind.Regular,
-                        varargElementType = null,
-                        isCrossinline = false,
-                        isNoinline = false,
-                        isHidden = false
-                    )
-                    qualifierParam.parent = function
-                    params.add(qualifierParam)
-                }
-                is QualifierValue.TypeQualifier -> {
-                    // Type qualifier: "qualifierType" with the qualifier class type
-                    val qualifierParam = context.irFactory.createValueParameter(
-                        startOffset = UNDEFINED_OFFSET,
-                        endOffset = UNDEFINED_OFFSET,
-                        origin = IrDeclarationOrigin.DEFINED,
-                        name = Name.identifier("qualifierType"),
-                        type = defQualifier.irClass.defaultType,
-                        isAssignable = false,
-                        symbol = IrValueParameterSymbolImpl(),
-                        kind = IrParameterKind.Regular,
-                        varargElementType = null,
-                        isCrossinline = false,
-                        isNoinline = false,
-                        isHidden = false
-                    )
-                    qualifierParam.parent = function
-                    params.add(qualifierParam)
-                }
-                null -> {}
-            }
+        return function
+    }
 
-            function.parameters = params
+    private fun buildBindingParams(function: IrSimpleFunction, bindings: List<IrClass>): List<IrValueParameter> =
+        bindings.mapIndexed { index, binding ->
+            newValueParameter(function, Name.identifier("binding$index"), binding.hintParameterType(context))
+        }
 
-            // Empty body (stub — hint functions are never called)
-            function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+    /**
+     * Encode a definition's own requirement types (req0, req1, …) behind a `reqsEncoded` marker,
+     * so a consumer discovers the REAL dependencies instead of re-deriving them by guessing from
+     * the provided class's constructor — wrong for providerOnly and for create(::function), where
+     * the referenced function's params (not the return type's constructor) are the real deps.
+     * `reqsEncoded` distinguishes "zero requirements, correctly encoded" from an old hint with no
+     * requirement info at all — see [discoverDslDefinitionsFromHints]. A requirement whose type has
+     * no resolvable ClassId is dropped, and the index only advances for requirements actually kept.
+     */
+    private fun buildRequirementParams(function: IrSimpleFunction, requirements: List<Requirement>): List<IrValueParameter> {
+        val params = mutableListOf(newValueParameter(function, Name.identifier("reqsEncoded"), context.irBuiltIns.unitType))
+        var reqIndex = 0
+        for (req in requirements) {
+            val reqClassId = req.typeKey.classId ?: continue
+            val reqClass = context.referenceClass(reqClassId)?.owner ?: continue
+            params += newValueParameter(function, Name.identifier("req${reqIndex}_${req.paramName}"), reqClass.hintParameterType(context))
+            reqIndex++
+        }
+        return params
+    }
 
-            // Mark as @Deprecated(HIDDEN) to prevent ObjC export crashes on Native targets
-            function.addDeprecatedHiddenAnnotation(context)
+    /** Unit-typed marker `module_<id with . → $>` — cross-module reachability, shared with [buildDslIncludesHintFunction]. */
+    private fun buildModuleIdParam(function: IrSimpleFunction, moduleId: String): IrValueParameter =
+        newValueParameter(
+            function,
+            Name.identifier("${KoinPluginConstants.DSL_MODULE_PARAM_PREFIX}${moduleId.replace('.', '$')}"),
+            context.irBuiltIns.unitType
+        )
 
-            return function
+    /** Encode qualifier the same way the annotation hints do: string qualifier as a Unit-typed
+     *  marker name, type qualifier as a param typed with the qualifier class itself. */
+    private fun buildQualifierParam(function: IrSimpleFunction, qualifier: QualifierValue?): IrValueParameter? = when (qualifier) {
+        is QualifierValue.StringQualifier -> newValueParameter(
+            function,
+            Name.identifier("qualifier_${KoinPluginConstants.sanitizeQualifierName(qualifier.name)}"),
+            context.irBuiltIns.unitType
+        )
+        is QualifierValue.TypeQualifier -> newValueParameter(
+            function,
+            Name.identifier("qualifierType"),
+            qualifier.irClass.defaultType
+        )
+        null -> null
     }
 
     /**
      * Build the includes-edge hint for one module val — the DSL topology carrier.
      *
      * `module { includes(a, b) }` records its membership in a LAMBDA BODY, which never reaches the
-     * ABI, so a consumer compiling against this module cannot see the edge. This hint re-exposes it
-     * as a declaration: `dslincludes_<flattened-owner-id>(module_<a>: Unit, module_<b>: Unit)`.
+     * ABI, so this re-exposes it as a declaration: `dslincludes_<flattened-owner-id>(module_<a>: Unit,
+     * module_<b>: Unit)`. The owner id lives in the function NAME rather than a parameter — every
+     * parameter here is `Unit`-typed, so two module vals with the same include count would otherwise
+     * get an identical descriptor and clash on JVM, and hard-fail KLIB (native/wasm) serialization.
      *
-     * The owner id lives in the function NAME rather than a parameter, which is what keeps signatures
-     * unique — every parameter here is `Unit`-typed, so two module vals with the same number of
-     * includes would otherwise produce an identical descriptor and clash on JVM and, more sharply, on
-     * KLIB (native/wasm) where duplicate signatures are a hard serialization error.
-     *
-     * Returns null when the module includes nothing, so no empty hint is emitted — unless
-     * [emitWhenEmpty] is set, which produces the zero-parameter keep-alive form used to stop a
-     * now-empty module's hint file from orphaning (see the call site).
+     * Returns null when the module includes nothing — unless [emitWhenEmpty], the zero-parameter
+     * keep-alive form that stops a now-empty module's hint file from orphaning (see the call site).
      */
     private fun buildDslIncludesHintFunction(
         ownerModuleId: String,
@@ -448,45 +344,16 @@ class DslHintGenerator(
             isFakeOverride = false
         )
 
-        // One Unit-typed parameter per included module, using the same `module_<id with . → $>`
-        // encoding the definition hints already use for modulePropertyId, so decoding is symmetric.
-        // Marker: this module's includes() had an argument the producer could not read, so the edge
-        // list below is PARTIAL. Without it the consumer treats a partial list as authoritative and
-        // reports everything beyond it unreachable — a false KOIN-D001/D002/W001 on a graph that is
-        // correct at runtime. Incompleteness has to cross the module boundary with the edges.
-        val markerParams = if (incomplete) listOf(
-            context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier(KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER),
-                type = context.irBuiltIns.unitType,
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            ).also { it.parent = function }
-        ) else emptyList()
+        // One marker per included module, using the same `module_<id with . → $>` encoding the
+        // definition hints use for modulePropertyId, so decoding is symmetric (buildModuleIdParam).
+        // The incomplete marker means this module's own includes() had an unreadable argument, so
+        // the edge list below is PARTIAL — without it the consumer would treat it as authoritative
+        // and report everything beyond it unreachable (a false KOIN-D001/D002/W001).
+        val markerParams = if (incomplete) {
+            listOf(newValueParameter(function, Name.identifier(KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER), context.irBuiltIns.unitType))
+        } else emptyList()
 
-        function.parameters = markerParams + included.map { includedId ->
-            context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier("${KoinPluginConstants.DSL_MODULE_PARAM_PREFIX}${includedId.replace('.', '$')}"),
-                type = context.irBuiltIns.unitType,
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            ).also { it.parent = function }
-        }
+        function.parameters = markerParams + included.map { includedId -> buildModuleIdParam(function, includedId) }
 
         function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
         // @Deprecated(HIDDEN) — same reason as the definition hints: keeps these out of ObjC export.
@@ -563,20 +430,18 @@ class DslHintGenerator(
         types
     }
 
-    /**
-     * Read the `includes()` edges a module val declares, from its cross-module includes hint.
-     *
-     * This is the decode half of the DSL topology carrier. The caller already knows [ownerModuleId]
-     * (it came from `modules(...)` at the entry point, or from a previously-decoded edge), so the
-     * hint name is reconstructed rather than enumerated.
-     *
-     * Returns empty when there is no hint — a dependency built by an older plugin, or a module that
-     * includes nothing. That degrades exactly to the pre-carrier behavior (fewer modules considered
-     * reachable), so a missing hint can only ever cost reachability, never invent it.
-     */
     /** Edges a dependency declared, plus whether that list is known to be PARTIAL. */
     data class ModuleIncludes(val edges: List<String>, val incomplete: Boolean)
 
+    /**
+     * Read the `includes()` edges a module val declares, from its cross-module includes hint —
+     * the decode half of the DSL topology carrier. [ownerModuleId] is already known to the caller
+     * (from `modules(...)` at the entry point, or a previously-decoded edge), so the hint name is
+     * reconstructed rather than enumerated.
+     *
+     * Returns empty when there is no hint (older producer, or a module that includes nothing) —
+     * degrades to the pre-carrier behavior, so a missing hint can only cost reachability, never invent it.
+     */
     fun discoverModuleIncludesFromHints(ownerModuleId: String): ModuleIncludes =
         cachedModuleIncludes.getOrPut(ownerModuleId) {
             val hintName = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId))
@@ -625,17 +490,19 @@ class DslHintGenerator(
                 val params = hintFunc.regularParameters
                 if (params.isEmpty()) continue
 
-                // First param is the concrete type, remaining are bindings
-                val targetClass = (params[0].type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                // First param is the concrete type, remaining are bindings (name-prefixed
+                // "binding$i" — see buildBindingParams). Deliberately an ALLOW-list, not a deny-list
+                // of the other known param kinds: a consumer built before some future param kind is
+                // added must still parse correctly, treating anything it doesn't recognize as "not a
+                // binding" rather than misreading it as one. This bit a real case once already: a
+                // consumer on a plugin older than the req$i requirement params (below) had no reason
+                // to exclude them, so it silently misread each dependency as an extra binding —
+                // definitions appeared to PROVIDE their own dependencies, masking a real missing one.
                 val modulePrefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
                 val qualifierPrefix = "qualifier_"
                 val reqPrefix = "req"
-                val metaParamNames = setOf("providerOnly", "qualifierType", "reqsEncoded")
                 val bindings = params.drop(1)
-                    .filter { val name = it.name.asString()
-                        !name.startsWith(modulePrefix) && !name.startsWith(qualifierPrefix) &&
-                            !name.startsWith(reqPrefix) && name !in metaParamNames
-                    }
+                    .filter { it.name.asString().startsWith("binding") }
                     .mapNotNull { param ->
                         (param.type.classifierOrNull as? IrClassSymbol)?.owner
                     }
@@ -659,11 +526,9 @@ class DslHintGenerator(
                     else -> null
                 }
 
-                // Prefer the REAL requirement types the producer encoded (req0, req1, … behind the
-                // reqsEncoded marker) over guessing from targetClass's constructor, which is wrong
-                // whenever this definition wasn't literally "call targetClass's own primary
-                // constructor" (providerOnly, or create(::function)). Falls back to the old guess
-                // only for a hint from a producer module not yet rebuilt with this fix.
+                // Prefer the REAL requirement types the producer encoded (see buildRequirementParams)
+                // over guessing from targetClass's constructor. Falls back to the guess only for a
+                // hint from a producer module not yet rebuilt with this fix.
                 val reqsEncoded = params.any { it.name.asString() == "reqsEncoded" }
                 val requirements = if (reqsEncoded) {
                     params.filter { it.name.asString().startsWith(reqPrefix) && it.name.asString() != "reqsEncoded" }

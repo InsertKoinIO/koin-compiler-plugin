@@ -406,32 +406,18 @@ class BindingRegistry {
                     KoinPluginLogger.debug { "      WITHHELD '${req.paramName}': ${req.typeKey.render()} — topology unknown, not reported as KOIN-D001" }
                 } else {
                     KoinPluginLogger.debug { "      MISSING '${req.paramName}': ${req.typeKey.render()}  [culprit ${def.origin?.let { "${it.filePath?.substringAfterLast('/') ?: it.moduleFqName ?: "?"}:${it.line ?: "?"}" } ?: definitionDisplayName(def)}]" }
-                    // Attribute to the definition's OWN owner whenever we can derive one, not the
-                    // generic validation-context moduleName. This matters far more once A3 is the
-                    // sole verifier (no per-module A2 pass): every def, of every kind, then reaches
-                    // here through ONE call with a single generic moduleName (the app/entry-point
-                    // label) — without this, EVERY missing-dependency error in a multi-module app
-                    // would misattribute to the app root instead of the culprit's own module.
-                    //   - DslDef: its `module { }` val (modulePropertyId) — a real Kotlin identifier.
-                    //   - FunctionDef: its owning @Module class — equally precise, always available.
-                    //   - Everything else (ClassDef/TopLevelFunctionDef/ExternalFunctionDef, incl.
-                    //     cross-module KLIB symbols): no direct "owning module" back-reference
-                    //     exists, so fall back to the definition's own source package (def.origin,
-                    //     best-effort — null for genuinely cross-module symbols with no IR file,
-                    //     where the generic moduleName is the best information available).
+                    // Attribute to the definition's OWN owner, not the generic moduleName — otherwise
+                    // every missing-dependency error in a multi-module app would misattribute to the
+                    // app root instead of the actual culprit's module.
                     val owningModule = when {
                         def is Definition.DslDef && def.modulePropertyId != null -> def.modulePropertyId
                         def is Definition.FunctionDef -> def.moduleInstance.fqNameWhenAvailable?.asString() ?: moduleName
-                        // Root-package files (common in tests) yield an EMPTY moduleFqName, not
-                        // null — SourceOrigin.of derives it from packageFqName.asString(), which
-                        // is "" for the root package. `?:` alone only catches null, so a blank
-                        // result would silently produce "in module: " instead of falling back.
+                        // Root-package files (common in tests) yield an EMPTY moduleFqName, not null —
+                        // `?:` alone only catches null, so a blank result needs takeIf to fall back.
                         else -> def.origin?.moduleFqName?.takeIf { it.isNotBlank() } ?: moduleName
                     }
-                    // Dedup key: (definition, parameter, missing type+qualifier) — deliberately NOT
-                    // including moduleName/owningModule, since the same requirement reached from a
-                    // different root is still the same underlying miss and should collapse to one
-                    // report, not one per root.
+                    // Dedup key omits moduleName/owningModule: the same miss reached from a different
+                    // root is still one underlying miss, not one report per root.
                     val dedupKey = "$defName|${req.paramName}|${req.typeKey.render()}|${qualifierDisplay(req.qualifier)}"
                     if (reportedMissingDeps == null || reportedMissingDeps.add(dedupKey)) {
                         reportMissingDependency(req, defName, owningModule, providedTypes, def.origin?.filePath, def.origin?.line)
@@ -557,17 +543,8 @@ class BindingRegistry {
         providedTypes: Set<ProviderKey>,
         consumerScopeClass: IrClass?
     ): Boolean {
-        val reqFqName = req.typeKey.fqName
-        val reqClassId = req.typeKey.classId
-
         for (provider in providedTypes) {
-            // Type must match (by FqName or ClassId)
-            val typeMatch = when {
-                reqFqName != null && provider.typeKey.fqName != null -> reqFqName == provider.typeKey.fqName
-                reqClassId != null && provider.typeKey.classId != null -> reqClassId == provider.typeKey.classId
-                else -> false
-            }
-            if (!typeMatch) continue
+            if (!typeKeysMatch(req.typeKey, provider.typeKey)) continue
 
             // Qualifier must match
             if (!qualifiersMatch(req.qualifier, provider.qualifier)) {
@@ -604,16 +581,8 @@ class BindingRegistry {
         providedTypes: Set<ProviderKey>,
         consumerScopeClass: IrClass?,
     ): ProviderKey? {
-        val reqFqName = req.typeKey.fqName
-        val reqClassId = req.typeKey.classId
-
         for (provider in providedTypes) {
-            val typeMatch = when {
-                reqFqName != null && provider.typeKey.fqName != null -> reqFqName == provider.typeKey.fqName
-                reqClassId != null && provider.typeKey.classId != null -> reqClassId == provider.typeKey.classId
-                else -> false
-            }
-            if (!typeMatch) continue
+            if (!typeKeysMatch(req.typeKey, provider.typeKey)) continue
             if (!qualifiersMatch(req.qualifier, provider.qualifier)) continue
             val providerScope = provider.scopeClass
             if (providerScope == null) return provider
@@ -622,6 +591,13 @@ class BindingRegistry {
             }
         }
         return null
+    }
+
+    /** Type identity by FqName if both sides have one, else by ClassId. */
+    private fun typeKeysMatch(required: TypeKey, provided: TypeKey): Boolean = when {
+        required.fqName != null && provided.fqName != null -> required.fqName == provided.fqName
+        required.classId != null && provided.classId != null -> required.classId == provided.classId
+        else -> false
     }
 
     private fun qualifiersMatch(required: QualifierValue?, provided: QualifierValue?): Boolean {
@@ -649,14 +625,7 @@ class BindingRegistry {
 
         // Hint: find similar bindings (same type, different qualifier)
         val similarBindings = providedTypes.filter { provider ->
-            val typeMatch = when {
-                req.typeKey.fqName != null && provider.typeKey.fqName != null ->
-                    req.typeKey.fqName == provider.typeKey.fqName
-                req.typeKey.classId != null && provider.typeKey.classId != null ->
-                    req.typeKey.classId == provider.typeKey.classId
-                else -> false
-            }
-            typeMatch && !qualifiersMatch(req.qualifier, provider.qualifier)
+            typeKeysMatch(req.typeKey, provider.typeKey) && !qualifiersMatch(req.qualifier, provider.qualifier)
         }
         val hint: String? = if (similarBindings.isNotEmpty()) {
             buildString {
@@ -713,17 +682,13 @@ class BindingRegistry {
         }
     }
 
-    // The verifier consumes the model: requirements are attached at collection time (the metadata
-    // contract, A3 §2) — a single source of truth, no re-derivation and no classifier drift.
-    // ExternalFunctionDef carries an empty list (provider-only; the Gate-2 carrier fills it).
+    // Requirements are attached at collection time (A3 §2), never re-derived here — a single
+    // source of truth. ExternalFunctionDef carries an empty list until the Gate-2 carrier fills it.
     //
-    // A whole-suite differential against on-demand re-derivation reported 0 mismatches, but that
-    // was a BLIND SPOT, not a proof: the suite had no `bind` + missing-dependency case to differ on.
-    // `single<X>() bind Y::class` rebuilds its definition via copy(), which resets the body-held
-    // requirements, and this bare field read has no fallback — so BOTH consumers below went silent
-    // (KOIN-D001 at :376 and KOIN-D004 cycle detection at :550). Fixed by Definition.retainA3Metadata;
-    // covered by testData/diagnostics/dsl_bind_missing_dependency_d001.kt and its variants. Treat an
-    // unpopulated `requirements` as a bug at the collection site, never as "no requirements".
+    // Regression: `single<X>() bind Y::class` rebuilds its definition via copy(), which used to
+    // reset requirements to empty, silently breaking KOIN-D001/D004 for that definition. Fixed by
+    // Definition.retainA3Metadata; covered by testData/diagnostics/dsl_bind_missing_dependency_d001.kt.
+    // Treat an unpopulated `requirements` as a collection-site bug, never as "no requirements".
     private fun extractRequirements(def: Definition): List<Requirement> = def.requirements
 
     private fun definitionDisplayName(def: Definition): String {
@@ -801,16 +766,8 @@ class BindingRegistry {
         provided: Set<Triple<TypeKey, QualifierValue?, String?>>,
         consumerScopeFqName: String?
     ): Boolean {
-        val reqFqName = req.typeKey.fqName
-        val reqClassId = req.typeKey.classId
-
         for ((providerTypeKey, providerQualifier, providerScopeFqName) in provided) {
-            val typeMatch = when {
-                reqFqName != null && providerTypeKey.fqName != null -> reqFqName == providerTypeKey.fqName
-                reqClassId != null && providerTypeKey.classId != null -> reqClassId == providerTypeKey.classId
-                else -> false
-            }
-            if (!typeMatch) continue
+            if (!typeKeysMatch(req.typeKey, providerTypeKey)) continue
 
             if (!qualifiersMatch(req.qualifier, providerQualifier)) continue
 

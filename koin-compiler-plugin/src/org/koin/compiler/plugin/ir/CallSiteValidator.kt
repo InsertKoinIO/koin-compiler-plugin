@@ -15,6 +15,7 @@ import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
+import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.util.*
@@ -28,6 +29,14 @@ import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
+/** FqNames a definition provides — its own type plus every explicit binding. */
+private fun Definition.providedTypeNames(): List<String> = buildList {
+    returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
+    for (binding in bindings) {
+        binding.fqNameWhenAvailable?.asString()?.let { add(it) }
+    }
+}
+
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 class CallSiteValidator(private val context: IrPluginContext) {
 
@@ -35,22 +44,35 @@ class CallSiteValidator(private val context: IrPluginContext) {
      * Types that ONLY an unreachable DSL module provides, published by the DSL-graph pass
      * (Phase 3.1) for the call-site pass (Phase 3.5) that runs after it.
      *
-     * Constructor-dependency validation resolves against the reachable provider set, but call-site
-     * validation used to build its universe from every definition DECLARED in the compilation. So a
-     * `get<T>()` / `inject<T>()` resolved against a module nobody loads, and the two passes
-     * contradicted each other in one compile: KOIN-W001 reporting the module unreachable, and the
-     * call site reporting OK. Build green, crash at runtime.
+     * Without this, call-site validation built its universe from every definition DECLARED in the
+     * compilation, so `get<T>()` could resolve against a module nobody loads — KOIN-W001 says
+     * unreachable, the call site says OK, build green, crash at runtime.
      *
      * Only types with NO reachable provider land here, so subtracting them can never hide a type
-     * something else supplies. The set stays empty whenever reachability is unknown — a leaf module
-     * with no entry point, or a compile where the DSL-graph pass does not run — which keeps those
-     * compiles exactly as permissive as before. That matters: over-eager call-site errors in leaves
-     * are the false-positive class this whole reshape set out to remove.
+     * something else supplies. Stays empty whenever reachability is unknown (leaf module, no entry
+     * point), keeping those compiles exactly as permissive as before.
      */
     private var unreachableOnlyTypes: Set<String> = emptySet()
 
     /** Set by [validateDslDefinitionGraph] on KOIN-W003; makes [validatePendingCallSites] defer instead of hard KOIN-D002. */
     private var topologyUnverifiable: Boolean = false
+
+    /** Build one value parameter, parented to [function]. Shared boilerplate for synthetic hint functions. */
+    private fun newValueParameter(function: IrSimpleFunction, name: Name, type: IrType): IrValueParameter =
+        context.irFactory.createValueParameter(
+            startOffset = UNDEFINED_OFFSET,
+            endOffset = UNDEFINED_OFFSET,
+            origin = IrDeclarationOrigin.DEFINED,
+            name = name,
+            type = type,
+            isAssignable = false,
+            symbol = IrValueParameterSymbolImpl(),
+            kind = IrParameterKind.Regular,
+            varargElementType = null,
+            isCrossinline = false,
+            isNoinline = false,
+            isHidden = false
+        ).also { it.parent = function }
 
     /**
      * A4: Validate pending call-site resolutions against the assembled graph.
@@ -88,17 +110,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
             addAll(assembledGraphTypes)
             addAll(dslHintTypes)
             // Add DSL definition types + bindings
-            for (def in dslDefinitions) {
-                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
-                for (b in def.bindings) { b.fqNameWhenAvailable?.asString()?.let { add(it) } }
-            }
+            for (def in dslDefinitions) addAll(def.providedTypeNames())
             // When no startKoin/koinConfiguration in this compilation unit,
             // fall back to annotation definitions as known types
             if (!hasFullGraph && annotationProcessor != null) {
-                for (def in annotationProcessor.getAllKnownDefinitions()) {
-                    def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
-                    for (b in def.bindings) { b.fqNameWhenAvailable?.asString()?.let { add(it) } }
-                }
+                for (def in annotationProcessor.getAllKnownDefinitions()) addAll(def.providedTypeNames())
             }
             // Declared is not the same as loaded. Drop the types only an UNREACHABLE module provides
             // (see [unreachableOnlyTypes]) — otherwise a `get<T>()` resolves against a module that
@@ -239,41 +255,14 @@ class CallSiteValidator(private val context: IrPluginContext) {
             )
 
             // Add parameter with the required type (erased to raw form for generics — see #18)
-            val requiredParam = context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier("required"),
-                type = targetClass.hintParameterType(context),
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            )
-            requiredParam.parent = function
+            val requiredParam = newValueParameter(function, Name.identifier("required"), targetClass.hintParameterType(context))
 
             // Carry enough for a clear KOIN-D003 at the consumer (this call site is in a dependency
             // module, so the app can't see its IR expression — only this hint). Encoded as Unit-typed
             // marker params, name-encoded like the DSL module / qualifier markers:
             //   fn_<callFunctionName>       — the resolver (e.g. koinViewModel) → "resolved by: koinViewModel<T>()"
             //   mod_<sanitized-moduleId>    — the dependency's Gradle module id (:feature:home), when known
-            fun marker(markerName: String) = context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier(markerName),
-                type = context.irBuiltIns.unitType,
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            ).also { it.parent = function }
+            fun marker(markerName: String) = newValueParameter(function, Name.identifier(markerName), context.irBuiltIns.unitType)
 
             // Everything below is emitted ONLY in a real Gradle build (koin.moduleId set); golden/CLI
             // compiles have no moduleId, so the `callsite` hint keeps just `required` there — nothing
@@ -369,18 +358,12 @@ class CallSiteValidator(private val context: IrPluginContext) {
         val allKnownTypes = buildSet {
             addAll(assembledGraphTypes)
             // Add local DSL definitions
-            for (def in dslDefinitions) {
-                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
-                for (b in def.bindings) { b.fqNameWhenAvailable?.asString()?.let { add(it) } }
-            }
+            for (def in dslDefinitions) addAll(def.providedTypeNames())
             // Add DSL definition hints from dependencies
             addAll(dslHintGenerator.discoverDslDefinitionTypes())
             // Add annotation definitions
             if (annotationProcessor != null) {
-                for (def in annotationProcessor.getAllKnownDefinitions()) {
-                    def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
-                    for (b in def.bindings) { b.fqNameWhenAvailable?.asString()?.let { add(it) } }
-                }
+                for (def in annotationProcessor.getAllKnownDefinitions()) addAll(def.providedTypeNames())
             }
         }
 
@@ -550,28 +533,15 @@ class CallSiteValidator(private val context: IrPluginContext) {
         // would otherwise resolve `get<T>()` against a module nobody loads. Subtracting the reachable
         // providers first means a type supplied from anywhere else is never withheld.
         unreachableOnlyTypes = buildSet {
-            for (def in unreachableDefs) {
-                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { add(it) }
-                for (binding in def.bindings) {
-                    binding.fqNameWhenAvailable?.asString()?.let { add(it) }
-                }
-            }
-            for (def in providerDefinitions) {
-                def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { remove(it) }
-                for (binding in def.bindings) {
-                    binding.fqNameWhenAvailable?.asString()?.let { remove(it) }
-                }
-            }
+            for (def in unreachableDefs) addAll(def.providedTypeNames())
+            for (def in providerDefinitions) removeAll(def.providedTypeNames())
         }
         if (unreachableOnlyTypes.isNotEmpty()) {
             KoinPluginLogger.debug { "  unreachable-only types (withheld from call sites): $unreachableOnlyTypes" }
         }
 
         for (def in providerDefinitions) {
-            def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { safetyValidator.addAssembledGraphType(it) }
-            for (binding in def.bindings) {
-                binding.fqNameWhenAvailable?.asString()?.let { safetyValidator.addAssembledGraphType(it) }
-            }
+            def.providedTypeNames().forEach { safetyValidator.addAssembledGraphType(it) }
         }
 
         if (errorCount > 0) {
