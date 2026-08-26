@@ -615,7 +615,8 @@ class DslHintGenerator(
                 // requirements, so a downstream entry point never validated a DSL provider's
                 // constructor dependencies (silent false negative — e.g. single<OfflineFirstNewsRepository>()
                 // whose Notifier/NetworkDataSource/NewsResourceDao deps went unchecked at the app root).
-                // Mirrors how the LOCAL DslDef derives requirements (KoinDSLTransformer.attachA3Metadata).
+                // See ParameterAnalyzer.requirementsForDslDefinition for the providerOnly exception
+                // (a hand-written lambda body) and why it's centralized there.
                 definitions.add(Definition.DslDef(
                     irClass = targetClass,
                     definitionType = defType,
@@ -624,7 +625,7 @@ class DslHintGenerator(
                     providerOnly = providerOnly,
                     qualifier = qualifier
                 ).also { def ->
-                    parameterAnalyzer?.let { def.requirements = it.requirementsForClass(targetClass) }
+                    def.requirements = parameterAnalyzer?.requirementsForDslDefinition(targetClass, providerOnly).orEmpty()
                     def.origin = SourceOrigin.of(targetClass)
                 })
             }

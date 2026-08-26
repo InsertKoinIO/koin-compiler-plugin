@@ -505,15 +505,9 @@ class KoinDSLTransformer(
         // the lambda body — register it as an available (provider-only) definition so
         // compile-safety doesn't raise a false missing-definition (issues #36, #49). The call
         // is left untransformed: the user's own lambda constructs the instance, so we only need
-        // T to be visible to the validator, not to introspect/inject its construction.
-        // requirements are deliberately left empty (see below), not derived from T's constructor:
-        // this is hand-written, unsafe DSL — unlike create(::T)/singleOf(::T), the plugin never
-        // generated this lambda's body, so it cannot assume the constructor's declared parameter
-        // types are what the lambda actually resolves. A real-world regression: a decorator whose
-        // constructor param is typed as the interface it also `bind`s, but whose lambda narrows
-        // the actual dependency via `get<Subtype>()` — using the constructor's type produced a
-        // false KOIN-D004 self-cycle (the wrong requirement collapsed onto the definition's own
-        // `bind`-aliased node). See dsl_bind_narrowed_dependency_no_false_cycle.kt.
+        // T to be visible to the validator, not to introspect/inject its construction — hence
+        // providerOnly = true, which keeps requirements empty; see
+        // ParameterAnalyzer.requirementsForDslDefinition for why.
         // Skipped when visiting the lambda already registered a definition (inner create(::T)),
         // so we never emit a duplicate DslDef.
         if (functionName in definitionNames && compileSafetyEnabled &&
@@ -538,7 +532,7 @@ class KoinDSLTransformer(
                     providerOnly = true,
                     qualifier = qualifier,
                     registrationSourceFile = currentFile
-                ).attachA3Metadata(providedClass) { emptyList() })
+                ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForDslDefinition(providedClass, providerOnly = true) })
                 KoinPluginLogger.user { "Intercepting $functionName<${providedClass.name}> { ... } (provider-only)" }
             }
         }
