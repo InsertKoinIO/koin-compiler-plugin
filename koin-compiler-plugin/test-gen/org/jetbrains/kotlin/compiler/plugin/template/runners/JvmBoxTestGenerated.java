@@ -317,6 +317,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_constructor_shorthand_all_types_ok.kt")
+    public void testDsl_constructor_shorthand_all_types_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_constructor_shorthand_all_types_ok.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_create_function.kt")
     public void testDsl_create_function() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_create_function.kt");
@@ -416,6 +422,24 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @TestMetadata("dsl_single_existing_instance.kt")
     public void testDsl_single_existing_instance() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_single_existing_instance.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_singleof_bare_ok.kt")
+    public void testDsl_singleof_bare_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_singleof_bare_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_singleof_chained_bind_ok.kt")
+    public void testDsl_singleof_chained_bind_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_singleof_chained_bind_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_singleof_trailing_bind_ok.kt")
+    public void testDsl_singleof_trailing_bind_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_singleof_trailing_bind_ok.kt");
     }
 
     @Test

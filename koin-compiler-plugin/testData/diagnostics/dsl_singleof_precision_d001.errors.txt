@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: testpkg.Missing
+  required by: dsl:testpkg.NeedsMissing (parameter 'm')
+  in module: testpkg.appModule

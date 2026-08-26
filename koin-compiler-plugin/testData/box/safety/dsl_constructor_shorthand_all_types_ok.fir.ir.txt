@@ -1,0 +1,207 @@
+FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__appModule_1d5d8c3abb4ee773.kt
+  FUN name:dsl_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.FactoryMade
+    VALUE_PARAMETER kind:Regular name:module_appModule index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:dsl_scoped visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ScopedMade
+    VALUE_PARAMETER kind:Regular name:module_appModule index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Repository
+    VALUE_PARAMETER kind:Regular name:module_appModule index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:<root> fileName:/test.kt
+  PROPERTY name:appModule visibility:public modality:FINAL [val]
+    FIELD PROPERTY_BACKING_FIELD name:appModule type:org.koin.core.module.Module visibility:private [final,static]
+      EXPRESSION_BODY
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG moduleDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:$this$module index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+                TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                  CALL 'public final fun singleOf <R> (<this>: org.koin.core.module.Module, constructor: kotlin.Function0<R of org.koin.core.module.dsl.singleOf>, options: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.definition.BeanDefinition<R of org.koin.core.module.dsl.singleOf>, kotlin.Unit>?): org.koin.core.definition.KoinDefinition<R of org.koin.core.module.dsl.singleOf> declared in org.koin.core.module.dsl' type=org.koin.core.definition.KoinDefinition<<root>.Repository> origin=null
+                    TYPE_ARG R: <root>.Repository
+                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in <root>.appModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                    ARG constructor: FUNCTION_REFERENCE 'public constructor <init> () declared in <root>.Repository' type=kotlin.reflect.KFunction0<<root>.Repository> origin=null reflectionTarget=<same>
+                TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                  CALL 'public final fun factoryOf <R, T1> (<this>: org.koin.core.module.Module, constructor: kotlin.Function1<T1 of org.koin.core.module.dsl.factoryOf, R of org.koin.core.module.dsl.factoryOf>, options: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.definition.BeanDefinition<R of org.koin.core.module.dsl.factoryOf>, kotlin.Unit>?): org.koin.core.definition.KoinDefinition<R of org.koin.core.module.dsl.factoryOf> declared in org.koin.core.module.dsl' type=org.koin.core.definition.KoinDefinition<<root>.FactoryMade> origin=null
+                    TYPE_ARG R: <root>.FactoryMade
+                    TYPE_ARG T1: @[ParameterName(name = "repo")] <root>.Repository
+                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in <root>.appModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                    ARG constructor: FUNCTION_REFERENCE 'public constructor <init> (repo: <root>.Repository) declared in <root>.FactoryMade' type=kotlin.reflect.KFunction1<@[ParameterName(name = "repo")] <root>.Repository, <root>.FactoryMade> origin=null reflectionTarget=<same>
+                CALL 'public final fun scope (qualifier: org.koin.core.qualifier.Qualifier, scopeSet: @[ExtensionFunctionType] kotlin.Function1<org.koin.dsl.ScopeDSL, kotlin.Unit>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                  ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in <root>.appModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                  ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+                    ARG name: CONST String type=kotlin.String value="myScope"
+                  ARG scopeSet: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.dsl.ScopeDSL, kotlin.Unit> origin=LAMBDA
+                    FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                      VALUE_PARAMETER kind:ExtensionReceiver name:$this$scope index:0 type:org.koin.dsl.ScopeDSL
+                      BLOCK_BODY
+                        TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                          CALL 'public final fun scopedOf <R, T1> (<this>: org.koin.dsl.ScopeDSL, constructor: kotlin.Function1<T1 of org.koin.core.module.dsl.scopedOf, R of org.koin.core.module.dsl.scopedOf>, options: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.definition.BeanDefinition<R of org.koin.core.module.dsl.scopedOf>, kotlin.Unit>?): org.koin.core.definition.KoinDefinition<R of org.koin.core.module.dsl.scopedOf> declared in org.koin.core.module.dsl' type=org.koin.core.definition.KoinDefinition<<root>.ScopedMade> origin=null
+                            TYPE_ARG R: <root>.ScopedMade
+                            TYPE_ARG T1: @[ParameterName(name = "repo")] <root>.Repository
+                            ARG <this>: GET_VAR '$this$scope: org.koin.dsl.ScopeDSL declared in <root>.appModule.<anonymous>.<anonymous>' type=org.koin.dsl.ScopeDSL origin=IMPLICIT_ARGUMENT
+                            ARG constructor: FUNCTION_REFERENCE 'public constructor <init> (repo: <root>.Repository) declared in <root>.ScopedMade' type=kotlin.reflect.KFunction1<@[ParameterName(name = "repo")] <root>.Repository, <root>.ScopedMade> origin=null reflectionTarget=<same>
+    FUN DEFAULT_PROPERTY_ACCESSOR name:<get-appModule> visibility:public modality:FINAL returnType:org.koin.core.module.Module
+      correspondingProperty: PROPERTY name:appModule visibility:public modality:FINAL [val]
+      BLOCK_BODY
+        RETURN type=kotlin.Nothing from='public final fun <get-appModule> (): org.koin.core.module.Module declared in <root>'
+          GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:appModule type:org.koin.core.module.Module visibility:private [final,static]' type=org.koin.core.module.Module origin=null
+  CLASS CLASS name:FactoryMade modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.FactoryMade
+    PROPERTY name:repo visibility:public modality:FINAL [val]
+      FIELD PROPERTY_BACKING_FIELD name:repo type:<root>.Repository visibility:private [final]
+        EXPRESSION_BODY
+          GET_VAR 'repo: <root>.Repository declared in <root>.FactoryMade.<init>' type=<root>.Repository origin=INITIALIZE_PROPERTY_FROM_PARAMETER
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-repo> visibility:public modality:FINAL returnType:<root>.Repository
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.FactoryMade
+        correspondingProperty: PROPERTY name:repo visibility:public modality:FINAL [val]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-repo> (): <root>.Repository declared in <root>.FactoryMade'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:repo type:<root>.Repository visibility:private [final]' type=<root>.Repository origin=null
+              receiver: GET_VAR '<this>: <root>.FactoryMade declared in <root>.FactoryMade.<get-repo>' type=<root>.FactoryMade origin=null
+    CONSTRUCTOR visibility:public returnType:<root>.FactoryMade [primary]
+      VALUE_PARAMETER kind:Regular name:repo index:0 type:<root>.Repository
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:FactoryMade modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:Repository modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Repository
+    CONSTRUCTOR visibility:public returnType:<root>.Repository [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Repository modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:ScopedMade modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.ScopedMade
+    PROPERTY name:repo visibility:public modality:FINAL [val]
+      FIELD PROPERTY_BACKING_FIELD name:repo type:<root>.Repository visibility:private [final]
+        EXPRESSION_BODY
+          GET_VAR 'repo: <root>.Repository declared in <root>.ScopedMade.<init>' type=<root>.Repository origin=INITIALIZE_PROPERTY_FROM_PARAMETER
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-repo> visibility:public modality:FINAL returnType:<root>.Repository
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.ScopedMade
+        correspondingProperty: PROPERTY name:repo visibility:public modality:FINAL [val]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-repo> (): <root>.Repository declared in <root>.ScopedMade'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:repo type:<root>.Repository visibility:private [final]' type=<root>.Repository origin=null
+              receiver: GET_VAR '<this>: <root>.ScopedMade declared in <root>.ScopedMade.<get-repo>' type=<root>.ScopedMade origin=null
+    CONSTRUCTOR visibility:public returnType:<root>.ScopedMade [primary]
+      VALUE_PARAMETER kind:Regular name:repo index:0 type:<root>.Repository
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:ScopedMade modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  FUN name:box visibility:public modality:FINAL returnType:kotlin.String
+    BLOCK_BODY
+      VAR name:koin type:org.koin.core.Koin [val]
+        CALL 'public final fun <get-koin> (): org.koin.core.Koin declared in org.koin.core.KoinApplication' type=org.koin.core.Koin origin=GET_PROPERTY
+          ARG <this>: CALL 'public final fun koinApplication (appDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit>?): org.koin.core.KoinApplication declared in org.koin.dsl' type=org.koin.core.KoinApplication origin=null
+            ARG appDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit> origin=LAMBDA
+              FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                VALUE_PARAMETER kind:ExtensionReceiver name:$this$koinApplication index:0 type:org.koin.core.KoinApplication
+                BLOCK_BODY
+                  TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                    CALL 'public final fun modules (modules: org.koin.core.module.Module): org.koin.core.KoinApplication declared in org.koin.core.KoinApplication' type=org.koin.core.KoinApplication origin=null
+                      ARG <this>: GET_VAR '$this$koinApplication: org.koin.core.KoinApplication declared in <root>.box.<anonymous>' type=org.koin.core.KoinApplication origin=IMPLICIT_ARGUMENT
+                      ARG modules: CALL 'public final fun <get-appModule> (): org.koin.core.module.Module declared in <root>' type=org.koin.core.module.Module origin=GET_PROPERTY
+      VAR name:f1 type:<root>.FactoryMade [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.FactoryMade origin=null
+          TYPE_ARG T: <root>.FactoryMade
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+      VAR name:f2 type:<root>.FactoryMade [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.FactoryMade origin=null
+          TYPE_ARG T: <root>.FactoryMade
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+      VAR name:factoryWorks type:kotlin.Boolean [val]
+        WHEN type=kotlin.Boolean origin=ANDAND
+          BRANCH
+            if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQEQ
+              ARG <this>: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQEQ
+                ARG arg0: GET_VAR 'val f1: <root>.FactoryMade declared in <root>.box' type=<root>.FactoryMade origin=null
+                ARG arg1: GET_VAR 'val f2: <root>.FactoryMade declared in <root>.box' type=<root>.FactoryMade origin=null
+            then: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+              ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                ARG arg0: CALL 'public final fun <get-repo> (): <root>.Repository declared in <root>.FactoryMade' type=<root>.Repository origin=GET_PROPERTY
+                  ARG <this>: GET_VAR 'val f1: <root>.FactoryMade declared in <root>.box' type=<root>.FactoryMade origin=null
+                ARG arg1: CONST Null type=kotlin.Nothing? value=null
+          BRANCH
+            if: CONST Boolean type=kotlin.Boolean value=true
+            then: CONST Boolean type=kotlin.Boolean value=false
+      VAR name:scopeInstance type:org.koin.core.scope.Scope [val]
+        CALL 'public final fun createScope (scopeId: kotlin.String, qualifier: org.koin.core.qualifier.Qualifier, source: kotlin.Any?, scopeArchetype: org.koin.core.qualifier.TypeQualifier?): org.koin.core.scope.Scope declared in org.koin.core.Koin' type=org.koin.core.scope.Scope origin=null
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+          ARG scopeId: CONST String type=kotlin.String value="s1"
+          ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+            ARG name: CONST String type=kotlin.String value="myScope"
+      VAR name:scoped type:<root>.ScopedMade [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=<root>.ScopedMade origin=null
+          TYPE_ARG T: <root>.ScopedMade
+          ARG <this>: GET_VAR 'val scopeInstance: org.koin.core.scope.Scope declared in <root>.box' type=org.koin.core.scope.Scope origin=null
+      CALL 'public final fun close (): kotlin.Unit declared in org.koin.core.scope.Scope' type=kotlin.Unit origin=null
+        ARG <this>: GET_VAR 'val scopeInstance: org.koin.core.scope.Scope declared in <root>.box' type=org.koin.core.scope.Scope origin=null
+      RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+        WHEN type=kotlin.String origin=IF
+          BRANCH
+            if: WHEN type=kotlin.Boolean origin=ANDAND
+              BRANCH
+                if: GET_VAR 'val factoryWorks: kotlin.Boolean declared in <root>.box' type=kotlin.Boolean origin=null
+                then: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                  ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                    ARG arg0: CALL 'public final fun <get-repo> (): <root>.Repository declared in <root>.ScopedMade' type=<root>.Repository origin=GET_PROPERTY
+                      ARG <this>: GET_VAR 'val scoped: <root>.ScopedMade declared in <root>.box' type=<root>.ScopedMade origin=null
+                    ARG arg1: CONST Null type=kotlin.Nothing? value=null
+              BRANCH
+                if: CONST Boolean type=kotlin.Boolean value=true
+                then: CONST Boolean type=kotlin.Boolean value=false
+            then: CONST String type=kotlin.String value="OK"
+          BRANCH
+            if: CONST Boolean type=kotlin.Boolean value=true
+            then: STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: factory="
+              GET_VAR 'val factoryWorks: kotlin.Boolean declared in <root>.box' type=kotlin.Boolean origin=null

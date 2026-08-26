@@ -1,0 +1,29 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|testpkg/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class NeedsMissing : R|kotlin/Any| {
+        public constructor(m: R|testpkg/Missing|): R|testpkg/NeedsMissing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val m: R|testpkg/Missing| = R|<local>/m|
+            public get(): R|testpkg/Missing|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|testpkg/NeedsMissing|, R|@R|kotlin/ParameterName|(name = String(m))  testpkg/Missing|>(::R|testpkg/NeedsMissing.NeedsMissing|)
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

@@ -1,0 +1,56 @@
+FILE: test.kt
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class FactoryMade : R|kotlin/Any| {
+        public constructor(repo: R|Repository|): R|FactoryMade| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|Repository| = R|<local>/repo|
+            public get(): R|Repository|
+
+    }
+    public final class ScopedMade : R|kotlin/Any| {
+        public constructor(repo: R|Repository|): R|ScopedMade| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|Repository| = R|<local>/repo|
+            public get(): R|Repository|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|Repository|>(::R|/Repository.Repository|)
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/factoryOf|<R|FactoryMade|, R|@R|kotlin/ParameterName|(name = String(repo))  Repository|>(::R|/FactoryMade.FactoryMade|)
+        this@R|special/anonymous|.R|org/koin/core/module/Module.scope|(R|org/koin/core/qualifier/named|(String(myScope)), <L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/scopedOf|<R|ScopedMade|, R|@R|kotlin/ParameterName|(name = String(repo))  Repository|>(::R|/ScopedMade.ScopedMade|)
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/appModule|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval f1: R|FactoryMade| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|FactoryMade|>()
+        lval f2: R|FactoryMade| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|FactoryMade|>()
+        lval factoryWorks: R|kotlin/Boolean| = !==(R|<local>/f1|, R|<local>/f2|) && !=(R|<local>/f1|.R|/FactoryMade.repo|, Null(null))
+        lval scopeInstance: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(s1), R|org/koin/core/qualifier/named|(String(myScope)))
+        lval scoped: R|ScopedMade| = R|<local>/scopeInstance|.R|org/koin/core/scope/Scope.get|<R|ScopedMade|>()
+        R|<local>/scopeInstance|.R|org/koin/core/scope/Scope.close|()
+        ^box when () {
+            R|<local>/factoryWorks| && !=(R|<local>/scoped|.R|/ScopedMade.repo|, Null(null)) ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: factory=), R|<local>/factoryWorks|)
+            }
+        }
+
+    }

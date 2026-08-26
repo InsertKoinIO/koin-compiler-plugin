@@ -117,6 +117,16 @@ class KoinDSLTransformer(
             "kotlin.collections.emptyList", "kotlin.arrayOf",
         )
         val TRANSPARENT_LIST_CONVERTERS = setOf("kotlin.collections.toList", "kotlin.collections.asList")
+
+        // Koin's own constructor-shorthand DSL (org.koin.core.module.dsl) — distinct from this
+        // plugin's single<T>()/create(::T). Detected so its dependencies are still validated;
+        // not otherwise "migrated" to the plugin's own stub functions.
+        val CONSTRUCTOR_SHORTHAND_DEF_TYPES = mapOf(
+            "org.koin.core.module.dsl.singleOf" to DefinitionType.SINGLE,
+            "org.koin.core.module.dsl.factoryOf" to DefinitionType.FACTORY,
+            "org.koin.core.module.dsl.scopedOf" to DefinitionType.SCOPED,
+            "org.koin.core.module.dsl.viewModelOf" to DefinitionType.VIEW_MODEL,
+        )
     }
 
     override fun visitFile(declaration: IrFile): IrFile {
@@ -401,6 +411,16 @@ class KoinDSLTransformer(
             val scopeTypeClass = (scopeTypeArg?.classifierOrNull as? IrClassSymbol)?.owner
             if (scopeTypeClass != null) {
                 transformContext = transformContext.copy(scopeTypeClass = scopeTypeClass)
+            }
+        }
+
+        // Koin's own constructor-shorthand DSL (singleOf(::Ctor)/factoryOf/scopedOf/viewModelOf) —
+        // registered BEFORE super.visitCall so a trailing `{ bind<T>() }` options block (visited as
+        // part of descending into this call's children) attaches to the right DslDef.
+        if (compileSafetyEnabled) {
+            val defType = callee.fqNameWhenAvailable?.asString()?.let { CONSTRUCTOR_SHORTHAND_DEF_TYPES[it] }
+            if (defType != null) {
+                collectConstructorShorthandDef(expression, defType)
             }
         }
 
@@ -970,6 +990,35 @@ class KoinDSLTransformer(
                 }
             })
         }
+    }
+
+    /**
+     * Register a DslDef for Koin's own singleOf(::Ctor)/factoryOf/scopedOf/viewModelOf — the
+     * constructor reference's target class is the provided type; requirements come from its
+     * constructor, same as create(::T). The call itself is left untransformed (it already works
+     * at runtime); this only makes it visible to compile-time validation.
+     */
+    private fun collectConstructorShorthandDef(expression: IrCall, defType: DefinitionType) {
+        val functionRef = expression.getRegularArgument(0) as? IrFunctionReference ?: return
+        val referencedFunction = functionRef.symbol.owner
+        val targetClass = when (referencedFunction) {
+            is IrConstructor -> referencedFunction.parent as? IrClass
+            is IrSimpleFunction -> referencedFunction.returnType.classifierOrNull?.owner as? IrClass
+            else -> null
+        } ?: return
+        trackClassLookup(lookupTracker, currentFile, targetClass)
+        linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
+        val qualifier = qualifierExtractor.extractFromClass(targetClass)
+        _dslDefinitions.add(Definition.DslDef(
+            irClass = targetClass,
+            definitionType = defType,
+            bindings = emptyList(), // DSL: only explicit bind() adds bindings
+            scopeClass = if (defType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
+            modulePropertyId = transformContext.modulePropertyId,
+            qualifier = qualifier,
+            registrationSourceFile = currentFile
+        ).attachA3Metadata(targetClass) { parameterAnalyzer.requirementsForClass(targetClass) })
+        KoinPluginLogger.user { "Intercepting ${expression.symbol.owner.name}(::${targetClass.name})" }
     }
 
     /**

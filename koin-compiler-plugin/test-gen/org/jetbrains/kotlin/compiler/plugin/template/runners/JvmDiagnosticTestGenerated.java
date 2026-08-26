@@ -207,6 +207,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_singleof_precision_d001.kt")
+  public void testDsl_singleof_precision_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_precision_d001.kt");
+  }
+
+  @Test
   @TestMetadata("entry_dsl_dynamic_modules_missing_softened.kt")
   public void testEntry_dsl_dynamic_modules_missing_softened() {
     runTest("koin-compiler-plugin/testData/diagnostics/entry_dsl_dynamic_modules_missing_softened.kt");
