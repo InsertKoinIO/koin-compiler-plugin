@@ -98,6 +98,13 @@ class KoinIrExtension(
                 moduleFragment, dslDefinitions, koinTransformer.moduleIncludes, koinTransformer.allModuleIds,
                 koinTransformer.modulesWithIncompleteIncludes
             )
+            // Relay classpath-invisible includes() targets' own DSL definition hints through THIS
+            // module's output — otherwise a provider 2+ implementation hops away is never on a
+            // downstream reader's classpath, no matter how many includes() edges it walks. See
+            // relayIncludedDefinitionHints's kdoc.
+            dslHintGenerator.relayIncludedDefinitionHints(
+                moduleFragment, koinTransformer.moduleIncludes, koinTransformer.allModuleIds
+            )
         }
 
         // Phase 2.6: Generate `@InjectedParam` shape hints for cross-module call-site validation.
