@@ -1,0 +1,59 @@
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    public final class Dep : R|kotlin/Any| {
+        public constructor(): R|lib/Dep| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Client : R|kotlin/Any| {
+        public constructor(dep: R|lib/Dep|): R|lib/Client| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|lib/Dep| = R|<local>/dep|
+            public get(): R|lib/Dep|
+
+    }
+    public final fun provideQualifiedDep(): R|lib/Dep| {
+        ^provideQualifiedDep R|lib/Dep.Dep|()
+    }
+    public final fun buildClient(@R|org/koin/core/annotation/Named|(value = String(q)) dep: R|lib/Dep|): R|lib/Client| {
+        ^buildClient R|lib/Client.Client|(R|<local>/dep|)
+    }
+    public final val libModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|lib/Dep|>(R|org/koin/core/qualifier/named|(String(q)), <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|lib/Dep| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|lib/Dep|>(::R|lib/provideQualifiedDep|)
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|lib/Client|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|lib/Client| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|lib/Client|, R|@R|kotlin/ParameterName|(name = String(dep))  lib/Dep|>(::R|lib/buildClient|)
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    public final class Marker : R|kotlin/Any| {
+        public constructor(): R|app/Marker| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/Marker|>()
+            }
+            ), R|lib/libModule|))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|lib/Client|>()
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|app/Marker|>()
+        ^box String(OK)
+    }

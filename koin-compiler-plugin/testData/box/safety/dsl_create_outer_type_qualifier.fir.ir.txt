@@ -11,7 +11,8 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__appModule_1d5d8
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Repo
     VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:req0_db index:2 type:<root>.Database
-    VALUE_PARAMETER kind:Regular name:module_appModule index:3 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:req0qt index:3 type:<root>.DbQualifier
+    VALUE_PARAMETER kind:Regular name:module_appModule index:4 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY

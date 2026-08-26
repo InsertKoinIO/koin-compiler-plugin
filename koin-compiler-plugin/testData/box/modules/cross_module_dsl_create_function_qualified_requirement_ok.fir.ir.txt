@@ -1,0 +1,196 @@
+Module: lib
+FILE fqName:lib fileName:/lib/Lib.kt
+  PROPERTY name:libModule visibility:public modality:FINAL [val]
+    FIELD PROPERTY_BACKING_FIELD name:libModule type:org.koin.core.module.Module visibility:private [final,static]
+      EXPRESSION_BODY
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG moduleDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:$this$module index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+                TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                  CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
+                    TYPE_ARG T: lib.Dep
+                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<lib.Dep>
+                    ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+                      ARG name: CONST String type=kotlin.String value="q"
+                    ARG definition: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, lib.Dep> origin=LAMBDA
+                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:lib.Dep
+                        VALUE_PARAMETER kind:ExtensionReceiver name:$this$single index:0 type:org.koin.core.scope.Scope
+                        VALUE_PARAMETER kind:Regular name:it index:1 type:org.koin.core.parameter.ParametersHolder
+                        BLOCK_BODY
+                          RETURN type=kotlin.Nothing from='local final fun <anonymous> ($this$single: org.koin.core.scope.Scope, it: org.koin.core.parameter.ParametersHolder): lib.Dep declared in lib.libModule.<anonymous>'
+                            CALL 'public final fun provideQualifiedDep (): lib.Dep declared in lib' type=lib.Dep origin=null
+                TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                  CALL 'public final fun single <T> (qualifier: org.koin.core.qualifier.Qualifier?, createdAtStart: kotlin.Boolean, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.module.Module.single>): org.koin.core.definition.KoinDefinition<T of org.koin.core.module.Module.single> declared in org.koin.core.module.Module' type=org.koin.core.definition.KoinDefinition<lib.Client> origin=null
+                    TYPE_ARG T: lib.Client
+                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                    ARG definition: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, lib.Client> origin=LAMBDA
+                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:lib.Client
+                        VALUE_PARAMETER kind:ExtensionReceiver name:$this$single index:0 type:org.koin.core.scope.Scope
+                        VALUE_PARAMETER kind:Regular name:it index:1 type:org.koin.core.parameter.ParametersHolder
+                        BLOCK_BODY
+                          RETURN type=kotlin.Nothing from='local final fun <anonymous> ($this$single: org.koin.core.scope.Scope, it: org.koin.core.parameter.ParametersHolder): lib.Client declared in lib.libModule.<anonymous>'
+                            CALL 'public final fun buildClient (dep: lib.Dep): lib.Client declared in lib' type=lib.Client origin=null
+                              ARG dep: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=lib.Dep origin=null
+                                TYPE_ARG T: lib.Dep
+                                ARG <this>: GET_VAR '$this$single: org.koin.core.scope.Scope declared in lib.libModule.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=IMPLICIT_ARGUMENT
+                                ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+                                  ARG name: CONST String type=kotlin.String value="q"
+                                ARG parameters: CONST Null type=kotlin.Nothing? value=null
+    FUN DEFAULT_PROPERTY_ACCESSOR name:<get-libModule> visibility:public modality:FINAL returnType:org.koin.core.module.Module
+      correspondingProperty: PROPERTY name:libModule visibility:public modality:FINAL [val]
+      BLOCK_BODY
+        RETURN type=kotlin.Nothing from='public final fun <get-libModule> (): org.koin.core.module.Module declared in lib'
+          GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:libModule type:org.koin.core.module.Module visibility:private [final,static]' type=org.koin.core.module.Module origin=null
+  CLASS CLASS name:Client modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:lib.Client
+    PROPERTY name:dep visibility:public modality:FINAL [val]
+      FIELD PROPERTY_BACKING_FIELD name:dep type:lib.Dep visibility:private [final]
+        EXPRESSION_BODY
+          GET_VAR 'dep: lib.Dep declared in lib.Client.<init>' type=lib.Dep origin=INITIALIZE_PROPERTY_FROM_PARAMETER
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-dep> visibility:public modality:FINAL returnType:lib.Dep
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:lib.Client
+        correspondingProperty: PROPERTY name:dep visibility:public modality:FINAL [val]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-dep> (): lib.Dep declared in lib.Client'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:dep type:lib.Dep visibility:private [final]' type=lib.Dep origin=null
+              receiver: GET_VAR '<this>: lib.Client declared in lib.Client.<get-dep>' type=lib.Client origin=null
+    CONSTRUCTOR visibility:public returnType:lib.Client [primary]
+      VALUE_PARAMETER kind:Regular name:dep index:0 type:lib.Dep
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Client modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:lib.Dep
+    CONSTRUCTOR visibility:public returnType:lib.Dep [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  FUN name:buildClient visibility:public modality:FINAL returnType:lib.Client
+    VALUE_PARAMETER kind:Regular name:dep index:0 type:lib.Dep
+      annotations:
+        Named(value = "q", type = <null>)
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun buildClient (dep: lib.Dep): lib.Client declared in lib'
+        CONSTRUCTOR_CALL 'public constructor <init> (dep: lib.Dep) declared in lib.Client' type=lib.Client origin=null
+          ARG dep: GET_VAR 'dep: lib.Dep declared in lib.buildClient' type=lib.Dep origin=null
+  FUN name:provideQualifiedDep visibility:public modality:FINAL returnType:lib.Dep
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun provideQualifiedDep (): lib.Dep declared in lib'
+        CONSTRUCTOR_CALL 'public constructor <init> () declared in lib.Dep' type=lib.Dep origin=null
+FILE fqName:org.koin.plugin.hints fileName:/lib/koin_dsl_hints_lib__lib_libModule_86747c2b5e8eade2.kt
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:lib.Client
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:req0_dep index:2 type:lib.Dep
+    VALUE_PARAMETER kind:Regular name:req0qn_q index:3 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:module_lib$libModule index:4 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:lib.Dep
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:module_lib$libModule index:2 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:qualifier_q index:3 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+Module: app
+FILE fqName:app fileName:/app/App.kt
+  CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:app.Marker
+    CONSTRUCTOR visibility:public returnType:app.Marker [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  FUN name:box visibility:public modality:FINAL returnType:kotlin.String
+    BLOCK_BODY
+      VAR name:koin type:org.koin.core.Koin [val]
+        CALL 'public final fun <get-koin> (): org.koin.core.Koin declared in org.koin.core.KoinApplication' type=org.koin.core.Koin origin=GET_PROPERTY
+          ARG <this>: CALL 'public final fun koinApplication (appDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit>?): org.koin.core.KoinApplication declared in org.koin.dsl' type=org.koin.core.KoinApplication origin=null
+            ARG appDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit> origin=LAMBDA
+              FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                VALUE_PARAMETER kind:ExtensionReceiver name:$this$koinApplication index:0 type:org.koin.core.KoinApplication
+                BLOCK_BODY
+                  TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                    CALL 'public final fun modules (vararg modules: org.koin.core.module.Module): org.koin.core.KoinApplication declared in org.koin.core.KoinApplication' type=org.koin.core.KoinApplication origin=null
+                      ARG <this>: GET_VAR '$this$koinApplication: org.koin.core.KoinApplication declared in app.box.<anonymous>' type=org.koin.core.KoinApplication origin=IMPLICIT_ARGUMENT
+                      ARG modules: VARARG type=kotlin.Array<out org.koin.core.module.Module> varargElementType=org.koin.core.module.Module
+                        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+                          ARG moduleDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+                            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                              VALUE_PARAMETER kind:ExtensionReceiver name:$this$module index:0 type:org.koin.core.module.Module
+                              BLOCK_BODY
+                                TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                                  CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
+                                    TYPE_ARG T: app.Marker
+                                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<app.Marker>
+                                    ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, app.Marker> origin=LAMBDA
+                                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:app.Marker
+                                        VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                                        VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                                        BLOCK_BODY
+                                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): app.Marker declared in app.box.<anonymous>.<anonymous>'
+                                            CONSTRUCTOR_CALL 'public constructor <init> () declared in app.Marker' type=app.Marker origin=null
+                        CALL 'public final fun <get-libModule> (): org.koin.core.module.Module declared in lib' type=org.koin.core.module.Module origin=GET_PROPERTY
+      TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=lib.Client origin=null
+          TYPE_ARG T: lib.Client
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in app.box' type=org.koin.core.Koin origin=null
+      TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=app.Marker origin=null
+          TYPE_ARG T: app.Marker
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in app.box' type=org.koin.core.Koin origin=null
+      RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in app'
+        CONST String type=kotlin.String value="OK"
+FILE fqName:org.koin.plugin.hints fileName:/app/koin_dsl_hints_app__App_kt_ec216731445f8978.kt
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:app.Marker
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
