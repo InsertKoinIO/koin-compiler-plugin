@@ -156,9 +156,21 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("dsl_bind_narrowed_dependency_no_false_cycle.kt")
+    public void testDsl_bind_narrowed_dependency_no_false_cycle() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_bind_narrowed_dependency_no_false_cycle.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_bind_valid_graph_ok.kt")
     public void testDsl_bind_valid_graph_ok() {
       runTest("koin-compiler-plugin/testData/diagnostics/dsl_bind_valid_graph_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_create_function_bind_no_false_cycle.kt")
+    public void testDsl_create_function_bind_no_false_cycle() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_create_function_bind_no_false_cycle.kt");
     }
 
     @Test

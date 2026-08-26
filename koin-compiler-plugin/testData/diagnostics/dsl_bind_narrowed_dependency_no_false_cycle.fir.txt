@@ -1,0 +1,35 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface StoreService : R|kotlin/Any| {
+    }
+    public final class ObjectStoreService : R|testpkg/StoreService| {
+        public constructor(): R|testpkg/ObjectStoreService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class InstrumentedStoreService : R|testpkg/StoreService| {
+        public constructor(delegate: R|testpkg/StoreService|): R|testpkg/InstrumentedStoreService| {
+            super<R|kotlin/Any|>()
+        }
+
+        private final val delegate: R|testpkg/StoreService| = R|<local>/delegate|
+            private get(): R|testpkg/StoreService|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/ObjectStoreService|>()
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|testpkg/InstrumentedStoreService|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|testpkg/InstrumentedStoreService| <inline=NoInline>  {
+            ^ R|testpkg/InstrumentedStoreService.InstrumentedStoreService|(this@R|special/anonymous|.R|org/koin/core/scope/Scope.get|<R|testpkg/ObjectStoreService|>())
+        }
+        ).R|org/koin/dsl/bind|<R|testpkg/StoreService|>(<getClass>(Q|testpkg/StoreService|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }
