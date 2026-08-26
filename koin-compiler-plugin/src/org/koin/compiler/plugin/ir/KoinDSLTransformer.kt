@@ -1034,13 +1034,6 @@ class KoinDSLTransformer(
         trackClassLookup(lookupTracker, currentFile, targetClass)
         linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
         val qualifier = qualifierExtractor.extractFromClass(targetClass)
-        // A plain function reference's own parameters are what DI actually resolves — NOT the
-        // returned class's constructor, which may take unrelated params the function never gets.
-        val requirements = when (referencedFunction) {
-            is IrConstructor -> parameterAnalyzer.analyzeConstructor(referencedFunction)
-            is IrSimpleFunction -> parameterAnalyzer.analyzeFunction(referencedFunction)
-            else -> emptyList()
-        }
         _dslDefinitions.add(Definition.DslDef(
             irClass = targetClass,
             definitionType = defType,
@@ -1049,8 +1042,21 @@ class KoinDSLTransformer(
             modulePropertyId = transformContext.modulePropertyId,
             qualifier = qualifier,
             registrationSourceFile = currentFile
-        ).attachA3Metadata(targetClass) { requirements })
+        ).attachA3Metadata(targetClass) { requirementsFor(referencedFunction) })
         KoinPluginLogger.user { "Intercepting ${expression.symbol.owner.name}(::${targetClass.name})" }
+    }
+
+    /**
+     * What DI actually resolves to invoke a `::Ctor`/`::function` reference — the referenced
+     * declaration's OWN parameters, never the returned class's constructor (a plain function may
+     * take unrelated params, or none, regardless of what its return type's constructor needs).
+     * Shared by create(::T) (both branches below) and the constructor-shorthand DSL above so this
+     * derivation can't drift between the two call sites again.
+     */
+    private fun requirementsFor(referencedFunction: IrFunction): List<Requirement> = when (referencedFunction) {
+        is IrConstructor -> parameterAnalyzer.analyzeConstructor(referencedFunction)
+        is IrSimpleFunction -> parameterAnalyzer.analyzeFunction(referencedFunction)
+        else -> emptyList()
     }
 
     /**
@@ -1096,7 +1102,7 @@ class KoinDSLTransformer(
                         modulePropertyId = transformContext.modulePropertyId,
                         qualifier = classQualifier,
                         registrationSourceFile = currentFile
-                    ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
+                    ).attachA3Metadata(providedClass) { requirementsFor(referencedFunction) })
                 }
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${providedClass.name}" }
@@ -1134,10 +1140,9 @@ class KoinDSLTransformer(
                         bindings = emptyList(), // DSL: only explicit bind() adds bindings
                         scopeClass = if (enclosingDefType == DefinitionType.SCOPED) transformContext.scopeTypeClass else null,
                         modulePropertyId = transformContext.modulePropertyId,
-                        providerOnly = true,
                         qualifier = funcQualifier,
                         registrationSourceFile = currentFile
-                    ).attachA3Metadata(providedClass) { parameterAnalyzer.requirementsForClass(providedClass) })
+                    ).attachA3Metadata(providedClass) { requirementsFor(referencedFunction) })
                 }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"

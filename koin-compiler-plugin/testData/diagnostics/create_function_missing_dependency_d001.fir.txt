@@ -1,0 +1,32 @@
+FILE: test.kt
+    package testpkg
+
+    public final class MissingDep : R|kotlin/Any| {
+        public constructor(): R|testpkg/MissingDep| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ApiProvider : R|kotlin/Any| {
+        public constructor(): R|testpkg/ApiProvider| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun provideApi(dep: R|testpkg/MissingDep|): R|testpkg/ApiProvider| {
+        ^provideApi R|testpkg/ApiProvider.ApiProvider|()
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|testpkg/ApiProvider|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|testpkg/ApiProvider| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|testpkg/ApiProvider|, R|@R|kotlin/ParameterName|(name = String(dep))  testpkg/MissingDep|>(::R|testpkg/provideApi|)
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

@@ -114,6 +114,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("create_function_missing_dependency_d001.kt")
+    public void testCreate_function_missing_dependency_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/create_function_missing_dependency_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_genuine_missing_d001.kt")
     public void testCross_module_genuine_missing_d001() {
       runTest("koin-compiler-plugin/testData/diagnostics/cross_module_genuine_missing_d001.kt");
