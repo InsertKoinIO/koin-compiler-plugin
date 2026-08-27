@@ -1,0 +1,44 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface PortA : R|kotlin/Any| {
+    }
+    public abstract interface PortB : R|kotlin/Any| {
+    }
+    public final class RepoImpl : R|testpkg/PortA| {
+        public constructor(): R|testpkg/RepoImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ConsumerA : R|kotlin/Any| {
+        public constructor(port: R|testpkg/PortA|): R|testpkg/ConsumerA| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val port: R|testpkg/PortA| = R|<local>/port|
+            public get(): R|testpkg/PortA|
+
+    }
+    public final class ConsumerB : R|kotlin/Any| {
+        public constructor(port: R|testpkg/PortB|): R|testpkg/ConsumerB| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val port: R|testpkg/PortB| = R|<local>/port|
+            public get(): R|testpkg/PortB|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/RepoImpl|>().R|org/koin/dsl/binds|(R|kotlin/arrayOf|<R|kotlin/reflect/KClass<*>|>(vararg(<getClass>(Q|testpkg/PortA|))))
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/ConsumerA|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/ConsumerB|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

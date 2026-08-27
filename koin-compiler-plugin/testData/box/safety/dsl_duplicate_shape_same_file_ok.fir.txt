@@ -1,0 +1,38 @@
+FILE: test.kt
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun useFirst(): R|Clock| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|Clock|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|Clock| <inline=NoInline>  {
+                    ^ R|/Clock.Clock|()
+                }
+                )
+            }
+            ))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        ^useFirst R|<local>/koin|.R|org/koin/core/Koin.get|<R|Clock|>()
+    }
+    public final fun useSecond(): R|Clock| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|Clock|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|Clock| <inline=NoInline>  {
+                    ^ R|/Clock.Clock|()
+                }
+                )
+            }
+            ))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        ^useSecond R|<local>/koin|.R|org/koin/core/Koin.get|<R|Clock|>()
+    }
+    public final fun box(): R|kotlin/String| {
+        R|/useFirst|()
+        R|/useSecond|()
+        ^box String(OK)
+    }

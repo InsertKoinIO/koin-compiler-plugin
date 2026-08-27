@@ -1,0 +1,52 @@
+Module: core
+FILE: Core.kt
+    package core
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|core/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Unrelated : R|kotlin/Any| {
+        public constructor(): R|core/Unrelated| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val dataModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|core/Unrelated|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun relayModule(): R|org/koin/core/module/Module| {
+        ^relayModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|core/dataModule|))
+        }
+        )
+    }
+Module: app
+FILE: App.kt
+    package app
+
+    public final class Consumer : R|kotlin/Any| {
+        public constructor(repo: R|core/Repository|): R|app/Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|core/Repository| = R|<local>/repo|
+            public get(): R|core/Repository|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|core/relayModule|()))
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/Consumer|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/appModule|)
+        }
+        )
+    }

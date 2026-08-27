@@ -365,6 +365,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("dsl_duplicate_shape_same_file_ok.kt")
+    public void testDsl_duplicate_shape_same_file_ok() {
+      runTest("koin-compiler-plugin/testData/box/safety/dsl_duplicate_shape_same_file_ok.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_function_module_includes.kt")
     public void testDsl_function_module_includes() {
       runTest("koin-compiler-plugin/testData/box/safety/dsl_function_module_includes.kt");

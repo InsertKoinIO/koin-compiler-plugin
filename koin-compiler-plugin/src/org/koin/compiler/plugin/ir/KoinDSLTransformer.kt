@@ -143,6 +143,7 @@ class KoinDSLTransformer(
     private val lambdaBuilder = LambdaBuilder(context, qualifierExtractor, argumentGenerator)
 
     private val createName = Name.identifier("create")
+    private val newName = Name.identifier("new")
     private val singleName = Name.identifier("single")
     private val factoryName = Name.identifier("factory")
     private val scopedName = Name.identifier("scoped")
@@ -316,6 +317,15 @@ class KoinDSLTransformer(
         "org.koin.core.module.dsl.bind",
     )
 
+    // FqNames of Koin's multi-binding `binds(...)` DSL functions — the plural, vararg-array
+    // counterpart of `bind`, e.g. `single<Impl>() binds arrayOf(IfaceA::class, IfaceB::class)`.
+    // Two real overloads: `org.koin.dsl.binds(Array<KClass<*>>)` (infix, chained off single<T>())
+    // and `org.koin.core.module.dsl.binds(List<KClass<*>>)` (used inside withOptions {}).
+    private val KOIN_BINDS_FQNAMES = setOf(
+        "org.koin.dsl.binds",
+        "org.koin.core.module.dsl.binds",
+    )
+
     // Mapping from function names to DefinitionType
     private val definitionTypeMap = mapOf(
         singleName to DefinitionType.SINGLE,
@@ -439,6 +449,16 @@ class KoinDSLTransformer(
             collectBindType(transformedCall)
         }
 
+        // Detect Koin's multi-binding `binds(arrayOf(...))`/`binds(listOf(...))` — same idea as
+        // `bind`, but a whole batch of bound types at once. Without this, a definition bound via
+        // `binds(...)` silently carries NO bindings at all: KOIN-D001 then fires for every consumer
+        // of every one of its bound interfaces, even though the definition genuinely provides them —
+        // the worst failure class per this project's doctrine (silent > broken).
+        if (compileSafetyEnabled && functionName.asString() == "binds" &&
+            callee.fqNameWhenAvailable?.asString() in KOIN_BINDS_FQNAMES) {
+            collectBindsTypes(transformedCall)
+        }
+
         // Detect the options-block named(...)/named<T>() (org.koin.core.module.dsl) — sets the
         // qualifier on the last collected DslDef. Distinct from org.koin.core.qualifier.named(),
         // which QualifierExtractor already handles as a qualifier ARGUMENT value, not a statement.
@@ -448,8 +468,9 @@ class KoinDSLTransformer(
         }
 
         // Only handle our target functions
-        if (functionName != createName && functionName != singleName && functionName != factoryName &&
-            functionName != scopedName && functionName != viewModelName && functionName != workerName) {
+        if (functionName != createName && functionName != newName && functionName != singleName &&
+            functionName != factoryName && functionName != scopedName && functionName != viewModelName &&
+            functionName != workerName) {
             return transformedCall
         }
 
@@ -489,6 +510,19 @@ class KoinDSLTransformer(
             val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return transformedCall
             val referencedFunction = functionRef.symbol.owner
             return handleScopeCreate(transformedCall, referencedFunction, receiver)
+        }
+
+        // Handle Koin's OWN new(::Constructor) / new(::function) — org.koin.core.module.dsl.new.
+        // Same constructor-reference shape as create(::T), but a REAL Koin runtime function this
+        // plugin does not need to rewrite (its body already resolves args via get()). Only the
+        // requirement-registration half applies — see handleScopeNew's kdoc for why skipping this
+        // was a silent false-negative, not a false-positive.
+        if (functionName == newName && receiverClassifier.name.asString() == "Scope" &&
+            callee.fqNameWhenAvailable?.asString() == "org.koin.core.module.dsl.new"
+        ) {
+            val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return transformedCall
+            handleScopeNew(functionRef.symbol.owner)
+            return transformedCall
         }
 
         // Typed DSL definition with a user-provided lambda body that is NOT create(::T):
@@ -728,6 +762,49 @@ class KoinDSLTransformer(
                 bindings = lastDef.bindings + boundClass
             ).retainA3Metadata(lastDef)
             KoinPluginLogger.debug { "  bind: ${lastDef.returnTypeClass.name} -> ${boundClass.name}" }
+        }
+    }
+
+    /** One `X::class` element inside a `binds(arrayOf(...))`/`binds(listOf(...))` argument. */
+    private fun classRefToIrClass(ref: IrClassReference): IrClass? =
+        when (val classifier = ref.classType.classifierOrNull) {
+            is IrClassSymbol -> classifier.owner
+            is IrClass -> classifier
+            else -> null
+        }
+
+    /**
+     * Extract the `X::class, Y::class, ...` elements of a `binds(arrayOf(...))`/`binds(listOf(...))`
+     * call's single argument. `arrayOf`/`listOf` are themselves vararg functions, so their own
+     * argument is an [IrVararg] whose elements are the class-literal expressions — this only needs to
+     * unwrap one level, unlike [org.koin.compiler.plugin.ir.KoinDSLTransformer.resolveModuleRef]'s
+     * broader walk (no `+`/`.toList()`/spread support here — `binds` never sees those in practice).
+     */
+    private fun extractClassReferenceList(expression: IrExpression?): List<IrClass> {
+        val vararg = when (expression) {
+            is IrVararg -> expression
+            is IrCall -> expression.getRegularArgument(0) as? IrVararg
+            else -> null
+        } ?: return emptyList()
+        return vararg.elements.mapNotNull { (it as? IrClassReference)?.let(::classRefToIrClass) }
+    }
+
+    /** Detect Koin's `binds(arrayOf(...))`/`binds(listOf(...))` — adds every bound type to the last
+     *  collected DslDef, same as [collectBindType] but for a whole batch at once. */
+    private fun collectBindsTypes(expression: IrCall) {
+        if (_dslDefinitions.isEmpty()) return
+        val boundClasses = extractClassReferenceList(expression.getRegularArgument(0))
+        if (boundClasses.isEmpty()) return
+
+        val lastDef = _dslDefinitions.last()
+        val existingFqNames = lastDef.bindings.mapNotNullTo(mutableSetOf()) { it.fqNameWhenAvailable?.asString() }
+        val newBindings = boundClasses.filter { it.fqNameWhenAvailable?.asString() !in existingFqNames }
+        if (newBindings.isNotEmpty()) {
+            // retainA3Metadata — see collectBindType's identical note.
+            _dslDefinitions[_dslDefinitions.lastIndex] = lastDef.copy(
+                bindings = lastDef.bindings + newBindings
+            ).retainA3Metadata(lastDef)
+            KoinPluginLogger.debug { "  binds: ${lastDef.returnTypeClass.name} -> ${newBindings.map { it.name }}" }
         }
     }
 
@@ -1040,6 +1117,55 @@ class KoinDSLTransformer(
         val qualifierIndex = callee.regularParameters.indexOfFirst { it.name.asString() == "qualifier" }
         if (qualifierIndex < 0) return null
         return qualifierExtractor.extractFromExpression(call.getRegularArgument(qualifierIndex))
+    }
+
+    /**
+     * Handle Koin's own `Scope.new(::Constructor)` / `Scope.new(::function)` (org.koin.core.module.dsl,
+     * 0..22-arity reified overloads) — the requirement-registration half of [handleScopeCreate], MINUS
+     * the codegen half.
+     *
+     * `create(::T)` is THIS PLUGIN'S OWN invented DSL stub: Koin has no real `Scope.create`, so
+     * [handleScopeCreate] must fully rewrite the call into `T(get(), get(), ...)`. `new(::T)` is the
+     * opposite — a REAL Koin library function whose inline body already does exactly that
+     * (`constructor(get(), get(), ...)`) using Koin's own runtime resolution. It works correctly with
+     * zero help from this plugin; the call is left untouched (callers pass the untransformed
+     * `transformedCall` through).
+     *
+     * What it does NOT get for free is compile-time validation: without this, `single<T> { new(::T) }`
+     * fell into the generic "opaque lambda body" fallback a few lines up (providerOnly = true, empty
+     * requirements) — the exact same bucket as a truly opaque call like `single<T> { someFactory() }`.
+     * But unlike that case, `new(::T)`'s dependencies ARE statically known (same function-reference
+     * shape `create(::T)` already extracts them from) — so silently assuming zero requirements was a
+     * needless false negative: a real missing dependency inside T's constructor compiled green and
+     * only surfaced as a runtime NoDefinitionFoundException. Worst failure class per this project's
+     * doctrine (silent > broken).
+     */
+    private fun handleScopeNew(referencedFunction: IrFunction) {
+        val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] } ?: return
+        if (!compileSafetyEnabled) return
+        when (referencedFunction) {
+            is IrConstructor -> {
+                val targetClass = referencedFunction.parent as IrClass
+                trackClassLookup(lookupTracker, currentFile, targetClass)
+                linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
+                val qualifier = transformContext.definitionQualifier ?: qualifierExtractor.extractFromClass(targetClass)
+                // Same typed-enclosing rule as create(::T): `single<Interface> { new(::Impl) }`
+                // registers Interface, not Impl — runtime Koin registers the outer type.
+                val providedClass = transformContext.definitionCallTypeArg ?: targetClass
+                _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, qualifier) { requirementsFor(referencedFunction) })
+                KoinPluginLogger.user { "Intercepting ${currentDefinitionCall?.asString()} { new(::${targetClass.name}) } -> ${providedClass.name}" }
+            }
+            is IrSimpleFunction -> {
+                val returnTypeClass = referencedFunction.returnType.classifierOrNull?.owner as? IrClass ?: return
+                trackClassLookup(lookupTracker, currentFile, returnTypeClass)
+                linkDeclarationsForIC(expectActualTracker, currentFile, returnTypeClass)
+                val qualifier = transformContext.definitionQualifier
+                    ?: qualifierExtractor.extractFromDeclaration(referencedFunction, "function ${referencedFunction.name}")
+                val providedClass = transformContext.definitionCallTypeArg ?: returnTypeClass
+                _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, qualifier) { requirementsFor(referencedFunction) })
+                KoinPluginLogger.user { "Intercepting ${currentDefinitionCall?.asString()} { new(::${referencedFunction.name}) } -> ${providedClass.name}" }
+            }
+        }
     }
 
     /**

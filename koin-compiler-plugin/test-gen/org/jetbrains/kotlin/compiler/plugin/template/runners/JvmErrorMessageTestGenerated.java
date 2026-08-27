@@ -168,6 +168,18 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("dsl_binds_array_missing_dependency_d001.kt")
+    public void testDsl_binds_array_missing_dependency_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_binds_array_missing_dependency_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_binds_array_valid_graph_ok.kt")
+    public void testDsl_binds_array_valid_graph_ok() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_binds_array_valid_graph_ok.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_create_function_bind_no_false_cycle.kt")
     public void testDsl_create_function_bind_no_false_cycle() {
       runTest("koin-compiler-plugin/testData/diagnostics/dsl_create_function_bind_no_false_cycle.kt");
@@ -225,6 +237,18 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("dsl_module_unreachable.kt")
     public void testDsl_module_unreachable() {
       runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_unreachable.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_new_constructor_missing_dependency_d001.kt")
+    public void testDsl_new_constructor_missing_dependency_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_new_constructor_missing_dependency_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_new_constructor_valid_graph_ok.kt")
+    public void testDsl_new_constructor_valid_graph_ok() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_new_constructor_valid_graph_ok.kt");
     }
 
     @Test
@@ -409,6 +433,18 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_contract_impl_in_app_ok.kt")
     public void testCross_module_contract_impl_in_app_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_contract_impl_in_app_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_aggregator_relay_missing_d001.kt")
+    public void testCross_module_dsl_aggregator_relay_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_aggregator_relay_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_aggregator_relay_ok.kt")
+    public void testCross_module_dsl_aggregator_relay_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_aggregator_relay_ok.kt");
     }
 
     @Test

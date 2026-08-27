@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: testpkg.PortB
+  required by: dsl:testpkg.ConsumerB (parameter 'port')
+  in module: testpkg.appModule
