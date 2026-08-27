@@ -2284,9 +2284,9 @@ class KoinAnnotationProcessor(
             // Own class unresolvable → its includes=[...] can't be read off the classpath either, but
             // it already re-published them as a hint (generateModuleScanHints), so we can walk past it.
             val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
-            foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapNotNullTo(mutableSetOf()) { it.returnTypeClass.fqNameWhenAvailable }, visited)
+            val hintIncludesComplete = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapNotNullTo(mutableSetOf()) { it.returnTypeClass.fqNameWhenAvailable }, visited)
 
-            return DependencyModuleResult(definitions, isComplete = definitions.isNotEmpty() || hintIncludes.isNotEmpty())
+            return DependencyModuleResult(definitions, isComplete = (definitions.isNotEmpty() || hintIncludes.isNotEmpty()) && hintIncludesComplete)
         }
 
         val moduleIrClass = moduleClassSymbol.owner
@@ -2349,6 +2349,7 @@ class KoinAnnotationProcessor(
         //    their definitions here to make them visible for A3 full-graph validation.
         val includedModules = getModuleIncludes(moduleIrClass)
         val knownFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toMutableSet()
+        var classpathIncludesComplete = true
         for (included in includedModules) {
             val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
             // Check if already collected locally (avoid re-processing)
@@ -2362,6 +2363,7 @@ class KoinAnnotationProcessor(
             } else {
                 // Included module from JAR — recursively collect
                 val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
+                if (!includedResult.isComplete) classpathIncludesComplete = false
                 includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
             }
             definitions.addAll(newDefs)
@@ -2374,17 +2376,19 @@ class KoinAnnotationProcessor(
         // classpath (2+ `implementation` hops away) — union in what its includes hint still saw.
         val classpathIncludeFqNames = includedModules.mapNotNull { it.fqNameWhenAvailable?.asString() }.toSet()
         val hintOnlyIncludes = discoverModuleIncludesFromHints(moduleFqName).filterNot { it in classpathIncludeFqNames }
-        foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownFqNames, visited)
+        val hintOnlyIncludesComplete = foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownFqNames, visited)
 
         if (definitions.isNotEmpty()) {
             KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName (hasComponentScan=$hasComponentScan)" }
         }
 
-        // Module is complete if it has no @ComponentScan, or if scan definitions were found.
-        // When hint functions are unavailable, discoverModuleScanDefinitions returns empty.
-        // In that case, we can't fully resolve the module's scanned definitions and must
-        // mark it incomplete to skip safety validation.
-        val isComplete = !hasComponentScan || scanDefinitionsFound
+        // Module is complete if it has no @ComponentScan, or if scan definitions were found —
+        // AND every included submodule folded in above (classpath-resolvable or hint-only) also
+        // resolved completely. A partial submodule folded into `definitions` must not make the
+        // whole thing look whole. When hint functions are unavailable, discoverModuleScanDefinitions
+        // returns empty; in that case we can't fully resolve the module's scanned definitions and
+        // must mark it incomplete to skip safety validation.
+        val isComplete = (!hasComponentScan || scanDefinitionsFound) && classpathIncludesComplete && hintOnlyIncludesComplete
         if (!isComplete) {
             KoinPluginLogger.debug { "    -> WARNING: $moduleFqName has @ComponentScan but no scan hints found (hint functions unavailable)" }
         }
@@ -2417,20 +2421,28 @@ class KoinAnnotationProcessor(
      * Recurse into each of [includedFqNames], folding unseen definitions into [definitions] /
      * [knownFqNames]. Shared by both branches of [collectDefinitionsFromDependencyModule] for the
      * hint-only edges getModuleIncludes' classpath resolution missed.
+     *
+     * @return false if any folded-in submodule itself came back incomplete — a partial submodule's
+     *   definitions still get folded in (best-effort), but the caller must not report the combined
+     *   result as complete, or a genuinely missing dependency inside that submodule goes unvalidated
+     *   while everything else in the (wrongly-marked-complete) graph is checked as if it were whole.
      */
     private fun foldHintOnlyIncludes(
         includedFqNames: List<String>,
         definitions: MutableList<Definition>,
         knownFqNames: MutableSet<FqName>,
         visited: MutableSet<String>,
-    ) {
+    ): Boolean {
+        var allComplete = true
         for (includedFqName in includedFqNames) {
             val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
+            if (!includedResult.isComplete) allComplete = false
             val newDefs = includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
             definitions.addAll(newDefs)
             knownFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
             KoinPluginLogger.debug { "      Included (hint-only, classpath-invisible) $includedFqName: ${newDefs.size} new definitions" }
         }
+        return allComplete
     }
 
     /**

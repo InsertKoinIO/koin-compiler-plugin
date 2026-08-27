@@ -732,6 +732,7 @@ class KoinDSLTransformer(
      */
     private fun collectBindType(expression: IrCall) {
         if (_dslDefinitions.isEmpty()) return
+        val lastDef = _dslDefinitions.last()
 
         // Extract the KClass argument from bind(clazz: KClass<S>), or fall back to the reified type
         // argument of bind<Interface>() — a distinct Koin DSL shape with no value argument at all.
@@ -750,10 +751,19 @@ class KoinDSLTransformer(
             }
         } else {
             (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
-        } ?: return
+        }
+        if (boundClass == null) {
+            // Confirmed to be a real Koin bind() call at the caller (fqName already matched
+            // KOIN_BIND_FQNAMES) — any resolution failure here is a genuinely unanalyzable shape
+            // (e.g. bind(someVariable)), not a false positive. Disclose (KOIN-W006) instead of
+            // silently dropping — see UnresolvedBindArgument's kdoc.
+            KoinPluginLogger.report(KoinDiagnostic.UnresolvedBindArgument(
+                defName = lastDef.returnTypeClass.name.asString(), functionName = "bind"
+            ))
+            return
+        }
 
         // Update the last DslDef with the additional binding
-        val lastDef = _dslDefinitions.last()
         if (boundClass.fqNameWhenAvailable?.asString() !in lastDef.bindings.mapNotNull { it.fqNameWhenAvailable?.asString() }) {
             // retainA3Metadata is REQUIRED here: copy() re-runs the primary constructor, so the
             // body-held requirements/origin would reset and this definition's constructor

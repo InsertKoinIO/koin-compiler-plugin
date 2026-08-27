@@ -406,6 +406,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_annotation_incomplete_fold_no_false_d001.kt")
+    public void testCross_module_annotation_incomplete_fold_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_incomplete_fold_no_false_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_annotation_transitive_includes_missing_d001.kt")
     public void testCross_module_annotation_transitive_includes_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_transitive_includes_missing_d001.kt");

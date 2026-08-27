@@ -314,6 +314,86 @@ sealed class KoinDiagnostic(
         },
     )
 
+    /**
+     * KOIN-W004 — An entry point requests `@Configuration(...)` modules under a NON-DEFAULT label
+     * (`@KoinApplication(configurations = ["..."])`). Cross-module auto-discovery for a custom label
+     * is relayed only one `implementation` hop past a module that itself sits on this compilation's
+     * classpath — see `KoinAnnotationProcessor.relayConfigurationHints`'s kdoc for why: unlike the
+     * "default" label (always queried), an arbitrary label can't be looked up across the classpath
+     * without knowing its name in advance, so there's no way to relay a label this compilation never
+     * locally saw a reason to look for.
+     *
+     * Warning, not error: most custom-labeled setups work fine (the module IS within one hop, or is a
+     * direct/api dependency). This discloses a real coverage gap rather than claiming a guarantee the
+     * plugin cannot make — the doctrine's worst failure class is a green build implying more than it
+     * verified. Fires once per (entry point, label) per compilation.
+     */
+    class CustomConfigurationLabelRelayLimited(
+        label: String,
+        entry: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W004",
+        severity = Severity.WARNING,
+        message = "Custom @Configuration label '$label' requested by $entry: cross-module discovery " +
+            "for non-default labels is only relayed one 'implementation' dependency hop past a " +
+            "module already on this compilation's classpath.\n" +
+            "  A @Configuration(\"$label\") module 2+ hops away may not be auto-discovered here. " +
+            "If a module you expect to be picked up under this label is missing, add it as a direct " +
+            "(or api) dependency, or list it explicitly via @KoinApplication(modules = [...]).",
+    )
+
+    /**
+     * KOIN-W005 — A dependency module reachable only via a classpath-invisible `includes()`/
+     * `@Configuration` edge (2+ `implementation` hops away) contributes a definition kind that
+     * [org.koin.compiler.plugin.ir.KoinAnnotationProcessor.relayIncludedModuleHints] cannot relay
+     * yet: a `@Module`-function definition (`Definition.FunctionDef`), or a qualified/`funcreqs`-
+     * carrying top-level provider function (`Definition.TopLevelFunctionDef`). Only class-based
+     * definitions and unqualified top-level functions are relayed today.
+     *
+     * Warning, not error: the definition still exists and works at runtime (Koin resolves it via the
+     * real dependency graph); only THIS compilation's compile-time visibility of it is limited. Per
+     * doctrine, a silently incomplete relay is worse than disclosing the gap. Fires once per
+     * (owning module, definition) per compilation.
+     */
+    class UnrelayedFunctionDefinition(
+        owningModule: String,
+        definitionName: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W005",
+        severity = Severity.WARNING,
+        message = "Definition '$definitionName' in dependency module '$owningModule' (reachable only " +
+            "2+ 'implementation' hops away) is a function-based provider that cross-module relay " +
+            "cannot re-publish yet — it stays invisible to this compilation's compile-time checks, " +
+            "though it still resolves correctly at runtime.\n" +
+            "  To restore compile-time visibility here, add a direct (or api) dependency on the " +
+            "module that owns it.",
+    )
+
+    /**
+     * KOIN-W006 — a `bind`/`binds` call's argument could not be resolved to a compile-time-known
+     * type (or list of them) — anything other than a literal `X::class` / `arrayOf(X::class, ...)` /
+     * `listOf(X::class, ...)`, e.g. a variable holding a precomputed array or a function call that
+     * builds one.
+     *
+     * Warning, not silent drop: the binding still works fine at runtime (Koin resolves it via its
+     * own `secondaryTypes` mechanism, independent of anything this plugin does), but THIS
+     * COMPILATION's compile-time view of the definition is missing that bound type — every consumer
+     * of it may see a false KOIN-D001 that nothing in the user's code caused. Per doctrine, silently
+     * capturing an incomplete binding list is worse than disclosing the gap (same shape as W005).
+     */
+    class UnresolvedBindArgument(
+        defName: String,
+        functionName: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W006",
+        severity = Severity.WARNING,
+        message = "$defName's $functionName(...) argument could not be resolved to a compile-time-known " +
+            "type — this bound interface is invisible to compile-time dependency checks here, though " +
+            "it still resolves correctly at runtime.\n" +
+            "  Use a literal class reference (X::class) or a literal array/list of them for full " +
+            "compile-time visibility.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,
