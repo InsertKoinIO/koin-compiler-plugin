@@ -7,5 +7,7 @@ import org.koin.sample.analytics.AnalyticsHelper
 import org.koin.sample.analytics.StubAnalyticsHelper
 
 val analyticsModule = module {
-    single<StubAnalyticsHelper>() bind AnalyticsHelper::class
+
+//    single<StubAnalyticsHelper>() bind AnalyticsHelper::class
+    single<StubAnalyticsHelper>().bind<AnalyticsHelper>()
 }

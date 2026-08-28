@@ -256,7 +256,7 @@ val myModule = module {
 }
 ```
 
-Both styles define the same dependencies, but the compiler plugin uses reified type parameters instead of constructor references.
+Both styles define the same dependencies, but the compiler plugin uses reified type parameters instead of constructor references. This isn't just style: `single<T>()`/`factory<T>()`/etc. (and `create(::T)`) get full compile-time dependency validation (KOIN-D00x). `singleOf`/`factoryOf`/`scopedOf`/`viewModelOf` are Koin's own real functions — the plugin does not derive their requirements (see KOIN-W007 in [docs/COMPILE_TIME_SAFETY.md](COMPILE_TIME_SAFETY.md)), so a missing dependency behind one of them is caught at runtime, not compile time.
 
 ### Comparison Table
 

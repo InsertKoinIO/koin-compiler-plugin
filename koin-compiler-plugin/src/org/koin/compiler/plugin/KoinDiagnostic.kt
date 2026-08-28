@@ -394,6 +394,40 @@ sealed class KoinDiagnostic(
             "compile-time visibility.",
     )
 
+    /**
+     * KOIN-W007 — A DSL definition's own dependencies could not be statically derived, so
+     * compile-time validation is skipped for THIS definition (it still registers and works fine
+     * at runtime; only its own requirements go unchecked).
+     *
+     * Fires for two distinct opaque shapes:
+     *  - Koin's own constructor-shorthand DSL (`singleOf`/`factoryOf`/`scopedOf`/`viewModelOf`,
+     *    `org.koin.core.module.dsl`) — real Koin functions with ~20 reified-arity overloads
+     *    each; parsing every arity to recover the constructor shape a definition needs is not
+     *    worth the maintenance cost (and pollutes autocomplete with lookalike stubs), so the
+     *    plugin does not attempt it.
+     *  - A hand-written DSL lambda body (`single<T> { someExpression }`, `factory<T> { ... }`,
+     *    etc.) that isn't `create(::T)` — opaque by construction; the plugin never introspects
+     *    or regenerates this code, so it cannot know what a `get<X>()` call inside it requires.
+     *
+     * Warning, not silent drop: per doctrine, a silently incomplete validation is worse than
+     * disclosing the gap (same shape as W005/W006). Local-only — fires only for a definition
+     * DECLARED in this compilation, not for one merely consumed via a dependency's cross-module
+     * hint (same locality rule as W001: the DSL-shape choice is that module's own concern).
+     */
+    class UnvalidatedDslExpression(
+        target: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W007",
+        severity = Severity.WARNING,
+        message = "Compile-time validation skipped for '$target': registered via a DSL expression " +
+            "the plugin cannot statically analyze (singleOf/factoryOf/scopedOf/viewModelOf, or a " +
+            "hand-written lambda body other than create(::T)).\n" +
+            "  The definition is still visible to consumers and works correctly at runtime — only " +
+            "its own dependencies go unchecked by this compilation's compile-time checks.\n" +
+            "  Use single<T>()/factory<T>()/create(::T) (optionally chained with .bind<Interface>()) " +
+            "for full compile-time validation.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,

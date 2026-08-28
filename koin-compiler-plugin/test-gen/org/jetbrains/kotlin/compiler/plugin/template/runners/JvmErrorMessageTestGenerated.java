@@ -198,6 +198,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("dsl_lambda_body_unsafe_w007.kt")
+    public void testDsl_lambda_body_unsafe_w007() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_lambda_body_unsafe_w007.kt");
+    }
+
+    @Test
     @TestMetadata("dsl_module_array_tolist_precision_d001.kt")
     public void testDsl_module_array_tolist_precision_d001() {
       runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_array_tolist_precision_d001.kt");
@@ -252,9 +258,21 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
-    @TestMetadata("dsl_singleof_precision_d001.kt")
-    public void testDsl_singleof_precision_d001() {
-      runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_precision_d001.kt");
+    @TestMetadata("dsl_singleof_named_qualifier_disambiguates_consumer.kt")
+    public void testDsl_singleof_named_qualifier_disambiguates_consumer() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_named_qualifier_disambiguates_consumer.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_singleof_unsafe_w007.kt")
+    public void testDsl_singleof_unsafe_w007() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_unsafe_w007.kt");
+    }
+
+    @Test
+    @TestMetadata("dsl_singleof_w007_coexists_with_typed_entry_point.kt")
+    public void testDsl_singleof_w007_coexists_with_typed_entry_point() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_w007_coexists_with_typed_entry_point.kt");
     }
 
     @Test

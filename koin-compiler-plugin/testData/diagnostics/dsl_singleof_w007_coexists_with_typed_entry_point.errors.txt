@@ -1,3 +1,3 @@
-[Koin][KOIN-W007] Compile-time validation skipped for 'testpkg.InstrumentedStoreService': registered via a DSL expression the plugin cannot statically analyze (singleOf/factoryOf/scopedOf/viewModelOf, or a hand-written lambda body other than create(::T)).
+[Koin][KOIN-W007] Compile-time validation skipped for 'NeedsMissing': registered via a DSL expression the plugin cannot statically analyze (singleOf/factoryOf/scopedOf/viewModelOf, or a hand-written lambda body other than create(::T)).
   The definition is still visible to consumers and works correctly at runtime — only its own dependencies go unchecked by this compilation's compile-time checks.
   Use single<T>()/factory<T>()/create(::T) (optionally chained with .bind<Interface>()) for full compile-time validation.

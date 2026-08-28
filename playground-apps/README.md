@@ -63,92 +63,125 @@ cd app-dsl
 
 ## Compile-Safety Stress Test (run for every plugin version)
 
-The core purpose of these two apps is a **stress test of compile-time safety**: randomly comment out
-(or delete) a definition that something else depends on, recompile, and confirm the plugin **fails the
-build** with `KOIN-D001` instead of letting it compile and crash at runtime. Run this against
-**both** `app-annotations` and `app-dsl` for every KCP release — it is a per-version release gate.
+The core purpose of these two apps is a **stress test of compile-time safety**: hand-edit the source
+to break the dependency graph in a specific way, recompile, and confirm the plugin **fails the build**
+with the right `KOIN-Dxxx` diagnostic instead of letting it compile and crash at runtime. Run the full
+checklist below against **both** `app-annotations` and `app-dsl` for every KCP release — it is a
+per-version release gate — and again any time you touch A2/A3 compile-safety code.
 
-### Procedure
+Setup (once per run): pin the version under test in `gradle/libs.versions.toml`
+(`koin-plugin = "<version>"`) for both apps.
 
-1. Pin the version under test in `gradle/libs.versions.toml` (`koin-plugin = "<version>"`).
-2. Comment out a used definition in a `core` module, e.g. `core/data`:
-   - **annotations** — the `@Singleton` on `OfflineFirstNewsRepository`
-   - **DSL** — `single<OfflineFirstNewsRepository>() bind NewsRepository::class` in `DataModule.kt`
-3. Recompile and confirm the build **fails** with `KOIN-D001: Missing dependency: …NewsRepository`.
-4. Restore the line; confirm the build passes again.
+For each scenario: make the edit → run the given `./gradlew` command → confirm the exact diagnostic →
+**restore the edit** → rerun → confirm green again before moving to the next scenario. Don't stack
+edits — one broken edge at a time, so a failure is unambiguous about which scenario caused it.
 
-### No clean needed (as of 1.1.0-Beta3 — orphan-hint fix)
+### ☐ 0. Baseline
 
-```bash
-# DSL — incremental is fine; a removed definition is caught without any clean
-cd app-dsl
-./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
+- [ ] `app-annotations`: `./gradlew :app:compileDebugKotlin` succeeds clean, no plugin diagnostics.
+- [ ] `app-dsl`: `./gradlew :app:compileDebugKotlin` succeeds clean, no plugin diagnostics.
 
-# Annotations — same, caught at :app's full-graph check when it recompiles
-cd app-annotations
-./gradlew :app:compileDebugKotlin                        # MUST fail with KOIN-D001
-```
+### ☐ 1. Remove a used definition → `KOIN-D001`
 
-### Expected result
+| App | Edit | Command | Expected |
+|---|---|---|---|
+| `app-annotations` | Remove `@Singleton` from `core/data/…/repository/OfflineFirstNewsRepository.kt:12` | `./gradlew :app:compileDebugKotlin --rerun-tasks` (⚠️ see caveat below — the plain command can false-green) | **FAILS** `KOIN-D001: Missing dependency: …NewsRepository` |
+| `app-dsl` | Comment out `core/data/…/di/DataModule.kt:26` — `single<OfflineFirstNewsRepository>() bind NewsRepository::class` | `./gradlew :app:compileDebugKotlin` | **FAILS** `KOIN-D001: Missing dependency: …NewsRepository` |
 
-**Since 1.1.0, per-module validation is gone — both apps are caught the same way**: only the
-aggregator's (`:app`'s) full-graph check catches a removed definition now, never the definition's
-own module compiling in isolation.
+- [ ] annotations: fails as expected (with `--rerun-tasks`) → restored → green
+- [ ] DSL: fails as expected → restored → green
 
-| App | After commenting a used definition | Where it's caught |
-|-----|-----------------------------------|-------------------|
-| `app-annotations` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`), via its full-graph check |
-| `app-dsl` | build **FAILS** with `KOIN-D001` (incremental is fine) | the aggregator (`:app`), via cross-module hints |
+No clean needed for the DSL app (fixed in 1.1.0-Beta3 — see History below); the aggregator's
+(`:app`'s) full-graph check catches it on an incremental rebuild.
 
 > **History:** DSL removal detection previously required `:<module>:clean` because DSL hints were
 > emitted one class *per definition* (`…Dsl_singleKt.class`); Kotlin IC regenerated hints for the
 > remaining defs but never deleted a *removed* def's orphan class, so an incremental rebuild passed
 > silently. Fixed in **1.1.0-Beta3** by batching each module's DSL hints into one
 > `koin_dsl_hints_<module>.kt` file regenerated wholesale (same shape the annotation module-scan hints
-> always used) — a removed def leaves no orphan class. Verified incremental (no clean), `:module:clean`,
-> and full-clean all detect. A full clean / `--rerun-tasks` remains a safe belt-and-suspenders check.
+> always used) — a removed def leaves no orphan class.
 
-### Also worth commenting out (as of 1.1.0-Beta8/Beta9)
+> **⚠️ `app-annotations` caveat (found 2026-08-28, plugin 1.2.0-Beta7, confirmed daemon-isolated —
+> real, not a shared-daemon artifact).** A *plain* `./gradlew :app:compileDebugKotlin` can false-green
+> this exact scenario: `:core:data:compileDebugKotlin` correctly re-executes and regenerates its
+> `@ComponentScan` hint excluding the removed definition (verified: 5 entries instead of 6), but
+> `:app:compileDebugKotlin` — which also re-executes, this is not a Gradle up-to-date skip — still
+> validates against a stale view of that hint and reports all dependencies satisfied. Only
+> `--rerun-tasks` (which discards Kotlin's own incremental-compilation cache, not just Gradle's task
+> cache) reliably catches it. **Narrow, not systemic**: scenarios 2 and 3 on this same app caught
+> their breaks on the very first plain build, no rerun needed — this reproduces specifically for
+> "annotation removed, container class kept, hint's definition count shrinks by one." Not yet fixed;
+> always use `--rerun-tasks` for this scenario on `app-annotations` until it is.
 
-Removing a *definition* is not the only way to break a graph. Two more edits belong in the sweep:
+### ☐ 2. Remove a transitive includes edge in a dependency module → `KOIN-D001`
 
-```bash
-# 1. Remove a transitive `includes()` edge in a dependency module.
-#    app-dsl: drop `databaseModule` from core/data/…/DataModule.kt's includes(...)
-./gradlew :app:compileDebugKotlin        # MUST fail with KOIN-D001 (incremental is fine)
+Needs a module that reaches the root through **exactly one** transitive path, with no direct edge
+from the root — otherwise the direct edge keeps the graph complete and the build correctly stays
+green (not a bug, just the wrong module picked).
 
-# 2. Remove a module from the root's includes(), where a call site still resolves it.
-#    app-dsl: comment `activityModule` out of app/…/AppModule.kt
-./gradlew :app:compileDebugKotlin        # MUST fail with KOIN-D002 at the inject() call site
-```
+| App | Edit | Command | Expected |
+|---|---|---|---|
+| `app-annotations` | Drop `includes = [DatabaseModule::class]` from `core/database/…/di/DaosModule.kt:11` (`DaosModule` is `@Configuration`-labeled and is `DatabaseModule`'s only path to the root; `DatabaseModule` itself carries no `@Configuration`) | `./gradlew :app:compileDebugKotlin` | **FAILS** `KOIN-D001` naming a `AppDatabase`/dao dependency |
+| `app-dsl` | ⚠️ **currently not exercisable** — every module in `app/…/di/AppModule.kt`'s `includes(...)` list (line 33) also has a direct edge from the root, so there is no sole-transitive-path module left. Restructure a module to remove its direct edge before running this, or skip with a note. | — | — |
 
-> **Edit 1 is currently stale for `app-dsl`'s topology (found during 1.1.0 release verification).**
-> `app/…/AppModule.kt` now ALSO lists `databaseModule` directly in its own `modules(...)`/`includes(...)`
-> list, alongside `DataModule.kt`'s transitive edge — so dropping the transitive edge alone leaves the
-> graph genuinely complete via the direct edge, and the build correctly succeeds (not a plugin bug,
-> just doesn't exercise "sole transitive edge" anymore). Pick a module that reaches the root through
-> exactly one transitive path with no direct edge before running this check, or restructure `app-dsl`
-> to restore that shape.
+- [ ] annotations: fails as expected → restored → green
+- [ ] DSL: confirm still N/A, or restructure and run
 
-Edit 2 is the one that used to compile and crash at runtime — `by inject<ActivityTracker>()` resolved
-against a module nobody loaded. Note that Gradle suppresses `w:` lines on a failing task, so the
-`KOIN-W001` that fires alongside the D002 will not appear in the console.
+> This is the scenario the annotations side is being brought to parity on (see
+> `ANNOTATION_INCLUDES_HINT_PREFIX` in `KoinPluginConstants.kt`) — run it explicitly on every release
+> after this branch lands, not just the DSL side, since it previously had no coverage at all here.
 
-> **Known limitation — a module that goes COMPLETELY empty.** If a `module { }` val loses its last
-> `includes()` *and* has no definitions of its own, an incremental rebuild does **not** detect it:
-> the build passes and the missing providers surface at runtime. `:<module>:clean` does not help
-> either; only a full `clean` (with `--no-build-cache`) catches it.
+### ☐ 3. Remove a module from the root's module list, where a call site still resolves it → `KOIN-D002`
+
+This is the one that used to compile and crash at runtime — the injected type resolved against a
+module nobody loaded.
+
+| App | Edit | Command | Expected |
+|---|---|---|---|
+| `app-annotations` | Remove `@Configuration` from `app/…/di/ActivityModule.kt:12` (drops it from auto-discovery; call site is `app/…/MainActivity.kt:25` — `by inject()` for `ActivityTracker`) | `./gradlew :app:compileDebugKotlin` | **FAILS** `KOIN-D002` at the `MainActivity.kt:25` inject site |
+| `app-dsl` | Comment `activityModule` out of `app/…/di/AppModule.kt:33`'s `includes(...)` (call site is `app/…/MainActivity.kt:22` — `by inject()` for `ActivityTracker`) | `./gradlew :app:compileDebugKotlin` | **FAILS** `KOIN-D002` at the `MainActivity.kt:22` inject site |
+
+- [ ] annotations: fails as expected → restored → green
+- [ ] DSL: fails as expected → restored → green
+
+Note: Gradle suppresses `w:` lines on a failing task, so the `KOIN-W001` that fires alongside the
+D002 will not appear in the console — don't treat its absence as a problem.
+
+### ☐ 4. Empty a module entirely → KNOWN LIMITATION for DSL; **not currently reproducing for annotations**
+
+If a module loses its last `includes()`/`includes=[...]` edge **and** its last definition, the DSL
+app's incremental rebuild does **not** detect it — the build passes and the missing providers surface
+at runtime; `:<module>:clean` does not help either, only a full `clean` (with `--no-build-cache`)
+catches it. **Re-verified 2026-08-28 on 1.2.0-Beta7: this still holds for `app-dsl`.** The same check
+on `app-annotations`, however, was caught by a *plain incremental* build this time — no clean needed
+— contradicting the previously-unconditional claim here for that app. Root cause for the apparent fix
+was not deliberately investigated; it's plausibly an incidental side effect of hint-batching /
+multi-hop `@Configuration` discovery work already on this branch, unrelated to whatever intentionally
+changed. **Treat the annotation-path fix as observed, not guaranteed — re-run this scenario on both
+apps before relying on either claim for a release**, this is not something to "fix" by editing further.
+
+| App | Edit | Expected without clean | Expected after full clean |
+|---|---|---|---|
+| `app-annotations` | Empty `core/database/…/di/DaosModule.kt` completely: drop `includes = [DatabaseModule::class]` and all three `@Singleton` functions | ⚠️ **Currently caught immediately** — incremental `./gradlew :app:compileDebugKotlin` **FAILS** `KOIN-D001` (no clean needed, as of 2026-08-28 verification) | `./gradlew clean :app:compileDebugKotlin --no-build-cache` **FAILS** identically |
+| `app-dsl` | Empty `core/datastore/…/di/DataStoreModule.kt`: drop `includes(dispatchersModule)` (line 27) and both definitions (lines 29-30) | incremental `./gradlew :app:compileDebugKotlin` **passes silently** (the gap, confirmed still present) | `./gradlew clean :app:compileDebugKotlin --no-build-cache` **FAILS** `KOIN-D001` |
+
+- [ ] annotations: confirm whether incremental still catches it (if it regresses to silent-pass, that's the historical gap returning) → full clean catches it either way → restored → green
+- [ ] DSL: incremental green (gap reconfirmed) → full clean catches it → restored → green
+
+> `javap` on the emptied module's `classes.jar` shows the edge/definition genuinely gone — the
+> *artifact* is correct. The residual (on `app-dsl`) is K2 re-resolving a changed hint signature within
+> one incremental session, past what the plugin can reach. Scope is narrow: changing *one edge among
+> several* (scenario 2/3 above) propagates correctly on a no-clean rebuild on both apps; it's only the
+> *completely-empty* case that needs the full clean — and, per the above, apparently only on the DSL
+> path as of this verification.
 >
-> The plugin emits a zero-parameter keep-alive hint for exactly this case, so the *artifact* is
-> correct — `javap` on the module's `classes.jar` shows the edge gone. The residual is K2 re-resolving
-> a changed hint signature within one incremental session: the consumer keeps seeing the old
-> signature even though the jar it compiles against no longer contains it. Both tasks re-execute and
-> clearing the consumer's IC caches does not help, so this sits past what the plugin can reach.
->
-> Scope is narrow: changing *one edge among several* propagates correctly (verified — 3 correct
-> `KOIN-D001` on a no-clean rebuild). It is also not specific to `includes()` — the same shape applies
-> to a module whose last *definition* is deleted, which predates the includes-edge carrier. If you are
-> deliberately emptying a module, run a full clean before trusting a green build.
+> **Correction (2026-08-28): the "simpler single-definition leaf" fallback for `app-dsl`
+> (`NotificationsModule.kt:10` / `AnalyticsModule.kt:10`) does NOT reproduce this gap** — neither leaf
+> has an `includes()` edge to begin with, so removing their one definition is already caught
+> incrementally (that's the 1.1.0-Beta3 DSL orphan-hint fix working correctly, a different and already-
+> fixed case). Only a module losing an `includes()` edge *together with* its last definition
+> (`DataStoreModule`, as specified above) reproduces the actual gap — don't substitute the leaf
+> shortcut.
 
 ## Key Patterns Covered
 

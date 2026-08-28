@@ -662,6 +662,16 @@ Each diagnostic test has `.fir.txt` (FIR golden file) and `.errors.txt` (error m
 
 **Phase B notes:** DSL definitions (`single<T>()`, `factory<T>()`, etc.) are collected as `DslDef` during Phase 2 and participate in the safety graph. Phase 3.1 validates their constructor parameters when no `startKoin<T>()` / `@KoinApplication` is present. Phase 2.5 generates DSL definition hints (`dsl_single`, `dsl_factory`, etc.) for cross-module discovery.
 
+**Phase B — intentionally NOT requirement-validated:** Koin's own constructor-shorthand DSL
+(`singleOf`/`factoryOf`/`scopedOf`/`viewModelOf`, `org.koin.core.module.dsl`) and any hand-written
+DSL lambda body other than `create(::T)` (e.g. `single<T> { someExpression }`) are registered
+provider-only — the provided type is still visible to other definitions' validation, but this
+definition's own requirements are not derived. `singleOf`-and-friends are real Koin functions with
+~20 reified-arity overloads each; a hand-written lambda body is opaque by construction — the plugin
+never introspects or regenerates either shape, so it does not guess at what they require. Both are
+disclosed via **KOIN-W007** rather than silently skipped. Use `single<T>()`/`factory<T>()`/
+`create(::T)` (optionally chained with `.bind<Interface>()`) for full compile-time validation.
+
 **Phase A4 notes:** Call sites are collected during Phase 2 and validated in Phase 3.5. Unresolved call sites in feature modules generate `callsite(required: T)` hint functions for deferred validation by the app module in Phase 3.6.
 
 ### Phase C: Known Limitations

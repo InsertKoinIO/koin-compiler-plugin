@@ -13,8 +13,10 @@
 // resolved back onto the definition's OWN node — a false self-loop:
 //   KOIN-D004: InstrumentedStoreService -> InstrumentedStoreService
 //
-// EXPECTED: completely silent. InstrumentedStoreService depends on ObjectStoreService, a
-// distinct definition — there is no cycle.
+// EXPECTED: no KOIN-D004 — InstrumentedStoreService depends on ObjectStoreService, a distinct
+// definition, there is no cycle. KOIN-W007 DOES fire (hand-written lambda bodies are opaque DSL,
+// unconditionally disclosed as skipped from requirement validation since that warning was added)
+// — this is no longer "completely silent", but the false self-cycle is still gone.
 package testpkg
 
 import org.koin.dsl.bind

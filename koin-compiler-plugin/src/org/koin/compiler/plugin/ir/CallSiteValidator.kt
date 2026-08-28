@@ -491,6 +491,23 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
         KoinPluginLogger.debug { "  reachable providers: ${providerDefinitions.size} (reachable DSL=${reachableDefs.size}, unreachable DSL=${unreachableDefs.size})" }
 
+        // Locality anchor shared by KOIN-W001 (below) and KOIN-W007 (here): `dslDefinitions` is
+        // this compilation's own list, while the rest of `allDslDefs` was reconstructed from
+        // dependency hints — see the KOIN-W001 comment below for why locality matters.
+        val localModuleIds = dslDefinitions.mapNotNullTo(mutableSetOf()) { it.modulePropertyId }
+
+        // KOIN-W007 — a definition reachable from a real entry point (this function only runs
+        // when one exists) whose own requirements could not be derived (singleOf/factoryOf/
+        // scopedOf/viewModelOf, or an opaque hand-written lambda body). Local-only, same rule as
+        // W001: a dependency's own unsafe-DSL choice was already disclosed when IT compiled.
+        for (def in reachableDefs) {
+            if (def.providerOnly && def.modulePropertyId in localModuleIds) {
+                KoinPluginLogger.report(KoinDiagnostic.UnvalidatedDslExpression(
+                    target = def.returnTypeClass.fqNameWhenAvailable?.asString() ?: def.returnTypeClass.name.asString(),
+                ))
+            }
+        }
+
         val defsToValidate = reachableDefs.filter { !(it is Definition.DslDef && it.providerOnly) }
         val registry = BindingRegistry()
         val qualifierExtractor = safetyValidator.qualifierExtractor
@@ -513,8 +530,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
         //    following the advice would defeat the isolation. The real application root still sees it.
         //
         // Locality comes free: `dslDefinitions` is this compilation's own list, while the rest were
-        // reconstructed from dependency hints above.
-        val localModuleIds = dslDefinitions.mapNotNullTo(mutableSetOf()) { it.modulePropertyId }
+        // reconstructed from dependency hints above (localModuleIds computed above, shared with W007).
         val reportableUnreachable =
             if (ownsAuthoritativeGraph) unreachableDefs
             else unreachableDefs.filter { it.modulePropertyId in localModuleIds }
