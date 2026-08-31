@@ -400,8 +400,7 @@ class KoinPluginComponentRegistrar: CompilerPluginRegistrar() {
             CommonConfigurationKeys.EXPECT_ACTUAL_TRACKER,
             ExpectActualTracker.DoNothing
         )
-        KoinPluginLogger.debug { "IC trackers: lookupTracker=${lookupTracker?.javaClass?.simpleName ?: "NULL"}, expectActualTracker=${expectActualTracker.javaClass.simpleName}" }
-
+        
         // Extension registration binds to compiler internals whose binary contract
         // moves across Kotlin versions — route it through the version adapter
         // matching the running compiler (see koin-compiler-version-adapter/).

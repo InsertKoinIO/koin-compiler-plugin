@@ -1180,6 +1180,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                     // Get return type ClassId
                     val returnTypeClassId = functionSymbol.resolvedReturnTypeRef.coneType.classId ?: return@forEach
 
+                    //TODO Check why we skip Unit return functions
                     // Skip Unit return types (not useful as DI providers)
                     if (returnTypeClassId.asSingleFqName().asString() == "kotlin.Unit") return@forEach
 
@@ -1541,7 +1542,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
     }
 
     override fun FirDeclarationPredicateRegistrar.registerPredicates() {
-        log { "registerPredicates: Registering predicates for @Module and definition annotations" }
+        log { "registerPredicates: Registering all annotations predicates" }
+
         register(modulePredicate)
         // Configuration and ComponentScan predicates for KMP-safe annotation detection
         register(configurationPredicate)
@@ -1637,237 +1639,279 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
      *
      * Note: Using functions instead of properties avoids NPE on Kotlin/Native due to backing field issues.
      */
+    /**
+     * Dispatches [callableId] to whichever hint-kind generator recognizes its shape — each hint
+     * kind has its own function name convention (see the companion `*HintFunctionName`/
+     * `*InfoFromHintName` helpers). Mirrors the ordering the FIR generator originally checked in,
+     * INCLUDING the fallthrough case: [generateModuleDefinitionHintFunctions] returns null (try
+     * the next kind) only when the hint name parses but no function actually matches it — a
+     * matching function with no source file is a terminal empty result, not a fallthrough. A new
+     * hint kind is added as its own `generate*HintFunctions` function plus one more check here.
+     *
+     * The `MODULE_FUNCTION_NAME` check runs first and is independent of packageName, but in
+     * practice never overlaps the `HINTS_PACKAGE` checks below it: a `fun T.module()` extension
+     * is only ever generated in the @Module class's OWN package, never in HINTS_PACKAGE — so its
+     * position relative to the block below is not load-bearing.
+     */
     override fun generateFunctions(
         callableId: CallableId,
         context: MemberGenerationContext?
     ): List<FirNamedFunctionSymbol> {
-        // Generate hint functions for @Configuration modules
-        // Function name is label-specific: configuration_<label>
-        if (callableId.packageName == HINTS_PACKAGE) {
-            val label = labelFromHintFunctionName(callableId.callableName.asString())
-            if (label != null) {
-                // Find modules that have this label
-                val modulesWithLabel = configurationModules.filter { it.labels.contains(label) }
-                log { "generateFunctions: Generating hint functions for label '$label', ${modulesWithLabel.size} modules" }
-
-                return modulesWithLabel.mapNotNull { configModule ->
-                    val classSymbol = configModule.classSymbol
-                    val moduleType = classSymbol.constructType(emptyArray(), false)
-
-                    // Use pre-captured file name from ConfigurationModule (captured during discovery)
-                    val containingFile = configModule.containingFileName
-
-                    // Use pre-captured file name, or deterministic synthetic file name for dependencies
-                    val effectiveFileName = containingFile ?: syntheticFileName(classSymbol.classId, "Configuration")
-
-                    log { "  -> Generating hint for ${classSymbol.classId} with label '$label' in file $effectiveFileName" }
-
-                    createTopLevelFunction(
-                        Key,
-                        callableId,
-                        session.builtinTypes.unitType.coneType,
-                        containingFileName = effectiveFileName
-                    ) {
-                        valueParameter(Name.identifier("contributed"), moduleType)
-                    }.apply { markAsDeprecatedHidden() }.symbol
-                }
-            }
-        }
-
-        // Generate module extension functions for @Module classes
         if (callableId.callableName == MODULE_FUNCTION_NAME) {
-            // Find module classes in this package - use moduleClassInfos to access pre-captured source file info
-            val matchingModules = moduleClassInfos.filter { info ->
-                info.classSymbol.classId.packageFqName == callableId.packageName
-            }
-
-            if (matchingModules.isEmpty()) {
-                return emptyList()
-            }
-
-            log { "generateFunctions: Generating ${matchingModules.size} module functions in ${callableId.packageName}" }
-
-            return matchingModules.mapNotNull { moduleInfo ->
-                val classSymbol = moduleInfo.classSymbol
-                val moduleType = KOIN_MODULE_CLASS_ID.constructClassLikeType(emptyArray(), false)
-                val extensionType = classSymbol.constructType(emptyArray(), false)
-                val functionCallableId = CallableId(classSymbol.classId.packageFqName, MODULE_FUNCTION_NAME)
-
-                // Use pre-captured source file info from discovery phase
-                // This is important for KMP where source type changes between phases
-                val containingFile = moduleInfo.containingFileName
-                val isActual = classSymbol.rawStatus.isActual
-                log { "  -> Source for ${classSymbol.classId}: containingFile=$containingFile, isActual=$isActual" }
-
-                // Use source file if available, otherwise use deterministic synthetic file name
-                val effectiveFileName = containingFile ?: syntheticFileName(classSymbol.classId, "Module")
-
-                log { "  -> Generating module() for ${classSymbol.classId} in file $effectiveFileName" }
-
-                createTopLevelFunction(
-                    Key,
-                    functionCallableId,
-                    moduleType,
-                    containingFileName = effectiveFileName
-                ) {
-                    extensionReceiverType(extensionType)
-                }.symbol
-            }
+            return generateModuleExtensionFunctions(callableId)
         }
 
-        // Generate definition hint functions for cross-module @ComponentScan discovery
-        // Function name format: definition_<type> (e.g., definition_single, definition_viewmodel)
         if (callableId.packageName == HINTS_PACKAGE) {
-            val defType = definitionTypeFromHintFunctionName(callableId.callableName.asString())
-            if (defType != null) {
-                // Find definition classes with this type
-                val matchingDefinitions = definitionClassInfos.filter { it.definitionType == defType }
-                log { "generateFunctions: Generating definition hints for type '$defType', ${matchingDefinitions.size} classes" }
-
-                return matchingDefinitions.mapNotNull { defInfo ->
-                    val classSymbol = defInfo.classSymbol
-                    val classType = classSymbol.constructType(emptyArray(), false)
-
-                    val containingFile = defInfo.containingFileName
-
-                    // Skip synthetic file generation for dependency classes
-                    if (containingFile == null) {
-                        log { "  -> Skipping definition hint for ${classSymbol.classId} (no source file)" }
-                        return@mapNotNull null
-                    }
-
-                    val effectiveFileName = containingFile
-
-                    log { "  -> Generating definition hint for ${classSymbol.classId} (type=$defType) in file $effectiveFileName" }
-
-                    val metadataParams = buildMetadataParams(
-                        defInfo.bindingClassIds,
-                        defInfo.scopeClassId,
-                        defInfo.qualifierName,
-                        defInfo.qualifierTypeClassId
-                    )
-
-                    createTopLevelFunction(
-                        Key,
-                        callableId,
-                        session.builtinTypes.unitType.coneType,
-                        containingFileName = effectiveFileName
-                    ) {
-                        // visibility stays public for cross-module discovery
-                        valueParameter(Name.identifier("contributed"), classType)
-                        // Encode bindings, scope, qualifier metadata for cross-module safety validation
-                        for ((paramName, paramType) in metadataParams) {
-                            valueParameter(paramName, paramType)
-                        }
-                    }.apply { markAsDeprecatedHidden() }.symbol
-                }
+            labelFromHintFunctionName(callableId.callableName.asString())?.let { label ->
+                return generateConfigurationHintFunctions(callableId, label)
             }
 
-            // Generate function definition hint functions for cross-module top-level function discovery
-            // Function name format: definition_function_<type> (e.g., definition_function_single)
-            // The hint carries the return type as the parameter type (what the function provides),
-            // plus additional parameters encoding bindings, scope, and qualifier metadata.
-            val funcDefType = definitionTypeFromFunctionHintName(callableId.callableName.asString())
-            if (funcDefType != null) {
-                val matchingFunctions = definitionFunctionInfos.filter { it.definitionType == funcDefType }
-                log { "generateFunctions: Generating function definition hints for type '$funcDefType', ${matchingFunctions.size} functions" }
-
-                return matchingFunctions.mapNotNull { funcInfo ->
-                    val containingFile = funcInfo.containingFileName
-                    if (containingFile == null) {
-                        log { "  -> Skipping function definition hint for ${funcInfo.functionSymbol.callableId} (no source file)" }
-                        return@mapNotNull null
-                    }
-
-                    // Build the return type as a class type for the hint parameter
-                    val returnClassType = funcInfo.returnTypeClassId.constructClassLikeType(emptyArray(), false)
-
-                    log { "  -> Generating function definition hint for ${funcInfo.functionSymbol.callableId.callableName}() -> ${funcInfo.returnTypeClassId} (type=$funcDefType) in file $containingFile" }
-
-                    val metadataParams = buildMetadataParams(funcInfo.bindingClassIds, funcInfo.scopeClassId, funcInfo.qualifierName, funcInfo.qualifierTypeClassId)
-
-                    // Encode function's own package when it differs from return type's package
-                    // This allows @ComponentScan("infra") to find @Singleton fun provideRepo(): domain.Repository
-                    val funcPackage = funcInfo.functionPackageName
-                    val returnTypePackage = funcInfo.returnTypeClassId.packageFqName.asString()
-
-                    createTopLevelFunction(
-                        Key,
-                        callableId,
-                        session.builtinTypes.unitType.coneType,
-                        containingFileName = containingFile
-                    ) {
-                        // First parameter: return type (contributed)
-                        valueParameter(Name.identifier("contributed"), returnClassType)
-                        // Additional parameters: bindings, scope, qualifier metadata
-                        for ((paramName, paramType) in metadataParams) {
-                            valueParameter(paramName, paramType)
-                        }
-                        // Encode function package when it differs from return type package
-                        if (funcPackage != null && funcPackage != returnTypePackage) {
-                            val sanitized = funcPackage.replace(".", "_")
-                            valueParameter(Name.identifier("funcpkg_$sanitized"), session.builtinTypes.unitType.coneType)
-                        }
-                    }.apply { markAsDeprecatedHidden() }.symbol
-                }
+            definitionTypeFromHintFunctionName(callableId.callableName.asString())?.let { defType ->
+                return generateDefinitionClassHintFunctions(callableId, defType)
             }
 
-            // Generate per-function definition hints for @Module function definitions
-            val moduleDefInfo = moduleDefinitionInfoFromHintName(callableId.callableName.asString())
-            if (moduleDefInfo != null) {
-                val (moduleId, funcName) = moduleDefInfo
-                val matchingFunc = moduleDefinitionFunctionInfos.firstOrNull { info ->
-                    sanitizeModuleIdForHint(info.moduleClassId) == moduleId && info.functionName == funcName
-                }
-                if (matchingFunc != null) {
-                    val containingFile = matchingFunc.containingFileName ?: return emptyList()
-                    val returnClassType = matchingFunc.returnTypeClassId.constructClassLikeType(emptyArray(), false)
+            definitionTypeFromFunctionHintName(callableId.callableName.asString())?.let { funcDefType ->
+                return generateDefinitionFunctionHintFunctions(callableId, funcDefType)
+            }
 
-                    log { "  -> Generating module definition hint for ${matchingFunc.moduleClassId.shortClassName}.$funcName() -> ${matchingFunc.returnTypeClassId} in file $containingFile" }
-
-                    val metadataParams = buildMetadataParams(matchingFunc.bindingClassIds, matchingFunc.scopeClassId, matchingFunc.qualifierName, matchingFunc.qualifierTypeClassId)
-
-                    return listOf(
-                        createTopLevelFunction(
-                            Key,
-                            callableId,
-                            session.builtinTypes.unitType.coneType,
-                            containingFileName = containingFile
-                        ) {
-                            valueParameter(Name.identifier("contributed"), returnClassType)
-                            // Additional parameters: bindings, scope, qualifier metadata
-                            for ((paramName, paramType) in metadataParams) {
-                                valueParameter(paramName, paramType)
-                            }
-                        }.apply { markAsDeprecatedHidden() }.symbol
-                    )
-                }
+            moduleDefinitionInfoFromHintName(callableId.callableName.asString())?.let { moduleDefInfo ->
+                generateModuleDefinitionHintFunctions(callableId, moduleDefInfo)?.let { return it }
             }
 
             // Note: componentscan_* / componentscanfunc_* hints are now generated at IR time
             // using registerFunctionAsMetadataVisible (see KoinAnnotationProcessor.generateModuleScanHints).
 
-            // Generate qualifier hint functions for custom qualifier annotation classes
             if (callableId.callableName == QUALIFIER_HINT_NAME) {
-                log { "generateFunctions: Generating qualifier hints for ${qualifierAnnotationInfos.size} custom qualifier annotations" }
-                return qualifierAnnotationInfos.mapNotNull { qualInfo ->
-                    val containingFile = qualInfo.containingFileName ?: return@mapNotNull null
-                    val classType = qualInfo.classSymbol.constructType(emptyArray(), false)
-                    log { "  -> Generating qualifier hint for ${qualInfo.classSymbol.classId} in file $containingFile" }
-
-                    createTopLevelFunction(
-                        Key,
-                        callableId,
-                        session.builtinTypes.unitType.coneType,
-                        containingFileName = containingFile
-                    ) {
-                        valueParameter(Name.identifier("contributed"), classType)
-                    }.apply { markAsDeprecatedHidden() }.symbol
-                }
+                return generateQualifierHintFunctions(callableId)
             }
         }
 
         return emptyList()
+    }
+
+    /** Hint functions for @Configuration modules. Function name is label-specific: configuration_<label>. */
+    private fun generateConfigurationHintFunctions(callableId: CallableId, label: String): List<FirNamedFunctionSymbol> {
+        // Find modules that have this label
+        val modulesWithLabel = configurationModules.filter { it.labels.contains(label) }
+        log { "generateFunctions: Generating hint functions for configuration '$label', ${modulesWithLabel.size} modules" }
+
+        return modulesWithLabel.mapNotNull { configModule ->
+            val classSymbol = configModule.classSymbol
+            val moduleType = classSymbol.constructType(emptyArray(), false)
+
+            // Use pre-captured file name from ConfigurationModule (captured during discovery)
+            val containingFile = configModule.containingFileName
+
+            // Use pre-captured file name, or deterministic synthetic file name for dependencies
+            val effectiveFileName = containingFile ?: syntheticFileName(classSymbol.classId, "Configuration")
+
+            log { "  -> Generating hint for ${classSymbol.classId} with label '$label' in file $effectiveFileName" }
+
+            createTopLevelFunction(
+                Key,
+                callableId,
+                session.builtinTypes.unitType.coneType,
+                containingFileName = effectiveFileName
+            ) {
+                valueParameter(Name.identifier("contributed"), moduleType)
+            }.apply { markAsDeprecatedHidden() }.symbol
+        }
+    }
+
+    /** `fun T.module()` extension functions for @Module classes in [callableId]'s package. */
+    private fun generateModuleExtensionFunctions(callableId: CallableId): List<FirNamedFunctionSymbol> {
+        // Find module classes in this package - use moduleClassInfos to access pre-captured source file info
+        val matchingModules = moduleClassInfos.filter { info ->
+            info.classSymbol.classId.packageFqName == callableId.packageName
+        }
+
+        if (matchingModules.isEmpty()) {
+            return emptyList()
+        }
+
+        log { "generateFunctions: Generating ${matchingModules.size} module() extension functions in ${callableId.packageName}" }
+
+        return matchingModules.mapNotNull { moduleInfo ->
+            val classSymbol = moduleInfo.classSymbol
+            val moduleType = KOIN_MODULE_CLASS_ID.constructClassLikeType(emptyArray(), false)
+            val extensionType = classSymbol.constructType(emptyArray(), false)
+            val functionCallableId = CallableId(classSymbol.classId.packageFqName, MODULE_FUNCTION_NAME)
+
+            // Use pre-captured source file info from discovery phase
+            // This is important for KMP where source type changes between phases
+            val containingFile = moduleInfo.containingFileName
+            val isActual = classSymbol.rawStatus.isActual
+            log { "  -> Source for ${classSymbol.classId}: containingFile=$containingFile, isActual=$isActual" }
+
+            // Use source file if available, otherwise use deterministic synthetic file name
+            val effectiveFileName = containingFile ?: syntheticFileName(classSymbol.classId, "Module")
+
+            log { "  -> Generating module() for ${classSymbol.classId} in file $effectiveFileName" }
+
+            createTopLevelFunction(
+                Key,
+                functionCallableId,
+                moduleType,
+                containingFileName = effectiveFileName
+            ) {
+                extensionReceiverType(extensionType)
+            }.symbol
+        }
+    }
+
+    /**
+     * Cross-module @ComponentScan discovery hints for annotated CLASSES.
+     * Function name format: definition_<type> (e.g., definition_single, definition_viewmodel)
+     */
+    private fun generateDefinitionClassHintFunctions(callableId: CallableId, defType: String): List<FirNamedFunctionSymbol> {
+        // Find definition classes with this type
+        val matchingDefinitions = definitionClassInfos.filter { it.definitionType == defType }
+        log { "generateFunctions: Generating cross module definition hints for type '$defType', ${matchingDefinitions.size} classes" }
+
+        return matchingDefinitions.mapNotNull { defInfo ->
+            val classSymbol = defInfo.classSymbol
+            val classType = classSymbol.constructType(emptyArray(), false)
+
+            val containingFile = defInfo.containingFileName
+
+            // Skip synthetic file generation for dependency classes
+            if (containingFile == null) {
+                log { "  -> Skipping definition hint for ${classSymbol.classId} (no source file)" }
+                return@mapNotNull null
+            }
+
+            val effectiveFileName = containingFile
+
+            log { "  -> Generating definition hint for ${classSymbol.classId} (type=$defType) in file $effectiveFileName" }
+
+            val metadataParams = buildMetadataParams(
+                defInfo.bindingClassIds,
+                defInfo.scopeClassId,
+                defInfo.qualifierName,
+                defInfo.qualifierTypeClassId
+            )
+
+            createTopLevelFunction(
+                Key,
+                callableId,
+                session.builtinTypes.unitType.coneType,
+                containingFileName = effectiveFileName
+            ) {
+                // visibility stays public for cross-module discovery
+                valueParameter(Name.identifier("contributed"), classType)
+                // Encode bindings, scope, qualifier metadata for cross-module safety validation
+                for ((paramName, paramType) in metadataParams) {
+                    valueParameter(paramName, paramType)
+                }
+            }.apply { markAsDeprecatedHidden() }.symbol
+        }
+    }
+
+    /**
+     * Cross-module top-level FUNCTION discovery hints. Function name format:
+     * definition_function_<type> (e.g., definition_function_single). The hint carries the return
+     * type as the parameter type (what the function provides), plus additional parameters
+     * encoding bindings, scope, and qualifier metadata.
+     */
+    private fun generateDefinitionFunctionHintFunctions(callableId: CallableId, funcDefType: String): List<FirNamedFunctionSymbol> {
+        val matchingFunctions = definitionFunctionInfos.filter { it.definitionType == funcDefType }
+        log { "generateFunctions: Generating function definition hints for type '$funcDefType', ${matchingFunctions.size} functions" }
+
+        return matchingFunctions.mapNotNull { funcInfo ->
+            val containingFile = funcInfo.containingFileName
+            if (containingFile == null) {
+                log { "  -> Skipping function definition hint for ${funcInfo.functionSymbol.callableId} (no source file)" }
+                return@mapNotNull null
+            }
+
+            // Build the return type as a class type for the hint parameter
+            val returnClassType = funcInfo.returnTypeClassId.constructClassLikeType(emptyArray(), false)
+
+            log { "  -> Generating function definition hint for ${funcInfo.functionSymbol.callableId.callableName}() -> ${funcInfo.returnTypeClassId} (type=$funcDefType) in file $containingFile" }
+
+            val metadataParams = buildMetadataParams(funcInfo.bindingClassIds, funcInfo.scopeClassId, funcInfo.qualifierName, funcInfo.qualifierTypeClassId)
+
+            // Encode function's own package when it differs from return type's package
+            // This allows @ComponentScan("infra") to find @Singleton fun provideRepo(): domain.Repository
+            val funcPackage = funcInfo.functionPackageName
+            val returnTypePackage = funcInfo.returnTypeClassId.packageFqName.asString()
+
+            createTopLevelFunction(
+                Key,
+                callableId,
+                session.builtinTypes.unitType.coneType,
+                containingFileName = containingFile
+            ) {
+                // First parameter: return type (contributed)
+                valueParameter(Name.identifier("contributed"), returnClassType)
+                // Additional parameters: bindings, scope, qualifier metadata
+                for ((paramName, paramType) in metadataParams) {
+                    valueParameter(paramName, paramType)
+                }
+                // Encode function package when it differs from return type package
+                if (funcPackage != null && funcPackage != returnTypePackage) {
+                    val sanitized = funcPackage.replace(".", "_")
+                    valueParameter(Name.identifier("funcpkg_$sanitized"), session.builtinTypes.unitType.coneType)
+                }
+            }.apply { markAsDeprecatedHidden() }.symbol
+        }
+    }
+
+    /**
+     * Per-function definition hint for one @Module function definition. Returns null (caller
+     * tries the next hint kind) when [moduleDefInfo] parses but no function actually matches it —
+     * a genuine "this isn't a module-definition hint after all" case, distinct from a match with
+     * no source file, which is a terminal empty result (see [generateFunctions]'s kdoc).
+     */
+    private fun generateModuleDefinitionHintFunctions(
+        callableId: CallableId,
+        moduleDefInfo: Pair<String, String>,
+    ): List<FirNamedFunctionSymbol>? {
+        val (moduleId, funcName) = moduleDefInfo
+        val matchingFunc = moduleDefinitionFunctionInfos.firstOrNull { info ->
+            sanitizeModuleIdForHint(info.moduleClassId) == moduleId && info.functionName == funcName
+        } ?: return null
+
+        val containingFile = matchingFunc.containingFileName ?: return emptyList()
+        val returnClassType = matchingFunc.returnTypeClassId.constructClassLikeType(emptyArray(), false)
+
+        log { "  -> Generating module definition hint for ${matchingFunc.moduleClassId.shortClassName}.$funcName() -> ${matchingFunc.returnTypeClassId} in file $containingFile" }
+
+        val metadataParams = buildMetadataParams(matchingFunc.bindingClassIds, matchingFunc.scopeClassId, matchingFunc.qualifierName, matchingFunc.qualifierTypeClassId)
+
+        return listOf(
+            createTopLevelFunction(
+                Key,
+                callableId,
+                session.builtinTypes.unitType.coneType,
+                containingFileName = containingFile
+            ) {
+                valueParameter(Name.identifier("contributed"), returnClassType)
+                // Additional parameters: bindings, scope, qualifier metadata
+                for ((paramName, paramType) in metadataParams) {
+                    valueParameter(paramName, paramType)
+                }
+            }.apply { markAsDeprecatedHidden() }.symbol
+        )
+    }
+
+    /** Qualifier hint functions for custom qualifier annotation classes. */
+    private fun generateQualifierHintFunctions(callableId: CallableId): List<FirNamedFunctionSymbol> {
+        log { "generateFunctions: Generating qualifier hints for ${qualifierAnnotationInfos.size} custom qualifier annotations" }
+        return qualifierAnnotationInfos.mapNotNull { qualInfo ->
+            val containingFile = qualInfo.containingFileName ?: return@mapNotNull null
+            val classType = qualInfo.classSymbol.constructType(emptyArray(), false)
+            log { "  -> Generating qualifier hint for ${qualInfo.classSymbol.classId} in file $containingFile" }
+
+            createTopLevelFunction(
+                Key,
+                callableId,
+                session.builtinTypes.unitType.coneType,
+                containingFileName = containingFile
+            ) {
+                valueParameter(Name.identifier("contributed"), classType)
+            }.apply { markAsDeprecatedHidden() }.symbol
+        }
     }
 
     /**

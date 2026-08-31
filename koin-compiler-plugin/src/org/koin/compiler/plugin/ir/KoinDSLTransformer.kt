@@ -232,35 +232,45 @@ class KoinDSLTransformer(
     }
 
     override fun visitFunction(declaration: IrFunction): IrStatement {
-        var newContext = transformContext.copy(function = declaration)
-        if (compileSafetyEnabled && declaration is IrSimpleFunction) {
-            val functionModuleId = buildModuleFunctionId(declaration)
-            if (functionModuleId != null) {
-                KoinPluginLogger.debug { "Module-returning function: $functionModuleId" }
-                _allModuleIds.add(functionModuleId)
-                newContext = newContext.copy(modulePropertyId = functionModuleId)
-            }
-        }
-        return withContext(newContext) {
+        return withContext(contextForFunction(declaration)) {
             super.visitFunction(declaration)
         }
     }
 
+    /**
+     * SAFETY — if [declaration] is a `fun x(): Module` (e.g. `fun awsModule(): Module = module {}`),
+     * registers it as a module source and pushes its module id so nested `single<T>()`/
+     * `includes()` calls attribute to it. Otherwise just pushes the enclosing-function frame.
+     */
+    private fun contextForFunction(declaration: IrFunction): TransformContext {
+        val baseContext = transformContext.copy(function = declaration)
+        if (!compileSafetyEnabled || declaration !is IrSimpleFunction) return baseContext
+        val functionModuleId = buildModuleFunctionId(declaration) ?: return baseContext
+        KoinPluginLogger.debug { "Module-returning function: $functionModuleId" }
+        _allModuleIds.add(functionModuleId)
+        return baseContext.copy(modulePropertyId = functionModuleId)
+    }
+
     override fun visitProperty(declaration: IrProperty): IrStatement {
         if (!compileSafetyEnabled) return super.visitProperty(declaration)
-        val backingField = declaration.backingField
-        val isModuleType = backingField?.type?.classFqName?.asString() == "org.koin.core.module.Module"
-        if (isModuleType) {
-            val propertyId = buildModulePropertyId(declaration)
-            if (propertyId != null) {
-                KoinPluginLogger.debug { "Module property: $propertyId" }
-                _allModuleIds.add(propertyId)
-                return withContext(transformContext.copy(modulePropertyId = propertyId)) {
-                    super.visitProperty(declaration)
-                }
-            }
+        val modulePropertyId = moduleIdForProperty(declaration) ?: return super.visitProperty(declaration)
+        return withContext(transformContext.copy(modulePropertyId = modulePropertyId)) {
+            super.visitProperty(declaration)
         }
-        return super.visitProperty(declaration)
+    }
+
+    /**
+     * SAFETY — if [declaration] is a `val x: Module`, registers it as a module source and returns
+     * its module id so nested `single<T>()`/`includes()` calls can attribute to it. Null (no
+     * context pushed) if this property isn't Module-typed.
+     */
+    private fun moduleIdForProperty(declaration: IrProperty): String? {
+        val isModuleType = declaration.backingField?.type?.classFqName?.asString() == "org.koin.core.module.Module"
+        if (!isModuleType) return null
+        val propertyId = buildModulePropertyId(declaration) ?: return null
+        KoinPluginLogger.debug { "Module property: $propertyId" }
+        _allModuleIds.add(propertyId)
+        return propertyId
     }
 
     private fun buildModulePropertyId(property: IrProperty): String? {
@@ -336,6 +346,11 @@ class KoinDSLTransformer(
     // SHARED — DSL definition function names to track: codegen dispatches on these, safety
     // collection maps them to a DefinitionType (definitionTypeMap, right below).
     private val definitionNames = setOf(singleName, factoryName, scopedName, viewModelName, workerName)
+
+    // SHARED — every function name visitCall may rewrite or safety-collect once descent is done.
+    // Anything else is none of this plugin's business and bails out of visitCall early.
+    private val dslTargetFunctionNames =
+        definitionNames + setOf(createName, newName)
 
     // SAFETY — FqNames of Koin's bind DSL functions, consumed by collectBindType. Anything named
     // `bind` from outside this set is not ours (Arrow Raise.bind, ktor resourceScope bind, etc.)
@@ -413,83 +428,114 @@ class KoinDSLTransformer(
         }
     }
 
+    /**
+     * visitCall runs both concerns over one node, in a fixed order: safety data that only needs
+     * THIS call → context pushed for children → descend → safety data that needs the
+     * FULLY-VISITED call → codegen dispatch. Each phase is named below so this reads as a table
+     * of contents; see the individual `collect*`/`dispatchDslTargetCall` kdocs for the WHY.
+     */
     override fun visitCall(expression: IrCall): IrExpression {
         val callee = expression.symbol.owner
         val functionName = callee.name
 
-        // ── SAFETY: collect data that only needs THIS call, before descending into children ──
-        // (koinViewModel<T>(), get<T>(), inject<T>(), includes()/modules() module-graph edges)
-        if (compileSafetyEnabled) {
-            collectCallSiteIfResolutionFunction(expression, callee)
-            collectModuleLoadingInfo(expression, callee)
-        }
+        if (compileSafetyEnabled) collectPreDescentSafetyData(expression, callee)
 
         // ── SHARED CONTEXT: push state onto transformContext for CHILDREN of this call to read.
         // Both codegen (which target fn to build) and safety (which module/scope a nested def
         // belongs to) rely on this — it's not optional plumbing for either side. ──
         val previousContext = transformContext
+        transformContext = childContextFor(expression, callee, functionName, transformContext)
 
-        if (functionName in definitionNames) {
-            // Capture the outer typed DSL call's type argument (e.g., `single<T> { ... }` → T).
-            // Used by handleScopeCreate so `single<T> { create(::Impl) }` registers T as the
-            // provided type instead of Impl.
-            val outerTypeArg = if (expression.typeArguments.size >= 1) {
-                (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
-            } else null
-            val outerQualifier = extractQualifierArgument(expression, callee)
-            transformContext = transformContext.copy(
-                definitionCall = functionName,
-                definitionQualifier = outerQualifier,
-                definitionCallTypeArg = outerTypeArg,
-            )
-        }
-
-        // Detect scope<ScopeType> { } — push scope type into context
-        if (functionName == scopeName && expression.typeArguments.size >= 1) {
-            val scopeTypeArg = expression.getTypeArgumentCompat(0)
-            val scopeTypeClass = (scopeTypeArg?.classifierOrNull as? IrClassSymbol)?.owner
-            if (scopeTypeClass != null) {
-                transformContext = transformContext.copy(scopeTypeClass = scopeTypeClass)
-            }
-        }
-
-        // ── SAFETY: Koin's own constructor-shorthand DSL (singleOf(::Ctor)/factoryOf/scopedOf/
-        // viewModelOf) — registered BEFORE super.visitCall so a trailing `{ bind<T>() }` options
-        // block (visited as part of descending into this call's children) attaches to the right
-        // DslDef. No codegen counterpart: the call is always left untransformed. ──
-        if (compileSafetyEnabled) {
-            val defType = callee.fqNameWhenAvailable?.asString()?.let { CONSTRUCTOR_SHORTHAND_DEF_TYPES[it] }
-            if (defType != null) {
-                collectUnsafeConstructorShorthandDef(expression, defType)
-            }
-        }
+        if (compileSafetyEnabled) collectConstructorShorthandDefIfApplicable(expression, callee)
 
         // SAFETY: snapshot the DSL-definition count so we can tell whether visiting the lambda body
         // already registered a definition (e.g. an inner create(::T)). If it did, the
-        // provider-only fallback below must NOT register a duplicate (a duplicate DslDef →
-        // duplicate hint → KLIB SignatureClashDetector error on native/wasm).
+        // provider-only fallback in dispatchDslTargetCall must NOT register a duplicate (a
+        // duplicate DslDef → duplicate hint → KLIB SignatureClashDetector error on native/wasm).
         val dslDefsBeforeBody = _dslDefinitions.size
 
         // ── Descend into children (nested calls: create(::T), .bind<T>(), etc. get visited here) ──
         val transformedCall = super.visitCall(expression) as IrCall
 
         // SHARED CONTEXT: capture qualifier propagated from an inner create(::T) before restoring —
-        // read by CODEGEN below (handleDefinitionWithCreateQualifier) to rewrite the enclosing call.
+        // read by dispatchDslTargetCall (handleDefinitionWithCreateQualifier) to rewrite the
+        // enclosing call.
         val propagatedQualifier = transformContext.createQualifier
         val propagatedReturnClass = transformContext.createReturnClass
-
-        // Restore previous context
         transformContext = previousContext
 
-        // ── SAFETY: collectors that need the FULLY-VISITED call (a chained .bind<T>()/.binds()
-        // only exists on transformedCall once children have been visited) ──
+        if (compileSafetyEnabled) collectPostDescentSafetyData(functionName, callee, transformedCall)
 
+        // ── CODEGEN: everything below rewrites (or dispatches a safety-only collector for) one of
+        // this plugin's own target functions. Bail out now if this isn't one of ours. ──
+        if (functionName !in dslTargetFunctionNames) return transformedCall
+
+        return dispatchDslTargetCall(
+            transformedCall, functionName, callee, propagatedQualifier, propagatedReturnClass, dslDefsBeforeBody
+        )
+    }
+
+    /**
+     * SAFETY — data that only needs THIS call, collected before descending into children:
+     * koinViewModel<T>(), get<T>(), inject<T>() call sites, and includes()/modules() module-graph
+     * edges.
+     */
+    private fun collectPreDescentSafetyData(expression: IrCall, callee: IrSimpleFunction) {
+        collectCallSiteIfResolutionFunction(expression, callee)
+        collectModuleLoadingInfo(expression, callee)
+    }
+
+    /**
+     * SHARED CONTEXT — the TransformContext children of [expression] should see: the outer typed
+     * DSL call's type argument/qualifier (so an inner `create(::Impl)` inside `single<T> { }`
+     * registers T, not Impl, as the provided type — used by handleScopeCreate), or the
+     * `scope<ScopeType> { }` type. Returns [current] unchanged when this call pushes nothing.
+     */
+    private fun childContextFor(
+        expression: IrCall, callee: IrSimpleFunction, functionName: Name, current: TransformContext
+    ): TransformContext {
+        if (functionName in definitionNames) {
+            val outerTypeArg = if (expression.typeArguments.size >= 1) {
+                (expression.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
+            } else null
+            val outerQualifier = extractQualifierArgument(expression, callee)
+            return current.copy(
+                definitionCall = functionName,
+                definitionQualifier = outerQualifier,
+                definitionCallTypeArg = outerTypeArg,
+            )
+        }
+        if (functionName == scopeName && expression.typeArguments.size >= 1) {
+            val scopeTypeArg = expression.getTypeArgumentCompat(0)
+            val scopeTypeClass = (scopeTypeArg?.classifierOrNull as? IrClassSymbol)?.owner
+            if (scopeTypeClass != null) {
+                return current.copy(scopeTypeClass = scopeTypeClass)
+            }
+        }
+        return current
+    }
+
+    /**
+     * SAFETY — Koin's own constructor-shorthand DSL (singleOf(::Ctor)/factoryOf/scopedOf/
+     * viewModelOf). Registered BEFORE super.visitCall so a trailing `{ bind<T>() }` options block
+     * (visited as part of descending into this call's children) attaches to the right DslDef. No
+     * codegen counterpart: the call is always left untransformed.
+     */
+    private fun collectConstructorShorthandDefIfApplicable(expression: IrCall, callee: IrSimpleFunction) {
+        val defType = callee.fqNameWhenAvailable?.asString()?.let { CONSTRUCTOR_SHORTHAND_DEF_TYPES[it] } ?: return
+        collectUnsafeConstructorShorthandDef(expression, defType)
+    }
+
+    /**
+     * SAFETY — collectors that need the FULLY-VISITED call: a chained `.bind<T>()`/`.binds(...)`/
+     * `named(...)` options only exist on [transformedCall] once children have been visited.
+     */
+    private fun collectPostDescentSafetyData(functionName: Name, callee: IrSimpleFunction, transformedCall: IrCall) {
         // Detect Koin's .bind(Interface::class) — add the bound type to the last collected DslDef.
         // Match by full FqName so we don't trip on unrelated `bind` functions from other libraries
         // (e.g., Arrow `Raise.bind()`, ktor `resourceScope { bind() }`) — those crashed the IR
         // transformer by shape-mismatching KoinDefinition.bind's signature (issue #17).
-        if (compileSafetyEnabled && functionName.asString() == "bind" &&
-            callee.fqNameWhenAvailable?.asString() in KOIN_BIND_FQNAMES) {
+        if (functionName.asString() == "bind" && callee.fqNameWhenAvailable?.asString() in KOIN_BIND_FQNAMES) {
             collectBindType(transformedCall)
         }
 
@@ -498,8 +544,7 @@ class KoinDSLTransformer(
         // `binds(...)` silently carries NO bindings at all: KOIN-D001 then fires for every consumer
         // of every one of its bound interfaces, even though the definition genuinely provides them —
         // the worst failure class per this project's doctrine (silent > broken).
-        if (compileSafetyEnabled && functionName.asString() == "binds" &&
-            callee.fqNameWhenAvailable?.asString() in KOIN_BINDS_FQNAMES) {
+        if (functionName.asString() == "binds" && callee.fqNameWhenAvailable?.asString() in KOIN_BINDS_FQNAMES) {
             collectBindsTypes(transformedCall)
         }
 
@@ -513,83 +558,149 @@ class KoinDSLTransformer(
         // "unvalidated" — it's a false KOIN-D001 on correct code the moment something else requires
         // that qualified type (regression found in review, confirmed via
         // dsl_singleof_named_qualifier_disambiguates_consumer_ok).
-        if (compileSafetyEnabled && functionName.asString() == "named" &&
-            callee.fqNameWhenAvailable?.asString() == "org.koin.core.module.dsl.named") {
+        if (functionName.asString() == "named" && callee.fqNameWhenAvailable?.asString() == "org.koin.core.module.dsl.named") {
             collectNamedQualifier(transformedCall)
         }
+    }
 
-        // ── CODEGEN: everything below rewrites (or dispatches a safety-only collector for) one of
-        // this plugin's own target functions. Bail out now if this isn't one of ours. ──
-        if (functionName != createName && functionName != newName && functionName != singleName &&
-            functionName != factoryName && functionName != scopedName && functionName != viewModelName &&
-            functionName != workerName) {
-            return transformedCall
-        }
+    /**
+     * Receiver of a Koin DSL call site, resolved and validated once by [resolveKoinReceiver] and
+     * shared by both [rewriteKoinDslCall] (CODEGEN) and [collectSafetyOnlyDslCall] (SAFETY) —
+     * neither has to re-derive it.
+     */
+    private data class KoinReceiver(
+        val receiver: IrExpression,
+        val extensionReceiver: IrExpression?,
+        val receiverClassifier: IrClass,
+    )
 
-        // Get receiver - can be extension receiver or dispatch receiver (for implicit this in lambdas)
+    /**
+     * [functionName] is already known to be one of this plugin's DSL target functions
+     * (single/factory/scoped/viewModel/worker/create/new). Two clearly separated stages, in
+     * order — first match wins:
+     *
+     *  1. [rewriteKoinDslCall] — CODEGEN. Is this one of the shapes this plugin generates code
+     *     for? If so, the rewritten call is returned. A new codegen shape is added here.
+     *  2. Otherwise the call is real, already-executable Koin code with nothing to rewrite —
+     *     [collectSafetyOnlyDslCall] — SAFETY — just records what compile-safety needs to know
+     *     about it. A new safety-only shape (a Koin DSL function this plugin will never rewrite)
+     *     is added there.
+     */
+    private fun dispatchDslTargetCall(
+        transformedCall: IrCall,
+        functionName: Name,
+        callee: IrSimpleFunction,
+        propagatedQualifier: QualifierValue?,
+        propagatedReturnClass: IrClass?,
+        dslDefsBeforeBody: Int,
+    ): IrExpression {
+        val koinReceiver = resolveKoinReceiver(transformedCall) ?: return transformedCall
+
+        rewriteKoinDslCall(transformedCall, functionName, koinReceiver, propagatedQualifier, propagatedReturnClass)
+            ?.let { return it }
+
+        collectSafetyOnlyDslCall(transformedCall, functionName, callee, koinReceiver, dslDefsBeforeBody)
+        return transformedCall
+    }
+
+    /**
+     * Resolves the receiver of a DSL call site (extension or dispatch — dispatch covers implicit
+     * `this` inside a lambda) and confirms it's actually Koin's own `org.koin.core`/`org.koin.dsl`
+     * API. Null for anything else — [dispatchDslTargetCall] bails out untransformed.
+     */
+    private fun resolveKoinReceiver(transformedCall: IrCall): KoinReceiver? {
         val extensionReceiver = transformedCall.extensionReceiverArgument
         val dispatchReceiver = transformedCall.dispatchReceiver
+        val receiver = extensionReceiver ?: dispatchReceiver ?: return null
 
-        // Determine the actual receiver
-        val receiver = extensionReceiver ?: dispatchReceiver ?: return transformedCall
-
-        // Receiver must be from Koin package
-        val receiverClassifier = receiver.type.classifierOrNull?.owner as? IrClass ?: return transformedCall
+        val receiverClassifier = receiver.type.classifierOrNull?.owner as? IrClass ?: return null
         val receiverPackage = receiverClassifier.packageFqName?.asString()
         if (receiverPackage == null || (!receiverPackage.startsWith("org.koin.core") && !receiverPackage.startsWith("org.koin.dsl"))) {
-            return transformedCall
+            return null
         }
+        return KoinReceiver(receiver, extensionReceiver, receiverClassifier)
+    }
 
-        // CODEGEN: propagate qualifier from create(::ref) to enclosing definition call.
+    /**
+     * CODEGEN (+ inline SAFETY DslDef collection where a handler has already resolved what safety
+     * needs). Every shape here rewrites [transformedCall] into what this plugin actually
+     * generates. Returns null when [transformedCall] isn't one of these shapes — NOT the same as
+     * "leave untransformed": that's [collectSafetyOnlyDslCall]'s job.
+     */
+    private fun rewriteKoinDslCall(
+        transformedCall: IrCall,
+        functionName: Name,
+        koinReceiver: KoinReceiver,
+        propagatedQualifier: QualifierValue?,
+        propagatedReturnClass: IrClass?,
+    ): IrExpression? {
+        val receiver = koinReceiver.receiver
+        val receiverClassifier = koinReceiver.receiverClassifier
+
+        // Propagate qualifier from create(::ref) to enclosing definition call.
         // When single { create(::qualifiedFunc) } is used, the qualifier from the function
         // must be applied to the single definition registration
         if (functionName in definitionNames && propagatedQualifier != null) {
-            val qualifier = propagatedQualifier
             val returnClass = propagatedReturnClass!!
             return handleDefinitionWithCreateQualifier(
-                transformedCall, receiver, receiverClassifier, functionName, returnClass, qualifier
+                transformedCall, receiver, receiverClassifier, functionName, returnClass, propagatedQualifier
             )
         }
 
-        // CODEGEN (+ inline SAFETY DslDef collection): single<T>(), factory<T>(), etc.
-        if (transformedCall.regularArgumentsCount == 0 && transformedCall.typeArguments.size >= 1 && extensionReceiver != null) {
-            return handleTypeParameterCall(transformedCall, extensionReceiver, receiverClassifier, functionName)
+        // single<T>(), factory<T>(), etc.
+        if (transformedCall.regularArgumentsCount == 0 && transformedCall.typeArguments.size >= 1 &&
+            koinReceiver.extensionReceiver != null
+        ) {
+            return handleTypeParameterCall(transformedCall, koinReceiver.extensionReceiver, receiverClassifier, functionName)
         }
 
-        // CODEGEN (+ inline SAFETY DslDef collection): create(::Constructor) or create(::function)
-        // for Scope.create. Works with both extension receiver (scope.create) and dispatch
-        // receiver (this.create in lambda).
+        // create(::Constructor) or create(::function) for Scope.create. Works with both extension
+        // receiver (scope.create) and dispatch receiver (this.create in lambda).
         if (functionName == createName && receiverClassifier.name.asString() == "Scope") {
             val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return transformedCall
-            val referencedFunction = functionRef.symbol.owner
-            return handleScopeCreate(transformedCall, referencedFunction, receiver)
+            return handleScopeCreate(transformedCall, functionRef.symbol.owner, receiver)
         }
 
-        // ── SAFETY (no codegen here): Koin's OWN new(::Constructor) / new(::function) —
-        // org.koin.core.module.dsl.new. Same constructor-reference shape as create(::T), but a
-        // REAL Koin runtime function this plugin does not need to rewrite (its body already
-        // resolves args via get()) — transformedCall is returned as-is. Only the
+        return null
+    }
+
+    /**
+     * SAFETY ONLY — [transformedCall] is real, already-executable Koin code that
+     * [rewriteKoinDslCall] left untouched; this just records what compile-safety needs to know
+     * about it. A new safety-only DSL shape (a Koin function this plugin will never rewrite) is
+     * added as its own guarded block here, following the same shape as the two below.
+     */
+    private fun collectSafetyOnlyDslCall(
+        transformedCall: IrCall,
+        functionName: Name,
+        callee: IrSimpleFunction,
+        koinReceiver: KoinReceiver,
+        dslDefsBeforeBody: Int,
+    ) {
+        // Koin's OWN new(::Constructor) / new(::function) — org.koin.core.module.dsl.new. Same
+        // constructor-reference shape as create(::T), but a REAL Koin runtime function this
+        // plugin does not need to rewrite (its body already resolves args via get()). Only the
         // requirement-registration half applies — see collectScopeNewDef's kdoc for why skipping
-        // this was a silent false-negative, not a false-positive. ──
-        if (functionName == newName && receiverClassifier.name.asString() == "Scope" &&
+        // this was a silent false-negative, not a false-positive. Deliberately NOT gated by
+        // compileSafetyEnabled (unlike the block below) — collectScopeNewDef's own kdoc covers why.
+        if (functionName == newName && koinReceiver.receiverClassifier.name.asString() == "Scope" &&
             callee.fqNameWhenAvailable?.asString() == "org.koin.core.module.dsl.new"
         ) {
-            val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return transformedCall
+            val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return
             collectScopeNewDef(functionRef.symbol.owner)
-            return transformedCall
+            return
         }
 
-        // ── SAFETY (no codegen here): typed DSL definition with a user-provided lambda body that
-        // is NOT create(::T): single<T> { existingInstance }, single<T> { provideX() },
-        // viewModel { VM() }, ... The declared/inferred type argument T is what the definition
-        // provides, regardless of the lambda body — register it as an available (provider-only)
-        // definition so compile-safety doesn't raise a false missing-definition (issues #36, #49),
-        // and disclose it as unvalidated via KOIN-W007 (its own body is opaque — see
-        // CallSiteValidator.validateDslDefinitionGraph). The call is left untransformed;
-        // providerOnly = true keeps requirements empty (see
-        // ParameterAnalyzer.requirementsForDslDefinition).
+        // Typed DSL definition with a user-provided lambda body that is NOT create(::T):
+        // single<T> { existingInstance }, single<T> { provideX() }, viewModel { VM() }, ... The
+        // declared/inferred type argument T is what the definition provides, regardless of the
+        // lambda body — register it as an available (provider-only) definition so compile-safety
+        // doesn't raise a false missing-definition (issues #36, #49), and disclose it as
+        // unvalidated via KOIN-W007 (its own body is opaque — see
+        // CallSiteValidator.validateDslDefinitionGraph). providerOnly = true keeps requirements
+        // empty (see ParameterAnalyzer.requirementsForDslDefinition).
         // Skipped when visiting the lambda already registered a definition (inner create(::T)),
-        // so we never emit a duplicate DslDef. ──
+        // so we never emit a duplicate DslDef.
         if (functionName in definitionNames && compileSafetyEnabled &&
             _dslDefinitions.size == dslDefsBeforeBody
         ) {
@@ -605,8 +716,6 @@ class KoinDSLTransformer(
                 KoinPluginLogger.user { "Intercepting $functionName<${providedClass.name}> { ... } (provider-only)" }
             }
         }
-
-        return transformedCall
     }
 
     /**

@@ -702,6 +702,18 @@ class KoinAnnotationProcessor(
      * Note: FIR generates function declarations for cross-module visibility (so startKoin<T> can find modules
      * from dependencies), and IR fills their bodies with actual module definitions.
      */
+    /**
+     * Entry point for the IR phase's module-generation pass, in order:
+     *  1. Collect every module's definitions ([collectAllDefinitions]) — cached for the rest of
+     *     this pass and reused by call-site validation.
+     *  1b/1c/1d. Emit the cross-module hints that depend on that definition set
+     *     ([generateModuleScanHints], [emitOrphanFuncReqsHints], [relayConfigurationHints]).
+     *  2. Resolve or create each module's `fun T.module()` ([resolveModuleFunction]), logging its
+     *     content first ([logModuleContents]).
+     *  3. Fill every resolved function's body — a second pass, run only once ALL functions exist,
+     *     so an `includes()` call can reference a sibling module's function regardless of
+     *     iteration order.
+     */
     fun generateModuleExtensions(moduleFragment: IrModuleFragment) {
         currentModuleFragment = moduleFragment
         KoinPluginLogger.debug { "generateModuleExtensions: ${moduleClasses.size} module classes" }
@@ -735,149 +747,165 @@ class KoinAnnotationProcessor(
         // Step 2: For each module, generate
         for (moduleClass in moduleClasses) {
             val definitions = moduleDefinitions[moduleClass] ?: emptyList()
-
-            // Log module → definitions summary (guard to avoid precomputation when logging is disabled)
-            if (KoinPluginLogger.userLogsEnabled && (definitions.isNotEmpty() || moduleClass.includedModules.isNotEmpty())) {
-                val moduleName = moduleClass.irClass.name.asString()
-                KoinPluginLogger.user { "$moduleName.module() content:" }
-
-                // Log included modules
-                if (moduleClass.includedModules.isNotEmpty()) {
-                    val includes = moduleClass.includedModules.joinToString(", ") { it.name.asString() }
-                    KoinPluginLogger.user { "  includes: $includes" }
-                }
-
-                // Log definitions
-                definitions.forEach { def ->
-                    val defName = when (def) {
-                        is Definition.ClassDef -> def.irClass.name.asString()
-                        is Definition.FunctionDef -> "${def.irFunction.name}() -> ${def.returnTypeClass.name}"
-                        is Definition.TopLevelFunctionDef -> "${def.irFunction.name}() -> ${def.returnTypeClass.name}"
-                        is Definition.DslDef -> "(dsl) ${def.irClass.name}"
-                        is Definition.ExternalFunctionDef -> "(external) -> ${def.returnTypeClass.name}"
-                    }
-                    val defType = def.definitionType.name.lowercase()
-                    val scopeClass = def.scopeClass  // Local vals for smart cast
-                    val scopeArchetype = def.scopeArchetype
-                    val extras = buildList {
-                        if (def.bindings.isNotEmpty()) {
-                            add("binds: ${def.bindings.joinToString(", ") { it.name.asString() }}")
-                        }
-                        if (scopeClass != null) {
-                            add("scope: ${scopeClass.name}")
-                        }
-                        if (scopeArchetype != null) {
-                            add(scopeArchetype.name.lowercase())
-                        }
-                        if (def.createdAtStart) {
-                            add("createdAtStart")
-                        }
-                    }
-                    val extraStr = if (extras.isNotEmpty()) " (${extras.joinToString(", ")})" else ""
-                    KoinPluginLogger.user { "  $defType: $defName$extraStr" }
-                }
-            }
-
-            // No per-module (A2) validation — A3 validates the full assembled graph at whatever
-            // entry point reaches this module. See CompileSafetyValidator's class doc.
-
-            // Check if FIR generated a function for this module (even if no local definitions)
-            // This happens when @Module has @ComponentScan - definitions come from scanned packages
-            val hasFirGeneratedFunction = moduleFragment.files.any { file ->
-                file.declarations.filterIsInstance<IrSimpleFunction>().any { func ->
-                    func.name.asString() == "module" &&
-                    func.extensionReceiverParam?.type?.classFqName?.asString() ==
-                        moduleClass.irClass.fqNameWhenAvailable?.asString() &&
-                    func.body == null  // FIR-generated, needs body
-                }
-            }
-
-            // Skip if no definitions, no includes, AND no FIR-generated function that needs a body
-            if (definitions.isEmpty() && moduleClass.includedModules.isEmpty() && !hasFirGeneratedFunction) {
-                continue
-            }
-
-            val containingFile = moduleClass.irClass.parent as? IrFile ?: continue
-
-            // Check if this class is from a dependency (main sources visible in test compilation)
-            // by looking if a module() function already exists in compiled dependencies
-            val existingFunction = findExistingModuleFunctionInDependencies(moduleClass.irClass)
-            if (existingFunction != null) {
-                KoinPluginLogger.debug { "  Skipping ${moduleClass.irClass.name} - module() already exists in dependency" }
-                continue
-            }
-
-            // First check if a function was already generated by FIR
-            // Try direct file search first, then fallback to context search (for functions in synthetic files)
-            val firFunction = findModuleFunction(moduleFragment, moduleClass.irClass)
-                ?: findModuleFunctionViaContext(moduleClass.irClass)
-            if (firFunction != null) {
-                try {
-                    val parentFile = firFunction.parent as? IrFile
-                    val parentFileName = parentFile?.name ?: "unknown"
-                    val containingFileName = containingFile.name
-                    KoinPluginLogger.debug { "  Found FIR-generated function for ${moduleClass.irClass.name} in file: $parentFileName (containingFile=$containingFileName)" }
-
-                    // If the function is in a shared __GENERATED__CALLABLES__.kt file,
-                    // move it to the module class's file to avoid class name collisions
-                    KoinPluginLogger.debug { "    -> Checking parentFileName='$parentFileName', condition=${parentFileName == "__GENERATED__CALLABLES__.kt" && parentFile != null}" }
-                    if (parentFileName == "__GENERATED__CALLABLES__.kt" && parentFile != null) {
-                        // Check if function is already in containingFile
-                        KoinPluginLogger.debug { "    -> Checking if function exists in containingFile" }
-                        val alreadyInFile = try {
-                            containingFile.declarations.any {
-                                it is IrSimpleFunction && it.name.asString() == "module" &&
-                                it.extensionReceiverParam?.type?.classFqName?.asString() == moduleClass.irClass.fqNameWhenAvailable?.asString()
-                            }
-                        } catch (e: Exception) {
-                            KoinPluginLogger.debug { "    -> ERROR in alreadyInFile check: ${e.message}" }
-                            false
-                        }
-                        KoinPluginLogger.debug { "    -> alreadyInFile=$alreadyInFile" }
-                        if (alreadyInFile) {
-                            KoinPluginLogger.debug { "    -> Function already exists in ${containingFile.name}, skipping move" }
-                        } else {
-                            KoinPluginLogger.debug { "    -> Moving function from synthetic file to ${containingFile.name}" }
-                            // Remove from synthetic file
-                            parentFile.declarations.remove(firFunction)
-                            // Add to module class's file
-                            containingFile.declarations.add(firFunction)
-                            firFunction.parent = containingFile
-                        }
-                    } else {
-                        KoinPluginLogger.debug { "    -> NOT moving: parentFileName='$parentFileName', parentFile isNull=${parentFile == null}" }
-                    }
-
-                    moduleFunctions[moduleClass] = firFunction
-
-                    // FIR-generated functions are already in metadata, no need to re-register
-                    // (Re-registering can cause duplicates in context.referenceFunctions)
-                    KoinPluginLogger.debug { "    -> Using FIR-generated function for ${moduleClass.irClass.name}.module()" }
-                } catch (e: Exception) {
-                    KoinPluginLogger.debug { "  ERROR processing ${moduleClass.irClass.name}: ${e.message}" }
-                    e.printStackTrace()
-                }
-            } else {
-                // Create a new function (fallback for older code paths)
-                KoinPluginLogger.debug { "  Creating function for ${moduleClass.irClass.name}" }
-                val function = createModuleFunction(moduleClass, containingFile)
-                if (function != null) {
-                    // Add to file declarations for bytecode generation
-                    containingFile.declarations.add(function)
-                    function.parent = containingFile
-                    moduleFunctions[moduleClass] = function
-
-                    // Register for downstream visibility
-                    context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
-                    KoinPluginLogger.debug { "    -> Created and registered ${moduleClass.irClass.name}.module() in ${containingFile.name}" }
-                }
-            }
+            logModuleContents(moduleClass, definitions)
+            resolveModuleFunction(moduleFragment, moduleClass, definitions)?.let { moduleFunctions[moduleClass] = it }
         }
 
         // Second pass: Fill all function bodies (now all functions exist for includes())
         for ((moduleClass, function) in moduleFunctions) {
             fillFunctionBody(function, moduleClass)
         }
+    }
+
+    /**
+     * Debug/user-log summary of [moduleClass]'s resolved content: what it includes and what it
+     * defines. Guards on `userLogsEnabled` itself (not just the log calls) to avoid building the
+     * summary strings when logging is disabled.
+     */
+    private fun logModuleContents(moduleClass: ModuleClass, definitions: List<Definition>) {
+        if (!KoinPluginLogger.userLogsEnabled) return
+        if (definitions.isEmpty() && moduleClass.includedModules.isEmpty()) return
+
+        val moduleName = moduleClass.irClass.name.asString()
+        KoinPluginLogger.user { "$moduleName.module() content:" }
+
+        if (moduleClass.includedModules.isNotEmpty()) {
+            val includes = moduleClass.includedModules.joinToString(", ") { it.name.asString() }
+            KoinPluginLogger.user { "  includes: $includes" }
+        }
+
+        definitions.forEach { def ->
+            val defName = when (def) {
+                is Definition.ClassDef -> def.irClass.name.asString()
+                is Definition.FunctionDef -> "${def.irFunction.name}() -> ${def.returnTypeClass.name}"
+                is Definition.TopLevelFunctionDef -> "${def.irFunction.name}() -> ${def.returnTypeClass.name}"
+                is Definition.DslDef -> "(dsl) ${def.irClass.name}"
+                is Definition.ExternalFunctionDef -> "(external) -> ${def.returnTypeClass.name}"
+            }
+            val defType = def.definitionType.name.lowercase()
+            val scopeClass = def.scopeClass  // Local vals for smart cast
+            val scopeArchetype = def.scopeArchetype
+            val extras = buildList {
+                if (def.bindings.isNotEmpty()) {
+                    add("binds: ${def.bindings.joinToString(", ") { it.name.asString() }}")
+                }
+                if (scopeClass != null) {
+                    add("scope: ${scopeClass.name}")
+                }
+                if (scopeArchetype != null) {
+                    add(scopeArchetype.name.lowercase())
+                }
+                if (def.createdAtStart) {
+                    add("createdAtStart")
+                }
+            }
+            val extraStr = if (extras.isNotEmpty()) " (${extras.joinToString(", ")})" else ""
+            KoinPluginLogger.user { "  $defType: $defName$extraStr" }
+        }
+    }
+
+    /**
+     * Resolves the `fun T.module()` [moduleClass] should get — a FIR-generated stub moved/filled
+     * in place, a newly created function, or null to skip this module entirely (no content to
+     * generate, already provided by a dependency, or an exception during the FIR-function move).
+     *
+     * No per-module (A2) validation happens here — A3 validates the full assembled graph at
+     * whatever entry point reaches this module. See CompileSafetyValidator's class doc.
+     */
+    private fun resolveModuleFunction(
+        moduleFragment: IrModuleFragment, moduleClass: ModuleClass, definitions: List<Definition>
+    ): IrSimpleFunction? {
+        // Check if FIR generated a function for this module (even if no local definitions)
+        // This happens when @Module has @ComponentScan - definitions come from scanned packages
+        val hasFirGeneratedFunction = moduleFragment.files.any { file ->
+            file.declarations.filterIsInstance<IrSimpleFunction>().any { func ->
+                func.name.asString() == "module" &&
+                func.extensionReceiverParam?.type?.classFqName?.asString() ==
+                    moduleClass.irClass.fqNameWhenAvailable?.asString() &&
+                func.body == null  // FIR-generated, needs body
+            }
+        }
+
+        // Skip if no definitions, no includes, AND no FIR-generated function that needs a body
+        if (definitions.isEmpty() && moduleClass.includedModules.isEmpty() && !hasFirGeneratedFunction) {
+            return null
+        }
+
+        val containingFile = moduleClass.irClass.parent as? IrFile ?: return null
+
+        // Check if this class is from a dependency (main sources visible in test compilation)
+        // by looking if a module() function already exists in compiled dependencies
+        val existingFunction = findExistingModuleFunctionInDependencies(moduleClass.irClass)
+        if (existingFunction != null) {
+            KoinPluginLogger.debug { "  Skipping ${moduleClass.irClass.name} - module() already exists in dependency" }
+            return null
+        }
+
+        // First check if a function was already generated by FIR
+        // Try direct file search first, then fallback to context search (for functions in synthetic files)
+        val firFunction = findModuleFunction(moduleFragment, moduleClass.irClass)
+            ?: findModuleFunctionViaContext(moduleClass.irClass)
+        if (firFunction != null) {
+            // Any exception during the move below leaves this module WITHOUT a registered
+            // function (matches the pre-extraction behavior: the map assignment used to sit
+            // inside this same try block).
+            return try {
+                val parentFile = firFunction.parent as? IrFile
+                val parentFileName = parentFile?.name ?: "unknown"
+                val containingFileName = containingFile.name
+                KoinPluginLogger.debug { "  Found FIR-generated function for ${moduleClass.irClass.name} in file: $parentFileName (containingFile=$containingFileName)" }
+
+                // If the function is in a shared __GENERATED__CALLABLES__.kt file,
+                // move it to the module class's file to avoid class name collisions
+                KoinPluginLogger.debug { "    -> Checking parentFileName='$parentFileName', condition=${parentFileName == "__GENERATED__CALLABLES__.kt" && parentFile != null}" }
+                if (parentFileName == "__GENERATED__CALLABLES__.kt" && parentFile != null) {
+                    // Check if function is already in containingFile
+                    KoinPluginLogger.debug { "    -> Checking if function exists in containingFile" }
+                    val alreadyInFile = try {
+                        containingFile.declarations.any {
+                            it is IrSimpleFunction && it.name.asString() == "module" &&
+                            it.extensionReceiverParam?.type?.classFqName?.asString() == moduleClass.irClass.fqNameWhenAvailable?.asString()
+                        }
+                    } catch (e: Exception) {
+                        KoinPluginLogger.debug { "    -> ERROR in alreadyInFile check: ${e.message}" }
+                        false
+                    }
+                    KoinPluginLogger.debug { "    -> alreadyInFile=$alreadyInFile" }
+                    if (alreadyInFile) {
+                        KoinPluginLogger.debug { "    -> Function already exists in ${containingFile.name}, skipping move" }
+                    } else {
+                        KoinPluginLogger.debug { "    -> Moving function from synthetic file to ${containingFile.name}" }
+                        // Remove from synthetic file
+                        parentFile.declarations.remove(firFunction)
+                        // Add to module class's file
+                        containingFile.declarations.add(firFunction)
+                        firFunction.parent = containingFile
+                    }
+                } else {
+                    KoinPluginLogger.debug { "    -> NOT moving: parentFileName='$parentFileName', parentFile isNull=${parentFile == null}" }
+                }
+
+                // FIR-generated functions are already in metadata, no need to re-register
+                // (Re-registering can cause duplicates in context.referenceFunctions)
+                KoinPluginLogger.debug { "    -> Using FIR-generated function for ${moduleClass.irClass.name}.module()" }
+                firFunction
+            } catch (e: Exception) {
+                KoinPluginLogger.debug { "  ERROR processing ${moduleClass.irClass.name}: ${e.message}" }
+                e.printStackTrace()
+                null
+            }
+        }
+
+        // Create a new function (fallback for older code paths)
+        KoinPluginLogger.debug { "  Creating function for ${moduleClass.irClass.name}" }
+        val function = createModuleFunction(moduleClass, containingFile) ?: return null
+        // Add to file declarations for bytecode generation
+        containingFile.declarations.add(function)
+        function.parent = containingFile
+        // Register for downstream visibility
+        context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+        KoinPluginLogger.debug { "    -> Created and registered ${moduleClass.irClass.name}.module() in ${containingFile.name}" }
+        return function
     }
 
     /**
@@ -921,6 +949,11 @@ class KoinAnnotationProcessor(
     /**
      * Generate module-scoped component scan hints (`componentscan_*`/`componentscanfunc_*`) at IR
      * time — IR sees @Inject constructor classes in subpackages that FIR predicates/PSI scanning miss.
+     *
+     * Per @Module-with-scan, in order: collect its definition hints ([collectDefinitionHints]),
+     * emit a roster per qualified-entry group, re-publish its `includes=[...]` topology as a
+     * hint, relay any included-but-not-local module's own hints, then batch everything collected
+     * into one hint file (several early-exit guards below skip a module with nothing to batch).
      */
     private fun generateModuleScanHints(
         moduleFragment: IrModuleFragment,
@@ -973,78 +1006,7 @@ class KoinAnnotationProcessor(
             // LinkedHashSet: O(1) duplicate check + preserved insertion order for deterministic debug logs.
             val qualifiedEntriesByDefType = mutableMapOf<String, LinkedHashSet<String>>()
 
-            for (definition in definitions) {
-                val defTypeStr = definitionTypeToString(definition.definitionType)
-                val targetClass = definition.returnTypeClass
-
-                when (definition) {
-                    is Definition.ClassDef, is Definition.ExternalFunctionDef -> {
-                        scanHintFor(definition, sanitizedModuleId)?.let { hintFunctions.add(it) }
-                        KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr)" }
-                    }
-                    is Definition.TopLevelFunctionDef -> {
-                        // A3 Gate-3: emit this provider's requirements carrier alongside its discovery
-                        // hint, once per (return-fqn, qualifier) across the whole compilation (see
-                        // emittedFuncReqsReturnFqns). The same top-level function discovered by two
-                        // scan modules carries the same requirements, so emitting once is correct and
-                        // avoids the native/wasm duplicate-signature clash.
-                        val returnFqn = targetClass.fqNameWhenAvailable?.asString()
-                        // Key on (return type, qualifier): two qualified providers of the SAME type
-                        // are ordinary Koin, and keying on the type alone dropped the second one's
-                        // carrier while making both decode the first one's requirements.
-                        val carrierQualifier = qualifierExtractor.extractFromDeclaration(definition.irFunction)
-                            ?.let { qualifierDiscriminator(it) }
-                        if (returnFqn != null && emittedFuncReqsReturnFqns.add("$returnFqn|${carrierQualifier ?: ""}")) {
-                            val reqHint = createFuncReqsHintFunction(targetClass, definition.requirements, carrierQualifier)
-                            if (reqHint != null) {
-                                hintFunctions.add(reqHint)
-                                KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn${carrierQualifier?.let { " @$it" } ?: ""} (${reqHint.parameters.size} requirement(s))" }
-                            }
-                            // Compatibility carrier under the BARE name. The consumer derives its
-                            // qualifier from the FIR-generated discovery hint, which understands only
-                            // @Named/@Qualifier — not custom meta-annotation qualifiers, which the IR
-                            // extractor here DOES resolve. When the two disagree the consumer looks up
-                            // the bare name, and without this it would find nothing and silently drop
-                            // the provider's requirements. Emitting the bare form once per return type
-                            // keeps that case at its pre-qualifier-key behavior instead of regressing
-                            // it to empty. Harmless where the sides agree: the qualified lookup wins.
-                            if (carrierQualifier != null && emittedFuncReqsReturnFqns.add("$returnFqn|")) {
-                                createFuncReqsHintFunction(targetClass, definition.requirements, null)?.let {
-                                    hintFunctions.add(it)
-                                    KoinPluginLogger.debug { "    + funcreqs carrier (bare fallback): $returnFqn" }
-                                }
-                            }
-                        }
-
-                        // Top-level functions extract qualifier from the function declaration
-                        val funcQualifier = qualifierExtractor.extractFromDeclaration(definition.irFunction)
-                        if (funcQualifier == null) {
-                            // Unqualified: legacy shared-name overload keyed on target type (today's behavior)
-                            val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
-                            val func = createHintFunction(hintName, targetClass, definition.bindings, definition.scopeClass, null)
-                            if (func != null) hintFunctions.add(func)
-                            KoinPluginLogger.debug { "    + componentscanfunc hint (unqualified): ${targetClass.name} ($defTypeStr)" }
-                        } else {
-                            // Qualified: per-qualifier entry under unique name to avoid signature clashes
-                            // when multiple functions share the same target type (e.g., Unit-returning initializers).
-                            val discriminator = qualifierDiscriminator(funcQualifier)
-                            val existing = qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }
-                            if (!existing.add(discriminator)) {
-                                // Two source funcs with the same (target, qualifier) — Koin-level duplicate binding.
-                                // Silent-skip here; runtime will still raise if both are actually needed.
-                                KoinPluginLogger.debug { "    ! duplicate qualifier '$discriminator' for $defTypeStr in ${moduleClass.irClass.name} — skipping second entry" }
-                            } else {
-                                val entryName = KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
-                                val func = createHintFunction(entryName, targetClass, definition.bindings, definition.scopeClass, funcQualifier)
-                                if (func != null) hintFunctions.add(func)
-                                KoinPluginLogger.debug { "    + componentscanfunc entry: ${targetClass.name} ($defTypeStr) qualifier=${funcQualifier.debugString()} -> $entryName" }
-                            }
-                        }
-                    }
-                    is Definition.DslDef -> continue
-                    is Definition.FunctionDef -> {} // Resolved from module class, not via hints
-                }
-            }
+            collectDefinitionHints(definitions, sanitizedModuleId, moduleClass, hintFunctions, qualifiedEntriesByDefType)
 
             // Emit one roster per (moduleId, defType) that had any qualified top-level entries.
             // Roster param names (q_<discriminator>) enumerate the per-qualifier entries for the consumer.
@@ -1110,6 +1072,114 @@ class KoinAnnotationProcessor(
             )
             batchHintFile(moduleFragment, hintFunctions, firModuleData, sourceFileEntry.name, batchFileName)
             KoinPluginLogger.debug { "    Batched ${hintFunctions.size} hints into single file: $batchFileName" }
+        }
+    }
+
+    /**
+     * Populates [hintFunctions] (and [qualifiedEntriesByDefType], read by the per-qualifier
+     * roster step right after this call) from [definitions] — one `componentscan_*`/
+     * `componentscanfunc_*` (+ A3 funcreqs carrier) hint per definition kind.
+     * [Definition.DslDef] contributes nothing (DSL definitions aren't scan-hint-shaped);
+     * [Definition.FunctionDef] is resolved straight from the module class, not via hints.
+     */
+    private fun collectDefinitionHints(
+        definitions: List<Definition>,
+        sanitizedModuleId: String,
+        moduleClass: ModuleClass,
+        hintFunctions: MutableList<IrSimpleFunction>,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ) {
+        for (definition in definitions) {
+            val defTypeStr = definitionTypeToString(definition.definitionType)
+            val targetClass = definition.returnTypeClass
+
+            when (definition) {
+                is Definition.ClassDef, is Definition.ExternalFunctionDef -> {
+                    scanHintFor(definition, sanitizedModuleId)?.let { hintFunctions.add(it) }
+                    KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr)" }
+                }
+                is Definition.TopLevelFunctionDef -> collectTopLevelFunctionHint(
+                    definition, defTypeStr, targetClass, sanitizedModuleId, moduleClass, hintFunctions, qualifiedEntriesByDefType
+                )
+                is Definition.DslDef -> continue
+                is Definition.FunctionDef -> {} // Resolved from module class, not via hints
+            }
+        }
+    }
+
+    /**
+     * One [Definition.TopLevelFunctionDef]'s hints: its A3 funcreqs carrier (emitted once per
+     * compilation-wide (return type, qualifier) via [emittedFuncReqsReturnFqns]) plus its own
+     * discovery hint — unqualified providers get the legacy shared per-(module,defType) name;
+     * qualified ones get a unique per-qualifier entry name recorded into
+     * [qualifiedEntriesByDefType] so the roster step in [generateModuleScanHints] can enumerate
+     * them afterward.
+     */
+    private fun collectTopLevelFunctionHint(
+        definition: Definition.TopLevelFunctionDef,
+        defTypeStr: String,
+        targetClass: IrClass,
+        sanitizedModuleId: String,
+        moduleClass: ModuleClass,
+        hintFunctions: MutableList<IrSimpleFunction>,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ) {
+        // A3 Gate-3: emit this provider's requirements carrier alongside its discovery
+        // hint, once per (return-fqn, qualifier) across the whole compilation (see
+        // emittedFuncReqsReturnFqns). The same top-level function discovered by two
+        // scan modules carries the same requirements, so emitting once is correct and
+        // avoids the native/wasm duplicate-signature clash.
+        val returnFqn = targetClass.fqNameWhenAvailable?.asString()
+        // Key on (return type, qualifier): two qualified providers of the SAME type
+        // are ordinary Koin, and keying on the type alone dropped the second one's
+        // carrier while making both decode the first one's requirements.
+        val carrierQualifier = qualifierExtractor.extractFromDeclaration(definition.irFunction)
+            ?.let { qualifierDiscriminator(it) }
+        if (returnFqn != null && emittedFuncReqsReturnFqns.add("$returnFqn|${carrierQualifier ?: ""}")) {
+            val reqHint = createFuncReqsHintFunction(targetClass, definition.requirements, carrierQualifier)
+            if (reqHint != null) {
+                hintFunctions.add(reqHint)
+                KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn${carrierQualifier?.let { " @$it" } ?: ""} (${reqHint.parameters.size} requirement(s))" }
+            }
+            // Compatibility carrier under the BARE name. The consumer derives its
+            // qualifier from the FIR-generated discovery hint, which understands only
+            // @Named/@Qualifier — not custom meta-annotation qualifiers, which the IR
+            // extractor here DOES resolve. When the two disagree the consumer looks up
+            // the bare name, and without this it would find nothing and silently drop
+            // the provider's requirements. Emitting the bare form once per return type
+            // keeps that case at its pre-qualifier-key behavior instead of regressing
+            // it to empty. Harmless where the sides agree: the qualified lookup wins.
+            if (carrierQualifier != null && emittedFuncReqsReturnFqns.add("$returnFqn|")) {
+                createFuncReqsHintFunction(targetClass, definition.requirements, null)?.let {
+                    hintFunctions.add(it)
+                    KoinPluginLogger.debug { "    + funcreqs carrier (bare fallback): $returnFqn" }
+                }
+            }
+        }
+
+        // Top-level functions extract qualifier from the function declaration
+        val funcQualifier = qualifierExtractor.extractFromDeclaration(definition.irFunction)
+        if (funcQualifier == null) {
+            // Unqualified: legacy shared-name overload keyed on target type (today's behavior)
+            val hintName = KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
+            val func = createHintFunction(hintName, targetClass, definition.bindings, definition.scopeClass, null)
+            if (func != null) hintFunctions.add(func)
+            KoinPluginLogger.debug { "    + componentscanfunc hint (unqualified): ${targetClass.name} ($defTypeStr)" }
+        } else {
+            // Qualified: per-qualifier entry under unique name to avoid signature clashes
+            // when multiple functions share the same target type (e.g., Unit-returning initializers).
+            val discriminator = qualifierDiscriminator(funcQualifier)
+            val existing = qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }
+            if (!existing.add(discriminator)) {
+                // Two source funcs with the same (target, qualifier) — Koin-level duplicate binding.
+                // Silent-skip here; runtime will still raise if both are actually needed.
+                KoinPluginLogger.debug { "    ! duplicate qualifier '$discriminator' for $defTypeStr in ${moduleClass.irClass.name} — skipping second entry" }
+            } else {
+                val entryName = KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
+                val func = createHintFunction(entryName, targetClass, definition.bindings, definition.scopeClass, funcQualifier)
+                if (func != null) hintFunctions.add(func)
+                KoinPluginLogger.debug { "    + componentscanfunc entry: ${targetClass.name} ($defTypeStr) qualifier=${funcQualifier.debugString()} -> $entryName" }
+            }
         }
     }
 
@@ -2247,6 +2317,11 @@ class KoinAnnotationProcessor(
      * fully resolvable from the JAR. A @Module with @ComponentScan also gathers definitions
      * from scanned packages, which may not have hints and can't be fully discovered.
      *
+     * When the module class itself isn't even on the classpath, resolution falls back entirely
+     * to hints — see [collectDefinitionsFromUnresolvableDependencyModule]. Otherwise, three
+     * numbered steps below each collect one source of definitions and each other's completeness
+     * feeds into the final [DependencyModuleResult.isComplete].
+     *
      * @param moduleFqName Fully qualified name of the module class
      * @return Result with definitions and completeness flag
      */
@@ -2263,54 +2338,14 @@ class KoinAnnotationProcessor(
         val definitions = mutableListOf<Definition>()
         val moduleClassId = ClassId.topLevel(FqName(moduleFqName))
         val moduleClassSymbol = context.referenceClass(moduleClassId)
-
-        if (moduleClassSymbol == null) {
-            // Module class not on classpath — can't resolve. Try hints as best-effort.
-            val modulePackage = FqName(moduleFqName).parent().asString()
-            KoinPluginLogger.debug { "      Cannot resolve $moduleFqName, using package $modulePackage for hint discovery" }
-
-            // Primary: module-scoped scan hints (componentscan_* / componentscanfunc_*)
-            // These work even when the module class isn't resolvable because they're looked up by name.
-            val scanDefs = discoverModuleScanDefinitions(moduleFqName)
-            definitions.addAll(scanDefs)
-
-            // Fallback: orphan hints (definition_* / definitionfunc_*) in the module's package
-            val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
-            val orphanDefs = discoverClassDefinitionsFromHints(listOf(modulePackage))
-            val orphanFuncDefs = discoverFunctionDefinitionsFromHints(listOf(modulePackage))
-            definitions.addAll(orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
-            definitions.addAll(orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
-
-            // Own class unresolvable → its includes=[...] can't be read off the classpath either, but
-            // it already re-published them as a hint (generateModuleScanHints), so we can walk past it.
-            val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
-            val hintIncludesComplete = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapNotNullTo(mutableSetOf()) { it.returnTypeClass.fqNameWhenAvailable }, visited)
-
-            return DependencyModuleResult(definitions, isComplete = (definitions.isNotEmpty() || hintIncludes.isNotEmpty()) && hintIncludesComplete)
-        }
+            ?: return collectDefinitionsFromUnresolvableDependencyModule(moduleFqName, definitions, visited)
 
         val moduleIrClass = moduleClassSymbol.owner
         KoinPluginLogger.debug { "      Resolved class $moduleFqName, declarations: ${moduleIrClass.declarations.size}" }
 
         // 1. Extract function definitions from the module class (e.g., @Singleton fun providesXxx(): Xxx)
         //    A @Module without @ComponentScan only has these — they're always fully resolvable.
-        val moduleFunctions = collectDefinitionFunctions(moduleIrClass)
-        KoinPluginLogger.debug { "      Module functions: ${moduleFunctions.size} (${moduleFunctions.joinToString { it.irFunction.name.asString() }})" }
-        for (defFunc in moduleFunctions) {
-            val hintBindings = discoverModuleFunctionBindingsFromHint(moduleIrClass, defFunc)
-            val bindings = if (hintBindings.isNotEmpty()) hintBindings else defFunc.bindings
-            definitions.add(Definition.FunctionDef(
-                defFunc.irFunction,
-                moduleIrClass,
-                defFunc.definitionType,
-                defFunc.returnTypeClass,
-                bindings,
-                defFunc.scopeClass,
-                defFunc.scopeName,
-                defFunc.scopeArchetype,
-                defFunc.createdAtStart
-            ).attachA3Metadata(defFunc.irFunction) { parameterAnalyzer.analyzeFunction(defFunc.irFunction) })
-        }
+        collectModuleFunctionDefinitions(moduleIrClass, definitions)
 
         // 2. Check if the module has @ComponentScan — if so, discover scanned definitions
         //    from module-scoped scan hints (componentscan_* / componentscanfunc_*).
@@ -2319,29 +2354,9 @@ class KoinAnnotationProcessor(
         val hasComponentScan = moduleIrClass.annotations.any {
             it.type.classFqName?.asString() == "org.koin.core.annotation.ComponentScan"
         }
-        var scanDefinitionsFound = false
-        if (hasComponentScan) {
-            // Primary: module-scoped scan hints (always complete when available)
-            val scanDefs = discoverModuleScanDefinitions(moduleFqName)
-            definitions.addAll(scanDefs)
-
-            // Fallback: orphan hints for transitive cross-module definitions
-            // (definitions from a third module that were scanned by this module)
-            val scanPackages = getComponentScanPackages(moduleIrClass)
-            val effectiveScanPackages = scanPackages.ifEmpty {
-                listOf(moduleIrClass.packageFqName?.asString() ?: "")
-            }
-            val orphanDefs = discoverClassDefinitionsFromHints(effectiveScanPackages)
-            val orphanFuncDefs = discoverFunctionDefinitionsFromHints(effectiveScanPackages)
-            // Deduplicate — scan hints may overlap with orphan hints
-            val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
-            val newOrphanDefs = orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
-            val newOrphanFuncDefs = orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
-            definitions.addAll(newOrphanDefs)
-            definitions.addAll(newOrphanFuncDefs)
-
-            scanDefinitionsFound = scanDefs.isNotEmpty() || newOrphanDefs.isNotEmpty() || newOrphanFuncDefs.isNotEmpty()
-        }
+        val scanDefinitionsFound = if (hasComponentScan) {
+            collectComponentScanDefinitions(moduleIrClass, moduleFqName, definitions)
+        } else false
 
         // 3. Follow @Module(includes = [...]) to collect definitions from included modules.
         //    Included modules (e.g., DatabaseKoinModule included by DaosKoinModule) may not be
@@ -2349,28 +2364,7 @@ class KoinAnnotationProcessor(
         //    their definitions here to make them visible for A3 full-graph validation.
         val includedModules = getModuleIncludes(moduleIrClass)
         val knownFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toMutableSet()
-        var classpathIncludesComplete = true
-        for (included in includedModules) {
-            val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
-            // Check if already collected locally (avoid re-processing)
-            val localModuleClass = collectedModuleClasses.find {
-                it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
-            }
-            val newDefs = if (localModuleClass != null) {
-                // Included module is local — use collectAllDefinitions
-                val includedDefs = collectAllDefinitions(localModuleClass)
-                includedDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
-            } else {
-                // Included module from JAR — recursively collect
-                val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
-                if (!includedResult.isComplete) classpathIncludesComplete = false
-                includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
-            }
-            definitions.addAll(newDefs)
-            knownFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
-            val source = if (localModuleClass != null) "local" else "dependency"
-            KoinPluginLogger.debug { "      Included ($source) $includedFqName: ${newDefs.size} new definitions" }
-        }
+        val classpathIncludesComplete = collectIncludedModuleDefinitions(includedModules, knownFqNames, definitions, visited)
 
         // getModuleIncludes silently drops an edge whose INCLUDED class isn't on this reader's
         // classpath (2+ `implementation` hops away) — union in what its includes hint still saw.
@@ -2393,6 +2387,130 @@ class KoinAnnotationProcessor(
             KoinPluginLogger.debug { "    -> WARNING: $moduleFqName has @ComponentScan but no scan hints found (hint functions unavailable)" }
         }
         return DependencyModuleResult(definitions, isComplete = isComplete)
+    }
+
+    /**
+     * Fallback when [moduleFqName]'s class isn't on the classpath at all — resolve purely from
+     * hints (module-scoped scan hints, then orphan hints, then hint-only includes). A completely
+     * different resolution strategy from the classpath-resolved path in
+     * [collectDefinitionsFromDependencyModule], not one of its three numbered steps.
+     */
+    private fun collectDefinitionsFromUnresolvableDependencyModule(
+        moduleFqName: String,
+        definitions: MutableList<Definition>,
+        visited: MutableSet<String>,
+    ): DependencyModuleResult {
+        val modulePackage = FqName(moduleFqName).parent().asString()
+        KoinPluginLogger.debug { "      Cannot resolve $moduleFqName, using package $modulePackage for hint discovery" }
+
+        // Primary: module-scoped scan hints (componentscan_* / componentscanfunc_*)
+        // These work even when the module class isn't resolvable because they're looked up by name.
+        val scanDefs = discoverModuleScanDefinitions(moduleFqName)
+        definitions.addAll(scanDefs)
+
+        // Fallback: orphan hints (definition_* / definitionfunc_*) in the module's package
+        val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
+        val orphanDefs = discoverClassDefinitionsFromHints(listOf(modulePackage))
+        val orphanFuncDefs = discoverFunctionDefinitionsFromHints(listOf(modulePackage))
+        definitions.addAll(orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
+        definitions.addAll(orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames })
+
+        // Own class unresolvable → its includes=[...] can't be read off the classpath either, but
+        // it already re-published them as a hint (generateModuleScanHints), so we can walk past it.
+        val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
+        val hintIncludesComplete = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapNotNullTo(mutableSetOf()) { it.returnTypeClass.fqNameWhenAvailable }, visited)
+
+        return DependencyModuleResult(definitions, isComplete = (definitions.isNotEmpty() || hintIncludes.isNotEmpty()) && hintIncludesComplete)
+    }
+
+    /** Step 1 of [collectDefinitionsFromDependencyModule]: function definitions declared directly on the module class. */
+    private fun collectModuleFunctionDefinitions(moduleIrClass: IrClass, definitions: MutableList<Definition>) {
+        val moduleFunctions = collectDefinitionFunctions(moduleIrClass)
+        KoinPluginLogger.debug { "      Module functions: ${moduleFunctions.size} (${moduleFunctions.joinToString { it.irFunction.name.asString() }})" }
+        for (defFunc in moduleFunctions) {
+            val hintBindings = discoverModuleFunctionBindingsFromHint(moduleIrClass, defFunc)
+            val bindings = if (hintBindings.isNotEmpty()) hintBindings else defFunc.bindings
+            definitions.add(Definition.FunctionDef(
+                defFunc.irFunction,
+                moduleIrClass,
+                defFunc.definitionType,
+                defFunc.returnTypeClass,
+                bindings,
+                defFunc.scopeClass,
+                defFunc.scopeName,
+                defFunc.scopeArchetype,
+                defFunc.createdAtStart
+            ).attachA3Metadata(defFunc.irFunction) { parameterAnalyzer.analyzeFunction(defFunc.irFunction) })
+        }
+    }
+
+    /**
+     * Step 2 of [collectDefinitionsFromDependencyModule]: definitions from this module's own
+     * @ComponentScan, via module-scoped scan hints plus an orphan-hint fallback for transitive
+     * cross-module definitions. Returns whether anything was actually found, feeding the caller's
+     * completeness check.
+     */
+    private fun collectComponentScanDefinitions(
+        moduleIrClass: IrClass, moduleFqName: String, definitions: MutableList<Definition>
+    ): Boolean {
+        // Primary: module-scoped scan hints (always complete when available)
+        val scanDefs = discoverModuleScanDefinitions(moduleFqName)
+        definitions.addAll(scanDefs)
+
+        // Fallback: orphan hints for transitive cross-module definitions
+        // (definitions from a third module that were scanned by this module)
+        val scanPackages = getComponentScanPackages(moduleIrClass)
+        val effectiveScanPackages = scanPackages.ifEmpty {
+            listOf(moduleIrClass.packageFqName?.asString() ?: "")
+        }
+        val orphanDefs = discoverClassDefinitionsFromHints(effectiveScanPackages)
+        val orphanFuncDefs = discoverFunctionDefinitionsFromHints(effectiveScanPackages)
+        // Deduplicate — scan hints may overlap with orphan hints
+        val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toSet()
+        val newOrphanDefs = orphanDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+        val newOrphanFuncDefs = orphanFuncDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+        definitions.addAll(newOrphanDefs)
+        definitions.addAll(newOrphanFuncDefs)
+
+        return scanDefs.isNotEmpty() || newOrphanDefs.isNotEmpty() || newOrphanFuncDefs.isNotEmpty()
+    }
+
+    /**
+     * Step 3 of [collectDefinitionsFromDependencyModule]: recursively pull in definitions from
+     * every `@Module(includes = [...])` target — they may not be @Configuration themselves, so
+     * they'd otherwise never appear in the top-level module list, invisible to A3 full-graph
+     * validation. Mutates [knownFqNames] as it goes; the caller reads it again afterward for the
+     * hint-only includes fold. Returns whether every included submodule resolved completely.
+     */
+    private fun collectIncludedModuleDefinitions(
+        includedModules: List<IrClass>,
+        knownFqNames: MutableSet<FqName>,
+        definitions: MutableList<Definition>,
+        visited: MutableSet<String>,
+    ): Boolean {
+        var classpathIncludesComplete = true
+        for (included in includedModules) {
+            val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
+            // Check if already collected locally (avoid re-processing)
+            val localModuleClass = collectedModuleClasses.find {
+                it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
+            }
+            val newDefs = if (localModuleClass != null) {
+                // Included module is local — use collectAllDefinitions
+                val includedDefs = collectAllDefinitions(localModuleClass)
+                includedDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
+            } else {
+                // Included module from JAR — recursively collect
+                val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
+                if (!includedResult.isComplete) classpathIncludesComplete = false
+                includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
+            }
+            definitions.addAll(newDefs)
+            knownFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
+            val source = if (localModuleClass != null) "local" else "dependency"
+            KoinPluginLogger.debug { "      Included ($source) $includedFqName: ${newDefs.size} new definitions" }
+        }
+        return classpathIncludesComplete
     }
 
     /**
