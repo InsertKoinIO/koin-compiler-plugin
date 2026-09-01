@@ -41,15 +41,6 @@ class CompileSafetyValidator(
      */
     private val reportedMissingDeps = mutableSetOf<String>()
 
-    /**
-     * KOIN-W007 keys already reported during this compilation. Same purpose as [reportedCycles]/
-     * [reportedMissingDeps]: [validateFullGraph] runs once per reified entry point, so a
-     * provider-only DSL definition (singleOf/factoryOf/scopedOf/viewModelOf, or an opaque
-     * hand-written lambda body) reachable from more than one entry point would otherwise be
-     * disclosed once per root that reaches it.
-     */
-    private val reportedUnvalidatedDsl = mutableSetOf<String>()
-
     /** All provided type FqNames from the assembled graph (populated by A3 or Phase 3.1). */
     val assembledGraphTypes: Set<String> get() = _assembledGraphTypes
     private val _assembledGraphTypes = mutableSetOf<String>()
@@ -114,26 +105,6 @@ class CompileSafetyValidator(
         if (dslDefinitions.isNotEmpty()) {
             KoinPluginLogger.debug { "    + DSL definitions: ${dslDefinitions.size}" }
             allDefinitions.addAll(dslDefinitions)
-        }
-
-        // KOIN-W007 — this compilation's own provider-only DSL definitions (singleOf/factoryOf/
-        // scopedOf/viewModelOf, or an opaque hand-written lambda body) reachable from THIS entry
-        // point. [dslDefinitions] here is always this compilation's local list (never a
-        // dependency's cross-module hints — see the constructor param's call sites), so no extra
-        // locality filter is needed, unlike CallSiteValidator.validateDslDefinitionGraph's version
-        // of this same disclosure for the DSL-only (no typed entry point) path. Both paths exist
-        // because Phase 3.1 skips once this function has already populated assembledGraphTypes —
-        // without this loop, a typed startKoin<T>()/@KoinApplication entry point coexisting with
-        // unsafe DSL usage anywhere in the same compilation would silently suppress the warning.
-        for (def in dslDefinitions) {
-            if (def is Definition.DslDef && def.providerOnly) {
-                val key = "${def.modulePropertyId}:${def.returnTypeClass.fqNameWhenAvailable}:${def.qualifier}"
-                if (reportedUnvalidatedDsl.add(key)) {
-                    KoinPluginLogger.report(KoinDiagnostic.UnvalidatedDslExpression(
-                        target = def.returnTypeClass.fqNameWhenAvailable?.asString() ?: def.returnTypeClass.name.asString(),
-                    ))
-                }
-            }
         }
 
         // Store assembled graph types for A4 call-site validation

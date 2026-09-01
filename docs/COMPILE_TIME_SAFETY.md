@@ -662,15 +662,28 @@ Each diagnostic test has `.fir.txt` (FIR golden file) and `.errors.txt` (error m
 
 **Phase B notes:** DSL definitions (`single<T>()`, `factory<T>()`, etc.) are collected as `DslDef` during Phase 2 and participate in the safety graph. Phase 3.1 validates their constructor parameters when no `startKoin<T>()` / `@KoinApplication` is present. Phase 2.5 generates DSL definition hints (`dsl_single`, `dsl_factory`, etc.) for cross-module discovery.
 
-**Phase B — intentionally NOT requirement-validated:** Koin's own constructor-shorthand DSL
-(`singleOf`/`factoryOf`/`scopedOf`/`viewModelOf`, `org.koin.core.module.dsl`) and any hand-written
-DSL lambda body other than `create(::T)` (e.g. `single<T> { someExpression }`) are registered
-provider-only — the provided type is still visible to other definitions' validation, but this
-definition's own requirements are not derived. `singleOf`-and-friends are real Koin functions with
-~20 reified-arity overloads each; a hand-written lambda body is opaque by construction — the plugin
-never introspects or regenerates either shape, so it does not guess at what they require. Both are
-disclosed via **KOIN-W007** rather than silently skipped. Use `single<T>()`/`factory<T>()`/
-`create(::T)` (optionally chained with `.bind<Interface>()`) for full compile-time validation.
+**Phase B — Koin's own constructor-shorthand DSL is requirement-validated too:** `singleOf`/
+`factoryOf`/`scopedOf`/`viewModelOf` (`org.koin.core.module.dsl`) resolve to one
+`IrFunctionReference` regardless of arity — the same shape `create(::T)` already resolves — so
+their requirements ARE derived from the referenced constructor/function's own parameters (see
+`KoinDSLTransformer.collectConstructorShorthandDef`), exactly like `single<T>()`/`create(::T)`.
+
+**Phase B — the one remaining opaque shape: a hand-written DSL lambda body other than
+`create(::T)`** (e.g. `single<T> { someExpression }`). The plugin never introspects or regenerates
+free-form lambda code, so it does not derive a structured requirement list for it — the provided
+type and any `.bind<Interface>()`/`binds(...)` targets are still fully tracked, but this
+definition contributes no edges to the requirement graph. This has one real, narrow consequence: a
+circular dependency running *through* such a definition (KOIN-D004) goes undetected, since cycle
+detection needs the structured graph. It does **not** mean the lambda's dependencies go unchecked:
+a literal `get<X>()`/`inject<X>()`/`getOrNull<X>()` call written inside it is still an ordinary
+Koin resolution call, tracked exactly like `by inject()` or `koinViewModel()` anywhere else in the
+codebase (Phase A4) — a genuinely missing dependency behind it is a hard `KOIN-D001`/`D002`/`D003`,
+not a silent gap. (`GeneratedResolutionCallRegistry` is what keeps this from also flagging the
+plugin's *own* generated `get()` calls inside annotation-derived/`single<T>()`-derived bodies as
+redundant call sites — see `KoinArgumentGenerator`/`KoinDSLTransformer.collectCallSiteIfResolutionFunction`.)
+If you need full structural validation *including* cycle detection, use `single<T>()`/`factory<T>()`/
+`create(::T)`/`singleOf(::T)` (optionally chained with `.bind<Interface>()`) instead of a
+hand-written lambda body.
 
 **Phase A4 notes:** Call sites are collected during Phase 2 and validated in Phase 3.5. Unresolved call sites in feature modules generate `callsite(required: T)` hint functions for deferred validation by the app module in Phase 3.6.
 

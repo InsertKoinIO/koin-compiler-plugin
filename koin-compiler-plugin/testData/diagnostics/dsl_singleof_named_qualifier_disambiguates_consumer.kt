@@ -1,11 +1,13 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
-// Regression: singleOf(::fn) { named("x") } must still register the definition under that
-// qualifier even though its own REQUIREMENTS are no longer derived (KOIN-W007 — see
-// CONSTRUCTOR_SHORTHAND_DEF_TYPES's kdoc). Dropping the qualifier too (as an earlier version of
-// that change accidentally did, by deleting collectNamedQualifier outright) collapses two
-// differently-qualified singleOf registrations of the same type into one unqualified provider —
-// a false KOIN-D001 for Consumer below, on code that resolves correctly at runtime.
+// Regression: singleOf(::fn) { named("x") } must register the definition under that qualifier —
+// dropping it (as an earlier version of a since-reverted change accidentally did, by deleting
+// collectNamedQualifier outright) collapses two differently-qualified singleOf registrations of
+// the same type into one unqualified provider — a false KOIN-D001 for Consumer below, on code
+// that resolves correctly at runtime. (Historical note: singleOf's own requirements were briefly
+// not derived at all when this test was written — since reinstated, see
+// KoinDSLTransformer.collectConstructorShorthandDef — so makeA/makeB's own zero-arg signatures are
+// now genuinely validated too, not just their qualifiers.)
 package testpkg
 
 import org.koin.core.annotation.Named

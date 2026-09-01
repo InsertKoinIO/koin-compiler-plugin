@@ -699,10 +699,13 @@ class KoinDSLTransformer(
         // single<T> { existingInstance }, single<T> { provideX() }, viewModel { VM() }, ... The
         // declared/inferred type argument T is what the definition provides, regardless of the
         // lambda body — register it as an available (provider-only) definition so compile-safety
-        // doesn't raise a false missing-definition (issues #36, #49), and disclose it as
-        // unvalidated via KOIN-W007 (its own body is opaque — see
-        // CallSiteValidator.validateDslDefinitionGraph). providerOnly = true keeps requirements
-        // empty (see ParameterAnalyzer.requirementsForDslDefinition).
+        // doesn't raise a false missing-definition (issues #36, #49). providerOnly = true keeps
+        // requirements empty (see ParameterAnalyzer.requirementsForDslDefinition) — the body stays
+        // opaque, so its own dependency graph edges (and therefore KOIN-D004 cycle detection
+        // through it) are never derived. Its literal get()/inject()/getOrNull() calls are still
+        // caught independently as ordinary call sites (Phase 3.5/A4, GeneratedResolutionCallRegistry
+        // skips only calls the PLUGIN generated, not hand-written ones) — see
+        // docs/COMPILE_TIME_SAFETY.md for what is and isn't covered for this DSL shape.
         // Skipped when visiting the lambda already registered a definition (inner create(::T)),
         // so we never emit a duplicate DslDef.
         if (functionName in definitionNames && compileSafetyEnabled &&

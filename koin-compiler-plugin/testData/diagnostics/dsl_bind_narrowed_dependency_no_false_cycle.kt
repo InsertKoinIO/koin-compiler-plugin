@@ -13,10 +13,12 @@
 // resolved back onto the definition's OWN node — a false self-loop:
 //   KOIN-D004: InstrumentedStoreService -> InstrumentedStoreService
 //
-// EXPECTED: no KOIN-D004 — InstrumentedStoreService depends on ObjectStoreService, a distinct
-// definition, there is no cycle. KOIN-W007 DOES fire (hand-written lambda bodies are opaque DSL,
-// unconditionally disclosed as skipped from requirement validation since that warning was added)
-// — this is no longer "completely silent", but the false self-cycle is still gone.
+// EXPECTED: no diagnostics at all. InstrumentedStoreService depends on ObjectStoreService, a
+// distinct definition — there is no cycle, and get<ObjectStoreService>() resolves cleanly as its
+// own tracked call site. (KOIN-W007 used to fire here unconditionally for any opaque lambda body;
+// removed once call-site validation started covering a lambda's own get() calls directly — see
+// docs/COMPILE_TIME_SAFETY.md for the one residual gap, KOIN-D004 cycle detection THROUGH an
+// opaque lambda, which this test doesn't exercise since there's genuinely no cycle here.)
 package testpkg
 
 import org.koin.dsl.bind

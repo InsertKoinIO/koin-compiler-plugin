@@ -204,9 +204,9 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
-    @TestMetadata("dsl_lambda_body_unsafe_w007.kt")
-    public void testDsl_lambda_body_unsafe_w007() {
-      runTest("koin-compiler-plugin/testData/diagnostics/dsl_lambda_body_unsafe_w007.kt");
+    @TestMetadata("dsl_lambda_body_missing_dependency_d002.kt")
+    public void testDsl_lambda_body_missing_dependency_d002() {
+      runTest("koin-compiler-plugin/testData/diagnostics/dsl_lambda_body_missing_dependency_d002.kt");
     }
 
     @Test
@@ -285,12 +285,6 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("dsl_singleof_narrowed_dependency_no_false_cycle.kt")
     public void testDsl_singleof_narrowed_dependency_no_false_cycle() {
       runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_narrowed_dependency_no_false_cycle.kt");
-    }
-
-    @Test
-    @TestMetadata("dsl_singleof_w007_coexists_with_typed_entry_point.kt")
-    public void testDsl_singleof_w007_coexists_with_typed_entry_point() {
-      runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_w007_coexists_with_typed_entry_point.kt");
     }
 
     @Test

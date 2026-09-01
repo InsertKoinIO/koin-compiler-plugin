@@ -256,7 +256,7 @@ val myModule = module {
 }
 ```
 
-Both styles define the same dependencies, but the compiler plugin uses reified type parameters instead of constructor references. This isn't just style: `single<T>()`/`factory<T>()`/etc. (and `create(::T)`) get full compile-time dependency validation (KOIN-D00x). `singleOf`/`factoryOf`/`scopedOf`/`viewModelOf` are Koin's own real functions — the plugin does not derive their requirements (see KOIN-W007 in [docs/COMPILE_TIME_SAFETY.md](COMPILE_TIME_SAFETY.md)), so a missing dependency behind one of them is caught at runtime, not compile time.
+Both styles define the same dependencies, but the compiler plugin uses reified type parameters instead of constructor references. `single<T>()`/`factory<T>()`/etc., `create(::T)`, and `singleOf`/`factoryOf`/`scopedOf`/`viewModelOf` all get full compile-time dependency validation (KOIN-D00x) — the constructor-shorthand functions resolve to one function reference regardless of arity, the same shape `create(::T)` already resolves, so their requirements are derived the same way. The one style that doesn't get full structural validation is a hand-written DSL lambda body other than `create(::T)` (e.g. `single<T> { someExpression }`) — see [docs/COMPILE_TIME_SAFETY.md](COMPILE_TIME_SAFETY.md#current-status-and-roadmap) for exactly what is and isn't covered for that shape.
 
 ### Comparison Table
 
