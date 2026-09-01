@@ -12,6 +12,11 @@ Central documentation hub for debugging, developing, and understanding the Koin 
 | [COMPILER_BASICS.md](COMPILER_BASICS.md) | Kotlin compiler plugin fundamentals (IR, FIR, visitors) |
 | [FIR_PROCESSING.md](FIR_PROCESSING.md) | **FIR deep dive** - Source types, KMP phases, synthetic files, cross-module discovery |
 | [PLUGIN_HINTS.md](PLUGIN_HINTS.md) | Cross-module discovery via hint functions |
+| [COMPILE_TIME_SAFETY.md](COMPILE_TIME_SAFETY.md) | **Compile-time dependency validation** - what gets validated, DSL/annotation graph unification, diagnostics |
+| [MIGRATION_FROM_KSP.md](MIGRATION_FROM_KSP.md) | Migration from Koin Annotations (KSP) |
+| [ROADMAP.md](ROADMAP.md) | Project status and future plans |
+| [CASE_STUDY_NOW_IN_ANDROID.md](CASE_STUDY_NOW_IN_ANDROID.md) | Real-world migration case study |
+| [CODE_WALKTHROUGH.md](CODE_WALKTHROUGH.md) | *(partially stale — see file header)* Guided tour of the codebase |
 | [PROPOSAL_KOIN_EXTENSION.md](PROPOSAL_KOIN_EXTENSION.md) | **Proposal (1.0.1)** — `@KoinExtension` annotation for compile-safety-visible helper functions |
 
 ## Project Overview

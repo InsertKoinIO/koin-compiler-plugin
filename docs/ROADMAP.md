@@ -115,7 +115,8 @@ Detect missing dependencies at compile time instead of runtime crashes.
   - [x] Qualifier propagation: `@Named`/`@Qualifier` via `qualifier_<name>` or `qualifierType` hint params
   - [x] Scope propagation: `@Scope(MyScope::class)` via `scope` hint parameter
   - [x] Bindings propagation: return type supertypes via `binding0`, `binding1`, ... hint params
-- [x] DSL validation (B): validate `single<T>()`, `factory<T>()` in hand-written modules
+- [x] DSL validation (B): validate `single<T>()`, `factory<T>()`, `create(::T)`, and Koin's own
+  `singleOf`/`factoryOf`/`scopedOf`/`viewModelOf`/`new(::T)` constructor-reference DSL
 - [x] Call-site validation (A4): validates `get<T>()`, `inject<T>()`, `koinViewModel<T>()` call sites with deferred cross-module hints
 - [x] Cross-module custom qualifier discovery via qualifier hint functions
 - See [COMPILE_TIME_SAFETY.md](COMPILE_TIME_SAFETY.md) for detailed design and implementation
@@ -215,8 +216,11 @@ class ScopedService(val scope: Scope) {
 
 ---
 
-## Multi-Kotlin Version Compatibility (Deferred)
+## Multi-Kotlin Version Compatibility ✅
 
-**Current approach:** Follow latest Kotlin versions and adapt as needed. No complex versioning scheme required.
-
-**Background:** Kotlin compiler plugins are not binary compatible across minor versions. A plugin compiled with Kotlin 2.2.21 won't work with Kotlin 2.3.x. If needed in the future, version-aligned releases (`0.1.0-kotlin-2.2.21`) can be implemented.
+Kotlin compiler plugins bind to unstable compiler internals and aren't binary-compatible across
+minor versions by default. This is now solved via `koin-compiler-version-adapter`: one artifact
+spans a range of Kotlin minor lines (currently 2.3.20 → 2.4.x) through per-line adapter classes
+selected at plugin load (`KotlinAdapterLoader`), instead of shipping version-aligned release
+artifacts. See CLAUDE.md's "Compatibility — verified range + version gate" section for the
+version-gate policy (known-broken vs. unknown-future vs. same-line-new-patch handling).

@@ -514,6 +514,8 @@ val instanceExpression = if (includedModuleClass.isObject) {
 
 ### Kotlin Version Compatibility
 
-Compiler plugins are NOT binary compatible across minor versions. Plugin compiled with 2.2.x won't work with 2.3.x.
-
-See [ROADMAP.md](ROADMAP.md#multi-kotlin-version-compatibility-deferred) for multi-version strategies.
+Compiler plugins bind to unstable compiler internals and aren't binary-compatible across minor
+versions by default. Solved via `koin-compiler-version-adapter` (per-line adapter classes selected
+at plugin load) rather than shipping version-aligned release artifacts — one artifact spans a range
+of Kotlin minor lines. See [ROADMAP.md](ROADMAP.md#multi-kotlin-version-compatibility-) and
+CLAUDE.md's "Compatibility — verified range + version gate" section for the current policy.

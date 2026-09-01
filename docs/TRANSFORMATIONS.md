@@ -60,7 +60,12 @@ val instance = MyService(koin.scope.get(), koin.scope.get())
 
 **Processed by**: `KoinDSLTransformer.handleScopeCreate()`
 
-This is the ONLY place where constructor reference syntax is supported.
+This is the only place where constructor reference syntax is **rewritten into codegen**. Koin's own
+`singleOf(::T)`/`factoryOf(::T)`/`scopedOf(::T)`/`viewModelOf(::T)` and `Scope.new(::T)` also use
+constructor-reference syntax and are left untouched (they already resolve their own args at
+runtime) — the plugin only adds compile-time dependency *validation* for those forms, it doesn't
+transform them. See [COMPILE_TIME_SAFETY.md](COMPILE_TIME_SAFETY.md#phase-b-supported-dsl-forms-at-a-glance)
+for validation coverage per form.
 
 ---
 

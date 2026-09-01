@@ -660,6 +660,15 @@ Each diagnostic test has `.fir.txt` (FIR golden file) and `.errors.txt` (error m
 | C2 | Cross-module function hint metadata (qualifier, scope, bindings) | Done |
 | D | `@Property`/`@PropertyValue` matching | Done |
 
+**Phase B — supported DSL forms at a glance:**
+
+| DSL form | Requirement validation | Notes |
+|----------|------------------------|-------|
+| `single<T>()`, `factory<T>()`, `viewModel<T>()`, `worker<T>()`, `scoped<T>()` (primary-constructor form) | Full — structured requirement graph | Standard shape, covered since Phase B |
+| `create(::T)` inside `scope { }` / `scoped { }` | Full — the referenced function/constructor's own parameters are structured requirements | |
+| `singleOf(::T)`, `factoryOf(::T)`, `scopedOf(::T)`, `viewModelOf(::T)` (`org.koin.core.module.dsl`) | Full — same `IrFunctionReference` shape as `create(::T)` | Supports `named()`/`named<T>()` qualifiers |
+| Hand-written lambda body other than `create(::T)` (e.g. `single<T> { someExpression }`) | Partial — provider type and `.bind<Interface>()`/`binds(...)` targets tracked, but no structured requirement edges | See opaque-lambda note below |
+
 **Phase B notes:** DSL definitions (`single<T>()`, `factory<T>()`, etc.) are collected as `DslDef` during Phase 2 and participate in the safety graph. Phase 3.1 validates their constructor parameters when no `startKoin<T>()` / `@KoinApplication` is present. Phase 2.5 generates DSL definition hints (`dsl_single`, `dsl_factory`, etc.) for cross-module discovery.
 
 **Phase B — Koin's own constructor-shorthand DSL is requirement-validated too:** `singleOf`/
