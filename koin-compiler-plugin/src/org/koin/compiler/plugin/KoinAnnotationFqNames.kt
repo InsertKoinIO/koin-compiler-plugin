@@ -206,9 +206,19 @@ object KoinAnnotationFqNames {
     // --- core ---
     val KOIN_COMPONENT_GET = FqName("org.koin.core.component.get")
     val KOIN_COMPONENT_INJECT = FqName("org.koin.core.component.inject")
-    // Note: Scope.get/inject excluded — used internally by plugin-generated code (indistinguishable from user code)
     val KOIN_GET = FqName("org.koin.core.Koin.get")
     val KOIN_INJECT = FqName("org.koin.core.Koin.inject")
+    // Scope.get<T>() — the function a hand-written opaque DSL lambda body actually calls
+    // (single<T> { MyClass(get()) }). Previously excluded as "indistinguishable from
+    // plugin-generated code", but plugin-generated get() calls are built fresh via
+    // builder.irCall(...) as part of the REPLACEMENT expression visitCall returns — the IR
+    // tree-walk framework never re-descends into a node's own return value, so they're never
+    // independently visited by this collector. Confirmed empirically: full suite stayed green
+    // after including this (no false positives from the plugin's own codegen). Without this, a
+    // get() call inside an opaque lambda body had NO safety net at all — not the definition's own
+    // Requirement list (deliberately empty for this shape) and not call-site validation (this was
+    // the gap) — found via the app-dsl playground's own AnalyticsModule.kt.
+    val SCOPE_GET = FqName("org.koin.core.scope.Scope.get")
 
     // --- android ---
     val ANDROID_COMPONENT_GET = FqName("org.koin.android.ext.android.get")
@@ -237,7 +247,7 @@ object KoinAnnotationFqNames {
         KOIN_NAV_VIEW_MODEL_ANDROIDX,
         // core
         KOIN_COMPONENT_GET, KOIN_COMPONENT_INJECT,
-        KOIN_GET, KOIN_INJECT,
+        KOIN_GET, KOIN_INJECT, SCOPE_GET,
         // android
         ANDROID_COMPONENT_GET, ANDROID_COMPONENT_INJECT,
         // android-viewmodel

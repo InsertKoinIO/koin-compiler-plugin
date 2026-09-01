@@ -1,0 +1,54 @@
+Module: core
+FILE: filestore.kt
+    package io.kotzilla.ingestion.filestore.service
+
+    public abstract interface StoreService : R|kotlin/Any| {
+    }
+    public final class ObjectStoreService : R|io/kotzilla/ingestion/filestore/service/StoreService| {
+        public constructor(): R|io/kotzilla/ingestion/filestore/service/ObjectStoreService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class InstrumentedStoreService : R|io/kotzilla/ingestion/filestore/service/StoreService| {
+        public constructor(delegate: R|io/kotzilla/ingestion/filestore/service/StoreService|): R|io/kotzilla/ingestion/filestore/service/InstrumentedStoreService| {
+            super<R|kotlin/Any|>()
+        }
+
+        private final val delegate: R|io/kotzilla/ingestion/filestore/service/StoreService| = R|<local>/delegate|
+            private get(): R|io/kotzilla/ingestion/filestore/service/StoreService|
+
+    }
+    public final fun buildInstrumentedStoreService(os: R|io/kotzilla/ingestion/filestore/service/ObjectStoreService|): R|io/kotzilla/ingestion/filestore/service/InstrumentedStoreService| {
+        ^buildInstrumentedStoreService R|io/kotzilla/ingestion/filestore/service/InstrumentedStoreService.InstrumentedStoreService|(R|<local>/os|)
+    }
+    public final fun fileStorageModule(): R|org/koin/core/module/Module| {
+        ^fileStorageModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|io/kotzilla/ingestion/filestore/service/ObjectStoreService|>()
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|io/kotzilla/ingestion/filestore/service/InstrumentedStoreService|, R|@R|kotlin/ParameterName|(name = String(os))  io/kotzilla/ingestion/filestore/service/ObjectStoreService|>(::R|io/kotzilla/ingestion/filestore/service/buildInstrumentedStoreService|, <L> = singleOf@fun R|org/koin/core/definition/BeanDefinition<io/kotzilla/ingestion/filestore/service/InstrumentedStoreService>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/dsl/bind|<R|io/kotzilla/ingestion/filestore/service/StoreService|>()
+            }
+            )
+        }
+        )
+    }
+Module: app
+FILE: test.kt
+    public final class Marker : R|kotlin/Any| {
+        public constructor(): R|Marker| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Marker|>()
+            }
+            ), R|io/kotzilla/ingestion/filestore/service/fileStorageModule|()))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|io/kotzilla/ingestion/filestore/service/StoreService|>()
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|Marker|>()
+        ^box String(OK)
+    }

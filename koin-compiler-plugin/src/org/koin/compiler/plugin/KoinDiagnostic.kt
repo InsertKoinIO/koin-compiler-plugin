@@ -399,15 +399,18 @@ sealed class KoinDiagnostic(
      * compile-time validation is skipped for THIS definition (it still registers and works fine
      * at runtime; only its own requirements go unchecked).
      *
-     * Fires for two distinct opaque shapes:
-     *  - Koin's own constructor-shorthand DSL (`singleOf`/`factoryOf`/`scopedOf`/`viewModelOf`,
-     *    `org.koin.core.module.dsl`) — real Koin functions with ~20 reified-arity overloads
-     *    each; parsing every arity to recover the constructor shape a definition needs is not
-     *    worth the maintenance cost (and pollutes autocomplete with lookalike stubs), so the
-     *    plugin does not attempt it.
-     *  - A hand-written DSL lambda body (`single<T> { someExpression }`, `factory<T> { ... }`,
-     *    etc.) that isn't `create(::T)` — opaque by construction; the plugin never introspects
-     *    or regenerates this code, so it cannot know what a `get<X>()` call inside it requires.
+     * Fires for a hand-written DSL lambda body (`single<T> { someExpression }`,
+     * `factory<T> { ... }`, etc.) that isn't `create(::T)` — opaque by construction; the plugin
+     * never introspects or regenerates this code, so it cannot know what a `get<X>()` call inside
+     * it requires (those individual `get()` calls are still separately validated as call sites —
+     * this warning is specifically about the definition's OWN requirement list, used for e.g.
+     * cycle detection, not a total blind spot).
+     *
+     * Does NOT fire for Koin's own constructor-shorthand DSL (`singleOf`/`factoryOf`/`scopedOf`/
+     * `viewModelOf`) — those resolve to one `IrFunctionReference` regardless of arity, the same
+     * shape `create(::T)` already resolves, so their requirements ARE derived (see
+     * `KoinDSLTransformer.collectConstructorShorthandDef`); no maintenance cost was actually
+     * avoided by treating them as opaque.
      *
      * Warning, not silent drop: per doctrine, a silently incomplete validation is worse than
      * disclosing the gap (same shape as W005/W006). Local-only — fires only for a definition
@@ -419,13 +422,12 @@ sealed class KoinDiagnostic(
     ) : KoinDiagnostic(
         code = "KOIN-W007",
         severity = Severity.WARNING,
-        message = "Compile-time validation skipped for '$target': registered via a DSL expression " +
-            "the plugin cannot statically analyze (singleOf/factoryOf/scopedOf/viewModelOf, or a " +
-            "hand-written lambda body other than create(::T)).\n" +
+        message = "Compile-time validation skipped for '$target': registered via a hand-written " +
+            "DSL lambda body the plugin cannot statically analyze.\n" +
             "  The definition is still visible to consumers and works correctly at runtime — only " +
             "its own dependencies go unchecked by this compilation's compile-time checks.\n" +
-            "  Use single<T>()/factory<T>()/create(::T) (optionally chained with .bind<Interface>()) " +
-            "for full compile-time validation.",
+            "  Use single<T>()/factory<T>()/create(::T)/singleOf(::T) (optionally chained with " +
+            ".bind<Interface>()) for full compile-time validation.",
     )
 
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */

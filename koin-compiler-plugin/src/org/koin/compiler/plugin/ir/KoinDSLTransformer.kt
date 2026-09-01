@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
+import org.koin.compiler.plugin.GeneratedResolutionCallRegistry
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginLogger
@@ -139,10 +140,12 @@ class KoinDSLTransformer(
 
         // SAFETY — Koin's own constructor-shorthand DSL (org.koin.core.module.dsl), distinct from
         // this plugin's single<T>()/create(::T). Real Koin functions with ~20 reified-arity
-        // overloads each; parsing every arity to recover a definition's constructor shape isn't
-        // worth the cost, so these are registered provider-only (see
-        // collectUnsafeConstructorShorthandDef) and disclosed via KOIN-W007, same as an opaque
-        // hand-written lambda body. No codegen counterpart — the call is always left untransformed.
+        // overloads each, but resolving the `::Ctor`/`::function` argument itself needs none of
+        // that: it's one IrFunctionReference regardless of arity, the same shape create(::T)
+        // already resolves. So requirements ARE derived (see collectConstructorShorthandDef),
+        // reusing requirementsFor — same helper, same correctness guarantee as create(::T), not a
+        // constructor-vs-lambda guess. No codegen counterpart — the call is always left
+        // untransformed (it already works at runtime).
         val CONSTRUCTOR_SHORTHAND_DEF_TYPES = mapOf(
             "org.koin.core.module.dsl.singleOf" to DefinitionType.SINGLE,
             "org.koin.core.module.dsl.factoryOf" to DefinitionType.FACTORY,
@@ -523,7 +526,7 @@ class KoinDSLTransformer(
      */
     private fun collectConstructorShorthandDefIfApplicable(expression: IrCall, callee: IrSimpleFunction) {
         val defType = callee.fqNameWhenAvailable?.asString()?.let { CONSTRUCTOR_SHORTHAND_DEF_TYPES[it] } ?: return
-        collectUnsafeConstructorShorthandDef(expression, defType)
+        collectConstructorShorthandDef(expression, defType)
     }
 
     /**
@@ -551,8 +554,9 @@ class KoinDSLTransformer(
         // Detect the options-block named(...)/named<T>() (org.koin.core.module.dsl) — sets the
         // qualifier on the last collected DslDef. Distinct from org.koin.core.qualifier.named(),
         // which QualifierExtractor already handles as a qualifier ARGUMENT value, not a statement.
-        // NOT constructor-requirement derivation (that stays removed, see
-        // CONSTRUCTOR_SHORTHAND_DEF_TYPES's kdoc) — this is the definition's OWN identity: what
+        // NOT the same thing as constructor-requirement derivation (see
+        // CONSTRUCTOR_SHORTHAND_DEF_TYPES's kdoc, handled separately in
+        // collectConstructorShorthandDef) — this is the definition's OWN identity: what
         // qualifier it registers under. Skipping this collapses every qualified singleOf/factoryOf
         // registration of the same type into one unqualified provider entry, which is worse than
         // "unvalidated" — it's a false KOIN-D001 on correct code the moment something else requires
@@ -722,8 +726,18 @@ class KoinDSLTransformer(
      * SAFETY ONLY. If the call is a Koin resolution function (koinViewModel<T>(), get<T>(),
      * inject<T>(), etc.), collect it as a pending call-site validation. Also captures any trailing
      * `parametersOf(...)` lambda for KOIN-D005/D006 shape checks downstream.
+     *
+     * Skips a call [GeneratedResolutionCallRegistry] knows the plugin itself generated (e.g. a
+     * `get()` KoinArgumentGenerator inserted into an annotation-derived
+     * `single<Service> { Service(get()) }` body during Phase 1, walked completely normally once
+     * Phase 2 reaches it). That get() is the mechanical realization of a requirement
+     * BindingRegistry already validated structurally — collecting it too would double-report the
+     * same missing dependency via two independent mechanisms. Checked first, before the FqName
+     * lookup below (cheaper, and correct regardless of which tracked function the plugin happens
+     * to generate calls to).
      */
     private fun collectCallSiteIfResolutionFunction(expression: IrCall, callee: IrSimpleFunction) {
+        if (GeneratedResolutionCallRegistry.isGenerated(expression)) return
         val calleeFqName = callee.fqNameWhenAvailable?.asString() ?: return
         if (calleeFqName !in callSiteResolutionFqNames) return
         if (callee.typeParameters.isEmpty()) return
@@ -1250,15 +1264,17 @@ class KoinDSLTransformer(
     }
 
     /**
-     * Register a provider-only DslDef for Koin's own singleOf(::Ctor)/factoryOf/scopedOf/
-     * viewModelOf — the constructor reference's target class is the provided type, but its
-     * requirements are NOT derived (see [CONSTRUCTOR_SHORTHAND_DEF_TYPES]'s kdoc for why). The
-     * provided type stays visible to OTHER definitions' validation; this definition's own
-     * dependencies are disclosed as skipped via KOIN-W007 (see
-     * CallSiteValidator.validateDslDefinitionGraph). The call itself is left untransformed (it
-     * already works at runtime).
+     * Register a DslDef for Koin's own singleOf(::Ctor)/factoryOf/scopedOf/viewModelOf — the
+     * constructor/function reference's target class is the provided type, AND its requirements
+     * ARE derived from the referenced declaration's own parameters via [requirementsFor] — the
+     * same shared helper `create(::T)` uses, not a guess from the provided class's own
+     * constructor (that specific mistake was the real bug once found here, see 4db7c11; the fix
+     * was to always resolve from `referencedFunction`, which this already does). Unlike an opaque
+     * hand-written lambda body, there's no free-form code here to be opaque about — `::Ctor` is
+     * one resolvable declaration regardless of which of Koin's ~20 reified-arity overloads called
+     * it. The call itself is left untransformed (it already works at runtime).
      */
-    private fun collectUnsafeConstructorShorthandDef(expression: IrCall, defType: DefinitionType) {
+    private fun collectConstructorShorthandDef(expression: IrCall, defType: DefinitionType) {
         val functionRef = expression.getRegularArgument(0) as? IrFunctionReference ?: return
         val referencedFunction = functionRef.symbol.owner
         val targetClass = when (referencedFunction) {
@@ -1267,11 +1283,21 @@ class KoinDSLTransformer(
         } ?: return
         trackClassLookup(lookupTracker, currentFile, targetClass)
         linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
-        val qualifier = qualifierExtractor.extractFromClass(targetClass)
-        _dslDefinitions.add(buildDslDef(targetClass, defType, qualifier, providerOnly = true) {
-            parameterAnalyzer.requirementsForDslDefinition(targetClass, providerOnly = true)
+        // Same qualifier-source split as collectScopeNewDef: for a plain function reference
+        // (singleOf(::dispatcherIO)), a custom qualifier annotation lives on the FUNCTION itself
+        // (e.g. @Dispatcher(NiaDispatchers.IO) fun dispatcherIO(): CoroutineDispatcher), never on
+        // its return type's class — extractFromClass(targetClass) would read CoroutineDispatcher
+        // (never annotated) and silently register this provider unqualified, colliding two
+        // differently-qualified singleOf registrations of the same type into one (a real bug found
+        // via the app-dsl playground's own DispatchersModule, same shape as 4db7c11's regression).
+        val qualifier = when (referencedFunction) {
+            is IrConstructor -> qualifierExtractor.extractFromClass(targetClass)
+            is IrSimpleFunction -> qualifierExtractor.extractFromDeclaration(referencedFunction, "function ${referencedFunction.name}")
+        }
+        _dslDefinitions.add(buildDslDef(targetClass, defType, qualifier) {
+            requirementsFor(referencedFunction)
         })
-        KoinPluginLogger.user { "Intercepting ${expression.symbol.owner.name}(::${targetClass.name}) (provider-only, unsafe DSL)" }
+        KoinPluginLogger.user { "Intercepting ${expression.symbol.owner.name}(::${targetClass.name}) (constructor-shorthand DSL)" }
     }
 
     /**

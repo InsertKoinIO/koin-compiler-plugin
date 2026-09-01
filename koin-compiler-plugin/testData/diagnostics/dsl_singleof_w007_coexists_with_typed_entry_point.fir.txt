@@ -38,7 +38,10 @@ FILE: unrelated_dsl.kt
 
     }
     public final val looseDslModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
-        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|NeedsMissing|, R|@R|kotlin/ParameterName|(name = String(m))  Missing|>(::R|/NeedsMissing.NeedsMissing|)
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|NeedsMissing|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|NeedsMissing| <inline=NoInline>  {
+            ^ R|/NeedsMissing.NeedsMissing|(this@R|special/anonymous|.R|org/koin/core/scope/Scope.get|<R|Missing|>())
+        }
+        )
     }
     )
         public get(): R|org/koin/core/module/Module|

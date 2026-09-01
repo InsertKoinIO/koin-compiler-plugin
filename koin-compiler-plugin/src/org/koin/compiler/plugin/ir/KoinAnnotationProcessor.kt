@@ -36,6 +36,7 @@ import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.plugin.GeneratedResolutionCallRegistry
 import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.PropertyValueRegistry
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
@@ -198,6 +199,7 @@ class KoinAnnotationProcessor(
         // Clear registries for fresh compilation
         PropertyValueRegistry.clear()
         ProvidedTypeRegistry.clear()
+        GeneratedResolutionCallRegistry.clear()
 
         moduleFragment.acceptChildrenVoid(object : IrVisitorVoid() {
             override fun visitElement(element: IrElement) {

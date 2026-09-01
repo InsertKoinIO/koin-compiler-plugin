@@ -33,14 +33,19 @@ object MyApp
 // Never loaded by MyApp — dslDefinitions still collects it (same as any declared-but-unloaded
 // module), which is what exercises the coexistence gap: this def is only reachable via the
 // DSL-only path's own logic, not via MyApp's assembled graph at all.
-import org.koin.core.module.dsl.singleOf
+//
+// Uses a hand-written opaque lambda body (not singleOf) to trigger W007 — singleOf's own
+// requirements are derived now (see KoinDSLTransformer.collectConstructorShorthandDef) and no
+// longer opaque, but the coexistence bug this test guards is about W007 disclosure in general,
+// not specifically about the constructor-shorthand DSL.
 import org.koin.dsl.module
+import org.koin.plugin.module.dsl.single
 
 class Missing
 class NeedsMissing(val m: Missing)
 
 val looseDslModule = module {
-    singleOf(::NeedsMissing)
+    single<NeedsMissing> { NeedsMissing(get()) }
 }
 
 // FILE: test.kt

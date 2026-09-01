@@ -1,0 +1,35 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface SomeDispatcher : R|kotlin/Any| {
+    }
+    public final class SomeDispatcherImpl : R|testpkg/SomeDispatcher| {
+        public constructor(): R|testpkg/SomeDispatcherImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Named|(value = String(io)) public final fun buildDispatcher(): R|testpkg/SomeDispatcher| {
+        ^buildDispatcher R|testpkg/SomeDispatcherImpl.SomeDispatcherImpl|()
+    }
+    public final class Consumer : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(io)) dispatcher: R|testpkg/SomeDispatcher|): R|testpkg/Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dispatcher: R|testpkg/SomeDispatcher| = R|<local>/dispatcher|
+            public get(): R|testpkg/SomeDispatcher|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|testpkg/SomeDispatcher|>(::R|testpkg/buildDispatcher|)
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Consumer|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

@@ -2,6 +2,6 @@
   resolved by: get<Missing>()
   No matching definition found in any loaded module.
   Check your declaration with Annotation or DSL.
-[Koin][KOIN-W007] Compile-time validation skipped for 'testpkg.NeedsMissing': registered via a hand-written DSL lambda body the plugin cannot statically analyze.
+[Koin][KOIN-W007] Compile-time validation skipped for 'testpkg.StubAnalyticsHelper': registered via a hand-written DSL lambda body the plugin cannot statically analyze.
   The definition is still visible to consumers and works correctly at runtime — only its own dependencies go unchecked by this compilation's compile-time checks.
   Use single<T>()/factory<T>()/create(::T)/singleOf(::T) (optionally chained with .bind<Interface>()) for full compile-time validation.

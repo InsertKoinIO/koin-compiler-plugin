@@ -1,0 +1,38 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface StoreService : R|kotlin/Any| {
+    }
+    public final class ObjectStoreService : R|testpkg/StoreService| {
+        public constructor(): R|testpkg/ObjectStoreService| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class InstrumentedStoreService : R|testpkg/StoreService| {
+        public constructor(delegate: R|testpkg/StoreService|): R|testpkg/InstrumentedStoreService| {
+            super<R|kotlin/Any|>()
+        }
+
+        private final val delegate: R|testpkg/StoreService| = R|<local>/delegate|
+            private get(): R|testpkg/StoreService|
+
+    }
+    public final fun buildInstrumented(os: R|testpkg/ObjectStoreService|): R|testpkg/InstrumentedStoreService| {
+        ^buildInstrumented R|testpkg/InstrumentedStoreService.InstrumentedStoreService|(R|<local>/os|)
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/ObjectStoreService|>()
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|testpkg/InstrumentedStoreService|, R|@R|kotlin/ParameterName|(name = String(os))  testpkg/ObjectStoreService|>(::R|testpkg/buildInstrumented|, <L> = singleOf@fun R|org/koin/core/definition/BeanDefinition<testpkg/InstrumentedStoreService>|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/bind|<R|testpkg/StoreService|>()
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }

@@ -1,0 +1,34 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface AnalyticsHelper : R|kotlin/Any| {
+    }
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|testpkg/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class StubAnalyticsHelper : R|testpkg/AnalyticsHelper| {
+        public constructor(m: R|testpkg/Missing|): R|testpkg/StubAnalyticsHelper| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val m: R|testpkg/Missing| = R|<local>/m|
+            public get(): R|testpkg/Missing|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|testpkg/StubAnalyticsHelper|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|testpkg/StubAnalyticsHelper| <inline=NoInline>  {
+            ^ R|testpkg/StubAnalyticsHelper.StubAnalyticsHelper|(this@R|special/anonymous|.R|org/koin/core/scope/Scope.get|<R|testpkg/Missing|>())
+        }
+        ).R|org/koin/dsl/bind|<R|testpkg/AnalyticsHelper|>(<getClass>(Q|testpkg/AnalyticsHelper|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }
