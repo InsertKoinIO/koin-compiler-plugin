@@ -69,7 +69,7 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
                         false
                     }
                     detected && requestedOff -> {
-                        project.logger.warn(
+                        project.logger.lifecycle(
                             "[Koin] strictSafety = false is being ignored on ${project.path}: this compilation " +
                                 "contains a real Koin entry point (startKoin / @KoinApplication / koinApplication), " +
                                 "so full-graph compile safety must run on every build. If this detection is wrong " +
