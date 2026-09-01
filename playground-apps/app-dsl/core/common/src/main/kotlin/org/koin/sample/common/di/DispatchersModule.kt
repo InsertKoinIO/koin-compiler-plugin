@@ -4,15 +4,16 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.create
 import org.koin.sample.common.Dispatcher
 import org.koin.sample.common.NiaDispatchers
 
 val dispatchersModule = module {
-    single { create(::dispatcherIO) }
-    single { create(::dispatcherDefault) }
-    single { create(::coroutineScope) }
+    singleOf(::dispatcherIO)
+    singleOf(::dispatcherDefault)
+    singleOf(::coroutineScope)
 }
 
 @Dispatcher(NiaDispatchers.IO)
