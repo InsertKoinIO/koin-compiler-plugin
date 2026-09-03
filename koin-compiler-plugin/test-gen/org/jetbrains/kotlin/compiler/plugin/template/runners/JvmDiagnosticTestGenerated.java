@@ -399,6 +399,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("module_includes_qualifier_dedup_drops_unqualified_d001.kt")
+  public void testModule_includes_qualifier_dedup_drops_unqualified_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/module_includes_qualifier_dedup_drops_unqualified_d001.kt");
+  }
+
+  @Test
   @TestMetadata("provided_missing.kt")
   public void testProvided_missing() {
     runTest("koin-compiler-plugin/testData/diagnostics/provided_missing.kt");

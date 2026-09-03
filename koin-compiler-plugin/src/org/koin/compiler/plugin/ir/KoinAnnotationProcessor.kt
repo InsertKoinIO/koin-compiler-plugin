@@ -158,22 +158,25 @@ class KoinAnnotationProcessor(
         // Follow @Module(includes = [...]) to collect included module definitions.
         // Included modules may not be @Configuration, so they won't appear in the top-level
         // module list. We must collect their definitions here for A3 full-graph validation.
-        val existingFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toMutableSet()
+        //
+        // Keyed by (type, qualifier) — NOT type alone (issue #94). Two included modules can
+        // legitimately provide the same return type under different qualifiers (or one qualified,
+        // one not); a type-only key collapsed the second provider into "already known" and dropped
+        // it, even though a consumer required specifically that (distinctly qualified) one.
+        val knownKeys = definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }
         for (included in moduleClass.includedModules) {
             val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
             val localIncluded = collectedModuleClasses.find {
                 it.irClass.fqNameWhenAvailable == included.fqNameWhenAvailable
             }
             if (localIncluded != null) {
-                val newDefs = collectAllDefinitions(localIncluded).filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+                val newDefs = collectAllDefinitions(localIncluded).filter { knownKeys.add(definitionDedupeKey(it)) }
                 definitions.addAll(newDefs)
-                existingFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
             } else {
                 val result = collectDefinitionsFromDependencyModule(includedFqName, visited)
                 if (!result.isComplete) allComplete = false
-                val newDefs = result.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in existingFqNames }
+                val newDefs = result.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
                 definitions.addAll(newDefs)
-                existingFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
             }
         }
 
@@ -2377,14 +2380,15 @@ class KoinAnnotationProcessor(
         //    @Configuration, so they won't appear in the top-level module list. We must collect
         //    their definitions here to make them visible for A3 full-graph validation.
         val includedModules = getModuleIncludes(moduleIrClass)
-        val knownFqNames = definitions.mapNotNull { it.returnTypeClass.fqNameWhenAvailable }.toMutableSet()
-        val classpathIncludesComplete = collectIncludedModuleDefinitions(includedModules, knownFqNames, definitions, visited)
+        // Keyed by (type, qualifier), not type alone — see [definitionDedupeKey] / issue #94.
+        val knownKeys = definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }
+        val classpathIncludesComplete = collectIncludedModuleDefinitions(includedModules, knownKeys, definitions, visited)
 
         // getModuleIncludes silently drops an edge whose INCLUDED class isn't on this reader's
         // classpath (2+ `implementation` hops away) — union in what its includes hint still saw.
         val classpathIncludeFqNames = includedModules.mapNotNull { it.fqNameWhenAvailable?.asString() }.toSet()
         val hintOnlyIncludes = discoverModuleIncludesFromHints(moduleFqName).filterNot { it in classpathIncludeFqNames }
-        val hintOnlyIncludesComplete = foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownFqNames, visited)
+        val hintOnlyIncludesComplete = foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownKeys, visited)
 
         if (definitions.isNotEmpty()) {
             KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName (hasComponentScan=$hasComponentScan)" }
@@ -2432,7 +2436,7 @@ class KoinAnnotationProcessor(
         // Own class unresolvable → its includes=[...] can't be read off the classpath either, but
         // it already re-published them as a hint (generateModuleScanHints), so we can walk past it.
         val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
-        val hintIncludesComplete = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapNotNullTo(mutableSetOf()) { it.returnTypeClass.fqNameWhenAvailable }, visited)
+        val hintIncludesComplete = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }, visited)
 
         return DependencyModuleResult(definitions, isComplete = (definitions.isNotEmpty() || hintIncludes.isNotEmpty()) && hintIncludesComplete)
     }
@@ -2493,12 +2497,16 @@ class KoinAnnotationProcessor(
      * Step 3 of [collectDefinitionsFromDependencyModule]: recursively pull in definitions from
      * every `@Module(includes = [...])` target — they may not be @Configuration themselves, so
      * they'd otherwise never appear in the top-level module list, invisible to A3 full-graph
-     * validation. Mutates [knownFqNames] as it goes; the caller reads it again afterward for the
+     * validation. Mutates [knownKeys] as it goes; the caller reads it again afterward for the
      * hint-only includes fold. Returns whether every included submodule resolved completely.
+     *
+     * [knownKeys] is [definitionDedupeKey] (type + qualifier), NOT type alone — two included
+     * modules can legitimately provide the same return type under different qualifiers, and a
+     * type-only key silently dropped the second provider as "already known" (issue #94).
      */
     private fun collectIncludedModuleDefinitions(
         includedModules: List<IrClass>,
-        knownFqNames: MutableSet<FqName>,
+        knownKeys: MutableSet<String>,
         definitions: MutableList<Definition>,
         visited: MutableSet<String>,
     ): Boolean {
@@ -2512,15 +2520,14 @@ class KoinAnnotationProcessor(
             val newDefs = if (localModuleClass != null) {
                 // Included module is local — use collectAllDefinitions
                 val includedDefs = collectAllDefinitions(localModuleClass)
-                includedDefs.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
+                includedDefs.filter { knownKeys.add(definitionDedupeKey(it)) }
             } else {
                 // Included module from JAR — recursively collect
                 val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
                 if (!includedResult.isComplete) classpathIncludesComplete = false
-                includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
+                includedResult.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
             }
             definitions.addAll(newDefs)
-            knownFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
             val source = if (localModuleClass != null) "local" else "dependency"
             KoinPluginLogger.debug { "      Included ($source) $includedFqName: ${newDefs.size} new definitions" }
         }
@@ -2551,8 +2558,11 @@ class KoinAnnotationProcessor(
 
     /**
      * Recurse into each of [includedFqNames], folding unseen definitions into [definitions] /
-     * [knownFqNames]. Shared by both branches of [collectDefinitionsFromDependencyModule] for the
+     * [knownKeys]. Shared by both branches of [collectDefinitionsFromDependencyModule] for the
      * hint-only edges getModuleIncludes' classpath resolution missed.
+     *
+     * [knownKeys] is [definitionDedupeKey] (type + qualifier), NOT type alone — see
+     * [collectIncludedModuleDefinitions] / issue #94.
      *
      * @return false if any folded-in submodule itself came back incomplete — a partial submodule's
      *   definitions still get folded in (best-effort), but the caller must not report the combined
@@ -2562,16 +2572,15 @@ class KoinAnnotationProcessor(
     private fun foldHintOnlyIncludes(
         includedFqNames: List<String>,
         definitions: MutableList<Definition>,
-        knownFqNames: MutableSet<FqName>,
+        knownKeys: MutableSet<String>,
         visited: MutableSet<String>,
     ): Boolean {
         var allComplete = true
         for (includedFqName in includedFqNames) {
             val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
             if (!includedResult.isComplete) allComplete = false
-            val newDefs = includedResult.definitions.filter { it.returnTypeClass.fqNameWhenAvailable !in knownFqNames }
+            val newDefs = includedResult.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
             definitions.addAll(newDefs)
-            knownFqNames.addAll(newDefs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable })
             KoinPluginLogger.debug { "      Included (hint-only, classpath-invisible) $includedFqName: ${newDefs.size} new definitions" }
         }
         return allComplete
@@ -2788,19 +2797,32 @@ class KoinAnnotationProcessor(
     }
 
     /**
-     * Dedupe key for module-scan definitions: (returnType FQ name, qualifier discriminator).
-     * Uses the same encoding as [qualifierDiscriminator] so TypeQualifier entries are keyed on
-     * FQ name (not simple name) — matches producer-side hint naming and avoids collisions
-     * between same-named qualifier annotations in different packages.
+     * Resolve a definition's OWN registered qualifier — the qualifier a consumer must match to
+     * depend on it. Mirrors [BindingRegistry.extractQualifierFromDefinition]: [Definition.ClassDef]
+     * / [Definition.DslDef] fall back to extracting from the class's own annotations when not
+     * already known from cross-module hint metadata; [Definition.FunctionDef] /
+     * [Definition.TopLevelFunctionDef] carry NO qualifier field at all (see their declarations in
+     * AnnotationModels.kt) and must always be extracted live from the function's own annotations —
+     * treating them as unqualified here is what let issue #94 collapse a `@Named` member-function
+     * provider and an unqualified one of the same return type into a single dedup key.
+     */
+    private fun resolvedQualifierFor(definition: Definition): QualifierValue? = when (definition) {
+        is Definition.ClassDef -> definition.qualifier ?: qualifierExtractor.extractFromClass(definition.irClass)
+        is Definition.FunctionDef -> qualifierExtractor.extractFromDeclaration(definition.irFunction)
+        is Definition.TopLevelFunctionDef -> qualifierExtractor.extractFromDeclaration(definition.irFunction)
+        is Definition.DslDef -> definition.qualifier ?: qualifierExtractor.extractFromClass(definition.irClass)
+        is Definition.ExternalFunctionDef -> definition.qualifier
+    }
+
+    /**
+     * Dedupe key for definitions: (returnType FQ name, qualifier discriminator). Uses the same
+     * encoding as [qualifierDiscriminator] so TypeQualifier entries are keyed on FQ name (not
+     * simple name) — matches producer-side hint naming and avoids collisions between same-named
+     * qualifier annotations in different packages.
      */
     private fun definitionDedupeKey(definition: Definition): String {
         val returnFq = definition.returnTypeClass.fqNameWhenAvailable?.asString() ?: "?"
-        val qualifier = when (definition) {
-            is Definition.ClassDef -> definition.qualifier
-            is Definition.DslDef -> definition.qualifier
-            is Definition.ExternalFunctionDef -> definition.qualifier
-            is Definition.FunctionDef, is Definition.TopLevelFunctionDef -> null
-        }
+        val qualifier = resolvedQualifierFor(definition)
         return "$returnFq#${qualifier?.let { qualifierDiscriminator(it) } ?: ""}"
     }
 

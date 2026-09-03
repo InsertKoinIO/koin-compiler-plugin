@@ -1,0 +1,89 @@
+FILE: test.kt
+    package testpkg
+
+    public abstract interface HttpClient : R|kotlin/Any| {
+    }
+    public final class HttpClientA : R|testpkg/HttpClient| {
+        public constructor(): R|testpkg/HttpClientA| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class HttpClientDefault : R|testpkg/HttpClient| {
+        public constructor(): R|testpkg/HttpClientDefault| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(client: R|testpkg/HttpClient|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val client: R|testpkg/HttpClient| = R|<local>/client|
+            public get(): R|testpkg/HttpClient|
+
+    }
+    @R|org/koin/core/annotation/Module|() public final class ModuleA : R|kotlin/Any| {
+        public constructor(): R|testpkg/ModuleA| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(a)) public final fun provideClientA(): R|testpkg/HttpClient| {
+            ^provideClientA R|testpkg/HttpClientA.HttpClientA|()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() public final class ModuleB : R|kotlin/Any| {
+        public constructor(): R|testpkg/ModuleB| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Single|() public final fun provideClient(): R|testpkg/HttpClient| {
+            ^provideClient R|testpkg/HttpClientDefault.HttpClientDefault|()
+        }
+
+        @R|org/koin/core/annotation/Single|() public final fun provideService(client: R|testpkg/HttpClient|): R|testpkg/Service| {
+            ^provideService R|testpkg/Service.Service|(R|<local>/client|)
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|testpkg/ModuleA|), <getClass>(Q|testpkg/ModuleB|))) public final class RootModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/RootModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|testpkg/RootModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|testpkg/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|testpkg/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: testpkg/testpkgModuleAModule.kt
+    package testpkg
+
+    public final fun R|testpkg/ModuleA|.module(): R|org/koin/core/module/Module|
+FILE: testpkg/testpkgModuleBModule.kt
+    package testpkg
+
+    public final fun R|testpkg/ModuleB|.module(): R|org/koin/core/module/Module|
+FILE: testpkg/testpkgRootModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/RootModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/testpkgModuleAModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_testpkg_ModuleA__provideClientA(contributed: R|testpkg/HttpClient|, qualifier_a: R|kotlin/Unit|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/testpkgModuleBModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_testpkg_ModuleB__provideClient(contributed: R|testpkg/HttpClient|): R|kotlin/Unit|
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_testpkg_ModuleB__provideService(contributed: R|testpkg/Service|): R|kotlin/Unit|
