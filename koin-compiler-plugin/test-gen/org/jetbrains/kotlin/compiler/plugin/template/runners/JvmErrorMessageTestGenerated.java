@@ -592,6 +592,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_producer_safety_off_missing_dep_d001.kt")
+    public void testCross_module_producer_safety_off_missing_dep_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_producer_safety_off_missing_dep_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_qualifier_satisfied_ok.kt")
     public void testCross_module_qualifier_satisfied_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_qualifier_satisfied_ok.kt");

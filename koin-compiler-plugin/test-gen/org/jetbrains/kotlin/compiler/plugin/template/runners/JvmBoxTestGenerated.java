@@ -317,6 +317,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("compile_safety_off_hints_still_visible.kt")
+    public void testCompile_safety_off_hints_still_visible() {
+      runTest("koin-compiler-plugin/testData/box/safety/compile_safety_off_hints_still_visible.kt");
+    }
+
+    @Test
     @TestMetadata("complete_graph.kt")
     public void testComplete_graph() {
       runTest("koin-compiler-plugin/testData/box/safety/complete_graph.kt");

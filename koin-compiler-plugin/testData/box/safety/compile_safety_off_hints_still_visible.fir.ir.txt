@@ -1,0 +1,295 @@
+FILE fqName:app fileName:/app/App.kt
+  CLASS CLASS name:AppModule modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Module(includes = [CLASS_REFERENCE 'CLASS CLASS name:MidModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<includes.MidModule>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
+      ComponentScan(value = ["scanned"] type=kotlin.Array<out kotlin.String> varargElementType=kotlin.String)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:app.AppModule
+    CONSTRUCTOR visibility:public returnType:app.AppModule [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:AppModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  FUN name:box visibility:public modality:FINAL returnType:kotlin.String
+    BLOCK_BODY
+      VAR name:koin type:org.koin.core.Koin [val]
+        CALL 'public final fun <get-koin> (): org.koin.core.Koin declared in org.koin.core.KoinApplication' type=org.koin.core.Koin origin=GET_PROPERTY
+          ARG <this>: CALL 'public final fun koinApplication (appDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit>?): org.koin.core.KoinApplication declared in org.koin.dsl' type=org.koin.core.KoinApplication origin=null
+            ARG appDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit> origin=LAMBDA
+              FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                VALUE_PARAMETER kind:ExtensionReceiver name:$this$koinApplication index:0 type:org.koin.core.KoinApplication
+                BLOCK_BODY
+                  TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                    CALL 'public final fun modules (modules: org.koin.core.module.Module): org.koin.core.KoinApplication declared in org.koin.core.KoinApplication' type=org.koin.core.KoinApplication origin=null
+                      ARG <this>: GET_VAR '$this$koinApplication: org.koin.core.KoinApplication declared in app.box.<anonymous>' type=org.koin.core.KoinApplication origin=IMPLICIT_ARGUMENT
+                      ARG modules: CALL 'public final fun module (<this>: app.AppModule): org.koin.core.module.Module declared in app' type=org.koin.core.module.Module origin=null
+                        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> () declared in app.AppModule' type=app.AppModule origin=null
+      VAR name:scanned type:scanned.ScannedThing [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=scanned.ScannedThing origin=null
+          TYPE_ARG T: scanned.ScannedThing
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in app.box' type=org.koin.core.Koin origin=null
+      RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in app'
+        CONST String type=kotlin.String value="OK"
+FILE fqName:includes fileName:/includes/IncludesChain.kt
+  CLASS CLASS name:LeafModule modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Module(includes = <null>, createdAtStart = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:includes.LeafModule
+    CONSTRUCTOR visibility:public returnType:includes.LeafModule [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:LeafModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:MidModule modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Module(includes = [CLASS_REFERENCE 'CLASS CLASS name:LeafModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<includes.LeafModule>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:includes.MidModule
+    CONSTRUCTOR visibility:public returnType:includes.MidModule [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:MidModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+FILE fqName:orphan fileName:/orphan/Orphan.kt
+  CLASS CLASS name:OrphanThing modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:orphan.OrphanThing
+    PROPERTY name:dep visibility:public modality:FINAL [val]
+      FIELD PROPERTY_BACKING_FIELD name:dep type:scanned.Dep visibility:private [final]
+        EXPRESSION_BODY
+          GET_VAR 'dep: scanned.Dep declared in orphan.OrphanThing.<init>' type=scanned.Dep origin=INITIALIZE_PROPERTY_FROM_PARAMETER
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-dep> visibility:public modality:FINAL returnType:scanned.Dep
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:orphan.OrphanThing
+        correspondingProperty: PROPERTY name:dep visibility:public modality:FINAL [val]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-dep> (): scanned.Dep declared in orphan.OrphanThing'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:dep type:scanned.Dep visibility:private [final]' type=scanned.Dep origin=null
+              receiver: GET_VAR '<this>: orphan.OrphanThing declared in orphan.OrphanThing.<get-dep>' type=orphan.OrphanThing origin=null
+    CONSTRUCTOR visibility:public returnType:orphan.OrphanThing [primary]
+      VALUE_PARAMETER kind:Regular name:dep index:0 type:scanned.Dep
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:OrphanThing modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  FUN name:provideOrphanThing visibility:public modality:FINAL returnType:orphan.OrphanThing
+    VALUE_PARAMETER kind:Regular name:dep index:0 type:scanned.Dep
+    annotations:
+      Single(binds = <null>, createdAtStart = <null>)
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun provideOrphanThing (dep: scanned.Dep): orphan.OrphanThing declared in orphan'
+        CONSTRUCTOR_CALL 'public constructor <init> (dep: scanned.Dep) declared in orphan.OrphanThing' type=orphan.OrphanThing origin=null
+          ARG dep: GET_VAR 'dep: scanned.Dep declared in orphan.provideOrphanThing' type=scanned.Dep origin=null
+FILE fqName:org.koin.plugin.hints fileName:/app/koin_hints_app_AppModule_e0ee047318433735.kt
+  FUN name:annotationincludes_app_AppModule visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:module_includes$MidModule index:0 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_app_AppModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:scanned.Dep
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_app_AppModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:scanned.ScannedThing
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:funcreqs_scanned_ScannedThing visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:r_dep index:0 type:scanned.Dep
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/includes/koin_hints_includes_MidModule_35891887ae5ce7dc.kt
+  FUN name:annotationincludes_includes_MidModule visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:module_includes$LeafModule index:0 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/orphan/koin_funcreqs_orphan_OrphanThing_b878a20d0ab26293.kt
+  FUN name:funcreqs_orphan_OrphanThing visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:r_dep index:0 type:scanned.Dep
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:scanned fileName:/scanned/Scanned.kt
+  CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Single(binds = <null>, createdAtStart = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:scanned.Dep
+    CONSTRUCTOR visibility:public returnType:scanned.Dep [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:ScannedThing modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:scanned.ScannedThing
+    PROPERTY name:dep visibility:public modality:FINAL [val]
+      FIELD PROPERTY_BACKING_FIELD name:dep type:scanned.Dep visibility:private [final]
+        EXPRESSION_BODY
+          GET_VAR 'dep: scanned.Dep declared in scanned.ScannedThing.<init>' type=scanned.Dep origin=INITIALIZE_PROPERTY_FROM_PARAMETER
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-dep> visibility:public modality:FINAL returnType:scanned.Dep
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:scanned.ScannedThing
+        correspondingProperty: PROPERTY name:dep visibility:public modality:FINAL [val]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-dep> (): scanned.Dep declared in scanned.ScannedThing'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:dep type:scanned.Dep visibility:private [final]' type=scanned.Dep origin=null
+              receiver: GET_VAR '<this>: scanned.ScannedThing declared in scanned.ScannedThing.<get-dep>' type=scanned.ScannedThing origin=null
+    CONSTRUCTOR visibility:public returnType:scanned.ScannedThing [primary]
+      VALUE_PARAMETER kind:Regular name:dep index:0 type:scanned.Dep
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:ScannedThing modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  FUN name:provideScannedThing visibility:public modality:FINAL returnType:scanned.ScannedThing
+    VALUE_PARAMETER kind:Regular name:dep index:0 type:scanned.Dep
+    annotations:
+      Single(binds = <null>, createdAtStart = <null>)
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun provideScannedThing (dep: scanned.Dep): scanned.ScannedThing declared in scanned'
+        CONSTRUCTOR_CALL 'public constructor <init> (dep: scanned.Dep) declared in scanned.ScannedThing' type=scanned.ScannedThing origin=null
+          ARG dep: GET_VAR 'dep: scanned.Dep declared in scanned.provideScannedThing' type=scanned.Dep origin=null
+FILE fqName:app fileName:app/appAppModuleModule.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
+    VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:app.AppModule
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun module (<this>: app.AppModule): org.koin.core.module.Module declared in app'
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG moduleDeclaration: FUN_EXPR type=kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+                CALL 'public final fun includes (<this>: org.koin.core.module.Module, module: org.koin.core.module.Module): kotlin.Unit declared in org.koin.plugin.module.dsl' type=kotlin.Unit origin=null
+                  ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in app.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  ARG module: CALL 'public final fun module (<this>: includes.MidModule): org.koin.core.module.Module declared in includes' type=org.koin.core.module.Module origin=null
+                    ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> () declared in includes.MidModule' type=includes.MidModule origin=null
+                CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
+                  TYPE_ARG T: scanned.Dep
+                  ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in app.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<scanned.Dep>
+                  ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                  ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, scanned.Dep> origin=LAMBDA
+                    FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:scanned.Dep
+                      VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                      VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                      BLOCK_BODY
+                        RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): scanned.Dep declared in app.module.<anonymous>'
+                          CONSTRUCTOR_CALL 'public constructor <init> () declared in scanned.Dep' type=scanned.Dep origin=null
+                CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
+                  TYPE_ARG T: scanned.ScannedThing
+                  ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in app.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:ScannedThing modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<scanned.ScannedThing>
+                  ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                  ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, scanned.ScannedThing> origin=LAMBDA
+                    FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:scanned.ScannedThing
+                      VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                      VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                      BLOCK_BODY
+                        RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): scanned.ScannedThing declared in app.module.<anonymous>'
+                          CALL 'public final fun provideScannedThing (dep: scanned.Dep): scanned.ScannedThing declared in scanned' type=scanned.ScannedThing origin=null
+                            ARG dep: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=scanned.Dep origin=null
+                              TYPE_ARG T: scanned.Dep
+                              ARG <this>: GET_VAR '<this>: org.koin.core.scope.Scope declared in app.module.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=null
+                              ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                              ARG parameters: CONST Null type=kotlin.Nothing? value=null
+FILE fqName:includes fileName:includes/includesLeafModuleModule.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
+    VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:includes.LeafModule
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun module (<this>: includes.LeafModule): org.koin.core.module.Module declared in includes'
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG moduleDeclaration: FUN_EXPR type=kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+FILE fqName:includes fileName:includes/includesMidModuleModule.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
+    VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:includes.MidModule
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun module (<this>: includes.MidModule): org.koin.core.module.Module declared in includes'
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG moduleDeclaration: FUN_EXPR type=kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+                CALL 'public final fun includes (<this>: org.koin.core.module.Module, module: org.koin.core.module.Module): kotlin.Unit declared in org.koin.plugin.module.dsl' type=kotlin.Unit origin=null
+                  ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in includes.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  ARG module: CALL 'public final fun module (<this>: includes.LeafModule): org.koin.core.module.Module declared in includes' type=org.koin.core.module.Module origin=null
+                    ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> () declared in includes.LeafModule' type=includes.LeafModule origin=null
+FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/orphan_provideOrphanThing_FunctionDefinition.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:definition_function_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:orphan.OrphanThing
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+      CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+        ARG message: CONST String type=kotlin.String value="Stub!"

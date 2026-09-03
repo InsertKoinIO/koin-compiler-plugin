@@ -1,0 +1,60 @@
+Module: depmod
+FILE: Dep.kt
+    package depmod
+
+    @R|org/koin/core/annotation/Single|() public final class Dep : R|kotlin/Any| {
+        public constructor(): R|depmod/Dep| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: org/koin/plugin/hints/depmodDepDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|depmod/Dep|): R|kotlin/Unit|
+Module: prov
+FILE: Prov.kt
+    package prov
+
+    public final class Thing : R|kotlin/Any| {
+        public constructor(dep: R|depmod/Dep|): R|prov/Thing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|depmod/Dep| = R|<local>/dep|
+            public get(): R|depmod/Dep|
+
+    }
+    @R|org/koin/core/annotation/Single|() public final fun provideThing(dep: R|depmod/Dep|): R|prov/Thing| {
+        ^provideThing R|prov/Thing.Thing|(R|<local>/dep|)
+    }
+FILE: org/koin/plugin/hints/prov_provideThing_FunctionDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_function_single(contributed: R|prov/Thing|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(prov))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|app/AppModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|app/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|

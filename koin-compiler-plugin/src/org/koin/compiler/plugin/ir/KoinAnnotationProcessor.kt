@@ -736,6 +736,12 @@ class KoinAnnotationProcessor(
         // never emits its requirements carrier, so a downstream module that scans its package would
         // see a requirements-empty ExternalFunctionDef. Runs AFTER generateModuleScanHints so the
         // shared dedupe set already contains scan-path return types → this only emits true orphans.
+        // NOT gated on compileSafetyEnabled: whether this hint is needed depends on whether a
+        // DOWNSTREAM consumer module validates through this one, not on whether THIS module does —
+        // a producer can't know that. Gating on the local setting made a downstream consumer's
+        // discovery indistinguishable between "genuinely zero requirements" and "producer withheld
+        // them," silently missing a real KOIN-D001/D002/D003 (see the compile_safety_off_hint_gating
+        // regression history — reverted after code review caught this).
         emitOrphanFuncReqsHints(moduleFragment)
 
         // Step 1d: relay @Configuration(default) modules discoverable only via THIS compilation's OWN
@@ -1023,7 +1029,11 @@ class KoinAnnotationProcessor(
 
             // Topology carrier: this module's own `includes=[...]` edges, re-published as a hint so a
             // reader 2+ hops away (whose classpath doesn't reach the included class directly) can still
-            // walk them — see KoinPluginConstants.ANNOTATION_INCLUDES_HINT_PREFIX.
+            // walk them — see KoinPluginConstants.ANNOTATION_INCLUDES_HINT_PREFIX. Safety-graph-only:
+            // real includes() codegen resolves `X::class` directly (buildIncludesCall) and never reads
+            // this hint. NOT gated on compileSafetyEnabled despite that, though: a downstream consumer
+            // module with compile safety ON may still need to walk this edge to validate ITS OWN
+            // graph — this module's own setting says nothing about a consumer's.
             val includedIds = moduleClass.includedModules.mapNotNull { it.fqNameWhenAvailable?.asString() }
             if (includedIds.isNotEmpty()) {
                 val includesHintName = Name.identifier(
@@ -1130,7 +1140,9 @@ class KoinAnnotationProcessor(
         // hint, once per (return-fqn, qualifier) across the whole compilation (see
         // emittedFuncReqsReturnFqns). The same top-level function discovered by two
         // scan modules carries the same requirements, so emitting once is correct and
-        // avoids the native/wasm duplicate-signature clash.
+        // avoids the native/wasm duplicate-signature clash. NOT gated on
+        // compileSafetyEnabled: same reasoning as emitOrphanFuncReqsHints — a downstream
+        // consumer's need for this carrier doesn't depend on this module's own setting.
         val returnFqn = targetClass.fqNameWhenAvailable?.asString()
         // Key on (return type, qualifier): two qualified providers of the SAME type
         // are ordinary Koin, and keying on the type alone dropped the second one's
@@ -1921,7 +1933,7 @@ class KoinAnnotationProcessor(
 
         KoinPluginLogger.debug { "    -> Generating module body with ${definitions.size} definitions" }
 
-        val moduleDslFunction = context.referenceFunctions(
+        val moduleDslFunction = cachedReferenceFunctions(
             CallableId(KoinAnnotationFqNames.MODULE_DSL, Name.identifier("module"))
         ).firstOrNull { it.owner.regularParameters.any { p ->
             p.name.asString() == "moduleDeclaration"
@@ -3163,7 +3175,7 @@ class KoinAnnotationProcessor(
         builder: DeclarationIrBuilder
     ): IrExpression? {
         // Find the includes function: Module.includes(vararg Module)
-        val includesFunction = context.referenceFunctions(
+        val includesFunction = cachedReferenceFunctions(
             CallableId(FqName("org.koin.plugin.module.dsl"), Name.identifier("includes"))
         ).firstOrNull { it.owner.extensionReceiverParam?.type?.classFqName?.asString() == KoinAnnotationFqNames.KOIN_MODULE.asString() }?.owner
             ?: return null

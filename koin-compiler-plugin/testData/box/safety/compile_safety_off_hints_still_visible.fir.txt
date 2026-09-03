@@ -1,0 +1,84 @@
+FILE: Scanned.kt
+    package scanned
+
+    @R|org/koin/core/annotation/Single|() public final class Dep : R|kotlin/Any| {
+        public constructor(): R|scanned/Dep| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ScannedThing : R|kotlin/Any| {
+        public constructor(dep: R|scanned/Dep|): R|scanned/ScannedThing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|scanned/Dep| = R|<local>/dep|
+            public get(): R|scanned/Dep|
+
+    }
+    @R|org/koin/core/annotation/Single|() public final fun provideScannedThing(dep: R|scanned/Dep|): R|scanned/ScannedThing| {
+        ^provideScannedThing R|scanned/ScannedThing.ScannedThing|(R|<local>/dep|)
+    }
+FILE: Orphan.kt
+    package orphan
+
+    public final class OrphanThing : R|kotlin/Any| {
+        public constructor(dep: R|scanned/Dep|): R|orphan/OrphanThing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|scanned/Dep| = R|<local>/dep|
+            public get(): R|scanned/Dep|
+
+    }
+    @R|org/koin/core/annotation/Single|() public final fun provideOrphanThing(dep: R|scanned/Dep|): R|orphan/OrphanThing| {
+        ^provideOrphanThing R|orphan/OrphanThing.OrphanThing|(R|<local>/dep|)
+    }
+FILE: IncludesChain.kt
+    package includes
+
+    @R|org/koin/core/annotation/Module|() public final class LeafModule : R|kotlin/Any| {
+        public constructor(): R|includes/LeafModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|includes/LeafModule|))) public final class MidModule : R|kotlin/Any| {
+        public constructor(): R|includes/MidModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|includes/MidModule|))) @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(scanned))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/AppModule.AppModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval scanned: R|scanned/ScannedThing| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|scanned/ScannedThing|>()
+        ^box String(OK)
+    }
+FILE: includes/includesLeafModuleModule.kt
+    package includes
+
+    public final fun R|includes/LeafModule|.module(): R|org/koin/core/module/Module|
+FILE: includes/includesMidModuleModule.kt
+    package includes
+
+    public final fun R|includes/MidModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/orphan_provideOrphanThing_FunctionDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_function_single(contributed: R|orphan/OrphanThing|): R|kotlin/Unit|
