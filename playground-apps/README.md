@@ -42,7 +42,7 @@ app-*/
 
 ## Stack
 
-- **Koin** 4.2 + **Compiler Plugin** 1.2.0-Beta8
+- **Koin** 4.2 + **Compiler Plugin** 1.2.0
 - Kotlin 2.4.0 (K2) — `app-floor-2320` stays on 2.3.20, the oldest supported version
 - Jetpack Compose
 - Room, DataStore, WorkManager
