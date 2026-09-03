@@ -378,6 +378,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("ktor_install_koin_owns_authoritative_graph_d001.kt")
+    public void testKtor_install_koin_owns_authoritative_graph_d001() {
+      runTest("koin-compiler-plugin/testData/diagnostics/ktor_install_koin_owns_authoritative_graph_d001.kt");
+    }
+
+    @Test
     @TestMetadata("lazy_missing.kt")
     public void testLazy_missing() {
       runTest("koin-compiler-plugin/testData/diagnostics/lazy_missing.kt");
@@ -613,6 +619,18 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_scope_satisfied_ok.kt")
     public void testCross_module_scope_satisfied_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scope_satisfied_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_withconfiguration_isolated_receiver_ok.kt")
+    public void testCross_module_withconfiguration_isolated_receiver_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_withconfiguration_isolated_receiver_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_withconfiguration_owns_authoritative_graph_d003.kt")
+    public void testCross_module_withconfiguration_owns_authoritative_graph_d003() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_withconfiguration_owns_authoritative_graph_d003.kt");
     }
   }
 }

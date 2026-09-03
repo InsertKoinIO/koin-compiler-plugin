@@ -54,6 +54,11 @@ dependencies {
     annotationsRuntimeClasspath(libs.koin.core)
     annotationsRuntimeClasspath(libs.koin.annotations)
 
+    // Ktor + koin-ktor: `install(Koin) { }` entry-point detection tests need these real symbols
+    // on the classpath (org.koin.core.KoinKtorApplication, io.ktor.server.application.install).
+    annotationsRuntimeClasspath(libs.koin.ktor)
+    annotationsRuntimeClasspath(libs.ktor.server.core)
+
     // Kotzilla SDK for @Monitor annotation testing
     annotationsRuntimeClasspath(libs.kotzilla.core)
 

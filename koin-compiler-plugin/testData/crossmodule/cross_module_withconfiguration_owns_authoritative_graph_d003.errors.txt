@@ -1,0 +1,4 @@
+[Koin][KOIN-D003] Missing definition: core.AnalyticsTracker
+  required by a call site in a dependency module — deferred validation.
+  No matching definition found in any loaded module.
+  Check your declaration with Annotation or DSL.

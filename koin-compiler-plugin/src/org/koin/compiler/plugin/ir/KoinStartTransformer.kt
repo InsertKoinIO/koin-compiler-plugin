@@ -64,7 +64,7 @@ import org.jetbrains.kotlin.name.Name
  * EXISTING Koin entry-point APIs — no public/Koin-core API change. Every entry point is a self-consistent
  * ROOT (its graph resolves within itself); DYNAMIC = module set not statically resolvable → disclose.
  */
-enum class EntryKind { START_KOIN, KOIN_APPLICATION, KOIN_CONFIGURATION, WITH_CONFIGURATION }
+enum class EntryKind { START_KOIN, KOIN_APPLICATION, KOIN_CONFIGURATION, WITH_CONFIGURATION, KTOR_INSTALL }
 enum class EntryClassification { ROOT, DYNAMIC }
 
 /**
@@ -88,6 +88,14 @@ data class EntryPoint(
     // the app class simple name; untyped roots use a fixed `startKoin { … }`-style label. Assigned
     // alongside resolvedModules so [verifyEntryPoints] reproduces the exact pre-refactor message.
     var appName: String = "",
+    // Only meaningful for EntryKind.WITH_CONFIGURATION: true when its extension receiver is itself
+    // a KNOWN isolated-instance-building call (`koinApplication { }` / `koinApplication<T>()`), the
+    // exact shape this file's own KDoc documents (`koinApplication { }.withConfiguration<MyApp>()`).
+    // `withConfiguration<T>()` mutates whatever KoinApplication instance it's chained onto — it is
+    // authoritative when that's the real global app (typically startKoin{}'s return value), but NOT
+    // when it's a deliberately isolated fragment (Compose preview / test fixture). See
+    // [KoinStartTransformer.ownsAuthoritativeGraph].
+    val isolatedReceiver: Boolean = false,
 )
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
@@ -123,13 +131,24 @@ class KoinStartTransformer(
      * modules:
      *
      *  - `startKoin { }` / `@KoinApplication` install the global context → authoritative.
+     *  - `KoinApplication.withConfiguration<T>()` mutates whatever `KoinApplication` instance it's
+     *    chained onto — authoritative when that's the real global app (typically `startKoin { }`'s
+     *    own return value, or one threaded in from a shared bootstrap helper), but NOT when it's
+     *    chained onto a KNOWN isolated instance (`koinApplication { }.withConfiguration<T>()` — this
+     *    file's own KDoc example above — or the typed `koinApplication<T>()` stub): that's still a
+     *    fresh, deliberately-isolated fragment just configured via a different function, and must
+     *    stay non-authoritative for the exact reason plain `koinApplication { }` does below. See
+     *    [EntryPoint.isolatedReceiver].
+     *  - Ktor's `install(Koin) { }` internally calls the real `org.koin.core.context.startKoin`
+     *    (koin-ktor's own `KoinPlugin.kt`, not visible in the user's compilation) → also installs the
+     *    global context → also authoritative.
      *  - `koinApplication { }` launches an ISOLATED context. It is a perfectly real entry point and
      *    its own graph is validated (Phase 3.1) — but it is the idiom you reach for when you want a
      *    deliberately partial graph: a Compose preview, a test fixture, a KMP helper holding its own
      *    Koin instance. It does not own the application, so a call-site hint deferred by some other
      *    module is none of its business.
-     *  - `koinConfiguration { }` / `withConfiguration { }` are configuration fragments, same
-     *    reasoning.
+     *  - `koinConfiguration { }` is a configuration fragment (a standalone `KoinConfiguration`
+     *    value, never itself an installed `KoinApplication`), same reasoning.
      *
      * Gating Phase 3.6 on [hasKoinEntryPoint] made any library module containing a
      * `koinApplication { }` hard-error KOIN-D003 for every unresolved call-site hint on its
@@ -137,7 +156,13 @@ class KoinStartTransformer(
      * `testData/crossmodule/cross_module_koinapplication_library_ok.kt`.
      */
     val ownsAuthoritativeGraph: Boolean
-        get() = entryPoints.any { it.kind == EntryKind.START_KOIN }
+        get() = entryPoints.any {
+            when (it.kind) {
+                EntryKind.START_KOIN, EntryKind.KTOR_INSTALL -> true
+                EntryKind.WITH_CONFIGURATION -> !it.isolatedReceiver
+                EntryKind.KOIN_APPLICATION, EntryKind.KOIN_CONFIGURATION -> false
+            }
+        }
 
     /**
      * A3 §4 — the SINGLE graph-verification pass. Runs over every reified [EntryPoint] AFTER the IR
@@ -182,6 +207,7 @@ class KoinStartTransformer(
         EntryKind.KOIN_APPLICATION -> "koinApplication"
         EntryKind.KOIN_CONFIGURATION -> "koinConfiguration"
         EntryKind.WITH_CONFIGURATION -> "withConfiguration"
+        EntryKind.KTOR_INSTALL -> "install(Koin)"
     }
 
     override fun visitFile(declaration: IrFile): IrFile {
@@ -220,6 +246,46 @@ class KoinStartTransformer(
         val fe = currentFile?.fileEntry
         val line = fe?.let { runCatching { it.getLineNumber(expression.startOffset) + 1 }.getOrNull() }
         return SourceOrigin(moduleFqName = null, filePath = fe?.name, line = line)
+    }
+
+    /**
+     * True when [call]'s extension receiver is a DIRECT call to a KNOWN isolated-instance-building
+     * function — `koinApplication { }` (real, untyped) or the typed plugin-stub `koinApplication<T>()`
+     * — the shape `koinApplication { }.withConfiguration<MyApp>()` this file's own KDoc documents.
+     * Used to keep a `withConfiguration<T>()` chained onto one of those non-authoritative (see
+     * [ownsAuthoritativeGraph] / [EntryPoint.isolatedReceiver]).
+     *
+     * Only looks at the immediate receiver expression — a receiver stored in an intermediate
+     * variable (`val app = koinApplication { }; app.withConfiguration<T>()`) is NOT traced through
+     * and defaults to authoritative. Narrower than ideal, not silently claimed as full coverage.
+     */
+    private fun isChainedOnIsolatedKoinApplication(call: IrCall): Boolean {
+        val receiverFqName = (call.extensionReceiverArgument as? IrCall)?.symbol?.owner?.fqNameWhenAvailable?.asString()
+        return receiverFqName == "org.koin.dsl.koinApplication" || receiverFqName == "org.koin.plugin.module.dsl.koinApplication"
+    }
+
+    /**
+     * Reify a REAL (non-plugin-stub) call as a ROOT [EntryPoint] and resolve its module closure by
+     * walking its trailing lambda for plugin-stub `modules(vararg KClass)` calls — the same walk the
+     * untyped-stub path uses. Without this, the root stays flag-only and A3 never sees its modules.
+     * Shared by every such call site (koin-core's `startKoin`/`koinApplication`/`koinConfiguration`,
+     * Ktor's `install(Koin) { }`) — they're NOT rewritten (the real function runs normally at
+     * runtime), only reified so [verifyEntryPoints] validates the assembled graph at the root.
+     */
+    private fun registerLambdaWalkedEntryPoint(kind: EntryKind, label: String, logTag: String, expression: IrCall) {
+        val lambdaModules = collectModuleClassesFromLambda(expression)
+        val classification = if (lambdaModules.dynamic) EntryClassification.DYNAMIC else EntryClassification.ROOT
+        entryPoints.add(EntryPoint(kind, classification, lambdaModules.classes, originOf(expression), label))
+        val entryFile = currentFile
+        for (moduleClass in lambdaModules.classes) {
+            trackClassLookup(lookupTracker, entryFile, moduleClass)
+            linkDeclarationsForIC(expectActualTracker, entryFile, moduleClass)
+        }
+        if (lambdaModules.dynamic) discloseDynamicEntryPoint(label, expression)
+        KoinPluginLogger.debug {
+            "  entry point ($logTag): $kind [$classification] @ ${originOf(expression)} — ${lambdaModules.classes.size} module(s): " +
+                lambdaModules.classes.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
+        }
     }
 
     /**
@@ -273,22 +339,21 @@ class KoinStartTransformer(
                 EntryKind.KOIN_APPLICATION -> "koinApplication { … }"
                 else -> "startKoin { … }"
             }
-            // Resolve this root's own closure by walking its trailing lambda for plugin-stub
-            // modules(vararg KClass) calls — the same walk the untyped-stub path uses. Without this,
-            // the root stays flag-only and A3 never sees its modules.
-            val lambdaModules = collectModuleClassesFromLambda(expression)
-            val classification = if (lambdaModules.dynamic) EntryClassification.DYNAMIC else EntryClassification.ROOT
-            entryPoints.add(EntryPoint(kind, classification, lambdaModules.classes, originOf(expression), label))
-            val entryFile = currentFile
-            for (moduleClass in lambdaModules.classes) {
-                trackClassLookup(lookupTracker, entryFile, moduleClass)
-                linkDeclarationsForIC(expectActualTracker, entryFile, moduleClass)
-            }
-            if (lambdaModules.dynamic) discloseDynamicEntryPoint(label, expression)
-            KoinPluginLogger.debug {
-                "  entry point (koin-core): $kind [$classification] @ ${originOf(expression)} — ${lambdaModules.classes.size} module(s): " +
-                    lambdaModules.classes.joinToString(", ") { it.fqNameWhenAvailable?.asString() ?: it.name.asString() }
-            }
+            registerLambdaWalkedEntryPoint(kind, label, "koin-core", expression)
+        }
+
+        // Ktor's `install(Koin) { modules(...) }`. `io.ktor.server.application.install` is generic
+        // (`fun <P, B, F> P.install(plugin: Plugin<P, B, F>, configure: B.() -> Unit = {})`) and is
+        // used for EVERY Ktor plugin — the type argument B (index 1) resolving to koin-ktor's own
+        // `org.koin.core.KoinKtorApplication` (a KoinApplication subtype) is what narrows this down
+        // to Koin's plugin specifically, not any other `install(SomePlugin) { }` call. No need to
+        // check the `plugin` value argument's identity — only koin-ktor's `Koin` plugin can produce
+        // that configuration type. koin-ktor's `Koin` plugin body (KoinPlugin.kt, not visible in
+        // this compilation) calls the real `org.koin.core.context.startKoin` internally, installing
+        // the global context — so this is authoritative, same as `startKoin { }` itself.
+        if (fqNameStr == "io.ktor.server.application.install" &&
+            expression.getTypeArgumentCompat(1)?.classFqName?.asString() == "org.koin.core.KoinKtorApplication") {
+            registerLambdaWalkedEntryPoint(EntryKind.KTOR_INSTALL, "install(Koin) { … }", "ktor", expression)
         }
 
         val isStartKoin = fqNameStr == "org.koin.plugin.module.dsl.startKoin"
@@ -327,7 +392,10 @@ class KoinStartTransformer(
         }
         // Reify the entry point now; resolvedModules is populated below once we resolve this
         // root's own closure (typed → @KoinApplication annotation; untyped → lambda modules(...) walk).
-        val entryPoint = EntryPoint(entryKind, EntryClassification.ROOT, emptyList(), originOf(expression))
+        val entryPoint = EntryPoint(
+            entryKind, EntryClassification.ROOT, emptyList(), originOf(expression),
+            isolatedReceiver = isWithConfiguration && isChainedOnIsolatedKoinApplication(expression),
+        )
         entryPoints.add(entryPoint)
         KoinPluginLogger.debug { "  entry point (stub): $entryKind @ ${originOf(expression)}" }
 

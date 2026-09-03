@@ -1,0 +1,45 @@
+Module: core
+FILE: Core.kt
+    package core
+
+    public final class AnalyticsTracker : R|kotlin/Any| {
+        public constructor(): R|core/AnalyticsTracker| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun track(koin: R|org/koin/core/Koin|): R|core/AnalyticsTracker| {
+        ^track R|<local>/koin|.R|org/koin/core/Koin.get|<R|core/AnalyticsTracker|>()
+    }
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    @R|org/koin/core/annotation/Single|() public final class FeatureThing : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|feature/FeatureModule|))) public final object PreviewApp : R|kotlin/Any| {
+        private constructor(): R|feature/PreviewApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun preview(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@koinApplication Unit
+        }
+        ).R|org/koin/plugin/module/dsl/withConfiguration|<R|feature/PreviewApp|>()
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|

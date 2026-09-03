@@ -1,0 +1,29 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|testpkg/Repository|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|testpkg/Repository| = R|<local>/repo|
+            public get(): R|testpkg/Repository|
+
+    }
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Service|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun R|io/ktor/server/application/Application|.configureKoin(): R|kotlin/Unit| {
+        this@R|testpkg/configureKoin|.R|io/ktor/server/application/install|<R|io/ktor/server/application/Application|, R|org/koin/core/KoinKtorApplication|, R|io/ktor/server/application/PluginInstance|>(R|org/koin/ktor/plugin/Koin|, <L> = install@fun R|org/koin/core/KoinKtorApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/appModule|)
+        }
+        )
+    }
