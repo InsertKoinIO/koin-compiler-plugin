@@ -1,6 +1,19 @@
 package org.koin.compiler.adapter.k240
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
+import org.jetbrains.kotlin.descriptors.DescriptorVisibility
+import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrFactory
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.expressions.IrAnnotation
+import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
@@ -69,4 +82,47 @@ class Kotlin240Adapter : KotlinVersionAdapter {
                     annotation.arguments[index] = arguments[index]
                 }
             }
+
+    override fun createSimpleFunction(
+        factory: IrFactory,
+        startOffset: Int,
+        endOffset: Int,
+        origin: IrDeclarationOrigin,
+        name: Name,
+        visibility: DescriptorVisibility,
+        returnType: IrType,
+        isSuspend: Boolean,
+        symbol: IrSimpleFunctionSymbol,
+    ): IrSimpleFunction = factory.createSimpleFunction(
+        startOffset = startOffset,
+        endOffset = endOffset,
+        origin = origin,
+        name = name,
+        visibility = visibility,
+        isInline = false,
+        isExpect = false,
+        returnType = returnType,
+        modality = Modality.FINAL,
+        symbol = symbol,
+        isTailrec = false,
+        isSuspend = isSuspend,
+        isOperator = false,
+        isInfix = false,
+        isExternal = false,
+        containerSource = null,
+        isFakeOverride = false,
+    )
+
+    override fun setAnnotationArgumentMapping(
+        annotation: IrAnnotation,
+        mapping: Map<Name, IrExpression>,
+    ) {
+        // Silent-drop guard: the only caller builds an IrAnnotationImpl, and a mapping that never
+        // lands would corrupt metadata serialization rather than fail loudly.
+        val impl = annotation as? IrAnnotationImpl
+            ?: error("Koin compiler plugin: expected IrAnnotationImpl, got ${annotation::class.java.name}")
+        impl.argumentMapping = mapping
+    }
+
+    override fun classIdOf(qualifier: FirResolvedQualifier): ClassId? = qualifier.classId
 }

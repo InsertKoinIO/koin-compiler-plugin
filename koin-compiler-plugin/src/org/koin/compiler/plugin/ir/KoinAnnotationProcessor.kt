@@ -43,6 +43,7 @@ import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 /**
  * Processes Koin annotations and generates module extension properties with definitions.
@@ -565,7 +566,7 @@ class KoinAnnotationProcessor(
         name: Name,
         positionalFallbackIndex: Int
     ): Boolean {
-        val arg = annotation.getValueArgument(name) ?: annotation.getRegularArgument(positionalFallbackIndex)
+        val arg = annotation.getRegularArgument(name) ?: annotation.getRegularArgument(positionalFallbackIndex)
         return when (arg) {
             is IrConst -> arg.value as? Boolean ?: false
             else -> false
@@ -589,7 +590,7 @@ class KoinAnnotationProcessor(
         } ?: return null
 
         // binds: look up by name first, then fall back to positional index 0
-        val bindsArg = annotation.getValueArgument(Name.identifier("binds"))
+        val bindsArg = annotation.getRegularArgument(Name.identifier("binds"))
             ?: annotation.getRegularArgument(0)
 
         if (bindsArg is IrVararg) {
@@ -1099,25 +1100,17 @@ class KoinAnnotationProcessor(
         scopeClass: IrClass? = null,
         qualifier: QualifierValue? = null
     ): IrSimpleFunction? {
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
-            name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
-            returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val function = KotlinAdapterLoader.current.createSimpleFunction(
+                           factory = context.irFactory,
+                           startOffset = UNDEFINED_OFFSET,
+                           endOffset = UNDEFINED_OFFSET,
+                           origin = IrDeclarationOrigin.DEFINED,
+                           name = hintName,
+                           visibility = DescriptorVisibilities.PUBLIC,
+                           returnType = context.irBuiltIns.unitType,
+                           isSuspend = false,
+                           symbol = IrSimpleFunctionSymbolImpl(),
+                       )
 
         val params = mutableListOf<IrValueParameter>()
 
@@ -1246,25 +1239,17 @@ class KoinAnnotationProcessor(
      * are the payload. Consumer reads the names to find which per-qualifier entries to look up.
      */
     private fun createRosterHintFunction(hintName: Name, sanitizedQualifiers: List<String>): IrSimpleFunction {
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
-            name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
-            returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val function = KotlinAdapterLoader.current.createSimpleFunction(
+                           factory = context.irFactory,
+                           startOffset = UNDEFINED_OFFSET,
+                           endOffset = UNDEFINED_OFFSET,
+                           origin = IrDeclarationOrigin.DEFINED,
+                           name = hintName,
+                           visibility = DescriptorVisibilities.PUBLIC,
+                           returnType = context.irBuiltIns.unitType,
+                           isSuspend = false,
+                           symbol = IrSimpleFunctionSymbolImpl(),
+                       )
 
         val params = sanitizedQualifiers.mapIndexed { index, sanitized ->
             context.irFactory.createValueParameter(
@@ -1321,25 +1306,17 @@ class KoinAnnotationProcessor(
         val hintName = Name.identifier(
             KoinPluginConstants.funcReqsHintFunctionName(returnFqn, qualifierDiscriminator)
         )
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
-            name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
-            returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val function = KotlinAdapterLoader.current.createSimpleFunction(
+                           factory = context.irFactory,
+                           startOffset = UNDEFINED_OFFSET,
+                           endOffset = UNDEFINED_OFFSET,
+                           origin = IrDeclarationOrigin.DEFINED,
+                           name = hintName,
+                           visibility = DescriptorVisibilities.PUBLIC,
+                           returnType = context.irBuiltIns.unitType,
+                           isSuspend = false,
+                           symbol = IrSimpleFunctionSymbolImpl(),
+                       )
 
         fun hintParam(paramName: String, type: org.jetbrains.kotlin.ir.types.IrType) =
             context.irFactory.createValueParameter(
@@ -1602,25 +1579,17 @@ class KoinAnnotationProcessor(
         val moduleClassSymbol = koinModuleClassSymbol ?: return null
         val moduleType = moduleClassSymbol.owner.defaultType
 
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
-            name = Name.identifier("module"),
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
-            returnType = moduleType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val function = KotlinAdapterLoader.current.createSimpleFunction(
+                           factory = context.irFactory,
+                           startOffset = UNDEFINED_OFFSET,
+                           endOffset = UNDEFINED_OFFSET,
+                           origin = IrDeclarationOrigin.DEFINED,
+                           name = Name.identifier("module"),
+                           visibility = DescriptorVisibilities.PUBLIC,
+                           returnType = moduleType,
+                           isSuspend = false,
+                           symbol = IrSimpleFunctionSymbolImpl(),
+                       )
         function.parent = containingFile
 
         // Extension receiver parameter (e.g., MyModule)
@@ -2551,25 +2520,17 @@ class KoinAnnotationProcessor(
     ): IrExpression? {
         val koinModuleIrClass = koinModuleClass ?: return null
 
-        val lambdaFunction = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
-            name = Name.special("<anonymous>"),
-            visibility = DescriptorVisibilities.LOCAL,
-            isInline = false,
-            isExpect = false,
-            returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val lambdaFunction = KotlinAdapterLoader.current.createSimpleFunction(
+                                 factory = context.irFactory,
+                                 startOffset = UNDEFINED_OFFSET,
+                                 endOffset = UNDEFINED_OFFSET,
+                                 origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
+                                 name = Name.special("<anonymous>"),
+                                 visibility = DescriptorVisibilities.LOCAL,
+                                 returnType = context.irBuiltIns.unitType,
+                                 isSuspend = false,
+                                 symbol = IrSimpleFunctionSymbolImpl(),
+                             )
         lambdaFunction.parent = parentFunction
 
         val moduleReceiverParam = context.irFactory.createValueParameter(

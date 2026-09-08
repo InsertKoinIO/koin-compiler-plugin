@@ -1,4 +1,4 @@
-package org.koin.compiler.adapter.k2320
+package org.koin.compiler.adapter.k2420
 
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.descriptors.DescriptorVisibility
@@ -25,19 +25,23 @@ import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.koin.compiler.adapter.KotlinVersionAdapter
 
 /**
- * [KotlinVersionAdapter] for the Kotlin 2.3.20 line — compiled against
- * kotlin-compiler 2.3.20. Never reference this class directly; it is loaded
- * by KotlinAdapterLoader when the running compiler matches.
+ * [KotlinVersionAdapter] for the Kotlin 2.4 line — compiled against
+ * kotlin-compiler 2.4.0, where the FIR registration contract and the
+ * IrAnnotationContainer.annotations type differ from 2.3.x. Never reference
+ * this class directly; it is loaded by KotlinAdapterLoader when the running
+ * compiler matches.
  */
-class Kotlin2320Adapter : KotlinVersionAdapter {
+class Kotlin2420Adapter : KotlinVersionAdapter {
 
-    override val baselineKotlin: String = "2.3.20"
+    override val baselineKotlin: String = "2.4.20"
 
     override fun registerCompilerExtensions(
         storage: CompilerPluginRegistrar.ExtensionStorage,
         firRegistrar: FirExtensionRegistrar,
         irExtension: IrGenerationExtension,
     ) {
+        // Same source as 2.3.x, but the bytecode binds to the 2.4.0 registration
+        // contract (FirExtensionRegistrarAdapter.Companion changed supertype).
         with(storage) {
             FirExtensionRegistrarAdapter.registerExtension(firRegistrar)
             IrGenerationExtension.registerExtension(irExtension)
@@ -48,15 +52,36 @@ class Kotlin2320Adapter : KotlinVersionAdapter {
         target: IrMutableAnnotationContainer,
         annotations: List<IrConstructorCall>,
     ) {
-        target.annotations = annotations
+        // 2.4.0: annotations is List<IrAnnotation>; convert what isn't one already.
+        // NOTE: conversion shape is finalized against the real 2.4.0 API at compile time.
+        target.annotations = annotations.map { it.asIrAnnotation() }
     }
 
     override fun refreshDeprecations(
         declaration: FirCallableDeclaration,
         session: FirSession,
     ) {
+        // 2.4.0: getDeprecationsProvider is receiver-specialized; this bytecode
+        // binds to the FirCallableDeclaration overload.
         declaration.replaceDeprecationsProvider(declaration.getDeprecationsProvider(session))
     }
+
+    private fun IrConstructorCall.asIrAnnotation(): org.jetbrains.kotlin.ir.expressions.IrAnnotation =
+        this as? org.jetbrains.kotlin.ir.expressions.IrAnnotation
+            ?: org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl(
+                startOffset = startOffset,
+                endOffset = endOffset,
+                type = type,
+                symbol = symbol,
+                typeArgumentsCount = typeArguments.size,
+                constructorTypeArgumentsCount = constructorTypeArgumentsCount,
+                origin = origin,
+                source = source,
+            ).also { annotation ->
+                for (index in arguments.indices) {
+                    annotation.arguments[index] = arguments[index]
+                }
+            }
 
     override fun createSimpleFunction(
         factory: IrFactory,
@@ -92,12 +117,10 @@ class Kotlin2320Adapter : KotlinVersionAdapter {
         annotation: IrAnnotation,
         mapping: Map<Name, IrExpression>,
     ) {
-        // Silent-drop guard: the only caller builds an IrAnnotationImpl, and a mapping that never
-        // lands would corrupt metadata serialization rather than fail loudly.
-        val impl = annotation as? IrAnnotationImpl
-            ?: error("Koin compiler plugin: expected IrAnnotationImpl, got ${annotation::class.java.name}")
-        impl.argumentMapping = mapping
+        // 2.4.20: argumentMapping is a read-only IrAnnotationArgsView computed from the annotation's
+        // arguments and symbol, so it already reflects the positional arguments the caller set.
+        // Nothing to record — recording it again is not possible and not needed.
     }
 
-    override fun classIdOf(qualifier: FirResolvedQualifier): ClassId? = qualifier.classId
+    override fun classIdOf(qualifier: FirResolvedQualifier): ClassId? = qualifier.qualifierSymbol?.classId
 }

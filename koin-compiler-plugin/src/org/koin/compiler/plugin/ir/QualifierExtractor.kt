@@ -24,7 +24,6 @@ import org.jetbrains.kotlin.ir.types.isString
 import org.jetbrains.kotlin.ir.types.typeWith
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
-import org.jetbrains.kotlin.ir.util.getValueArgument
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
@@ -120,7 +119,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
 
         if (qualifierAnnotation != null) {
             // Check for type-based qualifier: @Qualifier(SomeType::class)
-            val valueArg = qualifierAnnotation.getValueArgument(Name.identifier("value"))
+            val valueArg = qualifierAnnotation.getRegularArgument(Name.identifier("value"))
                 ?: qualifierAnnotation.getRegularArgument(0)
             if (valueArg is IrClassReference) {
                 val qualifierClass = valueArg.classType.classifierOrNull?.owner as? IrClass
@@ -130,7 +129,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
                 }
             }
             // Check for string-based qualifier: @Qualifier(name = "string")
-            val nameArg = qualifierAnnotation.getValueArgument(Name.identifier("name"))
+            val nameArg = qualifierAnnotation.getRegularArgument(Name.identifier("name"))
             if (nameArg is IrConst) {
                 val value = nameArg.value as? String
                 if (!value.isNullOrEmpty()) {
@@ -189,7 +188,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
 
         if (qualifierAnnotation != null) {
             // Check for type-based qualifier: @Qualifier(SomeType::class)
-            val valueArg = qualifierAnnotation.getValueArgument(Name.identifier("value"))
+            val valueArg = qualifierAnnotation.getRegularArgument(Name.identifier("value"))
                 ?: qualifierAnnotation.getRegularArgument(0)
             if (valueArg is IrClassReference) {
                 val qualifierClass = valueArg.classType.classifierOrNull?.owner as? IrClass
@@ -199,7 +198,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
                 }
             }
             // Check for string-based qualifier: @Qualifier(name = "string")
-            val nameArg = qualifierAnnotation.getValueArgument(Name.identifier("name"))
+            val nameArg = qualifierAnnotation.getRegularArgument(Name.identifier("name"))
             if (nameArg is IrConst) {
                 val value = nameArg.value as? String
                 if (!value.isNullOrEmpty()) {
@@ -541,7 +540,7 @@ class QualifierExtractor(private val context: IrPluginContext) {
         }
 
         // Check for string-based: @ScopeId(name = "my_scope")
-        val nameArg = scopeIdAnnotation.getValueArgument(Name.identifier("name"))
+        val nameArg = scopeIdAnnotation.getRegularArgument(Name.identifier("name"))
         val name = (nameArg as? IrConst)?.value as? String
         if (!name.isNullOrEmpty()) {
             KoinPluginLogger.debug { "  @ScopeId(name = \"$name\") on parameter ${param.name}" }

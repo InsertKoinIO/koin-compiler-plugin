@@ -704,7 +704,7 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                 extractClassIdFromExpression(arg)
             }
             is org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier -> {
-                expression.classId
+                KotlinAdapterLoader.current.classIdOf(expression)
             }
             else -> null
         }

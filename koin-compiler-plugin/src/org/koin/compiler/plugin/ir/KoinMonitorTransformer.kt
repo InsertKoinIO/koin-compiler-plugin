@@ -23,6 +23,7 @@ import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 /**
  * Transforms functions annotated with @Monitor by wrapping their bodies
@@ -261,24 +262,17 @@ class KoinMonitorTransformer(
         }
 
         // Create lambda function with same suspend status as parent
-        val lambdaFunction = context.irFactory.createSimpleFunction(
+        val lambdaFunction = KotlinAdapterLoader.current.createSimpleFunction(
+            factory = context.irFactory,
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
             name = Name.special("<anonymous>"),
             visibility = DescriptorVisibilities.LOCAL,
-            isInline = false,
-            isExpect = false,
             returnType = parentFunction.returnType,
-            modality = Modality.FINAL,
+            // Match parent's suspend status
+            isSuspend = isSuspend,
             symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = isSuspend,  // Match parent's suspend status
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
         lambdaFunction.parent = parentFunction
 

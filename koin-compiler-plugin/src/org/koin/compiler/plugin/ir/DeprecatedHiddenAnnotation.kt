@@ -84,10 +84,14 @@ private fun buildDeprecatedHiddenAnnotation(context: IrPluginContext): IrConstru
         // arg 2: level (DeprecationLevel.HIDDEN)
         putRegularArgument(2, levelExpr)
 
-        // Also set argument mapping (used by IR annotation processing and metadata serialization)
-        argumentMapping = mapOf(
-            Name.identifier("message") to messageExpr,
-            Name.identifier("level") to levelExpr
+        // Also record the argument mapping (used by IR annotation processing and metadata
+        // serialization). Kotlin 2.4.20 derives it from `arguments`; older lines need it set.
+        KotlinAdapterLoader.current.setAnnotationArgumentMapping(
+            this,
+            mapOf(
+                Name.identifier("message") to messageExpr,
+                Name.identifier("level") to levelExpr,
+            ),
         )
     }
 }

@@ -33,6 +33,7 @@ import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 /**
  * Builds Koin scope blocks for annotations processing.
@@ -246,25 +247,17 @@ class ScopeBlockBuilder(
         val func1Class = function1Class ?: return null
 
         // Create the scope lambda function: ScopeDSL.() -> Unit
-        val scopeLambdaFunction = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
-            name = Name.special("<anonymous>"),
-            visibility = DescriptorVisibilities.LOCAL,
-            isInline = false,
-            isExpect = false,
-            returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val scopeLambdaFunction = KotlinAdapterLoader.current.createSimpleFunction(
+                                      factory = context.irFactory,
+                                      startOffset = UNDEFINED_OFFSET,
+                                      endOffset = UNDEFINED_OFFSET,
+                                      origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
+                                      name = Name.special("<anonymous>"),
+                                      visibility = DescriptorVisibilities.LOCAL,
+                                      returnType = context.irBuiltIns.unitType,
+                                      isSuspend = false,
+                                      symbol = IrSimpleFunctionSymbolImpl(),
+                                  )
         scopeLambdaFunction.parent = parentLambdaFunction
 
         // Create extension receiver parameter (ScopeDSL)
