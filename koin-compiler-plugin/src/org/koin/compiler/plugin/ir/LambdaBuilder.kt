@@ -26,6 +26,7 @@ import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 /**
  * Builds Koin definition lambda expressions for constructor, function, and top-level function definitions.
@@ -101,25 +102,17 @@ class LambdaBuilder(
         }
 
         // Create the lambda function
-        val lambdaFunction = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
-            name = Name.special("<anonymous>"),
-            visibility = DescriptorVisibilities.LOCAL,
-            isInline = false,
-            isExpect = false,
-            returnType = returnTypeClass.defaultType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val lambdaFunction = KotlinAdapterLoader.current.createSimpleFunction(
+                                 factory = context.irFactory,
+                                 startOffset = UNDEFINED_OFFSET,
+                                 endOffset = UNDEFINED_OFFSET,
+                                 origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
+                                 name = Name.special("<anonymous>"),
+                                 visibility = DescriptorVisibilities.LOCAL,
+                                 returnType = returnTypeClass.defaultType,
+                                 isSuspend = false,
+                                 symbol = IrSimpleFunctionSymbolImpl(),
+                             )
         lambdaFunction.parent = parentFunction
 
         // Create extension receiver parameter (Scope)

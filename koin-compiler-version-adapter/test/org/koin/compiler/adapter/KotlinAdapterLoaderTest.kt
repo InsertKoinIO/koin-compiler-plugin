@@ -67,4 +67,40 @@ class KotlinAdapterLoaderTest {
         assertEquals("adapter.k245", KotlinAdapterLoader.decide(registryWithTwoInLine, "2.4.10").entry?.second)
         assertEquals(emptyList(), KotlinAdapterLoader.decide(registryWithTwoInLine, "2.4.10").warnings)
     }
+
+    /**
+     * The shipped registry, read from the same resource the loader reads. An adapter that is
+     * present but never selected reproduces the crash it was added to fix, so the mapping from
+     * compiler version to adapter class is asserted rather than assumed.
+     */
+    private fun shippedRegistry(): List<Pair<KotlinReleaseVersion, String>> {
+        val stream = javaClass.classLoader.getResourceAsStream(
+            "META-INF/koin/kotlin-version-adapters.properties",
+        ) ?: error("adapter registry not on the test classpath")
+        val properties = java.util.Properties().apply { stream.use { load(it) } }
+        return properties
+            .map { (key, value) -> v(key.toString()) to value.toString() }
+            .sortedBy { it.first }
+    }
+
+    @Test
+    fun shippedRegistrySelectsTheExactAdapterForEachSupportedLine() {
+        val registry = shippedRegistry()
+        assertEquals("org.koin.compiler.adapter.k2320.Kotlin2320Adapter", KotlinAdapterLoader.decide(registry, "2.3.20").entry?.second)
+        assertEquals("org.koin.compiler.adapter.k240.Kotlin240Adapter", KotlinAdapterLoader.decide(registry, "2.4.0").entry?.second)
+        assertEquals("org.koin.compiler.adapter.k2420.Kotlin2420Adapter", KotlinAdapterLoader.decide(registry, "2.4.20").entry?.second)
+    }
+
+    @Test
+    fun shippedRegistryKeepsPre2420PatchesOnThe240Adapter() {
+        val registry = shippedRegistry()
+        // 2.4.10 predates the 2.4.20 ABI break, so it must not pick up the 2.4.20 adapter.
+        assertEquals("org.koin.compiler.adapter.k240.Kotlin240Adapter", KotlinAdapterLoader.decide(registry, "2.4.10").entry?.second)
+        assertEquals(emptyList(), KotlinAdapterLoader.decide(registry, "2.4.10").warnings)
+    }
+
+    @Test
+    fun shippedRegistryDoesNotWarnOnTheNewestSupportedVersion() {
+        assertEquals(emptyList(), KotlinAdapterLoader.decide(shippedRegistry(), "2.4.20").warnings)
+    }
 }

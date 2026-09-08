@@ -5,8 +5,19 @@ import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
+import org.jetbrains.kotlin.descriptors.DescriptorVisibility
+import org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
+import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrMutableAnnotationContainer
+import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.expressions.IrAnnotation
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.symbols.IrSimpleFunctionSymbol
+import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
 
 /**
  * Version-split compiler operations.
@@ -68,4 +79,55 @@ interface KotlinVersionAdapter {
         declaration: FirCallableDeclaration,
         session: FirSession,
     )
+
+    /**
+     * Creates a simple function via [factory].
+     *
+     * Every call site in the plugin passes the same non-varying shape (final, public-or-local,
+     * non-inline/expect/tailrec/operator/infix/external, no container source, not a fake override),
+     * so only the genuinely varying parameters are exposed here.
+     */
+    @KotlinApiChange(
+        inVersion = "2.4.20",
+        kind = KotlinApiChange.Kind.SIGNATURE,
+        note = "IrFactory.createSimpleFunction gained a trailing IrClassSymbol parameter; bytecode " +
+            "compiled against an older compiler throws NoSuchMethodError",
+    )
+    fun createSimpleFunction(
+        factory: IrFactory,
+        startOffset: Int,
+        endOffset: Int,
+        origin: IrDeclarationOrigin,
+        name: Name,
+        visibility: DescriptorVisibility,
+        returnType: IrType,
+        isSuspend: Boolean,
+        symbol: IrSimpleFunctionSymbol,
+    ): IrSimpleFunction
+
+    /**
+     * Records [mapping] as [annotation]'s name-to-argument mapping.
+     *
+     * Callers must already have set the corresponding positional arguments; on compilers where the
+     * mapping is derived this is the only thing that matters.
+     */
+    @KotlinApiChange(
+        inVersion = "2.4.20",
+        kind = KotlinApiChange.Kind.SIGNATURE,
+        note = "IrAnnotationImpl.argumentMapping became a read-only view computed from arguments + " +
+            "symbol (IrAnnotationArgsView); the setter was removed",
+    )
+    fun setAnnotationArgumentMapping(
+        annotation: IrAnnotation,
+        mapping: Map<Name, IrExpression>,
+    )
+
+    /** The [ClassId] [qualifier] resolves to, or null if it does not resolve to a class. */
+    @KotlinApiChange(
+        inVersion = "2.4.20",
+        kind = KotlinApiChange.Kind.SIGNATURE,
+        note = "FirResolvedQualifier.classId was removed and symbol was renamed to qualifierSymbol; " +
+            "2.4.0-compiled bytecode throws NoSuchMethodError",
+    )
+    fun classIdOf(qualifier: FirResolvedQualifier): ClassId?
 }

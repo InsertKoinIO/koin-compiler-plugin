@@ -40,11 +40,13 @@ dependencies {
     embeddedAdapters(project(":koin-compiler-version-adapter"))
     embeddedAdapters(project(":koin-compiler-version-adapter:kotlin-2.3.20"))
     embeddedAdapters(project(":koin-compiler-version-adapter:kotlin-2.4.0"))
+    embeddedAdapters(project(":koin-compiler-version-adapter:kotlin-2.4.20"))
 
     // Tests run the plugin in-process — adapter classes must be on the test runtime classpath.
     testRuntimeOnly(project(":koin-compiler-version-adapter"))
     testRuntimeOnly(project(":koin-compiler-version-adapter:kotlin-2.3.20"))
     testRuntimeOnly(project(":koin-compiler-version-adapter:kotlin-2.4.0"))
+    testRuntimeOnly(project(":koin-compiler-version-adapter:kotlin-2.4.20"))
 
     testFixturesApi(kotlin("test-junit5"))
     testFixturesApi(kotlin("compiler-internal-test-framework"))

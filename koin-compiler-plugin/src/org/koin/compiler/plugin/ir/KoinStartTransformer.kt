@@ -605,7 +605,7 @@ class KoinStartTransformer(
         } ?: return listOf(KoinPluginConstants.DEFAULT_LABEL)
 
         // Look up configurations by name first, then fall back to positional index 0
-        val configurationsArg = koinAppAnnotation.getValueArgument(Name.identifier("configurations"))
+        val configurationsArg = koinAppAnnotation.getRegularArgument(Name.identifier("configurations"))
             ?: koinAppAnnotation.getRegularArgument(0)
 
         val labels = mutableListOf<String>()
@@ -656,7 +656,7 @@ class KoinStartTransformer(
         } ?: return emptyList()
 
         // Look up modules by name first, then fall back to positional index 1
-        val modulesArg = koinAppAnnotation.getValueArgument(Name.identifier("modules"))
+        val modulesArg = koinAppAnnotation.getRegularArgument(Name.identifier("modules"))
             ?: koinAppAnnotation.getRegularArgument(1)
             ?: return emptyList()
 

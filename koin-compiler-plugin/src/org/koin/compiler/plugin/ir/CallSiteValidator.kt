@@ -28,6 +28,7 @@ import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 /** FqNames a definition provides — its own type plus every explicit binding. */
 private fun Definition.providedTypeNames(): List<String> = buildList {
@@ -234,25 +235,17 @@ class CallSiteValidator(private val context: IrPluginContext) {
             val targetClass = callSite.targetClass
 
             // Build the IR function
-            val function = context.irFactory.createSimpleFunction(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = hintName,
-                visibility = DescriptorVisibilities.PUBLIC,
-                isInline = false,
-                isExpect = false,
-                returnType = context.irBuiltIns.unitType,
-                modality = Modality.FINAL,
-                symbol = IrSimpleFunctionSymbolImpl(),
-                isTailrec = false,
-                isSuspend = false,
-                isOperator = false,
-                isInfix = false,
-                isExternal = false,
-                containerSource = null,
-                isFakeOverride = false
-            )
+            val function = KotlinAdapterLoader.current.createSimpleFunction(
+                               factory = context.irFactory,
+                               startOffset = UNDEFINED_OFFSET,
+                               endOffset = UNDEFINED_OFFSET,
+                               origin = IrDeclarationOrigin.DEFINED,
+                               name = hintName,
+                               visibility = DescriptorVisibilities.PUBLIC,
+                               returnType = context.irBuiltIns.unitType,
+                               isSuspend = false,
+                               symbol = IrSimpleFunctionSymbolImpl(),
+                           )
 
             // Add parameter with the required type (erased to raw form for generics — see #18)
             val requiredParam = newValueParameter(function, Name.identifier("required"), targetClass.hintParameterType(context))

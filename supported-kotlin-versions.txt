@@ -3,3 +3,4 @@
 # Drives the CI matrix and the support statement in error messages/docs.
 2.3.20
 2.4.0
+2.4.20

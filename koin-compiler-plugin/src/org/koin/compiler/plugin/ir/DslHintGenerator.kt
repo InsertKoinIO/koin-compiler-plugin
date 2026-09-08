@@ -27,6 +27,7 @@ import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
+import org.koin.compiler.adapter.KotlinAdapterLoader
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 class DslHintGenerator(
@@ -210,24 +211,16 @@ class DslHintGenerator(
         }
         val hintName = KoinModuleFirGenerator.dslDefinitionHintFunctionName(defTypeString)
 
-        val function = context.irFactory.createSimpleFunction(
+        val function = KotlinAdapterLoader.current.createSimpleFunction(
+            factory = context.irFactory,
             startOffset = UNDEFINED_OFFSET,
             endOffset = UNDEFINED_OFFSET,
             origin = IrDeclarationOrigin.DEFINED,
             name = hintName,
             visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
             isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
+            symbol = IrSimpleFunctionSymbolImpl(),
         )
 
         // Target class type erased to raw form for generics — see #18.
@@ -388,25 +381,17 @@ class DslHintGenerator(
         // An incomplete module MUST emit even with nothing readable — the marker is the payload.
         if (included.isEmpty() && !emitWhenEmpty && !incomplete) return null
 
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
-            name = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId)),
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
-            returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
-        )
+        val function = KotlinAdapterLoader.current.createSimpleFunction(
+                           factory = context.irFactory,
+                           startOffset = UNDEFINED_OFFSET,
+                           endOffset = UNDEFINED_OFFSET,
+                           origin = IrDeclarationOrigin.DEFINED,
+                           name = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId)),
+                           visibility = DescriptorVisibilities.PUBLIC,
+                           returnType = context.irBuiltIns.unitType,
+                           isSuspend = false,
+                           symbol = IrSimpleFunctionSymbolImpl(),
+                       )
 
         // One marker per included module, using the same `module_<id with . → $>` encoding the
         // definition hints use for modulePropertyId, so decoding is symmetric (buildModuleIdParam).
