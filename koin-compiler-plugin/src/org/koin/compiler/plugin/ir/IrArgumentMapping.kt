@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrFunctionAccessExpression
 import org.jetbrains.kotlin.ir.expressions.IrMemberAccessExpression
+import org.jetbrains.kotlin.name.Name
 
 /**
  * Helpers over the unified IR parameters/arguments API (Kotlin 2.3.20+).
@@ -35,6 +36,20 @@ internal fun IrFunctionAccessExpression.putRegularArgument(index: Int, value: Ir
 /** Reads the argument for the callee's [index]-th REGULAR parameter — the old `getValueArgument`. */
 internal fun IrFunctionAccessExpression.getRegularArgument(index: Int): IrExpression? {
     val param = symbol.owner.regularParameters.getOrNull(index) ?: return null
+    return arguments[param.indexInParameters]
+}
+
+/**
+ * Reads the argument for the callee's regular parameter NAMED [name].
+ *
+ * Replaces `IrUtilsKt.getValueArgument(IrConstructorCall, Name)`, which Kotlin 2.4.20
+ * removed — a binary break invisible at compile time against the 2.3.20 floor and a
+ * `NoSuchMethodError` at IR generation on 2.4.20 (GH #89, #99). The primitives used
+ * here (`regularParameters`, `indexInParameters`, `arguments`) are byte-identical
+ * across 2.3.20 → 2.4.20 and already carry the rest of this file.
+ */
+internal fun IrFunctionAccessExpression.getRegularArgument(name: Name): IrExpression? {
+    val param = symbol.owner.regularParameters.firstOrNull { it.name == name } ?: return null
     return arguments[param.indexInParameters]
 }
 

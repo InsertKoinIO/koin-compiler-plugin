@@ -19,6 +19,7 @@ import org.jetbrains.kotlin.fir.types.classId
 import org.jetbrains.kotlin.fir.types.constructClassLikeType
 import org.jetbrains.kotlin.fir.types.coneType
 import org.jetbrains.kotlin.fir.types.coneTypeOrNull
+import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.koin.compiler.adapter.KotlinAdapterLoader
@@ -704,7 +705,11 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
                 extractClassIdFromExpression(arg)
             }
             is org.jetbrains.kotlin.fir.expressions.FirResolvedQualifier -> {
-                expression.classId
+                // Via the qualifier's resolved type, not its `classId`: Kotlin 2.4.20 removed
+                // `FirResolvedQualifier.classId` (and renamed `symbol` to `qualifierSymbol`),
+                // while `resolvedType` is byte-identical across 2.3.20 -> 2.4.20 (GH #89, #99).
+                // A FirResolvedQualifier is resolved by definition, so resolvedType is safe here.
+                expression.resolvedType.classId
             }
             else -> null
         }

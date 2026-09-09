@@ -305,11 +305,13 @@ Set `skipDefaultValues = false` to always inject all parameters from the DI cont
 ## Compatibility — verified range + version gate
 
 - **Koin**: 4.2.0+
-- **Kotlin**: K2 compiler required. One artifact spans **Kotlin 2.3.20 → 2.4.x** via `koin-compiler-version-adapter` (per-line adapter classes, selected at plugin load — see `KotlinAdapterLoader`).
+- **Kotlin**: K2 compiler required. One artifact spans **Kotlin 2.3.20 → 2.4.20** via `koin-compiler-version-adapter` (per-line adapter classes, selected at plugin load — see `KotlinAdapterLoader`). Verified versions live in `supported-kotlin-versions.txt` and the adapter registry, which are the same list.
 
 **Version-gate policy** (the plugin binds to unstable compiler internals — every Kotlin minor is a potential break):
 
 - **Known-broken Kotlin version** (below the registered floor) → fail fast with a clear diagnostic naming the version, the supported range, and the tracking issue — never let a raw `ClassCastException`/`NoSuchMethodError` surface as the error.
-- **Unknown future minor line** (above the newest registered line) → WARN + proceed with the newest adapter, never hard-block.
-- **A new patch within an already-registered minor line** (e.g. 2.4.10 vs registered 2.4.0) reuses that adapter silently — no warning. Before relying on this for a new patch, run `tools/abi-check/check-kotlin-abi.sh <version>` to confirm the plugin's compiler-API refs still resolve; a break there means the line-level trust just failed and needs its own adapter entry.
+- **Any version that is not a verified entry** (a future minor line like 2.5.0, or an unverified patch inside a registered line) → WARN + proceed with the highest adapter at or below it, never hard-block.
+- **A new patch within an already-registered minor line is NOT trusted** (changed in 1.2.1). Trust is per exact `major.minor.patch`: a version reuses an adapter *class* by line, but only counts as verified when it has its own registry entry, earned by a green `tools/abi-check/check-kotlin-abi.sh <version>`. Anything else warns.
+  **Why**: 1.2.0 relaxed this to `major.minor` on the strength of 2.4.10, and Kotlin 2.4.20 falsified it three weeks later — 4 removed/re-signed compiler APIs, a raw `NoSuchMethodError` from `DslHintGenerator`, and the relax had silenced the only warning that would have hinted at it (GH #89, #99). Kotlin ships **feature releases in the `.20` patch slot**; this plugin's own floor, 2.3.20, is an x.y.20. `major.minor` is not a safe trust unit.
+  A new version needing no adapter change just points at the existing class (2.4.10 and 2.4.20 both map to `Kotlin240Adapter`) — a registry line, not a new module. `check-kotlin-abi.sh` verifies the core **and** the adapter class that version selects.
 - Keep `supported-kotlin-versions.txt`, the adapter registry, and the README in sync on every release.

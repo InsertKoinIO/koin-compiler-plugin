@@ -30,13 +30,17 @@ data class KotlinReleaseVersion(
         compareValuesBy(this, other, { it.major }, { it.minor }, { it.patch }) >= 0
 
     /**
-     * True if this version's `major.minor` is at or above [other]'s — patch ignored.
-     * Used to decide whether a compiler is within an already-verified minor line
-     * (e.g. 2.4.10 vs a registered 2.4.0 adapter), as opposed to [lineAtLeast]'s
-     * exact-line comparison used for adapter selection.
+     * True if this is the same `major.minor.patch` release as [other], maturity ignored
+     * (2.4.20-RC1 and 2.4.20 carry the same compiler ABI — same stance as [lineAtLeast]).
+     *
+     * This is the *trust* comparison: a version is verified only if it exactly matches a
+     * registry entry. `major.minor` is NOT a safe trust unit, because Kotlin ships feature
+     * releases in the `.20` patch slot — 2.4.20 removed four compiler APIs the plugin binds
+     * while 2.4.10 removed none, and this plugin's own floor (2.3.20) is itself an x.y.20.
+     * See GH #89 / #99.
      */
-    fun minorLineAtLeast(other: KotlinReleaseVersion): Boolean =
-        compareValuesBy(this, other, { it.major }, { it.minor }) >= 0
+    fun sameRelease(other: KotlinReleaseVersion): Boolean =
+        major == other.major && minor == other.minor && patch == other.patch
 
     override fun toString(): String = raw
 
