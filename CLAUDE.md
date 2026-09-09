@@ -147,8 +147,9 @@ cd test-apps
 ./gradlew :sample-app:jvmRun
 
 # Startup benchmark (KTZ-4829): Metro-shaped workload compiled with the plugin, JMH, appends to
-# perf-apps/startup-bench/bench_results.txt. --quick to iterate (~15 min), default to publish (~1 h).
-./benchmark.sh --quick
+# perf-apps/startup-bench/bench_results.txt. Default = small & quick (~4 min); --full = Metro
+# fingerprint + Metro JMH profile (~1 h) for numbers to publish.
+./benchmark.sh
 ```
 
 ## Test Structure

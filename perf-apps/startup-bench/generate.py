@@ -8,15 +8,21 @@ multibinding interface (Plugin / Initializer) realized with getAll<T>(). One Gra
 @Module @ComponentScan per generated package (what Metro's generator does per Gradle module to stay
 under the 64 KB method limit), one root @KoinApplication listing every module.
 
-Usage: python3 generate.py  (writes src/main/kotlin/bench/gen, overwriting)
+Usage: python3 generate.py [--scale F]   (writes src/main/kotlin/bench/gen, overwriting)
+  --scale 1.0 (default) is the Metro fingerprint; --scale 0.1 keeps the same shape at 10% size
+  (50 modules / ~275 definitions) for qualifying plugin output in about a minute per configuration.
 """
-import os, random, shutil
+import os, random, shutil, sys
 
 SEED = 0
-MODULES = [("core", 80), ("feature", 350), ("app", 70)]
-TOTAL_DEFINITIONS = 2756
-EDGES = 874
-BOUND = 1800  # contributions that also bind Plugin or Initializer
+SCALE = 1.0
+if "--scale" in sys.argv:
+    SCALE = float(sys.argv[sys.argv.index("--scale") + 1])
+def scaled(n): return max(1, round(n * SCALE))
+MODULES = [("core", scaled(80)), ("feature", scaled(350)), ("app", scaled(70))]
+TOTAL_DEFINITIONS = scaled(2756)
+EDGES = scaled(874)
+BOUND = scaled(1800)  # contributions that also bind Plugin or Initializer
 
 random.seed(SEED)
 out = os.path.join(os.path.dirname(__file__), "src", "main", "kotlin", "bench", "gen")
@@ -57,7 +63,7 @@ while edge_count < EDGES and attempts < EDGES * 50:
     deps[name].append(target)
     edge_count += 1
 
-bound = set(name for _, name in random.sample(classes, BOUND))
+bound = set(name for _, name in random.sample(classes, min(BOUND, len(classes))))
 
 def pkg(m):
     layer, i = modules[m]
@@ -127,4 +133,4 @@ fun createAndInitialize(): AppComponent {{
 }}
 ''')
 
-print(f"modules={len(modules)} definitions={len(classes)} edges={edge_count} bound={len(bound)} -> {out}")
+print(f"scale={SCALE} modules={len(modules)} definitions={len(classes)} edges={edge_count} bound={len(bound)} -> {out}")

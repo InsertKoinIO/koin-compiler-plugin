@@ -6,31 +6,34 @@
 # perf-apps/startup-bench/bench_results.txt.
 #
 # Usage:
-#   ./benchmark.sh                 # Metro-equivalent profile (2 forks, 4+10 x 1s, -prof gc) ~1 h
-#   ./benchmark.sh --quick         # 1 fork, 5+5 x 1s, fixed heap, no profiler              ~15 min
+#   ./benchmark.sh                 # DEFAULT, like koin's core/benchmark: 10% scale (50 modules,
+#                                  #   ~275 definitions), quick JMH (1 fork, 5+5 x 1s)   ~4 min
+#   ./benchmark.sh --full          # Metro fingerprint (500 modules, 2,756 definitions) and
+#                                  #   Metro-equivalent JMH (2 forks, 4+10 x 1s, -prof gc) ~1 h
 #   ./benchmark.sh --koin 4.2.2    # restrict the koin-core axis (default: 4.2.2,4.2.3-perfs)
 #   ./benchmark.sh --no-install    # skip ./install.sh (plugin already in Maven Local)
 #
 set -u
 cd "$(dirname "$0")" || exit 1
-ARGS=(); INSTALL=true
+ARGS=(); INSTALL=true; FULL=false
 for a in "$@"; do
   case "$a" in
     --no-install) INSTALL=false ;;
+    --full) FULL=true ;;
     *) ARGS+=("$a") ;;
   esac
 done
 BENCH=perf-apps/startup-bench
 RESULTS="$BENCH/results"
-PROFILE="full"; for a in "${ARGS[@]:-}"; do [ "$a" = "--quick" ] && PROFILE="quick"; done
+if $FULL; then PROFILE="full"; SCALE=1.0; else PROFILE="quick"; SCALE=0.1; ARGS+=("--quick"); fi
 
 if $INSTALL; then ./install.sh || exit 1; fi
-python3 "$BENCH/generate.py" || exit 1
+python3 "$BENCH/generate.py" --scale "$SCALE" || exit 1
 rm -rf "$RESULTS"
 "$BENCH/bench.sh" "$RESULTS" "${ARGS[@]:-}" || exit 1
 
 {
   echo
-  echo "# $(grep '^pluginVersion' gradle.properties | cut -d= -f2) @ $(git rev-parse --short HEAD) - $(date +%Y-%m-%d) - profile=$PROFILE - $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)"
+  echo "# $(grep '^pluginVersion' gradle.properties | cut -d= -f2) @ $(git rev-parse --short HEAD) - $(date +%Y-%m-%d) - profile=$PROFILE scale=$SCALE - $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)"
   python3 "$BENCH/summarize.py" "$RESULTS"
 } | tee -a "$BENCH/bench_results.txt"

@@ -9,7 +9,8 @@ operation are reported next to time.
 
 ```bash
 # from the repo root — the one-liner, mirrors koin's core/benchmark ./benchmark.sh
-./benchmark.sh --quick        # or without --quick for the Metro-equivalent profile
+./benchmark.sh                # default: 10% scale + quick JMH, ~4 min — the daily loop
+./benchmark.sh --full         # Metro fingerprint + Metro JMH profile + -prof gc, ~1 h
 
 # step by step
 ./install.sh                                    # plugin -> mavenLocal (version in gradle.properties)
