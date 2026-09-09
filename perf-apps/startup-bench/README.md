@@ -8,7 +8,10 @@ AverageTime, 2 forks, 4×1 s warm-up, 10×1 s measure) with the GC profiler on, 
 operation are reported next to time.
 
 ```bash
-# from the repo root
+# from the repo root — the one-liner, mirrors koin's core/benchmark ./benchmark.sh
+./benchmark.sh --quick        # or without --quick for the Metro-equivalent profile
+
+# step by step
 ./install.sh                                    # plugin -> mavenLocal (version in gradle.properties)
 python3 perf-apps/startup-bench/generate.py     # deterministic workload (seed 0)
 ./gradlew -p perf-apps/startup-bench jmh -PkoinVersion=4.2.2 -PdirectRegistration=true
@@ -17,7 +20,7 @@ python3 perf-apps/startup-bench/generate.py     # deterministic workload (seed 0
 (cd perf-apps/startup-bench && ./bench.sh results && python3 summarize.py results)          # ~1 h, publish
 ```
 
-`--quick` (or `-Pquick=true`): 1 fork, 2 warm-up + 3 measure, no GC profiler, plugin compile-safety
+`--quick` (or `-Pquick=true`): 1 fork, 5 warm-up + 5 measure, fixed 2 GB heap, no GC profiler, plugin compile-safety
 off for the bench build (it only validates; the emitted registration code is the same). Expect
 wider error bars — it is for iterating, the default profile is for numbers you quote.
 

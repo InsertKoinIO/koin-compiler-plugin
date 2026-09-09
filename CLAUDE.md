@@ -145,6 +145,10 @@ fun provideHttpClient(): NetworkClient = OkHttpClient()
 # Run sample app (from test-apps/)
 cd test-apps
 ./gradlew :sample-app:jvmRun
+
+# Startup benchmark (KTZ-4829): Metro-shaped workload compiled with the plugin, JMH, appends to
+# perf-apps/startup-bench/bench_results.txt. --quick to iterate (~15 min), default to publish (~1 h).
+./benchmark.sh --quick
 ```
 
 ## Test Structure
