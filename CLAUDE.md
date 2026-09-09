@@ -207,6 +207,8 @@ koinCompiler {
     debugLogs = true          // Internal processing logs (verbose)
     unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
     skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
+    directRegistration = true // Emit BeanDefinition + saveMapping(<compile-time key>) instead of buildSingle/bind (default: true, 1.3.0+)
+    verifyGeneratedKeys = false // Re-check every compile-time key against indexKey() at module load; throws on mismatch (default: false)
     compileSafety = true       // Compile-time dependency validation (default: true)
     strictSafety = true        // Force safety pass to bypass Kotlin IC on this module (default: auto-detect; `false` is ignored once an entry point is detected)
     strictSafetyForceOff = true // Escape hatch: confirms a detected entry point is a misfire, actually disables strictSafety (default: false)
@@ -275,6 +277,25 @@ scoped {
 ```
 
 Set `unsafeDslChecks = false` when migrating from legacy DSL code that has additional statements in create lambdas.
+
+### Direct Registration (1.3.0+, KTZ-4829)
+
+Annotation-discovered `@Single`/`@Singleton`/`@Factory`/`@Scoped` definitions are registered
+directly: the generated module emits `BeanDefinition(...)` + `SingleInstanceFactory(...)` +
+`Module.saveMapping("<class>:<qualifier>:<scope>", factory)`, with the Koin index key computed at
+compile time. This removes, per definition at startup, the `indexKey()` String build, the
+`KoinDefinition` wrapper and the per-`bind` re-indexing of the runtime DSL. Everything emitted is
+koin-core binary surface since 4.2.0.
+
+The key's class-name component is derived per target the way `KoinPlatformTools.getClassName`
+does: `KClass.java.name` on JVM (`pkg.Outer$Inner`), `qualifiedName` on Native, `simpleName` on
+JS/Wasm. **Fallback rule — silent is worse than broken:** any definition whose key cannot be
+derived with certainty (local class, `kotlin.*`/`java.*` type — `String::class.java.name` is
+`java.lang.String` —, archetype scope such as `viewModelScope`, `viewModel`/`worker` definitions,
+missing runtime symbol) keeps the legacy `buildSingle`/`bind` call. Box tests run with
+`verifyGeneratedKeys = true`, so every emitted key is checked against `indexKey()` at module load;
+`testData/box/directregistration/` covers nested classes, packages, type qualifiers, typed scopes
+and the `kotlin.*` fallback; `kill_switch.kt` pins the `directRegistration = false` shape.
 
 ### Skip Default Values
 

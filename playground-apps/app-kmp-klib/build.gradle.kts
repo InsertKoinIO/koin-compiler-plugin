@@ -17,6 +17,10 @@ kotlin {
     // iOS device target — the failing target in compiler#44. KLIB-serialized like
     // wasmJs, so it exercises the same duplicate-signature path on the native backend.
     iosArm64()
+    // Runnable native target for the KTZ-4829 direct-registration key check (qualifiedName on Native).
+    macosArm64 {
+        binaries.executable { entryPoint = "playground.main" }
+    }
 
     sourceSets {
         val commonMain by getting {
@@ -26,4 +30,11 @@ kotlin {
             }
         }
     }
+}
+
+// KTZ-4829: every directly registered definition re-checks its compile-time index key against
+// indexKey() at module load; a derivation mismatch on wasmJs (simpleName) or Native (qualifiedName)
+// throws in main() instead of surfacing as a NoDefinitionFoundException.
+koinCompiler {
+    verifyGeneratedKeys = true
 }

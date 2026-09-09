@@ -72,7 +72,11 @@ private class ExtensionRegistrarConfigurator(testServices: TestServices) : Envir
         // Disable aiAssist so golden `.errors.txt` files exercise diagnostic content only,
         // not the trailing CTA banner — the CTA has its own coverage in KoinDiagnosticTest.
         val compileSafety = KoinTestDirectives.DISABLE_COMPILE_SAFETY !in module.directives
-        KoinPluginLogger.init(messageCollector, userLogs = true, debugLogs = true, compileSafety = compileSafety, aiAssist = false)
+        val directRegistration = KoinTestDirectives.DISABLE_DIRECT_REGISTRATION !in module.directives
+        // verifyGeneratedKeys is ON for every box test: each directly registered definition then
+        // checks its compile-time key against indexKey() at module load, so a wrong key derivation
+        // fails the box run instead of surfacing as a NoDefinitionFoundException somewhere else.
+        KoinPluginLogger.init(messageCollector, userLogs = true, debugLogs = true, compileSafety = compileSafety, aiAssist = false, directRegistration = directRegistration, verifyGeneratedKeys = true)
         FirExtensionRegistrarAdapter.registerExtension(KoinPluginRegistrar())
         IrGenerationExtension.registerExtension(KoinIrExtension(lookupTracker = null, expectActualTracker = org.jetbrains.kotlin.incremental.components.ExpectActualTracker.DoNothing, messageCollector = messageCollector, flagsHandle = KoinPluginLogger.captureFlags()))
     }

@@ -83,7 +83,7 @@ class KoinAnnotationProcessor(
     private val scopeBlockBuilder = ScopeBlockBuilder(context)
 
     // Definition call builder helper
-    private val definitionCallBuilder = DefinitionCallBuilder(context, qualifierExtractor, lambdaBuilder, argumentGenerator)
+    private val definitionCallBuilder = DefinitionCallBuilder(context, qualifierExtractor, lambdaBuilder, argumentGenerator, DirectRegistrationBuilder(context, qualifierExtractor))
 
     // Cached class lookups (avoid repeated context.referenceClass calls)
     private val kClassClass by lazy { context.referenceClass(ClassId.topLevel(KoinAnnotationFqNames.KCLASS))?.owner }

@@ -59,6 +59,23 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
     val compileSafety: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
 
     /**
+     * Register annotation-discovered definitions directly, with the Koin index key computed at
+     * compile time (default: true). The generated module emits `BeanDefinition` +
+     * `InstanceFactory` + `Module.saveMapping(key, factory)` instead of `buildSingle(...)`/`bind(...)`,
+     * removing the per-definition key String build and the DSL wrapper objects from startup.
+     * Resolution is identical. Set to false to fall back to the pre-1.3.0 generated shape.
+     */
+    val directRegistration: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
+
+    /**
+     * Verification switch for [directRegistration] (default: false). When enabled, every
+     * compile-time key is checked against Koin's `indexKey()` when the module loads and a
+     * mismatch throws. Re-introduces the String build that direct registration removes —
+     * for tests and troubleshooting, not production builds.
+     */
+    val verifyGeneratedKeys: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(false)
+
+    /**
      * Force the safety pass to always run, bypassing Kotlin's incremental compilation cache.
      *
      * When left unset (the default), the Gradle plugin scans source files for `startKoin`,

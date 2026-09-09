@@ -23,6 +23,8 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         const val OPTION_MODULE_ID = "moduleId"
         const val OPTION_LOG_SEVERITY = "logSeverity"
         const val OPTION_VERSION_CHECK_SEVERITY = "versionCheckSeverity"
+        const val OPTION_DIRECT_REGISTRATION = "directRegistration"
+        const val OPTION_VERIFY_GENERATED_KEYS = "verifyGeneratedKeys"
     }
 
     private fun configureStrictSafety(
@@ -174,7 +176,9 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
                 SubpluginOption(OPTION_AI_ASSIST, extension.aiAssist.get().toString()),
                 SubpluginOption(OPTION_MODULE_ID, moduleId),
                 SubpluginOption(OPTION_LOG_SEVERITY, extension.logSeverity.get()),
-                SubpluginOption(OPTION_VERSION_CHECK_SEVERITY, extension.versionCheckSeverity.get())
+                SubpluginOption(OPTION_VERSION_CHECK_SEVERITY, extension.versionCheckSeverity.get()),
+                SubpluginOption(OPTION_DIRECT_REGISTRATION, extension.directRegistration.get().toString()),
+                SubpluginOption(OPTION_VERIFY_GENERATED_KEYS, extension.verifyGeneratedKeys.get().toString())
             )
         }
     }

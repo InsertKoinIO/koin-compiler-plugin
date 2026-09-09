@@ -16,6 +16,8 @@ class KoinPluginConstantsTest {
         assertEquals("unsafeDslChecks", KoinPluginConstants.OPTION_UNSAFE_DSL_CHECKS)
         assertEquals("skipDefaultValues", KoinPluginConstants.OPTION_SKIP_DEFAULT_VALUES)
         assertEquals("compileSafety", KoinPluginConstants.OPTION_COMPILE_SAFETY)
+        assertEquals("directRegistration", KoinPluginConstants.OPTION_DIRECT_REGISTRATION)
+        assertEquals("verifyGeneratedKeys", KoinPluginConstants.OPTION_VERIFY_GENERATED_KEYS)
     }
 
     @Test

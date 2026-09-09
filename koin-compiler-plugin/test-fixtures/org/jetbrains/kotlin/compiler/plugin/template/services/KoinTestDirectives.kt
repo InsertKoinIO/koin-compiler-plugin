@@ -12,4 +12,9 @@ object KoinTestDirectives : SimpleDirectivesContainer() {
     val DISABLE_COMPILE_SAFETY by directive(
         description = "Disable compile-safety hint generation/validation for this test module"
     )
+
+    /** Mirrors `koinCompiler { directRegistration = false }`: emit the pre-1.3.0 buildSingle/bind shape. */
+    val DISABLE_DIRECT_REGISTRATION by directive(
+        description = "Register annotation-discovered definitions through the runtime DSL instead of directly"
+    )
 }

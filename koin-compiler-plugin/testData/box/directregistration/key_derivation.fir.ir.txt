@@ -1,0 +1,918 @@
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_sample_direct_TestModule_838696959b8d13c0.kt
+  FUN name:componentscan_sample_direct_TestModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:sample.direct.KotlinBound
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:kotlin.CharSequence
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_sample_direct_TestModule_scoped visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:sample.direct.Holder.InSession
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:sample.direct.Holder.Api
+    VALUE_PARAMETER kind:Regular name:scope index:2 type:sample.direct.Holder.SessionScope
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_sample_direct_TestModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:sample.direct.EagerWithBinding
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:sample.direct.Holder.Api
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_sample_direct_TestModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:sample.direct.Holder.Impl
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:sample.direct.Holder.Api
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_sample_direct_TestModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:sample.direct.Holder.NamedImpl
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:sample.direct.Holder.Api
+    VALUE_PARAMETER kind:Regular name:qualifier_named$2dnested index:2 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_sample_direct_TestModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:sample.direct.Holder.TypeQualified
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:sample.direct.Holder.Api
+    VALUE_PARAMETER kind:Regular name:qualifierType index:2 type:sample.direct.Holder.Marker
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:sample.direct fileName:/test.kt
+  CLASS CLASS name:EagerWithBinding modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]
+    annotations:
+      Singleton(binds = [CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = true)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.EagerWithBinding
+    ANONYMOUS_INITIALIZER isStatic=false
+      BLOCK_BODY
+        TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+          BLOCK type=kotlin.Int origin=POSTFIX_INCR
+            VAR IR_TEMPORARY_VARIABLE name:tmp_0 type:kotlin.Int [val]
+              CALL 'public final fun <get-eager> (): kotlin.Int declared in sample.direct.Counter' type=kotlin.Int origin=POSTFIX_INCR
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=sample.direct.Counter
+            CALL 'public final fun <set-eager> (<set-?>: kotlin.Int): kotlin.Unit declared in sample.direct.Counter' type=kotlin.Unit origin=POSTFIX_INCR
+              ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=sample.direct.Counter
+              ARG <set-?>: CALL 'public final fun inc (): kotlin.Int declared in kotlin.Int' type=kotlin.Int origin=POSTFIX_INCR
+                ARG <this>: GET_VAR 'val tmp_0: kotlin.Int declared in sample.direct.EagerWithBinding' type=kotlin.Int origin=null
+            GET_VAR 'val tmp_0: kotlin.Int declared in sample.direct.EagerWithBinding' type=kotlin.Int origin=null
+    CONSTRUCTOR visibility:public returnType:sample.direct.EagerWithBinding [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:EagerWithBinding modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in sample.direct.Holder.Api
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in sample.direct.Holder.Api
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in sample.direct.Holder.Api
+  CLASS CLASS name:Holder modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder
+    CLASS CLASS name:Impl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]
+      annotations:
+        Singleton(binds = <null>, createdAtStart = <null>)
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.Impl
+      CONSTRUCTOR visibility:public returnType:sample.direct.Holder.Impl [primary]
+        BLOCK_BODY
+          DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+          INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Impl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.Unit
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in sample.direct.Holder.Api
+    CLASS CLASS name:InSession modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]
+      annotations:
+        Scoped(binds = <null>)
+        Scope(value = CLASS_REFERENCE 'CLASS CLASS name:SessionScope modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.SessionScope>, name = <null>)
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.InSession
+      CONSTRUCTOR visibility:public returnType:sample.direct.Holder.InSession [primary]
+        BLOCK_BODY
+          DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+          INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:InSession modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.Unit
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in sample.direct.Holder.Api
+    CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.Marker
+      CONSTRUCTOR visibility:public returnType:sample.direct.Holder.Marker [primary]
+        BLOCK_BODY
+          DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+          INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in kotlin.Any
+    CLASS CLASS name:NamedImpl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]
+      annotations:
+        Singleton(binds = <null>, createdAtStart = <null>)
+        Named(value = "named-nested", type = <null>)
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.NamedImpl
+      CONSTRUCTOR visibility:public returnType:sample.direct.Holder.NamedImpl [primary]
+        BLOCK_BODY
+          DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+          INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:NamedImpl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.Unit
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in sample.direct.Holder.Api
+    CLASS CLASS name:Provided modality:FINAL visibility:public superTypes:[kotlin.Any]
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.Provided
+      PROPERTY name:origin visibility:public modality:FINAL [val]
+        FIELD PROPERTY_BACKING_FIELD name:origin type:kotlin.String visibility:private [final]
+          EXPRESSION_BODY
+            GET_VAR 'origin: kotlin.String declared in sample.direct.Holder.Provided.<init>' type=kotlin.String origin=INITIALIZE_PROPERTY_FROM_PARAMETER
+        FUN DEFAULT_PROPERTY_ACCESSOR name:<get-origin> visibility:public modality:FINAL returnType:kotlin.String
+          VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:sample.direct.Holder.Provided
+          correspondingProperty: PROPERTY name:origin visibility:public modality:FINAL [val]
+          BLOCK_BODY
+            RETURN type=kotlin.Nothing from='public final fun <get-origin> (): kotlin.String declared in sample.direct.Holder.Provided'
+              GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:origin type:kotlin.String visibility:private [final]' type=kotlin.String origin=null
+                receiver: GET_VAR '<this>: sample.direct.Holder.Provided declared in sample.direct.Holder.Provided.<get-origin>' type=sample.direct.Holder.Provided origin=null
+      CONSTRUCTOR visibility:public returnType:sample.direct.Holder.Provided [primary]
+        VALUE_PARAMETER kind:Regular name:origin index:0 type:kotlin.String
+        BLOCK_BODY
+          DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+          INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Provided modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in kotlin.Any
+    CLASS CLASS name:SessionScope modality:FINAL visibility:public superTypes:[kotlin.Any]
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.SessionScope
+      CONSTRUCTOR visibility:public returnType:sample.direct.Holder.SessionScope [primary]
+        BLOCK_BODY
+          DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+          INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:SessionScope modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in kotlin.Any
+    CLASS CLASS name:TypeQualified modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]
+      annotations:
+        Singleton(binds = <null>, createdAtStart = <null>)
+        Qualifier(value = CLASS_REFERENCE 'CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Marker>, name = <null>)
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.TypeQualified
+      CONSTRUCTOR visibility:public returnType:sample.direct.Holder.TypeQualified [primary]
+        BLOCK_BODY
+          DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+          INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:TypeQualified modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.Unit
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in sample.direct.Holder.Api
+    CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]
+      thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Holder.Api
+      FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+        overridden:
+          public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun hashCode (): kotlin.Int declared in kotlin.Any
+      FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+        overridden:
+          public open fun toString (): kotlin.String declared in kotlin.Any
+    CONSTRUCTOR visibility:public returnType:sample.direct.Holder [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:Holder modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:KotlinBound modality:FINAL visibility:public superTypes:[kotlin.CharSequence]
+    annotations:
+      Factory(binds = [CLASS_REFERENCE 'CLASS IR_EXTERNAL_DECLARATION_STUB INTERFACE name:CharSequence modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<kotlin.CharSequence>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.KotlinBound
+    CONSTRUCTOR visibility:public returnType:sample.direct.KotlinBound [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:KotlinBound modality:FINAL visibility:public superTypes:[kotlin.CharSequence]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:chars visibility:public modality:OPEN returnType:@[FlexibleNullability] java.util.stream.IntStream? [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.CharSequence
+      overridden:
+        public open fun chars (): @[FlexibleNullability] java.util.stream.IntStream? declared in kotlin.CharSequence
+    FUN FAKE_OVERRIDE name:codePoints visibility:public modality:OPEN returnType:@[FlexibleNullability] java.util.stream.IntStream? [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.CharSequence
+      overridden:
+        public open fun codePoints (): @[FlexibleNullability] java.util.stream.IntStream? declared in kotlin.CharSequence
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.CharSequence
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.CharSequence
+    FUN FAKE_OVERRIDE name:isEmpty visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.CharSequence
+      overridden:
+        public open fun isEmpty (): kotlin.Boolean declared in kotlin.CharSequence
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.CharSequence
+    FUN name:get visibility:public modality:OPEN returnType:kotlin.Char [operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:sample.direct.KotlinBound
+      VALUE_PARAMETER kind:Regular name:index index:1 type:kotlin.Int
+      overridden:
+        public abstract fun get (index: kotlin.Int): kotlin.Char declared in kotlin.CharSequence
+      BLOCK_BODY
+        RETURN type=kotlin.Nothing from='public open fun get (index: kotlin.Int): kotlin.Char declared in sample.direct.KotlinBound'
+          CONST Char type=kotlin.Char value=' '
+    FUN name:subSequence visibility:public modality:OPEN returnType:kotlin.CharSequence
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:sample.direct.KotlinBound
+      VALUE_PARAMETER kind:Regular name:startIndex index:1 type:kotlin.Int
+      VALUE_PARAMETER kind:Regular name:endIndex index:2 type:kotlin.Int
+      overridden:
+        public abstract fun subSequence (startIndex: kotlin.Int, endIndex: kotlin.Int): kotlin.CharSequence declared in kotlin.CharSequence
+      BLOCK_BODY
+        RETURN type=kotlin.Nothing from='public open fun subSequence (startIndex: kotlin.Int, endIndex: kotlin.Int): kotlin.CharSequence declared in sample.direct.KotlinBound'
+          CONST String type=kotlin.String value=""
+    PROPERTY name:length visibility:public modality:OPEN [val]
+      overridden:
+        public abstract length: kotlin.Int declared in kotlin.CharSequence
+      FUN name:<get-length> visibility:public modality:OPEN returnType:kotlin.Int
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:sample.direct.KotlinBound
+        correspondingProperty: PROPERTY name:length visibility:public modality:OPEN [val]
+        overridden:
+          public abstract fun <get-length> (): kotlin.Int declared in kotlin.CharSequence
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public open fun <get-length> (): kotlin.Int declared in sample.direct.KotlinBound'
+            CONST Int type=kotlin.Int value=0
+  CLASS CLASS name:TestModule modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Module(includes = <null>, createdAtStart = <null>)
+      ComponentScan(value = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.TestModule
+    CONSTRUCTOR visibility:public returnType:sample.direct.TestModule [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:TestModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+    FUN name:provideNested visibility:public modality:FINAL returnType:sample.direct.Holder.Provided
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:sample.direct.TestModule
+      annotations:
+        Singleton(binds = <null>, createdAtStart = <null>)
+      BLOCK_BODY
+        RETURN type=kotlin.Nothing from='public final fun provideNested (): sample.direct.Holder.Provided declared in sample.direct.TestModule'
+          CONSTRUCTOR_CALL 'public constructor <init> (origin: kotlin.String) declared in sample.direct.Holder.Provided' type=sample.direct.Holder.Provided origin=null
+            ARG origin: CONST String type=kotlin.String value="fn"
+  CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:sample.direct.Counter
+    PROPERTY name:eager visibility:public modality:FINAL [var]
+      FIELD PROPERTY_BACKING_FIELD name:eager type:kotlin.Int visibility:private
+        EXPRESSION_BODY
+          CONST Int type=kotlin.Int value=0
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-eager> visibility:public modality:FINAL returnType:kotlin.Int
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:sample.direct.Counter
+        correspondingProperty: PROPERTY name:eager visibility:public modality:FINAL [var]
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public final fun <get-eager> (): kotlin.Int declared in sample.direct.Counter'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:eager type:kotlin.Int visibility:private' type=kotlin.Int origin=null
+              receiver: GET_VAR '<this>: sample.direct.Counter declared in sample.direct.Counter.<get-eager>' type=sample.direct.Counter origin=null
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<set-eager> visibility:public modality:FINAL returnType:kotlin.Unit
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:sample.direct.Counter
+        VALUE_PARAMETER kind:Regular name:<set-?> index:1 type:kotlin.Int
+        correspondingProperty: PROPERTY name:eager visibility:public modality:FINAL [var]
+        BLOCK_BODY
+          SET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:eager type:kotlin.Int visibility:private' type=kotlin.Unit origin=null
+            receiver: GET_VAR '<this>: sample.direct.Counter declared in sample.direct.Counter.<set-eager>' type=sample.direct.Counter origin=null
+            value: GET_VAR '<set-?>: kotlin.Int declared in sample.direct.Counter.<set-eager>' type=kotlin.Int origin=null
+    CONSTRUCTOR visibility:private returnType:sample.direct.Counter [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  FUN name:box visibility:public modality:FINAL returnType:kotlin.String
+    BLOCK_BODY
+      VAR name:koin type:org.koin.core.Koin [val]
+        CALL 'public final fun <get-koin> (): org.koin.core.Koin declared in org.koin.core.KoinApplication' type=org.koin.core.Koin origin=GET_PROPERTY
+          ARG <this>: CALL 'public final fun koinApplication (appDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit>?): org.koin.core.KoinApplication declared in org.koin.dsl' type=org.koin.core.KoinApplication origin=null
+            ARG appDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit> origin=LAMBDA
+              FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                VALUE_PARAMETER kind:ExtensionReceiver name:$this$koinApplication index:0 type:org.koin.core.KoinApplication
+                BLOCK_BODY
+                  TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                    CALL 'public final fun modules (modules: org.koin.core.module.Module): org.koin.core.KoinApplication declared in org.koin.core.KoinApplication' type=org.koin.core.KoinApplication origin=null
+                      ARG <this>: GET_VAR '$this$koinApplication: org.koin.core.KoinApplication declared in sample.direct.box.<anonymous>' type=org.koin.core.KoinApplication origin=IMPLICIT_ARGUMENT
+                      ARG modules: CALL 'public final fun module (<this>: sample.direct.TestModule): org.koin.core.module.Module declared in sample.direct' type=org.koin.core.module.Module origin=null
+                        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> () declared in sample.direct.TestModule' type=sample.direct.TestModule origin=null
+      VAR name:impl type:sample.direct.Holder.Impl [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=sample.direct.Holder.Impl origin=null
+          TYPE_ARG T: sample.direct.Holder.Impl
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: TYPE_OP type=kotlin.Boolean origin=NOT_INSTANCEOF typeOperand=sample.direct.Holder.Api
+            GET_VAR 'val impl: sample.direct.Holder.Impl declared in sample.direct.box' type=sample.direct.Holder.Impl origin=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: Impl not resolved by primary type"
+      VAR name:named type:sample.direct.Holder.NamedImpl [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=sample.direct.Holder.NamedImpl origin=null
+          TYPE_ARG T: sample.direct.Holder.NamedImpl
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+          ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+            ARG name: CONST String type=kotlin.String value="named-nested"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: TYPE_OP type=kotlin.Boolean origin=NOT_INSTANCEOF typeOperand=sample.direct.Holder.Api
+            GET_VAR 'val named: sample.direct.Holder.NamedImpl declared in sample.direct.box' type=sample.direct.Holder.NamedImpl origin=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: named nested class not resolved"
+      VAR name:typeQualified type:sample.direct.Holder.TypeQualified [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=sample.direct.Holder.TypeQualified origin=null
+          TYPE_ARG T: sample.direct.Holder.TypeQualified
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+          ARG qualifier: CALL 'public final fun qualifier <T> (): org.koin.core.qualifier.TypeQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.TypeQualifier origin=null
+            TYPE_ARG T: sample.direct.Holder.Marker
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: TYPE_OP type=kotlin.Boolean origin=NOT_INSTANCEOF typeOperand=sample.direct.Holder.Api
+            GET_VAR 'val typeQualified: sample.direct.Holder.TypeQualified declared in sample.direct.box' type=sample.direct.Holder.TypeQualified origin=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: type-qualified nested class not resolved"
+      CALL 'public final fun createEagerInstances (): kotlin.Unit declared in org.koin.core.Koin' type=kotlin.Unit origin=null
+        ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public final fun <get-eager> (): kotlin.Int declared in sample.direct.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=sample.direct.Counter
+              ARG arg1: CONST Int type=kotlin.Int value=1
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: createdAtStart not honored (eager="
+              CALL 'public final fun <get-eager> (): kotlin.Int declared in sample.direct.Counter' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:Counter modality:FINAL visibility:public superTypes:[kotlin.Any]' type=sample.direct.Counter
+              CONST String type=kotlin.String value=")"
+      VAR name:byBinding type:kotlin.collections.List<sample.direct.Holder.Api> [val]
+        CALL 'public final fun getAll <T> (): kotlin.collections.List<T of org.koin.core.Koin.getAll> declared in org.koin.core.Koin' type=kotlin.collections.List<sample.direct.Holder.Api> origin=null
+          TYPE_ARG T: sample.direct.Holder.Api
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun none <T> (<this>: kotlin.collections.Iterable<T of kotlin.collections.none>, predicate: kotlin.Function1<T of kotlin.collections.none, kotlin.Boolean>): kotlin.Boolean declared in kotlin.collections' type=kotlin.Boolean origin=null
+            TYPE_ARG T: sample.direct.Holder.Api
+            ARG <this>: GET_VAR 'val byBinding: kotlin.collections.List<sample.direct.Holder.Api> declared in sample.direct.box' type=kotlin.collections.List<sample.direct.Holder.Api> origin=null
+            ARG predicate: FUN_EXPR type=kotlin.Function1<sample.direct.Holder.Api, kotlin.Boolean> origin=LAMBDA
+              FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Boolean
+                VALUE_PARAMETER kind:Regular name:it index:0 type:sample.direct.Holder.Api
+                BLOCK_BODY
+                  RETURN type=kotlin.Nothing from='local final fun <anonymous> (it: sample.direct.Holder.Api): kotlin.Boolean declared in sample.direct.box'
+                    TYPE_OP type=kotlin.Boolean origin=INSTANCEOF typeOperand=sample.direct.EagerWithBinding
+                      GET_VAR 'it: sample.direct.Holder.Api declared in sample.direct.box.<anonymous>' type=sample.direct.Holder.Api origin=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: binding of eager single not registered"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: TYPE_OP type=kotlin.Boolean origin=NOT_INSTANCEOF typeOperand=sample.direct.KotlinBound
+            CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=kotlin.CharSequence origin=null
+              TYPE_ARG T: kotlin.CharSequence
+              ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: kotlin.CharSequence binding not resolved"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public final fun <get-origin> (): kotlin.String declared in sample.direct.Holder.Provided' type=kotlin.String origin=GET_PROPERTY
+                ARG <this>: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=sample.direct.Holder.Provided origin=null
+                  TYPE_ARG T: sample.direct.Holder.Provided
+                  ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+              ARG arg1: CONST String type=kotlin.String value="fn"
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: function definition not resolved"
+      VAR name:scope type:org.koin.core.scope.Scope [val]
+        CALL 'public final fun createScope (scopeId: kotlin.String, qualifier: org.koin.core.qualifier.Qualifier, source: kotlin.Any?, scopeArchetype: org.koin.core.qualifier.TypeQualifier?): org.koin.core.scope.Scope declared in org.koin.core.Koin' type=org.koin.core.scope.Scope origin=null
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+          ARG scopeId: CONST String type=kotlin.String value="s1"
+          ARG qualifier: CALL 'public final fun qualifier <T> (): org.koin.core.qualifier.TypeQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.TypeQualifier origin=null
+            TYPE_ARG T: sample.direct.Holder.SessionScope
+      VAR name:inSession type:sample.direct.Holder.InSession [val]
+        CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=sample.direct.Holder.InSession origin=null
+          TYPE_ARG T: sample.direct.Holder.InSession
+          ARG <this>: GET_VAR 'val scope: org.koin.core.scope.Scope declared in sample.direct.box' type=org.koin.core.scope.Scope origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQEQ
+            ARG <this>: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQEQ
+              ARG arg0: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=sample.direct.Holder.InSession origin=null
+                TYPE_ARG T: sample.direct.Holder.InSession
+                ARG <this>: GET_VAR 'val scope: org.koin.core.scope.Scope declared in sample.direct.box' type=org.koin.core.scope.Scope origin=null
+              ARG arg1: GET_VAR 'val inSession: sample.direct.Holder.InSession declared in sample.direct.box' type=sample.direct.Holder.InSession origin=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: scoped definition not scoped"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public final fun getOrNull <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.getOrNull? declared in org.koin.core.Koin' type=sample.direct.Holder.InSession? origin=null
+                TYPE_ARG T: sample.direct.Holder.InSession
+                ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in sample.direct.box' type=org.koin.core.Koin origin=null
+              ARG arg1: CONST Null type=kotlin.Nothing? value=null
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+            CONST String type=kotlin.String value="FAIL: scoped definition leaked to root"
+      RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in sample.direct'
+        CONST String type=kotlin.String value="OK"
+FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/sampleDirectTestModuleModule.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:moduledef_sample_direct_TestModule__provideNested visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] kind:Regular name:contributed index:0 type:sample.direct.Holder.Provided
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+      CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+        ARG message: CONST String type=kotlin.String value="Stub!"
+FILE fqName:sample.direct fileName:sample/direct/sampleDirectTestModuleModule.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
+    VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:sample.direct.TestModule
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun module (<this>: sample.direct.TestModule): org.koin.core.module.Module declared in sample.direct'
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG moduleDeclaration: FUN_EXPR type=kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+                BLOCK type=kotlin.Unit origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_0 type:org.koin.core.module.Module [val]
+                    GET_VAR '<this>: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_1 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.Impl
+                      ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                        ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                      ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:Impl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.Impl>
+                      ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                      ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, sample.direct.Holder.Impl> origin=LAMBDA
+                        FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:sample.direct.Holder.Impl
+                          VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                          VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                          BLOCK_BODY
+                            RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): sample.direct.Holder.Impl declared in sample.direct.module.<anonymous>'
+                              CONSTRUCTOR_CALL 'public constructor <init> () declared in sample.direct.Holder.Impl' type=sample.direct.Holder.Impl origin=null
+                      ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                      ARG secondaryTypes: CALL 'public final fun listOf <T> (element: T of kotlin.collections.listOf): kotlin.collections.List<T of kotlin.collections.listOf> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.listOf> origin=null
+                        TYPE_ARG T: kotlin.reflect.KClass<*>
+                        ARG element: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                      ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_2 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.Impl
+                      ARG beanDefinition: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_0: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$Impl::_root_"
+                    ARG factory: GET_VAR 'val tmp_2: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_0: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$Api::_root_"
+                    ARG factory: GET_VAR 'val tmp_2: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:Impl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.Impl>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$Impl::_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$Impl::_root_' for sample.direct.Holder.Impl does not match indexKey() at runtime"
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$Api::_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$Api::_root_' for sample.direct.Holder.Api does not match indexKey() at runtime"
+                BLOCK type=kotlin.Unit origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_3 type:org.koin.core.module.Module [val]
+                    GET_VAR '<this>: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_4 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.NamedImpl
+                      ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                        ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                      ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:NamedImpl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.NamedImpl>
+                      ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+                        ARG name: CONST String type=kotlin.String value="named-nested"
+                      ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, sample.direct.Holder.NamedImpl> origin=LAMBDA
+                        FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:sample.direct.Holder.NamedImpl
+                          VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                          VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                          BLOCK_BODY
+                            RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): sample.direct.Holder.NamedImpl declared in sample.direct.module.<anonymous>'
+                              CONSTRUCTOR_CALL 'public constructor <init> () declared in sample.direct.Holder.NamedImpl' type=sample.direct.Holder.NamedImpl origin=null
+                      ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                      ARG secondaryTypes: CALL 'public final fun listOf <T> (element: T of kotlin.collections.listOf): kotlin.collections.List<T of kotlin.collections.listOf> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.listOf> origin=null
+                        TYPE_ARG T: kotlin.reflect.KClass<*>
+                        ARG element: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                      ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_5 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.NamedImpl
+                      ARG beanDefinition: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_3: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$NamedImpl:named-nested:_root_"
+                    ARG factory: GET_VAR 'val tmp_5: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_3: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$Api:named-nested:_root_"
+                    ARG factory: GET_VAR 'val tmp_5: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:NamedImpl modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.NamedImpl>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$NamedImpl:named-nested:_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$NamedImpl:named-nested:_root_' for sample.direct.Holder.NamedImpl does not match indexKey() at runtime"
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$Api:named-nested:_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$Api:named-nested:_root_' for sample.direct.Holder.Api does not match indexKey() at runtime"
+                BLOCK type=kotlin.Unit origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_6 type:org.koin.core.module.Module [val]
+                    GET_VAR '<this>: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_7 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.TypeQualified
+                      ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                        ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                      ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:TypeQualified modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.TypeQualified>
+                      ARG qualifier: CALL 'public final fun typeQualifier <T> (kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.typeQualifier>): org.koin.core.qualifier.Qualifier declared in org.koin.plugin.module.dsl' type=org.koin.core.qualifier.Qualifier origin=null
+                        TYPE_ARG T: sample.direct.Holder.Marker
+                        ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Marker>
+                      ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, sample.direct.Holder.TypeQualified> origin=LAMBDA
+                        FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:sample.direct.Holder.TypeQualified
+                          VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                          VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                          BLOCK_BODY
+                            RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): sample.direct.Holder.TypeQualified declared in sample.direct.module.<anonymous>'
+                              CONSTRUCTOR_CALL 'public constructor <init> () declared in sample.direct.Holder.TypeQualified' type=sample.direct.Holder.TypeQualified origin=null
+                      ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                      ARG secondaryTypes: CALL 'public final fun listOf <T> (element: T of kotlin.collections.listOf): kotlin.collections.List<T of kotlin.collections.listOf> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.listOf> origin=null
+                        TYPE_ARG T: kotlin.reflect.KClass<*>
+                        ARG element: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                      ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_8 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.TypeQualified
+                      ARG beanDefinition: GET_VAR 'val tmp_7: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_6: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$TypeQualified:sample.direct.Holder$Marker:_root_"
+                    ARG factory: GET_VAR 'val tmp_8: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_6: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$Api:sample.direct.Holder$Marker:_root_"
+                    ARG factory: GET_VAR 'val tmp_8: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:TypeQualified modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.TypeQualified>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_7: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_7: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$TypeQualified:sample.direct.Holder$Marker:_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$TypeQualified:sample.direct.Holder$Marker:_root_' for sample.direct.Holder.TypeQualified does not match indexKey() at runtime"
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_7: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_7: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$Api:sample.direct.Holder$Marker:_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$Api:sample.direct.Holder$Marker:_root_' for sample.direct.Holder.Api does not match indexKey() at runtime"
+                BLOCK type=kotlin.Unit origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_9 type:org.koin.core.module.Module [val]
+                    GET_VAR '<this>: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_10 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                      TYPE_ARG (of class) T: sample.direct.EagerWithBinding
+                      ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                        ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                      ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:EagerWithBinding modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.EagerWithBinding>
+                      ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                      ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, sample.direct.EagerWithBinding> origin=LAMBDA
+                        FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:sample.direct.EagerWithBinding
+                          VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                          VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                          BLOCK_BODY
+                            RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): sample.direct.EagerWithBinding declared in sample.direct.module.<anonymous>'
+                              CONSTRUCTOR_CALL 'public constructor <init> () declared in sample.direct.EagerWithBinding' type=sample.direct.EagerWithBinding origin=null
+                      ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                      ARG secondaryTypes: CALL 'public final fun listOf <T> (element: T of kotlin.collections.listOf): kotlin.collections.List<T of kotlin.collections.listOf> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.listOf> origin=null
+                        TYPE_ARG T: kotlin.reflect.KClass<*>
+                        ARG element: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                      ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_11 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                      TYPE_ARG (of class) T: sample.direct.EagerWithBinding
+                      ARG beanDefinition: GET_VAR 'val tmp_10: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_9: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.EagerWithBinding::_root_"
+                    ARG factory: GET_VAR 'val tmp_11: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_9: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$Api::_root_"
+                    ARG factory: GET_VAR 'val tmp_11: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  CALL 'public final fun prepareForCreationAtStart (instanceFactory: org.koin.core.instance.SingleInstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_9: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG instanceFactory: GET_VAR 'val tmp_11: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:EagerWithBinding modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.EagerWithBinding>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_10: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_10: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.EagerWithBinding::_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.EagerWithBinding::_root_' for sample.direct.EagerWithBinding does not match indexKey() at runtime"
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_10: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_10: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$Api::_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$Api::_root_' for sample.direct.Holder.Api does not match indexKey() at runtime"
+                CALL 'public final fun bind <S> (<this>: org.koin.core.definition.KoinDefinition<*>, clazz: kotlin.reflect.KClass<S of org.koin.plugin.module.dsl.bind>): org.koin.core.definition.KoinDefinition<*> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<*> origin=null
+                  TYPE_ARG S: kotlin.CharSequence
+                  ARG <this>: CALL 'public final fun buildFactory <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildFactory>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildFactory>): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildFactory> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildFactory> origin=null
+                    TYPE_ARG T: sample.direct.KotlinBound
+                    ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:KotlinBound modality:FINAL visibility:public superTypes:[kotlin.CharSequence]' type=kotlin.reflect.KClass<sample.direct.KotlinBound>
+                    ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, sample.direct.KotlinBound> origin=LAMBDA
+                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:sample.direct.KotlinBound
+                        VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                        VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                        BLOCK_BODY
+                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): sample.direct.KotlinBound declared in sample.direct.module.<anonymous>'
+                            CONSTRUCTOR_CALL 'public constructor <init> () declared in sample.direct.KotlinBound' type=sample.direct.KotlinBound origin=null
+                  ARG clazz: CLASS_REFERENCE 'CLASS IR_EXTERNAL_DECLARATION_STUB INTERFACE name:CharSequence modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<kotlin.CharSequence>
+                BLOCK type=kotlin.Unit origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_12 type:org.koin.core.module.Module [val]
+                    GET_VAR '<this>: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_13 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.Provided
+                      ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                        ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                      ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:Provided modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Provided>
+                      ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                      ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, sample.direct.Holder.Provided> origin=LAMBDA
+                        FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:sample.direct.Holder.Provided
+                          VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                          VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                          BLOCK_BODY
+                            RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): sample.direct.Holder.Provided declared in sample.direct.module.<anonymous>'
+                              CALL 'public final fun provideNested (): sample.direct.Holder.Provided declared in sample.direct.TestModule' type=sample.direct.Holder.Provided origin=null
+                                ARG <this>: GET_VAR '<this>: sample.direct.TestModule declared in sample.direct.module' type=sample.direct.TestModule origin=null
+                      ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                      ARG secondaryTypes: CALL 'public final fun emptyList <T> (): kotlin.collections.List<T of kotlin.collections.emptyList> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.emptyList> origin=null
+                        TYPE_ARG T: kotlin.reflect.KClass<*>
+                      ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                  VAR IR_TEMPORARY_VARIABLE name:tmp_14 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                    CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                      TYPE_ARG (of class) T: sample.direct.Holder.Provided
+                      ARG beanDefinition: GET_VAR 'val tmp_13: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                  CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                    ARG <this>: GET_VAR 'val tmp_12: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$Provided::_root_"
+                    ARG factory: GET_VAR 'val tmp_14: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in sample.direct.module.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                  WHEN type=kotlin.Unit origin=null
+                    BRANCH
+                      if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                        ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                          ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                            ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:Provided modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Provided>
+                            ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                              ARG <this>: GET_VAR 'val tmp_13: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                              ARG <this>: GET_VAR 'val tmp_13: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                          ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$Provided::_root_"
+                      then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                        ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$Provided::_root_' for sample.direct.Holder.Provided does not match indexKey() at runtime"
+                CALL 'public final fun scope (<this>: org.koin.core.module.Module, qualifier: org.koin.core.qualifier.Qualifier, scopeSet: @[ExtensionFunctionType] kotlin.Function1<org.koin.dsl.ScopeDSL, kotlin.Unit>): kotlin.Unit declared in org.koin.plugin.module.dsl' type=kotlin.Unit origin=null
+                  ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in sample.direct.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                  ARG qualifier: CALL 'public final fun typeQualifier <T> (kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.typeQualifier>): org.koin.core.qualifier.Qualifier declared in org.koin.plugin.module.dsl' type=org.koin.core.qualifier.Qualifier origin=null
+                    TYPE_ARG T: sample.direct.Holder.SessionScope
+                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:SessionScope modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.SessionScope>
+                  ARG scopeSet: FUN_EXPR type=kotlin.Function1<org.koin.dsl.ScopeDSL, kotlin.Unit> origin=LAMBDA
+                    FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                      VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.dsl.ScopeDSL
+                      BLOCK_BODY
+                        BLOCK type=kotlin.Unit origin=null
+                          VAR IR_TEMPORARY_VARIABLE name:tmp_15 type:org.koin.core.module.Module [val]
+                            CALL 'public final fun <get-module> (): org.koin.core.module.Module declared in org.koin.dsl.ScopeDSL' type=org.koin.core.module.Module origin=null
+                              ARG <this>: GET_VAR '<this>: org.koin.dsl.ScopeDSL declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.dsl.ScopeDSL origin=null
+                          VAR IR_TEMPORARY_VARIABLE name:tmp_16 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                            CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                              TYPE_ARG (of class) T: sample.direct.Holder.InSession
+                              ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.dsl.ScopeDSL' type=org.koin.core.qualifier.Qualifier origin=null
+                                ARG <this>: GET_VAR '<this>: org.koin.dsl.ScopeDSL declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.dsl.ScopeDSL origin=null
+                              ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:InSession modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.InSession>
+                              ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                              ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, sample.direct.Holder.InSession> origin=LAMBDA
+                                FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:sample.direct.Holder.InSession
+                                  VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                                  VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                                  BLOCK_BODY
+                                    RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): sample.direct.Holder.InSession declared in sample.direct.module.<anonymous>.<anonymous>'
+                                      CONSTRUCTOR_CALL 'public constructor <init> () declared in sample.direct.Holder.InSession' type=sample.direct.Holder.InSession origin=null
+                              ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Scoped' type=org.koin.core.definition.Kind
+                              ARG secondaryTypes: CALL 'public final fun listOf <T> (element: T of kotlin.collections.listOf): kotlin.collections.List<T of kotlin.collections.listOf> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.listOf> origin=null
+                                TYPE_ARG T: kotlin.reflect.KClass<*>
+                                ARG element: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                              ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                          VAR IR_TEMPORARY_VARIABLE name:tmp_17 type:org.koin.core.instance.ScopedInstanceFactory<T of org.koin.core.instance.ScopedInstanceFactory> [val]
+                            CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.ScopedInstanceFactory>, holdInstance: kotlin.Boolean) declared in org.koin.core.instance.ScopedInstanceFactory' type=org.koin.core.instance.ScopedInstanceFactory<T of org.koin.core.instance.ScopedInstanceFactory> origin=null
+                              TYPE_ARG (of class) T: sample.direct.Holder.InSession
+                              ARG beanDefinition: GET_VAR 'val tmp_16: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                              ARG holdInstance: CONST Boolean type=kotlin.Boolean value=true
+                          CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                            ARG <this>: GET_VAR 'val tmp_15: org.koin.core.module.Module declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.module.Module origin=null
+                            ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$InSession::sample.direct.Holder$SessionScope"
+                            ARG factory: GET_VAR 'val tmp_17: org.koin.core.instance.ScopedInstanceFactory<T of org.koin.core.instance.ScopedInstanceFactory> declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.instance.ScopedInstanceFactory<T of org.koin.core.instance.ScopedInstanceFactory> origin=null
+                          CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                            ARG <this>: GET_VAR 'val tmp_15: org.koin.core.module.Module declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.module.Module origin=null
+                            ARG mapping: CONST String type=kotlin.String value="sample.direct.Holder$Api::sample.direct.Holder$SessionScope"
+                            ARG factory: GET_VAR 'val tmp_17: org.koin.core.instance.ScopedInstanceFactory<T of org.koin.core.instance.ScopedInstanceFactory> declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.instance.ScopedInstanceFactory<T of org.koin.core.instance.ScopedInstanceFactory> origin=null
+                          WHEN type=kotlin.Unit origin=null
+                            BRANCH
+                              if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                                ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                                  ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                                    ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:InSession modality:FINAL visibility:public superTypes:[sample.direct.Holder.Api]' type=kotlin.reflect.KClass<sample.direct.Holder.InSession>
+                                    ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                                      ARG <this>: GET_VAR 'val tmp_16: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                    ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                                      ARG <this>: GET_VAR 'val tmp_16: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                  ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$InSession::sample.direct.Holder$SessionScope"
+                              then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                                ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$InSession::sample.direct.Holder$SessionScope' for sample.direct.Holder.InSession does not match indexKey() at runtime"
+                          WHEN type=kotlin.Unit origin=null
+                            BRANCH
+                              if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                                ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                                  ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                                    ARG clazz: CLASS_REFERENCE 'CLASS INTERFACE name:Api modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<sample.direct.Holder.Api>
+                                    ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                                      ARG <this>: GET_VAR 'val tmp_16: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                    ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                                      ARG <this>: GET_VAR 'val tmp_16: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in sample.direct.module.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                  ARG arg1: CONST String type=kotlin.String value="sample.direct.Holder$Api::sample.direct.Holder$SessionScope"
+                              then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                                ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'sample.direct.Holder$Api::sample.direct.Holder$SessionScope' for sample.direct.Holder.Api does not match indexKey() at runtime"

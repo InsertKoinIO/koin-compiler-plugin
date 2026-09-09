@@ -36,7 +36,8 @@ class DefinitionCallBuilder(
     private val context: IrPluginContext,
     private val qualifierExtractor: QualifierExtractor,
     private val lambdaBuilder: LambdaBuilder,
-    private val argumentGenerator: KoinArgumentGenerator
+    private val argumentGenerator: KoinArgumentGenerator,
+    private val directRegistration: DirectRegistrationBuilder
 ) {
 
     private val jakartaInjectFqName = KoinAnnotationFqNames.JAKARTA_INJECT
@@ -49,6 +50,31 @@ class DefinitionCallBuilder(
      * so we report once per compilation per definition type (not once per skipped definition).
      */
     private val reportedMissingArtifacts = java.util.EnumSet.noneOf(DefinitionType::class.java)
+
+    // Root definitions carry no scope; scoped ones are typed or string-named. Archetype scopes
+    // (viewModelScope/activityScope/...) get their qualifier from a satellite artifact at runtime,
+    // so no compile-time key exists for them and they stay on the DSL call.
+    private fun scopeSpecOf(definition: Definition, scoped: Boolean): DirectRegistrationBuilder.ScopeSpec? = when {
+        !scoped -> DirectRegistrationBuilder.ScopeSpec.Root
+        definition.scopeClass != null -> DirectRegistrationBuilder.ScopeSpec.Typed(definition.scopeClass!!)
+        definition.scopeName != null -> DirectRegistrationBuilder.ScopeSpec.Named(definition.scopeName!!)
+        else -> null
+    }
+
+    private fun tryDirect(
+        definition: Definition,
+        targetType: IrClass,
+        qualifier: QualifierValue?,
+        scoped: Boolean,
+        receiver: IrValueParameter,
+        definitionLambda: IrExpression,
+        builder: DeclarationIrBuilder
+    ): IrExpression? {
+        val scope = scopeSpecOf(definition, scoped) ?: return null
+        val spec = DirectRegistrationBuilder.Spec(targetType, qualifier, definition.bindings, definition.definitionType, definition.createdAtStart, scope)
+        if (!directRegistration.canEmit(spec)) return null
+        return directRegistration.emit(spec, receiver, definitionLambda, builder)
+    }
 
     /**
      * Build: single(A::class, null) { A(get(), get()) } [bind Interface::class]
@@ -96,6 +122,9 @@ class DefinitionCallBuilder(
             classQualifier
         }
 
+        val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
+        tryDirect(definition, targetClass, effectiveQualifier, scoped = false, moduleReceiver, definitionLambda, builder)?.let { return it }
+
         val definitionCall = builder.irCall(targetFunction.symbol).apply {
             setExtensionReceiverArgument(builder.irGet(moduleReceiver))
             putTypeArgumentCompat(0, targetClass.defaultType)
@@ -113,7 +142,6 @@ class DefinitionCallBuilder(
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(effectiveQualifier, builder) ?: builder.irNull()
             putRegularArgument(1, qualifierArg)
 
-            val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
             putRegularArgument(2, definitionLambda)
 
             // Add createdAtStart parameter if applicable (only for SINGLE)
@@ -189,6 +217,10 @@ class DefinitionCallBuilder(
         }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
+        val definitionLambda = createFunctionDefinitionLambda(
+            targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
+        )
+        tryDirect(definition, returnTypeClass, qualifier, scoped = false, moduleReceiver, definitionLambda, builder)?.let { return it }
 
         val definitionCall = builder.irCall(koinFunction.symbol).apply {
             setExtensionReceiverArgument(builder.irGet(moduleReceiver))
@@ -207,9 +239,6 @@ class DefinitionCallBuilder(
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
             putRegularArgument(1, qualifierArg)
 
-            val definitionLambda = createFunctionDefinitionLambda(
-                targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
-            )
             putRegularArgument(2, definitionLambda)
 
             // Add createdAtStart parameter if applicable (only for SINGLE).
@@ -266,6 +295,10 @@ class DefinitionCallBuilder(
         }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
+        val definitionLambda = createTopLevelFunctionDefinitionLambda(
+            targetFunction, returnTypeClass, builder, parentFunction
+        )
+        tryDirect(definition, returnTypeClass, qualifier, scoped = false, moduleReceiver, definitionLambda, builder)?.let { return it }
 
         val definitionCall = builder.irCall(koinFunction.symbol).apply {
             setExtensionReceiverArgument(builder.irGet(moduleReceiver))
@@ -284,9 +317,6 @@ class DefinitionCallBuilder(
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
             putRegularArgument(1, qualifierArg)
 
-            val definitionLambda = createTopLevelFunctionDefinitionLambda(
-                targetFunction, returnTypeClass, builder, parentFunction
-            )
             putRegularArgument(2, definitionLambda)
 
             // Add createdAtStart parameter if applicable (only for SINGLE)
@@ -353,6 +383,9 @@ class DefinitionCallBuilder(
             classQualifier
         }
 
+        val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
+        tryDirect(definition, targetClass, effectiveQualifier, scoped = true, scopeDslReceiver, definitionLambda, builder)?.let { return it }
+
         val definitionCall = builder.irCall(scopedFunction.symbol).apply {
             setExtensionReceiverArgument(builder.irGet(scopeDslReceiver))
 
@@ -369,7 +402,6 @@ class DefinitionCallBuilder(
             val qualifierCall = qualifierExtractor.createQualifierCall(effectiveQualifier, builder)
             putRegularArgument(1, qualifierCall ?: builder.irNull())
 
-            val definitionLambda = createDefinitionLambda(constructor, targetClass, builder, parentFunction)
             putRegularArgument(2, definitionLambda)
         }
 
@@ -411,6 +443,10 @@ class DefinitionCallBuilder(
         }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
+        val definitionLambda = createFunctionDefinitionLambda(
+            targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
+        )
+        tryDirect(definition, returnTypeClass, qualifier, scoped = true, scopeDslReceiver, definitionLambda, builder)?.let { return it }
 
         val definitionCall = builder.irCall(scopedFunction.symbol).apply {
             setExtensionReceiverArgument(builder.irGet(scopeDslReceiver))
@@ -429,9 +465,6 @@ class DefinitionCallBuilder(
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
             putRegularArgument(1, qualifierArg)
 
-            val definitionLambda = createFunctionDefinitionLambda(
-                targetFunction, returnTypeClass, moduleClass, builder, parentFunction, getterFunction
-            )
             putRegularArgument(2, definitionLambda)
         }
 
@@ -471,6 +504,10 @@ class DefinitionCallBuilder(
         }
 
         val qualifier = qualifierExtractor.extractFromDeclaration(targetFunction)
+        val definitionLambda = createTopLevelFunctionDefinitionLambda(
+            targetFunction, returnTypeClass, builder, parentFunction
+        )
+        tryDirect(definition, returnTypeClass, qualifier, scoped = true, scopeDslReceiver, definitionLambda, builder)?.let { return it }
 
         val definitionCall = builder.irCall(scopedFunction.symbol).apply {
             setExtensionReceiverArgument(builder.irGet(scopeDslReceiver))
@@ -489,9 +526,6 @@ class DefinitionCallBuilder(
             val qualifierArg: IrExpression = qualifierExtractor.createQualifierCall(qualifier, builder) ?: builder.irNull()
             putRegularArgument(1, qualifierArg)
 
-            val definitionLambda = createTopLevelFunctionDefinitionLambda(
-                targetFunction, returnTypeClass, builder, parentFunction
-            )
             putRegularArgument(2, definitionLambda)
         }
 

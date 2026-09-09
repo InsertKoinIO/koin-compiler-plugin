@@ -88,6 +88,24 @@ object KoinPluginConstants {
     const val OPTION_VERSION_CHECK_SEVERITY = "versionCheckSeverity"
 
     /**
+     * Option controlling how annotation-discovered definitions are registered (KTZ-4829).
+     * `true` (default): the generated module registers each definition directly —
+     * `BeanDefinition` + `InstanceFactory` + `Module.saveMapping(<compile-time key>, factory)` —
+     * with the Koin index key computed at compile time. `false`: the pre-1.3.0 shape,
+     * `buildSingle(...)`/`bind(...)` calls that rebuild every key at runtime. Kill switch for the
+     * generated-code change; the emitted registrations resolve identically either way.
+     */
+    const val OPTION_DIRECT_REGISTRATION = "directRegistration"
+
+    /**
+     * Option adding a runtime self-check to every directly registered definition: the compile-time
+     * key is compared against `indexKey()` at module load and a mismatch throws. Costs one String
+     * build per key (what direct registration removes), so it is a verification switch for tests
+     * and troubleshooting, not a production setting. Default `false`.
+     */
+    const val OPTION_VERIFY_GENERATED_KEYS = "verifyGeneratedKeys"
+
+    /**
      * URL printed in the AI-assist CTA.
      *
      * Short redirect to the canonical doc page at https://doc.kotzilla.io/docs/fixIssues/koinMcp.

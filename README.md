@@ -84,6 +84,8 @@ koinCompiler {
     debugLogs = true          // Log internal processing (verbose)
     unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
     skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
+    directRegistration = true // Register annotation definitions directly with compile-time index keys (default: true, 1.3.0+)
+    verifyGeneratedKeys = false // Self-check every compile-time key against indexKey() at module load (default: false, verification only)
 }
 ```
 

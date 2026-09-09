@@ -90,6 +90,28 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
   }
 
   @Nested
+  @TestMetadata("koin-compiler-plugin/testData/box/directregistration")
+  @TestDataPath("$PROJECT_ROOT")
+  public class Directregistration {
+    @Test
+    public void testAllFilesPresentInDirectregistration() {
+      KtTestUtil.assertAllTestsPresentByMetadataWithExcluded(this.getClass(), new File("koin-compiler-plugin/testData/box/directregistration"), Pattern.compile("^(.+)\\.kt$"), null, true);
+    }
+
+    @Test
+    @TestMetadata("key_derivation.kt")
+    public void testKey_derivation() {
+      runTest("koin-compiler-plugin/testData/box/directregistration/key_derivation.kt");
+    }
+
+    @Test
+    @TestMetadata("kill_switch.kt")
+    public void testKill_switch() {
+      runTest("koin-compiler-plugin/testData/box/directregistration/kill_switch.kt");
+    }
+  }
+
+  @Nested
   @TestMetadata("koin-compiler-plugin/testData/box/dsl")
   @TestDataPath("$PROJECT_ROOT")
   public class Dsl {

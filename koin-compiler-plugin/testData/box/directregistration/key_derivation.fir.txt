@@ -1,0 +1,197 @@
+FILE: test.kt
+    package sample.direct
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|sample/direct/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Singleton|() public final fun provideNested(): R|sample/direct/Holder.Provided| {
+            ^provideNested Q|sample/direct/Holder|.R|sample/direct/Holder.Provided.Provided|(String(fn))
+        }
+
+    }
+    public final class Holder : R|kotlin/Any| {
+        public constructor(): R|sample/direct/Holder| {
+            super<R|kotlin/Any|>()
+        }
+
+        public abstract interface Api : R|kotlin/Any| {
+        }
+
+        public final class Provided : R|kotlin/Any| {
+            public constructor(origin: R|kotlin/String|): R|sample/direct/Holder.Provided| {
+                super<R|kotlin/Any|>()
+            }
+
+            public final val origin: R|kotlin/String| = R|<local>/origin|
+                public get(): R|kotlin/String|
+
+        }
+
+        @R|org/koin/core/annotation/Singleton|() public final class Impl : R|sample/direct/Holder.Api| {
+            public constructor(): R|sample/direct/Holder.Impl| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+        @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Named|(value = String(named-nested)) public final class NamedImpl : R|sample/direct/Holder.Api| {
+            public constructor(): R|sample/direct/Holder.NamedImpl| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+        public final class Marker : R|kotlin/Any| {
+            public constructor(): R|sample/direct/Holder.Marker| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+        @R|org/koin/core/annotation/Singleton|() @R|org/koin/core/annotation/Qualifier|(value = <getClass>(Q|sample/direct/Holder.Marker|)) public final class TypeQualified : R|sample/direct/Holder.Api| {
+            public constructor(): R|sample/direct/Holder.TypeQualified| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+        public final class SessionScope : R|kotlin/Any| {
+            public constructor(): R|sample/direct/Holder.SessionScope| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+        @R|org/koin/core/annotation/Scoped|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|sample/direct/Holder.SessionScope|)) public final class InSession : R|sample/direct/Holder.Api| {
+            public constructor(): R|sample/direct/Holder.InSession| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+    }
+    public final object Counter : R|kotlin/Any| {
+        private constructor(): R|sample/direct/Counter| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final var eager: R|kotlin/Int| = Int(0)
+            public get(): R|kotlin/Int|
+            public set(value: R|kotlin/Int|): R|kotlin/Unit|
+
+    }
+    @R|org/koin/core/annotation/Singleton|(createdAtStart = Boolean(true), binds = <collectionLiteralCall>(<getClass>(Q|sample/direct/Holder.Api|))) public final class EagerWithBinding : R|sample/direct/Holder.Api| {
+        public constructor(): R|sample/direct/EagerWithBinding| {
+            super<R|kotlin/Any|>()
+        }
+
+        init {
+             {
+                lval <unary>: R|kotlin/Int| = Q|sample/direct/Counter|.R|sample/direct/Counter.eager|
+                Q|sample/direct/Counter|.R|sample/direct/Counter.eager| = R|<local>/<unary>|.R|kotlin/Int.inc|()
+                R|<local>/<unary>|
+            }
+
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|(binds = <collectionLiteralCall>(<getClass>(Q|kotlin/CharSequence|))) public final class KotlinBound : R|kotlin/CharSequence| {
+        public constructor(): R|sample/direct/KotlinBound| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override val length: R|kotlin/Int|
+            public get(): R|kotlin/Int| {
+                ^ Int(0)
+            }
+
+        public open override operator fun get(index: R|kotlin/Int|): R|kotlin/Char| {
+            ^get Char( )
+        }
+
+        public open override fun subSequence(startIndex: R|kotlin/Int|, endIndex: R|kotlin/Int|): R|kotlin/CharSequence| {
+            ^subSequence String()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|sample/direct/TestModule.TestModule|().R|sample/direct/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval impl: R|sample/direct/Holder.Impl| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/direct/Holder.Impl|>()
+        when () {
+            (R|<local>/impl| !is R|sample/direct/Holder.Api|) ->  {
+                ^box String(FAIL: Impl not resolved by primary type)
+            }
+        }
+
+        lval named: R|sample/direct/Holder.NamedImpl| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/direct/Holder.NamedImpl|>(R|org/koin/core/qualifier/named|(String(named-nested)))
+        when () {
+            (R|<local>/named| !is R|sample/direct/Holder.Api|) ->  {
+                ^box String(FAIL: named nested class not resolved)
+            }
+        }
+
+        lval typeQualified: R|sample/direct/Holder.TypeQualified| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/direct/Holder.TypeQualified|>(R|org/koin/core/qualifier/qualifier|<R|sample/direct/Holder.Marker|>())
+        when () {
+            (R|<local>/typeQualified| !is R|sample/direct/Holder.Api|) ->  {
+                ^box String(FAIL: type-qualified nested class not resolved)
+            }
+        }
+
+        R|<local>/koin|.R|org/koin/core/Koin.createEagerInstances|()
+        when () {
+            !=(Q|sample/direct/Counter|.R|sample/direct/Counter.eager|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: createdAtStart not honored (eager=), Q|sample/direct/Counter|.R|sample/direct/Counter.eager|, String()))
+            }
+        }
+
+        lval byBinding: R|kotlin/collections/List<sample/direct/Holder.Api>| = R|<local>/koin|.R|org/koin/core/Koin.getAll|<R|sample/direct/Holder.Api|>()
+        when () {
+            R|<local>/byBinding|.R|kotlin/collections/none|<R|sample/direct/Holder.Api|>(<L> = none@fun <anonymous>(it: R|sample/direct/Holder.Api|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
+                ^ (R|<local>/it| is R|sample/direct/EagerWithBinding|)
+            }
+            ) ->  {
+                ^box String(FAIL: binding of eager single not registered)
+            }
+        }
+
+        when () {
+            (R|<local>/koin|.R|org/koin/core/Koin.get|<R|kotlin/CharSequence|>() !is R|sample/direct/KotlinBound|) ->  {
+                ^box String(FAIL: kotlin.CharSequence binding not resolved)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/direct/Holder.Provided|>().R|sample/direct/Holder.Provided.origin|, String(fn)) ->  {
+                ^box String(FAIL: function definition not resolved)
+            }
+        }
+
+        lval scope: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(s1), R|org/koin/core/qualifier/qualifier|<R|sample/direct/Holder.SessionScope|>())
+        lval inSession: R|sample/direct/Holder.InSession| = R|<local>/scope|.R|org/koin/core/scope/Scope.get|<R|sample/direct/Holder.InSession|>()
+        when () {
+            !==(R|<local>/scope|.R|org/koin/core/scope/Scope.get|<R|sample/direct/Holder.InSession|>(), R|<local>/inSession|) ->  {
+                ^box String(FAIL: scoped definition not scoped)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/direct/Holder.InSession|>(), Null(null)) ->  {
+                ^box String(FAIL: scoped definition leaked to root)
+            }
+        }
+
+        ^box String(OK)
+    }
+FILE: sample/direct/sampleDirectTestModuleModule.kt
+    package sample.direct
+
+    public final fun R|sample/direct/TestModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/sampleDirectTestModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_sample_direct_TestModule__provideNested(contributed: R|sample/direct/Holder.Provided|): R|kotlin/Unit|

@@ -20,6 +20,8 @@ object KoinConfigurationKeys {
     val MODULE_ID: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("koin.moduleId")
     val LOG_SEVERITY: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("koin.logSeverity")
     val VERSION_CHECK_SEVERITY: CompilerConfigurationKey<String> = CompilerConfigurationKey.create("koin.versionCheckSeverity")
+    val DIRECT_REGISTRATION: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("koin.directRegistration")
+    val VERIFY_GENERATED_KEYS: CompilerConfigurationKey<Boolean> = CompilerConfigurationKey.create("koin.verifyGeneratedKeys")
 }
 
 @Suppress("unused") // Used via reflection.
@@ -35,6 +37,8 @@ class KoinCommandLineProcessor : CommandLineProcessor {
         const val OPTION_MODULE_ID = KoinPluginConstants.OPTION_MODULE_ID
         const val OPTION_LOG_SEVERITY = KoinPluginConstants.OPTION_LOG_SEVERITY
         const val OPTION_VERSION_CHECK_SEVERITY = KoinPluginConstants.OPTION_VERSION_CHECK_SEVERITY
+        const val OPTION_DIRECT_REGISTRATION = KoinPluginConstants.OPTION_DIRECT_REGISTRATION
+        const val OPTION_VERIFY_GENERATED_KEYS = KoinPluginConstants.OPTION_VERIFY_GENERATED_KEYS
     }
 
     override val pluginId: String = BuildConfig.KOTLIN_PLUGIN_ID
@@ -93,6 +97,18 @@ class KoinCommandLineProcessor : CommandLineProcessor {
             valueDescription = "<warning|info>",
             description = "Severity of the Kotlin-version-compatibility warning, independent of logSeverity. 'info' is safe under allWarningsAsErrors.",
             required = false
+        ),
+        CliOption(
+            optionName = OPTION_DIRECT_REGISTRATION,
+            valueDescription = "<true|false>",
+            description = "Register annotation-discovered definitions directly with compile-time index keys instead of through the runtime DSL (default: true)",
+            required = false
+        ),
+        CliOption(
+            optionName = OPTION_VERIFY_GENERATED_KEYS,
+            valueDescription = "<true|false>",
+            description = "Self-check every compile-time index key against indexKey() at module load; a mismatch throws (default: false, verification only)",
+            required = false
         )
     )
 
@@ -107,6 +123,8 @@ class KoinCommandLineProcessor : CommandLineProcessor {
             OPTION_MODULE_ID -> configuration.put(KoinConfigurationKeys.MODULE_ID, value)
             OPTION_LOG_SEVERITY -> configuration.put(KoinConfigurationKeys.LOG_SEVERITY, value)
             OPTION_VERSION_CHECK_SEVERITY -> configuration.put(KoinConfigurationKeys.VERSION_CHECK_SEVERITY, value)
+            OPTION_DIRECT_REGISTRATION -> configuration.put(KoinConfigurationKeys.DIRECT_REGISTRATION, value.toBoolean())
+            OPTION_VERIFY_GENERATED_KEYS -> configuration.put(KoinConfigurationKeys.VERIFY_GENERATED_KEYS, value.toBoolean())
             else -> error("Unexpected config option: '${option.optionName}'")
         }
     }
