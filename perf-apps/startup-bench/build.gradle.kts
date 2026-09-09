@@ -10,6 +10,11 @@ plugins {
 val koinVersion: String = (project.findProperty("koinVersion") as? String) ?: "4.2.2"
 val useDirectRegistration: Boolean = (project.findProperty("directRegistration") as? String)?.toBoolean() ?: true
 val useVerifyKeys: Boolean = (project.findProperty("verifyGeneratedKeys") as? String)?.toBoolean() ?: false
+// quick: 1 fork, 2 warm-up + 3 measure, no profiler, plugin compile-safety off — about 2 min per
+// configuration instead of ~15. Use it to iterate; use the default (Metro-equivalent) profile for
+// numbers you publish.
+val quick: Boolean = (project.findProperty("quick") as? String)?.toBoolean() ?: false
+val useCompileSafety: Boolean = (project.findProperty("compileSafety") as? String)?.toBoolean() ?: !quick
 
 kotlin { jvmToolchain(21) }
 
@@ -23,22 +28,23 @@ dependencies {
 koinCompiler {
     directRegistration.set(useDirectRegistration)
     verifyGeneratedKeys.set(useVerifyKeys)
+    compileSafety.set(useCompileSafety)
     logSeverity.set("info")
 }
 
 // Same JMH shape as Metro's startup-jvm: AverageTime, 2 forks, 4 x 1s warmup, 10 x 1s measure.
 jmh {
-    warmupIterations.set(4)
-    iterations.set(10)
-    fork.set(2)
+    warmupIterations.set(if (quick) 2 else 4)
+    iterations.set(if (quick) 3 else 10)
+    fork.set(if (quick) 1 else 2)
     timeUnit.set("ms")
     benchmarkMode.set(listOf("avgt"))
-    profilers.set(listOf("gc"))
+    profilers.set(if (quick) emptyList() else listOf("gc"))
     resultFormat.set("JSON")
     resultsFile.set(layout.buildDirectory.file("results/jmh/results.json"))
     jvmArgsAppend.set(listOf("-Dkoin.version=$koinVersion", "-Dkoin.directRegistration=$useDirectRegistration"))
 }
 
 tasks.register("printConfig") {
-    doLast { println("koinVersion=$koinVersion directRegistration=$useDirectRegistration verifyGeneratedKeys=$useVerifyKeys") }
+    doLast { println("koinVersion=$koinVersion directRegistration=$useDirectRegistration verifyGeneratedKeys=$useVerifyKeys quick=$quick compileSafety=$useCompileSafety") }
 }

@@ -16,7 +16,9 @@ for path in sorted(glob.glob(os.path.join(results_dir, "*.json"))):
     for entry in json.load(open(path)):
         bench = entry["benchmark"].split(".")[-1]
         metric = entry["primaryMetric"]
-        alloc = entry.get("secondaryMetrics", {}).get("gc.alloc.rate.norm", {})
+        # JMH prefixes profiler metrics with a middle dot: "·gc.alloc.rate.norm"
+        secondary = entry.get("secondaryMetrics", {})
+        alloc = next((v for k, v in secondary.items() if k.endswith("gc.alloc.rate.norm")), {})
         rows.setdefault(bench, {})[config] = (
             metric["score"], metric["scoreError"], metric["scoreUnit"],
             alloc.get("score"), alloc.get("scoreUnit"),

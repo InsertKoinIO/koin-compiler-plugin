@@ -13,8 +13,13 @@ operation are reported next to time.
 python3 perf-apps/startup-bench/generate.py     # deterministic workload (seed 0)
 ./gradlew -p perf-apps/startup-bench jmh -PkoinVersion=4.2.2 -PdirectRegistration=true
 # the four-way matrix (koinVersion x directRegistration), results as JMH JSON
-(cd perf-apps/startup-bench && ./bench.sh results && python3 summarize.py results)
+(cd perf-apps/startup-bench && ./bench.sh results --quick && python3 summarize.py results)  # ~8 min, iterate
+(cd perf-apps/startup-bench && ./bench.sh results && python3 summarize.py results)          # ~1 h, publish
 ```
+
+`--quick` (or `-Pquick=true`): 1 fork, 2 warm-up + 3 measure, no GC profiler, plugin compile-safety
+off for the bench build (it only validates; the emitted registration code is the same). Expect
+wider error bars — it is for iterating, the default profile is for numbers you quote.
 
 Properties: `-PkoinVersion` (default `4.2.2`; a locally published koin-core works, e.g.
 `4.2.3-perfs`), `-PdirectRegistration` (default `true`), `-PverifyGeneratedKeys` (default `false`;
