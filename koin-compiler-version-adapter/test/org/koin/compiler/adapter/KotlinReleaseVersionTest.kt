@@ -61,24 +61,28 @@ class KotlinReleaseVersionTest {
     }
 
     @Test
-    fun minorLineIgnoresPatch() {
-        // A patch bump within the same major.minor is the same minor line.
-        assertTrue(v("2.4.10").minorLineAtLeast(v("2.4.0")))
-        assertTrue(v("2.4.99").minorLineAtLeast(v("2.4.0")))
-        assertTrue(v("2.4.0").minorLineAtLeast(v("2.4.10")))
+    fun sameReleaseRequiresTheExactPatch() {
+        // The trust comparison: a patch bump is NOT the same release. 2.4.20 removed four
+        // compiler APIs the core binds while 2.4.10 removed none, so `major.minor` cannot
+        // stand in for a verified version (GH #89, #99).
+        assertTrue(v("2.4.0").sameRelease(v("2.4.0")))
+        assertFalse(v("2.4.10").sameRelease(v("2.4.0")))
+        assertFalse(v("2.4.20").sameRelease(v("2.4.0")))
+        assertFalse(v("2.4.20").sameRelease(v("2.4.10")))
     }
 
     @Test
-    fun minorLineDistinguishesMinorAndMajor() {
-        assertFalse(v("2.4.0").minorLineAtLeast(v("2.5.0")))
-        assertTrue(v("2.5.0").minorLineAtLeast(v("2.4.99")))
-        assertFalse(v("1.9.20").minorLineAtLeast(v("2.4.0")))
-        assertTrue(v("3.0.0").minorLineAtLeast(v("2.4.0")))
+    fun sameReleaseDistinguishesMinorAndMajor() {
+        assertFalse(v("2.5.0").sameRelease(v("2.4.0")))
+        assertFalse(v("1.9.20").sameRelease(v("2.4.0")))
+        assertFalse(v("3.0.0").sameRelease(v("2.4.0")))
     }
 
     @Test
-    fun minorLineIgnoresMaturity() {
-        assertTrue(v("2.4.0-Beta1").minorLineAtLeast(v("2.4.0")))
-        assertTrue(v("2.4.0").minorLineAtLeast(v("2.4.20-dev-835")))
+    fun sameReleaseIgnoresMaturity() {
+        // A pre-release carries its own release's ABI — same stance as lineAtLeast.
+        assertTrue(v("2.4.0-Beta1").sameRelease(v("2.4.0")))
+        assertTrue(v("2.4.20-dev-835").sameRelease(v("2.4.20")))
+        assertFalse(v("2.4.20-dev-835").sameRelease(v("2.4.0")))
     }
 }

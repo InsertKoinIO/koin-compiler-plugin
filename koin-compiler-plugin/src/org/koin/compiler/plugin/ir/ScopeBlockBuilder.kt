@@ -3,8 +3,6 @@ package org.koin.compiler.plugin.ir
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.irCall
@@ -22,7 +20,6 @@ import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrStatementOrigin
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
-import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.types.typeWith
@@ -246,24 +243,8 @@ class ScopeBlockBuilder(
         val func1Class = function1Class ?: return null
 
         // Create the scope lambda function: ScopeDSL.() -> Unit
-        val scopeLambdaFunction = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
-            name = Name.special("<anonymous>"),
-            visibility = DescriptorVisibilities.LOCAL,
-            isInline = false,
-            isExpect = false,
+        val scopeLambdaFunction = context.irFactory.createKoinLambdaFunction(
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
         scopeLambdaFunction.parent = parentLambdaFunction
 

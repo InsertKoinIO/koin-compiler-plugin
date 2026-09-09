@@ -3,7 +3,6 @@ package org.koin.compiler.plugin.ir
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
@@ -22,7 +21,6 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetEnumValueImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
@@ -570,7 +568,7 @@ class KoinAnnotationProcessor(
         name: Name,
         positionalFallbackIndex: Int
     ): Boolean {
-        val arg = annotation.getValueArgument(name) ?: annotation.getRegularArgument(positionalFallbackIndex)
+        val arg = annotation.getRegularArgument(name) ?: annotation.getRegularArgument(positionalFallbackIndex)
         return when (arg) {
             is IrConst -> arg.value as? Boolean ?: false
             else -> false
@@ -594,7 +592,7 @@ class KoinAnnotationProcessor(
         } ?: return null
 
         // binds: look up by name first, then fall back to positional index 0
-        val bindsArg = annotation.getValueArgument(Name.identifier("binds"))
+        val bindsArg = annotation.getRegularArgument(Name.identifier("binds"))
             ?: annotation.getRegularArgument(0)
 
         if (bindsArg is IrVararg) {
@@ -950,10 +948,64 @@ class KoinAnnotationProcessor(
             module = moduleFragment
         ).also { it.metadata = FirMetadataSource.File(firFile) }
         moduleFragment.addFile(hintFile)
-        for (func in functions) {
+        for (func in disambiguateDuplicateSignatures(functions)) {
             hintFile.addChild(func)
             func.parent = hintFile
             context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(func)
+        }
+    }
+
+    /**
+     * Make hint functions that would serialize to an identical signature distinct.
+     *
+     * Two hint functions sharing (name, erased parameter types) in one file are an invalid
+     * classfile on JVM and a hard `SignatureClashDetector` error when a KLIB is serialized on
+     * wasm/native, reported with no source location since both declarations are plugin-generated.
+     *
+     * Tags every function past the first in a colliding group with an extra `Unit`-typed
+     * `dupN_<index>` parameter, which diverges the descriptors. Every decoder in this file matches
+     * parameters by name prefix (`binding*`, `qualifier_*`, `qualifierType`, `scope`, `r_`/`qn_`/`qt`)
+     * with only `param[0]` positional, so a trailing unrecognized marker is ignored on read. Same
+     * technique, same key, as [DslHintGenerator.disambiguateDuplicateSignatures] on the DSL side.
+     *
+     * DO NOT "simplify" this to dropping the duplicate. The erased signature is deliberately NOT a
+     * unique identity here: a `StringQualifier`'s value is carried in a parameter NAME with type
+     * `Unit`, so two `componentscan_*` hints for the same type under different `@Named` qualifiers
+     * share a signature while describing different providers. Dropping one throws away a distinct
+     * provider at emit time; disambiguating keeps both on the wire at no cost.
+     *
+     * Scope, stated precisely: this only guarantees both hints are EMITTED. It does not make a
+     * differently-qualified pair survive the round trip -- `discoverModuleScanDefinitions`'s
+     * ClassDef branch still dedupes read-back hints on type alone, qualifier-blind, unlike the
+     * five (type, qualifier) sites around it. That is a separate pre-existing defect (it reproduces
+     * identically with this disambiguation, with a drop, and with no dedupe at all) and is tracked
+     * on its own; do not read this function as fixing it.
+     */
+    private fun disambiguateDuplicateSignatures(functions: List<IrSimpleFunction>): List<IrSimpleFunction> {
+        if (functions.size < 2) return functions
+        val seen = mutableMapOf<String, Int>()
+        return functions.map { func ->
+            val key = func.name.asString() + "(" + func.parameters.joinToString(",") { it.type.render() } + ")"
+            val occurrence = seen.getOrDefault(key, 0)
+            seen[key] = occurrence + 1
+            if (occurrence == 0) return@map func
+            KoinPluginLogger.debug { "    disambiguated duplicate hint signature: $key (occurrence ${occurrence + 1})" }
+            func.also {
+                it.parameters = it.parameters + context.irFactory.createValueParameter(
+                    startOffset = UNDEFINED_OFFSET,
+                    endOffset = UNDEFINED_OFFSET,
+                    origin = IrDeclarationOrigin.DEFINED,
+                    name = Name.identifier("dup$occurrence"),
+                    type = context.irBuiltIns.unitType,
+                    isAssignable = false,
+                    symbol = IrValueParameterSymbolImpl(),
+                    kind = IrParameterKind.Regular,
+                    varargElementType = null,
+                    isCrossinline = false,
+                    isNoinline = false,
+                    isHidden = false,
+                ).also { p -> p.parent = func }
+            }
         }
     }
 
@@ -1232,24 +1284,9 @@ class KoinAnnotationProcessor(
         scopeClass: IrClass? = null,
         qualifier: QualifierValue? = null
     ): IrSimpleFunction? {
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
+        val function = context.irFactory.createKoinHintFunction(
             name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
 
         val params = mutableListOf<IrValueParameter>()
@@ -1379,24 +1416,9 @@ class KoinAnnotationProcessor(
      * are the payload. Consumer reads the names to find which per-qualifier entries to look up.
      */
     private fun createRosterHintFunction(hintName: Name, sanitizedQualifiers: List<String>): IrSimpleFunction {
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
+        val function = context.irFactory.createKoinHintFunction(
             name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
 
         val params = sanitizedQualifiers.mapIndexed { index, sanitized ->
@@ -1429,24 +1451,9 @@ class KoinAnnotationProcessor(
         val included = includedModuleIds.distinct()
         if (included.isEmpty()) return null
 
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
+        val function = context.irFactory.createKoinHintFunction(
             name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
 
         val params = included.map { includedId ->
@@ -1504,24 +1511,9 @@ class KoinAnnotationProcessor(
         val hintName = Name.identifier(
             KoinPluginConstants.funcReqsHintFunctionName(returnFqn, qualifierDiscriminator)
         )
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
+        val function = context.irFactory.createKoinHintFunction(
             name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
 
         fun hintParam(paramName: String, type: org.jetbrains.kotlin.ir.types.IrType) =
@@ -1828,24 +1820,9 @@ class KoinAnnotationProcessor(
         val moduleClassSymbol = koinModuleClassSymbol ?: return null
         val moduleType = moduleClassSymbol.owner.defaultType
 
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
+        val function = context.irFactory.createKoinHintFunction(
             name = Name.identifier("module"),
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = moduleType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
         function.parent = containingFile
 
@@ -2683,6 +2660,11 @@ class KoinAnnotationProcessor(
 
         KoinPluginLogger.debug { "      Querying module-scan hints for $moduleFqName (id=$sanitizedId)" }
 
+        // (type, qualifier) keys already accounted for, accumulated as we go. A Set rather than a
+        // linear scan: this is the hot cross-module decode path and resolving a qualifier per
+        // comparison would make it quadratic in the module's definition count.
+        val seenScanKeys = definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }
+
         for (defType in KoinModuleFirGenerator.ALL_DEFINITION_TYPES) {
             // Class definition hints: componentscan_<moduleId>_<defType>
             val className = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedId, defType)
@@ -2695,9 +2677,6 @@ class KoinAnnotationProcessor(
                 val classParams = hintFunc.regularParameters
                 val paramType = classParams.firstOrNull()?.type ?: continue
                 val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
-
-                // Skip duplicates
-                if (definitions.any { it.returnTypeClass.fqNameWhenAvailable == defClass.fqNameWhenAvailable }) continue
 
                 val definitionType = parseDefinitionType(defType) ?: continue
 
@@ -2730,6 +2709,14 @@ class KoinAnnotationProcessor(
                         } else null
                     }
                 } ?: qualifierExtractor.extractFromClass(defClass)
+
+                // Skip duplicates, keyed on (type, QUALIFIER) -- not type alone. Two @Named providers
+                // of one type is ordinary Koin; collapsing them here drops a real provider and
+                // yields a false KOIN-D001 at a consumer. Matches the five sibling (type, qualifier)
+                // sites in this file. See issue #94.
+                val scanKey = (defClass.fqNameWhenAvailable?.asString() ?: "?") +
+                    "#" + (classQualifier?.let { qualifierDiscriminator(it) } ?: "")
+                if (!seenScanKeys.add(scanKey)) continue
 
                 val createdAtStart = getCreatedAtStart(defClass)
 
@@ -2937,24 +2924,8 @@ class KoinAnnotationProcessor(
     ): IrExpression? {
         val koinModuleIrClass = koinModuleClass ?: return null
 
-        val lambdaFunction = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA,
-            name = Name.special("<anonymous>"),
-            visibility = DescriptorVisibilities.LOCAL,
-            isInline = false,
-            isExpect = false,
+        val lambdaFunction = context.irFactory.createKoinLambdaFunction(
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
         lambdaFunction.parent = parentFunction
 

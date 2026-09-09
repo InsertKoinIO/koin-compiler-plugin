@@ -1,0 +1,89 @@
+Module: leaf
+FILE: Providers.kt
+    package leaf
+
+    public final class Url : R|kotlin/Any| {
+        public constructor(value: R|kotlin/String|): R|leaf/Url| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val value: R|kotlin/String| = R|<local>/value|
+            public get(): R|kotlin/String|
+
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(baseUrl)) public final fun provideBaseUrl(): R|leaf/Url| {
+        ^provideBaseUrl R|leaf/Url.Url|(String(https://base.example))
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(authUrl)) public final fun provideAuthUrl(): R|leaf/Url| {
+        ^provideAuthUrl R|leaf/Url.Url|(String(https://auth.example))
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(leaf))) public final class LeafModule : R|kotlin/Any| {
+        public constructor(): R|leaf/LeafModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: leaf/leafLeafModuleModule.kt
+    package leaf
+
+    public final fun R|leaf/LeafModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/leafLeafModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|leaf/LeafModule|): R|kotlin/Unit|
+Module: mid
+FILE: MidModule.kt
+    package mid
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|leaf/LeafModule|))) @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(mid))) public final class MidModule : R|kotlin/Any| {
+        public constructor(): R|mid/MidModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class UrlPair : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(baseUrl)) base: R|leaf/Url|, @R|org/koin/core/annotation/Named|(value = String(authUrl)) auth: R|leaf/Url|): R|mid/UrlPair| {
+            super<R|kotlin/Any|>()
+        }
+
+        private final val base: R|leaf/Url| = R|<local>/base|
+            private get(): R|leaf/Url|
+
+        private final val auth: R|leaf/Url| = R|<local>/auth|
+            private get(): R|leaf/Url|
+
+        public final fun summary(): R|kotlin/String| {
+            ^summary <strcat>(this@R|mid/UrlPair|.R|mid/UrlPair.base|.R|leaf/Url.value|, String(|), this@R|mid/UrlPair|.R|mid/UrlPair.auth|.R|leaf/Url.value|)
+        }
+
+    }
+FILE: mid/midMidModuleModule.kt
+    package mid
+
+    public final fun R|mid/MidModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/midMidModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|mid/MidModule|): R|kotlin/Unit|
+Module: app
+FILE: test.kt
+    @R|org/koin/core/annotation/KoinApplication|() public final class App : R|kotlin/Any| {
+        public constructor(): R|App| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/plugin/module/dsl/startKoin|<R|App|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval summary: R|kotlin/String| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|mid/UrlPair|>().R|mid/UrlPair.summary|()
+        when () {
+            !=(R|<local>/summary|, String(https://base.example|https://auth.example)) ->  {
+                ^box <strcat>(String(FAIL: got ), R|<local>/summary|)
+            }
+        }
+
+        ^box String(OK)
+    }

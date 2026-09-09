@@ -220,7 +220,7 @@ class ScopedService(val scope: Scope) {
 
 Kotlin compiler plugins bind to unstable compiler internals and aren't binary-compatible across
 minor versions by default. This is now solved via `koin-compiler-version-adapter`: one artifact
-spans a range of Kotlin minor lines (currently 2.3.20 → 2.4.x) through per-line adapter classes
+spans a range of Kotlin minor lines (currently 2.3.20 → 2.4.20) through per-line adapter classes
 selected at plugin load (`KotlinAdapterLoader`), instead of shipping version-aligned release
 artifacts. See CLAUDE.md's "Compatibility — verified range + version gate" section for the
-version-gate policy (known-broken vs. unknown-future vs. same-line-new-patch handling).
+version-gate policy (known-broken vs. any unverified version).

@@ -205,6 +205,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("cross_module_relay_named_qualifiers_both_survive.kt")
+    public void testCross_module_relay_named_qualifiers_both_survive() {
+      runTest("koin-compiler-plugin/testData/box/modules/cross_module_relay_named_qualifiers_both_survive.kt");
+    }
+
+    @Test
     @TestMetadata("module_extension.kt")
     public void testModule_extension() {
       runTest("koin-compiler-plugin/testData/box/modules/module_extension.kt");

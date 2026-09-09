@@ -2,8 +2,6 @@ package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
-import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.builder.buildPackageDirective
@@ -13,7 +11,6 @@ import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.ir.symbols.impl.IrSimpleFunctionSymbolImpl
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.classifierOrNull
@@ -210,24 +207,9 @@ class DslHintGenerator(
         }
         val hintName = KoinModuleFirGenerator.dslDefinitionHintFunctionName(defTypeString)
 
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
+        val function = context.irFactory.createKoinHintFunction(
             name = hintName,
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
 
         // Target class type erased to raw form for generics — see #18.
@@ -388,24 +370,9 @@ class DslHintGenerator(
         // An incomplete module MUST emit even with nothing readable — the marker is the payload.
         if (included.isEmpty() && !emitWhenEmpty && !incomplete) return null
 
-        val function = context.irFactory.createSimpleFunction(
-            startOffset = UNDEFINED_OFFSET,
-            endOffset = UNDEFINED_OFFSET,
-            origin = IrDeclarationOrigin.DEFINED,
+        val function = context.irFactory.createKoinHintFunction(
             name = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId)),
-            visibility = DescriptorVisibilities.PUBLIC,
-            isInline = false,
-            isExpect = false,
             returnType = context.irBuiltIns.unitType,
-            modality = Modality.FINAL,
-            symbol = IrSimpleFunctionSymbolImpl(),
-            isTailrec = false,
-            isSuspend = false,
-            isOperator = false,
-            isInfix = false,
-            isExternal = false,
-            containerSource = null,
-            isFakeOverride = false
         )
 
         // One marker per included module, using the same `module_<id with . → $>` encoding the

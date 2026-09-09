@@ -42,7 +42,7 @@ app-*/
 
 ## Stack
 
-- **Koin** 4.2 + **Compiler Plugin** 1.2.0
+- **Koin** 4.2 + **Compiler Plugin** 1.2.1
 - Kotlin 2.4.0 (K2) — `app-floor-2320` stays on 2.3.20, the oldest supported version
 - Jetpack Compose
 - Room, DataStore, WorkManager
@@ -101,7 +101,8 @@ No clean needed for the DSL app (fixed in 1.1.0-Beta3 — see History below); th
 > `koin_dsl_hints_<module>.kt` file regenerated wholesale (same shape the annotation module-scan hints
 > always used) — a removed def leaves no orphan class.
 
-> **⚠️ `app-annotations` caveat (found 2026-08-28, plugin 1.2.0-Beta7, confirmed daemon-isolated —
+> **⚠️ `app-annotations` caveat (found 2026-08-28, plugin 1.2.0-Beta7; still holds on 1.2.1,
+> re-verified 2026-09-09 — confirmed daemon-isolated —
 > real, not a shared-daemon artifact).** A *plain* `./gradlew :app:compileDebugKotlin` can false-green
 > this exact scenario: `:core:data:compileDebugKotlin` correctly re-executes and regenerates its
 > `@ComponentScan` hint excluding the removed definition (verified: 5 entries instead of 6), but
@@ -152,13 +153,16 @@ D002 will not appear in the console — don't treat its absence as a problem.
 If a module loses its last `includes()`/`includes=[...]` edge **and** its last definition, the DSL
 app's incremental rebuild does **not** detect it — the build passes and the missing providers surface
 at runtime; `:<module>:clean` does not help either, only a full `clean` (with `--no-build-cache`)
-catches it. **Re-verified 2026-08-28 on 1.2.0-Beta7: this still holds for `app-dsl`.** The same check
+catches it. **Re-verified 2026-09-09 on 1.2.1: this still holds for `app-dsl`** (incremental passes
+silently, full clean reports `KOIN-D001` for `UserPreferencesDataSource`); previously confirmed
+2026-08-28 on 1.2.0-Beta7. The same check
 on `app-annotations`, however, was caught by a *plain incremental* build this time — no clean needed
 — contradicting the previously-unconditional claim here for that app. Root cause for the apparent fix
 was not deliberately investigated; it's plausibly an incidental side effect of hint-batching /
 multi-hop `@Configuration` discovery work already on this branch, unrelated to whatever intentionally
 changed. **Treat the annotation-path fix as observed, not guaranteed — re-run this scenario on both
-apps before relying on either claim for a release**, this is not something to "fix" by editing further.
+apps before relying on either claim for a release** (re-run 2026-09-09 on 1.2.1: the plain
+incremental build again caught it, 3 × `KOIN-D001`), this is not something to "fix" by editing further.
 
 | App | Edit | Expected without clean | Expected after full clean |
 |---|---|---|---|

@@ -1,5 +1,18 @@
-# Kotlin versions supported by this koin-compiler-plugin release.
-# One adapter module per line under koin-compiler-version-adapter/.
-# Drives the CI matrix and the support statement in error messages/docs.
+# Kotlin versions verified for this koin-compiler-plugin release.
+#
+# One line per version with a green tools/abi-check/check-kotlin-abi.sh run against
+# BOTH the plugin core and the adapter class it selects. This is the trust list, not
+# a list of adapter modules: a version may reuse an older line's adapter when it
+# introduced no adapter-level break (2.4.10 and 2.4.20 both reuse kotlin-2.4.0).
+#
+# Do NOT assume a new patch in a listed line is compatible — Kotlin ships feature
+# releases in the .20 patch slot. 2.4.20 removed four compiler APIs the core binds
+# while 2.4.10 removed none. Run abi-check, then add the line.
+#
+# Drives the adapter registry and the support statement in error messages/docs.
+# NOT wired into CI yet: abi-check is a manual pre-release step, so nothing here is
+# enforced automatically. Reported on GH #89; tracked as a follow-up.
 2.3.20
 2.4.0
+2.4.10
+2.4.20

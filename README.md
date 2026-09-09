@@ -7,7 +7,7 @@ A native Kotlin Compiler Plugin for [Koin](https://insert-koin.io/) dependency i
 ```kotlin
 // build.gradle.kts
 plugins {
-    id("io.insert-koin.compiler.plugin") version "1.2.0"
+    id("io.insert-koin.compiler.plugin") version "1.2.1"
 }
 
 dependencies {
@@ -90,7 +90,10 @@ koinCompiler {
 ## Compatibility
 
 - **Koin**: 4.2.0+
-- **Kotlin**: K2 compiler required. One artifact spans **Kotlin 2.3.20 → 2.4.x**.
+- **Kotlin**: K2 compiler required. One artifact spans **Kotlin 2.3.20 → 2.4.20**.
+  Verified versions: `2.3.20`, `2.4.0`, `2.4.10`, `2.4.20`. Another patch in one of
+  those lines is not assumed compatible — Kotlin ships feature releases in the `.20`
+  patch slot — so an unverified version compiles with a warning naming the verified list.
   Annotation-based (`@Module` / `@ComponentScan`) **WASM/JS** requires **Kotlin 2.4.0**
   ([KT-82395](https://youtrack.jetbrains.com/issue/KT-82395)); JVM/Android, iOS/Native, and
   DSL-based WASM/JS work across the range.

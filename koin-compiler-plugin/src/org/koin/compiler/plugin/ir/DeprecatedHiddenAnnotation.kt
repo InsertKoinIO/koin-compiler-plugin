@@ -77,17 +77,14 @@ private fun buildDeprecatedHiddenAnnotation(context: IrPluginContext): IrConstru
         deprecatedClassSymbol.defaultType,
         constructor.symbol
     ).apply {
-        // Set positional value arguments (used by codegen)
+        // Positional arguments only. `argumentMapping` used to be assigned here as well,
+        // but Kotlin 2.4.20 removed its setter and derives the map from `arguments` +
+        // `symbol` instead — so on every supported line these two calls are the single
+        // source of truth for both codegen and metadata serialization (GH #89, #99).
         // arg 0: message (String)
         putRegularArgument(0, messageExpr)
         // arg 1: replaceWith — leave as default (null)
         // arg 2: level (DeprecationLevel.HIDDEN)
         putRegularArgument(2, levelExpr)
-
-        // Also set argument mapping (used by IR annotation processing and metadata serialization)
-        argumentMapping = mapOf(
-            Name.identifier("message") to messageExpr,
-            Name.identifier("level") to levelExpr
-        )
     }
 }
