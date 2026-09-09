@@ -120,6 +120,13 @@ adapter (e.g. 2.5.0), not on a patch bump within a registered line. Adapter sele
 unchanged. This trusts that a new patch within a supported line stays compatible — verify new
 patches with `tools/abi-check/check-kotlin-abi.sh <version>` before relying on it for a release.
 
+## ⚡ Compile-time performance
+
+- Classpath lookups for Koin's own fixed `module()`/`includes()` API functions were re-scanning the
+  classpath on every call — once per module-body fill and once per generated `includes()` call —
+  instead of going through the reference cache already used by every other lookup in the same pass.
+  These are invariant within a compilation; they now hit the cache.
+
 ## ✅ Compatibility
 
 - **Koin**: 4.2.0+
