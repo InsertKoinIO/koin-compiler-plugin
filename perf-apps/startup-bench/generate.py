@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+"""
+KTZ-4829: deterministic Metro-shaped annotation workload for the startup benchmark.
+
+Fingerprint mirrors Metro's published koin-mode benchmark: 500 modules (80 core / 350 feature /
+70 app), 2,756 @Singleton contributions, 874 constructor edges, ~1,800 contributions bound to a
+multibinding interface (Plugin / Initializer) realized with getAll<T>(). One Gradle module, one
+@Module @ComponentScan per generated package (what Metro's generator does per Gradle module to stay
+under the 64 KB method limit), one root @KoinApplication listing every module.
+
+Usage: python3 generate.py  (writes src/main/kotlin/bench/gen, overwriting)
+"""
+import os, random, shutil
+
+SEED = 0
+MODULES = [("core", 80), ("feature", 350), ("app", 70)]
+TOTAL_DEFINITIONS = 2756
+EDGES = 874
+BOUND = 1800  # contributions that also bind Plugin or Initializer
+
+random.seed(SEED)
+out = os.path.join(os.path.dirname(__file__), "src", "main", "kotlin", "bench", "gen")
+shutil.rmtree(out, ignore_errors=True)
+os.makedirs(out)
+
+modules = []
+for layer, count in MODULES:
+    for i in range(count):
+        modules.append((layer, i))
+
+# distribute definitions across modules (>= 1 each)
+per_module = [1] * len(modules)
+for _ in range(TOTAL_DEFINITIONS - len(modules)):
+    per_module[random.randrange(len(modules))] += 1
+
+classes = []  # (module_index, class_name)
+for m, n in enumerate(per_module):
+    for k in range(n):
+        classes.append((m, f"Svc{m}_{k}"))
+
+# edges: a class may depend on classes from earlier modules only (acyclic, like layered Metro graph)
+deps = {name: [] for _, name in classes}
+edge_count = 0
+by_module = {}
+for m, name in classes:
+    by_module.setdefault(m, []).append(name)
+attempts = 0
+while edge_count < EDGES and attempts < EDGES * 50:
+    attempts += 1
+    m, name = classes[random.randrange(len(classes))]
+    if m == 0:
+        continue
+    src_module = random.randrange(0, m)
+    target = random.choice(by_module[src_module])
+    if target in deps[name] or len(deps[name]) >= 3:
+        continue
+    deps[name].append(target)
+    edge_count += 1
+
+bound = set(name for _, name in random.sample(classes, BOUND))
+
+def pkg(m):
+    layer, i = modules[m]
+    return f"bench.gen.{layer}{i}"
+
+with open(os.path.join(out, "Contracts.kt"), "w") as f:
+    f.write("package bench.gen\n\ninterface Plugin\ninterface Initializer\n")
+
+for m in range(len(modules)):
+    layer, i = modules[m]
+    p = pkg(m)
+    lines = [f"package {p}", "", "import org.koin.core.annotation.ComponentScan", "import org.koin.core.annotation.Module", "import org.koin.core.annotation.Singleton", "import bench.gen.Plugin", "import bench.gen.Initializer", ""]
+    # imports for cross-package deps
+    imported = set()
+    for name in by_module[m]:
+        for d in deps[name]:
+            dm = next(mm for mm, nn in classes if nn == d)
+            imported.add(f"{pkg(dm)}.{d}")
+    for imp in sorted(imported):
+        lines.append(f"import {imp}")
+    lines.append("")
+    lines.append("@Module")
+    lines.append("@ComponentScan")
+    lines.append(f"class {layer.capitalize()}{i}Module")
+    lines.append("")
+    for idx, name in enumerate(by_module[m]):
+        params = ", ".join(f"val d{j}: {d}" for j, d in enumerate(deps[name]))
+        if name in bound:
+            iface = "Plugin" if idx % 2 == 0 else "Initializer"
+            lines.append(f"@Singleton(binds = [{iface}::class])")
+            lines.append(f"class {name}({params}) : {iface}")
+        else:
+            lines.append("@Singleton")
+            lines.append(f"class {name}({params})")
+        lines.append("")
+    with open(os.path.join(out, f"{layer}{i}.kt"), "w") as f:
+        f.write("\n".join(lines))
+
+module_refs = ",\n        ".join(f"{pkg(m)}.{modules[m][0].capitalize()}{modules[m][1]}Module::class" for m in range(len(modules)))
+with open(os.path.join(out, "App.kt"), "w") as f:
+    f.write(f'''package bench.gen
+
+import org.koin.core.Koin
+import org.koin.core.annotation.KoinApplication
+import org.koin.plugin.module.dsl.koinApplication
+
+@KoinApplication(
+    modules = [
+        {module_refs},
+    ],
+)
+class BenchKoinApp
+
+// Same shape as the Metro harness' koin-mode AppComponent: multibindings synthesized via getAll.
+class AppComponent(val koin: Koin) {{
+    fun plugins(): Set<Plugin> = koin.getAll<Plugin>().toSet()
+    fun initializers(): Set<Initializer> = koin.getAll<Initializer>().toSet()
+}}
+
+fun startOnly(): Koin = koinApplication<BenchKoinApp> {{ }}.koin
+
+fun createAndInitialize(): AppComponent {{
+    val component = AppComponent(koinApplication<BenchKoinApp> {{ }}.koin)
+    component.plugins()
+    component.initializers()
+    return component
+}}
+''')
+
+print(f"modules={len(modules)} definitions={len(classes)} edges={edge_count} bound={len(bound)} -> {out}")
