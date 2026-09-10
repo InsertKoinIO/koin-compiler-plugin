@@ -53,6 +53,11 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         val project = kotlinCompilation.target.project
         val explicit = extension.strictSafety.orNull
         val effective = lazy {
+            // strictSafety only matters when compileSafety is on — if the safety pass won't run,
+            // forcing compileKotlin out of the IC cache has no benefit and the aggregator scan and
+            // log messages are just noise (#88).
+            if (!extension.compileSafety.get()) return@lazy false
+
             if (explicit == true) {
                 true
             } else {
