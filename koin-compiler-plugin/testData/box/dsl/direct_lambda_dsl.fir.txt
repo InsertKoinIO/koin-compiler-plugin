@@ -1,0 +1,160 @@
+FILE: test.kt
+    package sample.dsl
+
+    public abstract interface Api : R|kotlin/Any| {
+    }
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|sample/dsl/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|sample/dsl/Api| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/Other| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final object Counter : R|kotlin/Any| {
+        private constructor(): R|sample/dsl/Counter| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final var eager: R|kotlin/Int| = Int(0)
+            public get(): R|kotlin/Int|
+            public set(value: R|kotlin/Int|): R|kotlin/Unit|
+
+    }
+    public final class Eager : R|kotlin/Any| {
+        public constructor(): R|sample/dsl/Eager| {
+            super<R|kotlin/Any|>()
+        }
+
+        init {
+             {
+                lval <unary>: R|kotlin/Int| = Q|sample/dsl/Counter|.R|sample/dsl/Counter.eager|
+                Q|sample/dsl/Counter|.R|sample/dsl/Counter.eager| = R|<local>/<unary>|.R|kotlin/Int.inc|()
+                R|<local>/<unary>|
+            }
+
+        }
+
+    }
+    public final class SessionScope : R|kotlin/Any| {
+        public constructor(): R|sample/dsl/SessionScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class InSession : R|kotlin/Any| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/InSession| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        Q|sample/dsl/Counter|.R|sample/dsl/Counter.eager| = Int(0)
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|sample/dsl/Repository|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Repository| <inline=NoInline>  {
+                ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/Repository|>(::R|sample/dsl/Repository.Repository|)
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|sample/dsl/Api|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Api| <inline=NoInline>  {
+                ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/Service|, R|@R|kotlin/ParameterName|(name = String(repository))  sample/dsl/Repository|>(::R|sample/dsl/Service.Service|)
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|sample/dsl/Other|>(R|org/koin/core/qualifier/named|(String(other)), <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Other| <inline=NoInline>  {
+                ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/Other|, R|@R|kotlin/ParameterName|(name = String(repository))  sample/dsl/Repository|>(::R|sample/dsl/Other.Other|)
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|sample/dsl/Eager|>(Boolean(true), <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Eager| <inline=NoInline>  {
+                ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/Eager|>(::R|sample/dsl/Eager.Eager|)
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.factory|<R|sample/dsl/Other|>(<L> = factory@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Other| <inline=NoInline>  {
+                ^ R|sample/dsl/Other.Other|(this@R|special/anonymous|.R|org/koin/core/scope/Scope.get|<R|sample/dsl/Repository|>())
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.scope|<R|sample/dsl/SessionScope|>(<L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=Inline, kind=UNKNOWN>  {
+                this@R|special/anonymous|.R|org/koin/dsl/ScopeDSL.scoped|<R|sample/dsl/InSession|>(<L> = scoped@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/InSession| <inline=NoInline>  {
+                    ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/InSession|, R|@R|kotlin/ParameterName|(name = String(repository))  sample/dsl/Repository|>(::R|sample/dsl/InSession.InSession|)
+                }
+                )
+            }
+            )
+        }
+        )
+        lval app: R|org/koin/core/KoinApplication| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|<local>/app|.R|org/koin/core/KoinApplication.koin|
+        lval repo: R|sample/dsl/Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Repository|>()
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Repository|>(), R|<local>/repo|) ->  {
+                ^box String(FAIL: single { create } not a singleton)
+            }
+        }
+
+        lval api: R|sample/dsl/Api| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Api|>()
+        when () {
+            (R|<local>/api| !is R|sample/dsl/Service|) || !==(R|<local>/api|.R|sample/dsl/Service.repository|, R|<local>/repo|) ->  {
+                ^box String(FAIL: single<Api> { create(::Service) } registered under the wrong type)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/dsl/Service|>(), Null(null)) ->  {
+                ^box String(FAIL: single<Api> { create(::Service) } must register Api, not Service)
+            }
+        }
+
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Other|>(R|org/koin/core/qualifier/named|(String(other))).R|sample/dsl/Other.repository|, R|<local>/repo|) ->  {
+                ^box String(FAIL: literal named() qualifier lost)
+            }
+        }
+
+        when () {
+            ===(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Other|>(), R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Other|>()) ->  {
+                ^box String(FAIL: factory { } returned the same instance)
+            }
+        }
+
+        R|<local>/app|.R|org/koin/core/KoinApplication.createEagerInstances|()
+        when () {
+            !=(Q|sample/dsl/Counter|.R|sample/dsl/Counter.eager|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: createdAtStart = true literal lost (eager=), Q|sample/dsl/Counter|.R|sample/dsl/Counter.eager|, String()))
+            }
+        }
+
+        lval scope: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(s1), R|org/koin/core/qualifier/qualifier|<R|sample/dsl/SessionScope|>())
+        when () {
+            !==(R|<local>/scope|.R|org/koin/core/scope/Scope.get|<R|sample/dsl/InSession|>().R|sample/dsl/InSession.repository|, R|<local>/repo|) ->  {
+                ^box String(FAIL: scoped { create } in typed scope)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/dsl/InSession|>(), Null(null)) ->  {
+                ^box String(FAIL: scoped definition leaked to root)
+            }
+        }
+
+        ^box String(OK)
+    }

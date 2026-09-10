@@ -139,6 +139,24 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("direct_dsl_fallbacks.kt")
+    public void testDirect_dsl_fallbacks() {
+      runTest("koin-compiler-plugin/testData/box/dsl/direct_dsl_fallbacks.kt");
+    }
+
+    @Test
+    @TestMetadata("direct_lambda_dsl.kt")
+    public void testDirect_lambda_dsl() {
+      runTest("koin-compiler-plugin/testData/box/dsl/direct_lambda_dsl.kt");
+    }
+
+    @Test
+    @TestMetadata("direct_typed_dsl.kt")
+    public void testDirect_typed_dsl() {
+      runTest("koin-compiler-plugin/testData/box/dsl/direct_typed_dsl.kt");
+    }
+
+    @Test
     @TestMetadata("factory_basic.kt")
     public void testFactory_basic() {
       runTest("koin-compiler-plugin/testData/box/dsl/factory_basic.kt");

@@ -1,0 +1,73 @@
+FILE: test.kt
+    package sample.dsl
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|sample/dsl/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/Other| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final class Third : R|kotlin/Any| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/Third| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final fun qualifierFromElsewhere(): R|org/koin/core/qualifier/Qualifier| {
+        ^qualifierFromElsewhere R|org/koin/core/qualifier/named|(String(dynamic))
+    }
+    public final fun box(): R|kotlin/String| {
+        lval dynamic: R|org/koin/core/qualifier/Qualifier| = R|sample/dsl/qualifierFromElsewhere|()
+        lval eagerFlag: R|kotlin/Boolean| = !=(Q|java/lang/System|.R|java/lang/System.getProperty*s|(String(nope)), Null(null))
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|sample/dsl/Repository|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Repository| <inline=NoInline>  {
+                ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/Repository|>(::R|sample/dsl/Repository.Repository|)
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|sample/dsl/Other|>(R|<local>/dynamic|, <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Other| <inline=NoInline>  {
+                ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/Other|, R|@R|kotlin/ParameterName|(name = String(repository))  sample/dsl/Repository|>(::R|sample/dsl/Other.Other|)
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|sample/dsl/Third|>(R|<local>/eagerFlag|, <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|sample/dsl/Third| <inline=NoInline>  {
+                ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|sample/dsl/Third|, R|@R|kotlin/ParameterName|(name = String(repository))  sample/dsl/Repository|>(::R|sample/dsl/Third.Third|)
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|sample/dsl/Third|, R|@R|kotlin/ParameterName|(name = String(repository))  sample/dsl/Repository|>(::R|sample/dsl/Third.Third|)
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Other|>(R|<local>/dynamic|).R|sample/dsl/Other.repository|, R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Repository|>()) ->  {
+                ^box String(FAIL: dynamic qualifier definition)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/dsl/Other|>(), Null(null)) ->  {
+                ^box String(FAIL: dynamic qualifier ignored)
+            }
+        }
+
+        when () {
+            ==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Third|>(), Null(null)) ->  {
+                ^box String(FAIL: singleOf / non-literal createdAtStart definition)
+            }
+        }
+
+        ^box String(OK)
+    }

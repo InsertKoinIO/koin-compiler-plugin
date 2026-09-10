@@ -8,9 +8,11 @@ import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.IrConst
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
+import org.jetbrains.kotlin.ir.util.parentClassOrNull
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -170,6 +172,10 @@ class KoinDSLTransformer(
     // CODEGEN — argument/lambda generation, reused from the annotation processor infrastructure.
     private val argumentGenerator = KoinArgumentGenerator(context, qualifierExtractor)
     private val lambdaBuilder = LambdaBuilder(context, qualifierExtractor, argumentGenerator)
+    // KTZ-4829: registers DSL definitions directly (BeanDefinition + factory + saveMapping with a
+    // compile-time key) instead of through buildSingle()/the runtime inline DSL. Returns a
+    // KoinDefinition so chained bind()/binds()/withOptions {} at the call site keep working.
+    private val directRegistration = DirectRegistrationBuilder(context, qualifierExtractor)
 
     // SHARED — function names visitCall matches on, for both codegen dispatch and safety
     // collection (definitionNames/definitionTypeMap below key off these too).
@@ -215,6 +221,8 @@ class KoinDSLTransformer(
         val definitionCallTypeArg: IrClass? = null,
         val definitionQualifier: QualifierValue? = null,
         val scopeTypeClass: IrClass? = null,
+        // `scope(named("x")) { }` — a string-named scope block; the direct-registration key needs it.
+        val scopeName: String? = null,
         val createQualifier: QualifierValue? = null,
         val createReturnClass: IrClass? = null,
         val modulePropertyId: String? = null
@@ -512,7 +520,16 @@ class KoinDSLTransformer(
             val scopeTypeArg = expression.getTypeArgumentCompat(0)
             val scopeTypeClass = (scopeTypeArg?.classifierOrNull as? IrClassSymbol)?.owner
             if (scopeTypeClass != null) {
-                return current.copy(scopeTypeClass = scopeTypeClass)
+                return current.copy(scopeTypeClass = scopeTypeClass, scopeName = null)
+            }
+        }
+        // scope(named("x")) { } / scope(typeQualifier<X>()) { } — Module.scope(qualifier, scopeSet)
+        if (functionName == scopeName && expression.typeArguments.isEmpty() && expression.regularArgumentsCount >= 1) {
+            return when (val q = qualifierExtractor.extractFromExpression(expression.getRegularArgument(0))) {
+                is QualifierValue.StringQualifier -> current.copy(scopeName = q.name, scopeTypeClass = null)
+                is QualifierValue.TypeQualifier -> current.copy(scopeTypeClass = q.irClass, scopeName = null)
+                // qualifier not knowable at compile time: definitions inside stay on the runtime DSL
+                null -> current.copy(scopeTypeClass = null, scopeName = null)
             }
         }
         return current
@@ -600,7 +617,7 @@ class KoinDSLTransformer(
     ): IrExpression {
         val koinReceiver = resolveKoinReceiver(transformedCall) ?: return transformedCall
 
-        rewriteKoinDslCall(transformedCall, functionName, koinReceiver, propagatedQualifier, propagatedReturnClass)
+        rewriteKoinDslCall(transformedCall, functionName, callee, koinReceiver, propagatedQualifier, propagatedReturnClass, dslDefsBeforeBody)
             ?.let { return it }
 
         collectSafetyOnlyDslCall(transformedCall, functionName, callee, koinReceiver, dslDefsBeforeBody)
@@ -634,9 +651,11 @@ class KoinDSLTransformer(
     private fun rewriteKoinDslCall(
         transformedCall: IrCall,
         functionName: Name,
+        callee: IrSimpleFunction,
         koinReceiver: KoinReceiver,
         propagatedQualifier: QualifierValue?,
         propagatedReturnClass: IrClass?,
+        dslDefsBeforeBody: Int,
     ): IrExpression? {
         val receiver = koinReceiver.receiver
         val receiverClassifier = koinReceiver.receiverClassifier
@@ -665,7 +684,84 @@ class KoinDSLTransformer(
             return handleScopeCreate(transformedCall, functionRef.symbol.owner, receiver)
         }
 
+        // Koin's own inline DSL with a lambda body — single { create(::F) }, single(named("x")) { .. },
+        // factory { .. }, scoped { .. } — left to run at runtime until now. Direct registration when
+        // every part of the key is literal at the call site.
+        directFromRuntimeDefinitionCall(transformedCall, functionName, callee, koinReceiver, dslDefsBeforeBody)
+            ?.let { return it }
+
         return null
+    }
+
+    // ── KTZ-4829: direct registration for DSL call sites ─────────────────────────────────────────
+
+    private fun dslScopeSpec(receiverClassName: String): DirectRegistrationBuilder.ScopeSpec? = when (receiverClassName) {
+        "Module" -> DirectRegistrationBuilder.ScopeSpec.Root
+        "ScopeDSL" -> transformContext.scopeTypeClass?.let { DirectRegistrationBuilder.ScopeSpec.Typed(it) }
+            ?: transformContext.scopeName?.let { DirectRegistrationBuilder.ScopeSpec.Named(it) }
+        else -> null
+    }
+
+    private fun tryDirectDsl(
+        targetClass: IrClass,
+        qualifier: QualifierValue?,
+        defType: DefinitionType?,
+        createdAtStart: Boolean,
+        receiverClassName: String,
+        receiverExpr: IrExpression,
+        definitionLambda: IrExpression,
+        builder: DeclarationIrBuilder,
+    ): IrExpression? {
+        if (defType == null) return null
+        val scope = dslScopeSpec(receiverClassName) ?: return null
+        val spec = DirectRegistrationBuilder.Spec(targetClass, qualifier, emptyList(), defType, createdAtStart, scope)
+        if (!directRegistration.canEmit(spec, returnDefinition = true)) return null
+        return directRegistration.emit(spec, receiverExpr, definitionLambda, builder, returnDefinition = true)
+    }
+
+    /**
+     * `Module.single/factory { }` and `ScopeDSL.scoped/factory { }` from koin-core (inline, reified):
+     * direct registration when the type argument, the qualifier (absent or a literal
+     * `named("x")`/`named<Q>()`) and `createdAtStart` (absent or a literal) are all known at
+     * compile time. Anything else stays the runtime call. The definition lambda is passed through
+     * as-is — an inner `create(::F)` has already been rewritten by the descent.
+     */
+    private fun directFromRuntimeDefinitionCall(
+        call: IrCall,
+        functionName: Name,
+        callee: IrSimpleFunction,
+        koinReceiver: KoinReceiver,
+        dslDefsBeforeBody: Int,
+    ): IrExpression? {
+        if (functionName != singleName && functionName != factoryName && functionName != scopedName) return null
+        val ownerFqName = callee.parentClassOrNull?.fqNameWhenAvailable?.asString() ?: return null
+        if (ownerFqName != "org.koin.core.module.Module" && ownerFqName != "org.koin.dsl.ScopeDSL") return null
+        val targetClass = call.getTypeArgumentCompat(0)?.classifierOrNull?.owner as? IrClass ?: return null
+
+        fun argument(name: String): IrExpression? {
+            val index = callee.regularParameters.indexOfFirst { it.name.asString() == name }
+            return if (index < 0) null else call.getRegularArgument(index)
+        }
+        val definitionLambda = argument("definition") ?: return null
+        val qualifierArg = argument("qualifier")
+        val qualifier = if (qualifierArg == null) null else (qualifierExtractor.extractFromExpression(qualifierArg) ?: return null)
+        val createdAtStart = when (val arg = argument("createdAtStart")) {
+            null -> false
+            is IrConst -> (arg.value as? Boolean) ?: return null
+            else -> return null
+        }
+
+        val receiverClassName = koinReceiver.receiverClassifier.name.asString()
+        val enclosing = currentFunction ?: return null
+        // Temporaries in the emitted block belong to the enclosing function, not to the callee.
+        val builder = DeclarationIrBuilder(context, enclosing.symbol, call.startOffset, call.endOffset)
+        val direct = tryDirectDsl(targetClass, qualifier, definitionTypeMap[functionName], createdAtStart, receiverClassName, koinReceiver.receiver, definitionLambda, builder)
+            ?: return null
+
+        // SAFETY: this call used to reach collectSafetyOnlyDslCall; keep its provider-only DslDef.
+        collectProviderOnlyDefinition(call, functionName, callee, dslDefsBeforeBody)
+        KoinPluginLogger.user { "Direct registration for $functionName<${targetClass.name}> { ... } on $receiverClassName" }
+        return direct
     }
 
     /**
@@ -708,6 +804,10 @@ class KoinDSLTransformer(
         // docs/COMPILE_TIME_SAFETY.md for what is and isn't covered for this DSL shape.
         // Skipped when visiting the lambda already registered a definition (inner create(::T)),
         // so we never emit a duplicate DslDef.
+        collectProviderOnlyDefinition(transformedCall, functionName, callee, dslDefsBeforeBody)
+    }
+
+    private fun collectProviderOnlyDefinition(transformedCall: IrCall, functionName: Name, callee: IrSimpleFunction, dslDefsBeforeBody: Int) {
         if (functionName in definitionNames && compileSafetyEnabled &&
             _dslDefinitions.size == dslDefsBeforeBody
         ) {
@@ -1232,6 +1332,25 @@ class KoinDSLTransformer(
             qualifier
         }
 
+        // Definition lambda { T(get(), get(), ...) } — shared by both emission shapes.
+        val parentFunc = currentFunction ?: return call
+        val definitionLambda = lambdaBuilder.create(targetClass, builder, parentFunc) { lb, scopeParam, paramsParam ->
+            lb.irCallConstructor(constructor.symbol, emptyList()).apply {
+                constructor.regularParameters.forEachIndexed { index, param ->
+                    val scopeGet = lb.irGet(scopeParam)
+                    val paramsGet = lb.irGet(paramsParam)
+                    val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, lb)
+                    if (argument != null) {
+                        putRegularArgument(index, argument)
+                    }
+                }
+            }
+        }
+
+        tryDirectDsl(targetClass, effectiveQualifier, defType, createdAtStart = false, receiverClassName, extensionReceiver, definitionLambda,
+            DeclarationIrBuilder(context, parentFunc.symbol, call.startOffset, call.endOffset))
+            ?.let { return it }
+
         // Build the transformed call
         return builder.irCall(targetFunction.symbol).apply {
             setExtensionReceiverArgument(extensionReceiver)
@@ -1249,20 +1368,8 @@ class KoinDSLTransformer(
             // Arg 1: Qualifier? (for workers, always use class name as qualifier)
             putRegularArgument(1, qualifierExtractor.createQualifierCall(effectiveQualifier, builder) ?: builder.irNull())
 
-            // Arg 2: Definition lambda { T(get(), get(), ...) }
-            val parentFunc = currentFunction ?: return call
-            putRegularArgument(2, lambdaBuilder.create(targetClass, builder, parentFunc) { lb, scopeParam, paramsParam ->
-                lb.irCallConstructor(constructor.symbol, emptyList()).apply {
-                    constructor.regularParameters.forEachIndexed { index, param ->
-                        val scopeGet = lb.irGet(scopeParam)
-                        val paramsGet = lb.irGet(paramsParam)
-                        val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, lb)
-                        if (argument != null) {
-                            putRegularArgument(index, argument)
-                        }
-                    }
-                }
-            })
+            // Arg 2: Definition lambda
+            putRegularArgument(2, definitionLambda)
         }
     }
 
@@ -1525,6 +1632,12 @@ class KoinDSLTransformer(
         KoinPluginLogger.user { "Applying qualifier ${qualifier.debugString()} to $functionName { create(::${returnClass.name}) }" }
 
         val builder = DeclarationIrBuilder(context, call.symbol, call.startOffset, call.endOffset)
+
+        currentFunction?.let { enclosing ->
+            tryDirectDsl(returnClass, qualifier, definitionTypeMap[functionName], createdAtStart = false, receiverClassName, receiver, existingLambda,
+                DeclarationIrBuilder(context, enclosing.symbol, call.startOffset, call.endOffset))
+                ?.let { return it }
+        }
 
         return builder.irCall(targetFunction.symbol).apply {
             setExtensionReceiverArgument(receiver)

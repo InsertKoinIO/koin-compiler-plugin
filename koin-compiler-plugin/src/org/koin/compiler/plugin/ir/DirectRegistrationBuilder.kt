@@ -21,6 +21,7 @@ import org.jetbrains.kotlin.ir.declarations.IrEnumEntry
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.expressions.IrExpression
+import org.jetbrains.kotlin.ir.expressions.IrGetValue
 import org.jetbrains.kotlin.ir.expressions.IrVarargElement
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrGetEnumValueImpl
@@ -116,6 +117,11 @@ class DirectRegistrationBuilder(
     private val viewModelClass by lazy { referenceClass(FqName("androidx.lifecycle"), "ViewModel") }
     private val listenableWorkerClass by lazy { referenceClass(FqName("androidx.work"), "ListenableWorker") }
 
+    // KoinDefinition(module, factory): what the DSL path returns so user chains (bind, binds,
+    // withOptions, onClose) still have their receiver. One small object; no key String.
+    private val koinDefinitionClass by lazy { referenceClass(koinDefinitionPackage, "KoinDefinition") }
+    private val koinDefinitionConstructor by lazy { koinDefinitionClass?.constructors?.firstOrNull { it.regularParameters.size == 2 } }
+
     // BeanDefinition(scopeQualifier, primaryType, qualifier, definition, kind, secondaryTypes, allowOverride)
     private val beanDefinitionConstructor by lazy { beanDefinitionClass?.constructors?.firstOrNull { it.regularParameters.size == 7 } }
     private val singleFactoryConstructor by lazy { referenceClass(koinInstancePackage, "SingleInstanceFactory")?.constructors?.firstOrNull { it.regularParameters.size == 1 } }
@@ -140,8 +146,9 @@ class DirectRegistrationBuilder(
      * Whether [spec] can be registered directly with a key we are certain about. Any doubt → false,
      * and the caller keeps the legacy DSL call for this definition.
      */
-    fun canEmit(spec: Spec): Boolean {
+    fun canEmit(spec: Spec, returnDefinition: Boolean = false): Boolean {
         if (!KoinPluginLogger.directRegistrationEnabled) return false
+        if (returnDefinition && koinDefinitionConstructor == null) return skip(spec, "KoinDefinition constructor not found")
         val factoryConstructor = when (spec.definitionType) {
             DefinitionType.SINGLE -> singleFactoryConstructor
             DefinitionType.FACTORY, DefinitionType.VIEW_MODEL, DefinitionType.WORKER -> factoryFactoryConstructor
@@ -178,7 +185,16 @@ class DirectRegistrationBuilder(
      * (scoped definitions) the generated lambda receives; [definitionLambda] is the already-built
      * `Scope.(ParametersHolder) -> T`.
      */
-    fun emit(spec: Spec, receiver: IrValueParameter, definitionLambda: IrExpression, builder: DeclarationIrBuilder): IrExpression {
+    fun emit(spec: Spec, receiver: IrValueParameter, definitionLambda: IrExpression, builder: DeclarationIrBuilder): IrExpression =
+        emit(spec, builder.irGet(receiver), definitionLambda, builder, returnDefinition = false)
+
+    /**
+     * [receiverExpr] evaluates to the `Module` (root) or `ScopeDSL` (scoped) — a lambda's `<this>`
+     * or any expression; it is evaluated exactly once. With [returnDefinition] the block's value is
+     * a `KoinDefinition<T>`, so a DSL call site that chains `.bind(...)` / `withOptions { }` on the
+     * result keeps working; without it the block is Unit (annotation-generated modules).
+     */
+    fun emit(spec: Spec, receiverExpr: IrExpression, definitionLambda: IrExpression, builder: DeclarationIrBuilder, returnDefinition: Boolean): IrExpression {
         val kClass = kClassClass!!
         val targetType = spec.targetType.defaultType
         val kClassStar = kClass.symbol.starProjectedType
@@ -186,19 +202,27 @@ class DirectRegistrationBuilder(
         val bindings = allBindings(spec)
         val secondaryKeys = bindings.map { indexKeyOf(it, spec.qualifier, spec.scope) }
 
-        return builder.irBlock(resultType = context.irBuiltIns.unitType) {
+        val resultType = if (returnDefinition) koinDefinitionClass!!.typeWith(targetType) else context.irBuiltIns.unitType
+        return builder.irBlock(resultType = resultType) {
             val moduleExpr: IrExpression
             val scopeQualifierExpr: IrExpression
             when (spec.scope) {
                 ScopeSpec.Root -> {
-                    moduleExpr = irGet(receiver)
+                    moduleExpr = receiverExpr
                     scopeQualifierExpr = irCall(rootScopeQualifierGetter!!.symbol).apply {
                         dispatchReceiver = irGetObject(scopeRegistryCompanion!!.symbol)
                     }
                 }
                 is ScopeSpec.Typed, is ScopeSpec.Named -> {
-                    moduleExpr = irCall(scopeDslModuleGetter!!.symbol).apply { dispatchReceiver = irGet(receiver) }
-                    scopeQualifierExpr = irCall(scopeDslQualifierGetter!!.symbol).apply { dispatchReceiver = irGet(receiver) }
+                    // Two reads of the ScopeDSL: reuse a plain variable read directly, otherwise
+                    // evaluate the expression once into a temporary.
+                    val scopeDsl: () -> IrExpression = if (receiverExpr is IrGetValue) {
+                        { irGet(receiverExpr.symbol.owner) }
+                    } else {
+                        val tmp = irTemporary(receiverExpr, nameHint = "koinScopeDsl"); { irGet(tmp) }
+                    }
+                    moduleExpr = irCall(scopeDslModuleGetter!!.symbol).apply { dispatchReceiver = scopeDsl() }
+                    scopeQualifierExpr = irCall(scopeDslQualifierGetter!!.symbol).apply { dispatchReceiver = scopeDsl() }
                 }
             }
             val module = irTemporary(moduleExpr, nameHint = "koinModule")
@@ -262,6 +286,14 @@ class DirectRegistrationBuilder(
                             putRegularArgument(0, irString("Koin compiler plugin: compile-time index key '$key' for ${type.fqNameWhenAvailable} does not match indexKey() at runtime"))
                         },
                     )
+                }
+            }
+
+            // Must stay the last statement: it is the block's value for chained bind()/withOptions.
+            if (returnDefinition) {
+                +irCallConstructor(koinDefinitionConstructor!!.symbol, listOf(targetType)).apply {
+                    putRegularArgument(0, irGet(module))
+                    putRegularArgument(1, irGet(factory))
                 }
             }
         }

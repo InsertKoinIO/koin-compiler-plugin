@@ -1,0 +1,145 @@
+FILE: test.kt
+    package sample.dsl
+
+    public abstract interface Api : R|kotlin/Any| {
+    }
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|sample/dsl/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|sample/dsl/Api| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final class Transient : R|kotlin/Any| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/Transient| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    @R|org/koin/core/annotation/Named|(value = String(tagged)) public final class Tagged : R|kotlin/Any| {
+        public constructor(): R|sample/dsl/Tagged| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class SessionScope : R|kotlin/Any| {
+        public constructor(): R|sample/dsl/SessionScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class InSession : R|kotlin/Any| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/InSession| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final class InNamed : R|kotlin/Any| {
+        public constructor(repository: R|sample/dsl/Repository|): R|sample/dsl/InNamed| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
+            public get(): R|sample/dsl/Repository|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Repository|>()
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Service|>().R|org/koin/dsl/bind|<R|sample/dsl/Api|>(<getClass>(Q|sample/dsl/Api|))
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|sample/dsl/Transient|>()
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Tagged|>()
+            this@R|special/anonymous|.R|org/koin/core/module/Module.scope|<R|sample/dsl/SessionScope|>(<L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=Inline, kind=UNKNOWN>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/scoped|<R|sample/dsl/InSession|>()
+            }
+            )
+            this@R|special/anonymous|.R|org/koin/core/module/Module.scope|(R|org/koin/core/qualifier/named|(String(session)), <L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/scoped|<R|sample/dsl/InNamed|>()
+            }
+            )
+        }
+        )
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval repo: R|sample/dsl/Repository| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Repository|>()
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Repository|>(), R|<local>/repo|) ->  {
+                ^box String(FAIL: single<T>() not a singleton)
+            }
+        }
+
+        lval service: R|sample/dsl/Service| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Service|>()
+        when () {
+            !==(R|<local>/service|.R|sample/dsl/Service.repository|, R|<local>/repo|) ->  {
+                ^box String(FAIL: dependency not injected)
+            }
+        }
+
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Api|>(), R|<local>/service|) ->  {
+                ^box String(FAIL: chained bind on a direct registration lost)
+            }
+        }
+
+        when () {
+            ===(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Transient|>(), R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Transient|>()) ->  {
+                ^box String(FAIL: factory<T>() returned the same instance)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/dsl/Tagged|>(), Null(null)) ->  {
+                ^box String(FAIL: @Named class resolvable without qualifier)
+            }
+        }
+
+        when () {
+            ==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Tagged|>(R|org/koin/core/qualifier/named|(String(tagged))), Null(null)) ->  {
+                ^box String(FAIL: @Named class not resolvable with qualifier)
+            }
+        }
+
+        lval typed: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(s1), R|org/koin/core/qualifier/qualifier|<R|sample/dsl/SessionScope|>())
+        when () {
+            !==(R|<local>/typed|.R|org/koin/core/scope/Scope.get|<R|sample/dsl/InSession|>().R|sample/dsl/InSession.repository|, R|<local>/repo|) ->  {
+                ^box String(FAIL: scoped<T>() in typed scope)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/dsl/InSession|>(), Null(null)) ->  {
+                ^box String(FAIL: typed scoped definition leaked to root)
+            }
+        }
+
+        lval named: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(s2), R|org/koin/core/qualifier/named|(String(session)))
+        when () {
+            !==(R|<local>/named|.R|org/koin/core/scope/Scope.get|<R|sample/dsl/InNamed|>().R|sample/dsl/InNamed.repository|, R|<local>/repo|) ->  {
+                ^box String(FAIL: scoped<T>() in named scope)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/dsl/InNamed|>(), Null(null)) ->  {
+                ^box String(FAIL: named scoped definition leaked to root)
+            }
+        }
+
+        ^box String(OK)
+    }

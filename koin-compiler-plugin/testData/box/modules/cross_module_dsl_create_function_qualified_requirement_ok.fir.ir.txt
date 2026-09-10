@@ -9,36 +9,106 @@ FILE fqName:lib fileName:/lib/Lib.kt
               VALUE_PARAMETER kind:ExtensionReceiver name:$this$module index:0 type:org.koin.core.module.Module
               BLOCK_BODY
                 TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
-                  CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
-                    TYPE_ARG T: lib.Dep
-                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
-                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<lib.Dep>
-                    ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
-                      ARG name: CONST String type=kotlin.String value="q"
-                    ARG definition: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, lib.Dep> origin=LAMBDA
-                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:lib.Dep
-                        VALUE_PARAMETER kind:ExtensionReceiver name:$this$single index:0 type:org.koin.core.scope.Scope
-                        VALUE_PARAMETER kind:Regular name:it index:1 type:org.koin.core.parameter.ParametersHolder
-                        BLOCK_BODY
-                          RETURN type=kotlin.Nothing from='local final fun <anonymous> ($this$single: org.koin.core.scope.Scope, it: org.koin.core.parameter.ParametersHolder): lib.Dep declared in lib.libModule.<anonymous>'
-                            CALL 'public final fun provideQualifiedDep (): lib.Dep declared in lib' type=lib.Dep origin=null
+                  BLOCK type=org.koin.core.definition.KoinDefinition<lib.Dep> origin=null
+                    VAR IR_TEMPORARY_VARIABLE name:tmp_0 type:org.koin.core.module.Module [val]
+                      GET_VAR '$this$module: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                    VAR IR_TEMPORARY_VARIABLE name:tmp_1 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                      CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                        TYPE_ARG (of class) T: lib.Dep
+                        ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                          ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                        ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<lib.Dep>
+                        ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+                          ARG name: CONST String type=kotlin.String value="q"
+                        ARG definition: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, lib.Dep> origin=LAMBDA
+                          FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:lib.Dep
+                            VALUE_PARAMETER kind:ExtensionReceiver name:$this$single index:0 type:org.koin.core.scope.Scope
+                            VALUE_PARAMETER kind:Regular name:it index:1 type:org.koin.core.parameter.ParametersHolder
+                            BLOCK_BODY
+                              RETURN type=kotlin.Nothing from='local final fun <anonymous> ($this$single: org.koin.core.scope.Scope, it: org.koin.core.parameter.ParametersHolder): lib.Dep declared in lib.libModule.<anonymous>'
+                                CALL 'public final fun provideQualifiedDep (): lib.Dep declared in lib' type=lib.Dep origin=null
+                        ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                        ARG secondaryTypes: CALL 'public final fun emptyList <T> (): kotlin.collections.List<T of kotlin.collections.emptyList> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.emptyList> origin=null
+                          TYPE_ARG T: kotlin.reflect.KClass<*>
+                        ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                    VAR IR_TEMPORARY_VARIABLE name:tmp_2 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                      CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                        TYPE_ARG (of class) T: lib.Dep
+                        ARG beanDefinition: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in lib.libModule.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                    CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                      ARG <this>: GET_VAR 'val tmp_0: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=null
+                      ARG mapping: CONST String type=kotlin.String value="lib.Dep:q:_root_"
+                      ARG factory: GET_VAR 'val tmp_2: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in lib.libModule.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                    WHEN type=kotlin.Unit origin=null
+                      BRANCH
+                        if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                          ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                            ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                              ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:Dep modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<lib.Dep>
+                              ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                                ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in lib.libModule.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                              ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                                ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in lib.libModule.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG arg1: CONST String type=kotlin.String value="lib.Dep:q:_root_"
+                        then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                          ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'lib.Dep:q:_root_' for lib.Dep does not match indexKey() at runtime"
+                    CONSTRUCTOR_CALL 'public constructor <init> (module: org.koin.core.module.Module, factory: org.koin.core.instance.InstanceFactory<R of org.koin.core.definition.KoinDefinition>) declared in org.koin.core.definition.KoinDefinition' type=org.koin.core.definition.KoinDefinition<R of org.koin.core.definition.KoinDefinition> origin=null
+                      TYPE_ARG (of class) R: lib.Dep
+                      ARG module: GET_VAR 'val tmp_0: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=null
+                      ARG factory: GET_VAR 'val tmp_2: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in lib.libModule.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
                 TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
-                  CALL 'public final fun single <T> (qualifier: org.koin.core.qualifier.Qualifier?, createdAtStart: kotlin.Boolean, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.module.Module.single>): org.koin.core.definition.KoinDefinition<T of org.koin.core.module.Module.single> declared in org.koin.core.module.Module' type=org.koin.core.definition.KoinDefinition<lib.Client> origin=null
-                    TYPE_ARG T: lib.Client
-                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
-                    ARG definition: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, lib.Client> origin=LAMBDA
-                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:lib.Client
-                        VALUE_PARAMETER kind:ExtensionReceiver name:$this$single index:0 type:org.koin.core.scope.Scope
-                        VALUE_PARAMETER kind:Regular name:it index:1 type:org.koin.core.parameter.ParametersHolder
-                        BLOCK_BODY
-                          RETURN type=kotlin.Nothing from='local final fun <anonymous> ($this$single: org.koin.core.scope.Scope, it: org.koin.core.parameter.ParametersHolder): lib.Client declared in lib.libModule.<anonymous>'
-                            CALL 'public final fun buildClient (dep: lib.Dep): lib.Client declared in lib' type=lib.Client origin=null
-                              ARG dep: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=lib.Dep origin=null
-                                TYPE_ARG T: lib.Dep
-                                ARG <this>: GET_VAR '$this$single: org.koin.core.scope.Scope declared in lib.libModule.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=IMPLICIT_ARGUMENT
-                                ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
-                                  ARG name: CONST String type=kotlin.String value="q"
-                                ARG parameters: CONST Null type=kotlin.Nothing? value=null
+                  BLOCK type=org.koin.core.definition.KoinDefinition<lib.Client> origin=null
+                    VAR IR_TEMPORARY_VARIABLE name:tmp_3 type:org.koin.core.module.Module [val]
+                      GET_VAR '$this$module: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                    VAR IR_TEMPORARY_VARIABLE name:tmp_4 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                      CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                        TYPE_ARG (of class) T: lib.Client
+                        ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                          ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                        ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:Client modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<lib.Client>
+                        ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                        ARG definition: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, lib.Client> origin=LAMBDA
+                          FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:lib.Client
+                            VALUE_PARAMETER kind:ExtensionReceiver name:$this$single index:0 type:org.koin.core.scope.Scope
+                            VALUE_PARAMETER kind:Regular name:it index:1 type:org.koin.core.parameter.ParametersHolder
+                            BLOCK_BODY
+                              RETURN type=kotlin.Nothing from='local final fun <anonymous> ($this$single: org.koin.core.scope.Scope, it: org.koin.core.parameter.ParametersHolder): lib.Client declared in lib.libModule.<anonymous>'
+                                CALL 'public final fun buildClient (dep: lib.Dep): lib.Client declared in lib' type=lib.Client origin=null
+                                  ARG dep: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.scope.Scope.get declared in org.koin.core.scope.Scope' type=lib.Dep origin=null
+                                    TYPE_ARG T: lib.Dep
+                                    ARG <this>: GET_VAR '$this$single: org.koin.core.scope.Scope declared in lib.libModule.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=IMPLICIT_ARGUMENT
+                                    ARG qualifier: CALL 'public final fun named (name: kotlin.String): org.koin.core.qualifier.StringQualifier declared in org.koin.core.qualifier' type=org.koin.core.qualifier.StringQualifier origin=null
+                                      ARG name: CONST String type=kotlin.String value="q"
+                                    ARG parameters: CONST Null type=kotlin.Nothing? value=null
+                        ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                        ARG secondaryTypes: CALL 'public final fun emptyList <T> (): kotlin.collections.List<T of kotlin.collections.emptyList> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.emptyList> origin=null
+                          TYPE_ARG T: kotlin.reflect.KClass<*>
+                        ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                    VAR IR_TEMPORARY_VARIABLE name:tmp_5 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                      CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                        TYPE_ARG (of class) T: lib.Client
+                        ARG beanDefinition: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in lib.libModule.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                    CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                      ARG <this>: GET_VAR 'val tmp_3: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=null
+                      ARG mapping: CONST String type=kotlin.String value="lib.Client::_root_"
+                      ARG factory: GET_VAR 'val tmp_5: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in lib.libModule.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                    WHEN type=kotlin.Unit origin=null
+                      BRANCH
+                        if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                          ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                            ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                              ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:Client modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<lib.Client>
+                              ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                                ARG <this>: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in lib.libModule.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                              ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                                ARG <this>: GET_VAR 'val tmp_4: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in lib.libModule.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                            ARG arg1: CONST String type=kotlin.String value="lib.Client::_root_"
+                        then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                          ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'lib.Client::_root_' for lib.Client does not match indexKey() at runtime"
+                    CONSTRUCTOR_CALL 'public constructor <init> (module: org.koin.core.module.Module, factory: org.koin.core.instance.InstanceFactory<R of org.koin.core.definition.KoinDefinition>) declared in org.koin.core.definition.KoinDefinition' type=org.koin.core.definition.KoinDefinition<R of org.koin.core.definition.KoinDefinition> origin=null
+                      TYPE_ARG (of class) R: lib.Client
+                      ARG module: GET_VAR 'val tmp_3: org.koin.core.module.Module declared in lib.libModule.<anonymous>' type=org.koin.core.module.Module origin=null
+                      ARG factory: GET_VAR 'val tmp_5: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in lib.libModule.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
     FUN DEFAULT_PROPERTY_ACCESSOR name:<get-libModule> visibility:public modality:FINAL returnType:org.koin.core.module.Module
       correspondingProperty: PROPERTY name:libModule visibility:public modality:FINAL [val]
       BLOCK_BODY
@@ -164,18 +234,52 @@ FILE fqName:app fileName:/app/App.kt
                               VALUE_PARAMETER kind:ExtensionReceiver name:$this$module index:0 type:org.koin.core.module.Module
                               BLOCK_BODY
                                 TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
-                                  CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
-                                    TYPE_ARG T: app.Marker
-                                    ARG <this>: GET_VAR '$this$module: org.koin.core.module.Module declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
-                                    ARG kclass: CLASS_REFERENCE 'CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<app.Marker>
-                                    ARG qualifier: CONST Null type=kotlin.Nothing? value=null
-                                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, app.Marker> origin=LAMBDA
-                                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:app.Marker
-                                        VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
-                                        VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
-                                        BLOCK_BODY
-                                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): app.Marker declared in app.box.<anonymous>.<anonymous>'
-                                            CONSTRUCTOR_CALL 'public constructor <init> () declared in app.Marker' type=app.Marker origin=null
+                                  BLOCK type=org.koin.core.definition.KoinDefinition<app.Marker> origin=null
+                                    VAR IR_TEMPORARY_VARIABLE name:tmp_0 type:org.koin.core.module.Module [val]
+                                      GET_VAR '$this$module: org.koin.core.module.Module declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.module.Module origin=IMPLICIT_ARGUMENT
+                                    VAR IR_TEMPORARY_VARIABLE name:tmp_1 type:org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> [val]
+                                      CONSTRUCTOR_CALL 'public constructor <init> (scopeQualifier: org.koin.core.qualifier.Qualifier, primaryType: kotlin.reflect.KClass<*>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.core.definition.BeanDefinition>, kind: org.koin.core.definition.Kind, secondaryTypes: kotlin.collections.List<kotlin.reflect.KClass<*>>, allowOverride: kotlin.Boolean?) declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                        TYPE_ARG (of class) T: app.Marker
+                                        ARG scopeQualifier: CALL 'internal final fun <get-rootScopeQualifier> (): org.koin.core.qualifier.StringQualifier declared in org.koin.core.registry.ScopeRegistry.Companion' type=org.koin.core.qualifier.StringQualifier origin=null
+                                          ARG <this>: GET_OBJECT 'CLASS IR_EXTERNAL_DECLARATION_STUB OBJECT name:Companion modality:FINAL visibility:public [companion] superTypes:[kotlin.Any]' type=org.koin.core.registry.ScopeRegistry.Companion
+                                        ARG primaryType: CLASS_REFERENCE 'CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<app.Marker>
+                                        ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                                        ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, app.Marker> origin=LAMBDA
+                                          FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:app.Marker
+                                            VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                                            VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                                            BLOCK_BODY
+                                              RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): app.Marker declared in app.box.<anonymous>.<anonymous>'
+                                                CONSTRUCTOR_CALL 'public constructor <init> () declared in app.Marker' type=app.Marker origin=null
+                                        ARG kind: GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:Singleton' type=org.koin.core.definition.Kind
+                                        ARG secondaryTypes: CALL 'public final fun emptyList <T> (): kotlin.collections.List<T of kotlin.collections.emptyList> declared in kotlin.collections' type=kotlin.collections.List<T of kotlin.collections.emptyList> origin=null
+                                          TYPE_ARG T: kotlin.reflect.KClass<*>
+                                        ARG allowOverride: CONST Null type=kotlin.Nothing? value=null
+                                    VAR IR_TEMPORARY_VARIABLE name:tmp_2 type:org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> [val]
+                                      CONSTRUCTOR_CALL 'public constructor <init> (beanDefinition: org.koin.core.definition.BeanDefinition<T of org.koin.core.instance.SingleInstanceFactory>) declared in org.koin.core.instance.SingleInstanceFactory' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                                        TYPE_ARG (of class) T: app.Marker
+                                        ARG beanDefinition: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                    CALL 'internal final fun saveMapping (mapping: kotlin.String, factory: org.koin.core.instance.InstanceFactory<*>): kotlin.Unit declared in org.koin.core.module.Module' type=kotlin.Unit origin=null
+                                      ARG <this>: GET_VAR 'val tmp_0: org.koin.core.module.Module declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.module.Module origin=null
+                                      ARG mapping: CONST String type=kotlin.String value="app.Marker::_root_"
+                                      ARG factory: GET_VAR 'val tmp_2: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
+                                    WHEN type=kotlin.Unit origin=null
+                                      BRANCH
+                                        if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+                                          ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+                                            ARG arg0: CALL 'public final fun indexKey (clazz: kotlin.reflect.KClass<*>, typeQualifier: org.koin.core.qualifier.Qualifier?, scopeQualifier: org.koin.core.qualifier.Qualifier): kotlin.String declared in org.koin.core.definition' type=kotlin.String origin=null
+                                              ARG clazz: CLASS_REFERENCE 'CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<app.Marker>
+                                              ARG typeQualifier: CALL 'public final fun <get-qualifier> (): org.koin.core.qualifier.Qualifier? declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier? origin=null
+                                                ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                              ARG scopeQualifier: CALL 'public final fun <get-scopeQualifier> (): org.koin.core.qualifier.Qualifier declared in org.koin.core.definition.BeanDefinition' type=org.koin.core.qualifier.Qualifier origin=null
+                                                ARG <this>: GET_VAR 'val tmp_1: org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.definition.BeanDefinition<T of org.koin.core.definition.BeanDefinition> origin=null
+                                            ARG arg1: CONST String type=kotlin.String value="app.Marker::_root_"
+                                        then: CALL 'public final fun error (message: kotlin.Any): kotlin.Nothing declared in kotlin' type=kotlin.Nothing origin=null
+                                          ARG message: CONST String type=kotlin.String value="Koin compiler plugin: compile-time index key 'app.Marker::_root_' for app.Marker does not match indexKey() at runtime"
+                                    CONSTRUCTOR_CALL 'public constructor <init> (module: org.koin.core.module.Module, factory: org.koin.core.instance.InstanceFactory<R of org.koin.core.definition.KoinDefinition>) declared in org.koin.core.definition.KoinDefinition' type=org.koin.core.definition.KoinDefinition<R of org.koin.core.definition.KoinDefinition> origin=null
+                                      TYPE_ARG (of class) R: app.Marker
+                                      ARG module: GET_VAR 'val tmp_0: org.koin.core.module.Module declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.module.Module origin=null
+                                      ARG factory: GET_VAR 'val tmp_2: org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> declared in app.box.<anonymous>.<anonymous>' type=org.koin.core.instance.SingleInstanceFactory<T of org.koin.core.instance.SingleInstanceFactory> origin=null
                         CALL 'public final fun <get-libModule> (): org.koin.core.module.Module declared in lib' type=org.koin.core.module.Module origin=GET_PROPERTY
       TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
         CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=lib.Client origin=null
