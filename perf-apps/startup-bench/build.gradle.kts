@@ -43,6 +43,12 @@ jmh {
     warmupIterations.set(if (quick) 5 else 4)
     iterations.set(if (quick) 5 else 10)
     fork.set(if (quick) 1 else 2)
+    // champeau's default iteration length is 10 s (Metro's harness runs on that default, so the
+    // full profile keeps it); quick uses 1 s iterations.
+    if (quick) {
+        warmup.set("1s")
+        timeOnIteration.set("1s")
+    }
     timeUnit.set("ms")
     benchmarkMode.set(listOf("avgt"))
     profilers.set(if (quick) emptyList() else listOf("gc"))

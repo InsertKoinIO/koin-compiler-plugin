@@ -35,7 +35,7 @@ run() {
 for KV in $KOINS; do
   for KCP in $KCPS; do
     case "$KCP" in
-      1.0.*|1.1.*|1.2.*) run "$KV" "$KCP" n/a ;;
+      1.0.*|1.1.*|1.2.*) run "$KV" "$KCP" na ;;
       *) run "$KV" "$KCP" false; run "$KV" "$KCP" true ;;
     esac
   done
