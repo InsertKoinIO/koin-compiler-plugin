@@ -19,7 +19,8 @@ done
 mkdir -p "$OUT"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 run() {
-  local KV="$1" KCP="$2" DR="$3" NAME="kcp-${KCP}_koin-${KV}_direct-${DR}"
+  local KV="$1"; local KCP="$2"; local DR="$3"
+  local NAME="kcp-${KCP}_koin-${KV}_direct-${DR}"
   echo "===== $NAME (quick=$QUICK) : $(date) ====="
   rm -f "$(dirname "$0")/build/results/jmh/results.json"   # never let a failed run inherit the previous JSON
   (cd "$ROOT" && ./gradlew -p perf-apps/startup-bench jmh -PkoinVersion="$KV" -PkcpVersion="$KCP" -PdirectRegistration="$DR" -Pquick="$QUICK" --console=plain) > "$OUT/$NAME.log" 2>&1
