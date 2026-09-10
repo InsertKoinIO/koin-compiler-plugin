@@ -21,3 +21,32 @@ warmGetAll
   kcp-1.3.0_koin-4.2.2_direct-true     0.004 ms/op     0.000                 -  -14%
   kcp-1.3.0_koin-4.2.3-Beta1_direct-false     0.005 ms/op     0.000                 -  -4%
   kcp-1.3.0_koin-4.2.3-Beta1_direct-true     0.005 ms/op     0.000                 -  -11%
+
+# 1.3.0 @ a15da24 - 2026-09-10 - profile=quick scale=0.1 - Apple M1 Max
+
+graphCreationAndInitialization
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.2_direct-na       0.228 ms/op     0.013                 -  +0%
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     0.125 ms/op     0.008                 -  -45%
+  kcp-1.3.0_koin-4.2.2_direct-false     0.261 ms/op     0.174                 -  +14%
+  kcp-1.3.0_koin-4.2.2_direct-true     0.228 ms/op     0.179                 -  -0%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-false     0.137 ms/op     0.061                 -  -40%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     0.099 ms/op     0.006                 -  -57%
+
+startOnly
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.2_direct-na       0.157 ms/op     0.043                 -  +0%
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     0.064 ms/op     0.005                 -  -59%
+  kcp-1.3.0_koin-4.2.2_direct-false     0.149 ms/op     0.007                 -  -5%
+  kcp-1.3.0_koin-4.2.2_direct-true     0.132 ms/op     0.034                 -  -16%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-false     0.066 ms/op     0.017                 -  -58%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     0.038 ms/op     0.004                 -  -76%
+
+warmGetAll
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.2_direct-na       0.005 ms/op     0.002                 -  +0%
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     0.005 ms/op     0.001                 -  -6%
+  kcp-1.3.0_koin-4.2.2_direct-false     0.005 ms/op     0.000                 -  -9%
+  kcp-1.3.0_koin-4.2.2_direct-true     0.005 ms/op     0.002                 -  -7%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-false     0.005 ms/op     0.001                 -  -9%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     0.005 ms/op     0.000                 -  -12%

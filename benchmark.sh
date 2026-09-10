@@ -7,10 +7,12 @@
 #
 # Usage:
 #   ./benchmark.sh                 # DEFAULT, like koin's core/benchmark: 10% scale (50 modules,
-#                                  #   ~275 definitions), quick JMH (1 fork, 5+5 x 1s)   ~4 min
+#                                  #   ~275 definitions), quick JMH, KCP 1.2.1 vs 1.3.0 on
+#                                  #   koin 4.2.3-Beta1                                    ~2 min
 #   ./benchmark.sh --full          # Metro fingerprint (500 modules, 2,756 definitions) and
 #                                  #   Metro-equivalent JMH (2 forks, 4+10 x 1s, -prof gc) ~1 h
-#   ./benchmark.sh --koin 4.2.2    # restrict the koin-core axis (default: 4.2.2,4.2.3-Beta1)
+#   ./benchmark.sh --koin 4.2.2,4.2.3-Beta1   # add the koin-core axis (default: 4.2.3-Beta1)
+#   ./benchmark.sh --control       # also run 1.3.0 with directRegistration=false
 #   ./benchmark.sh --kcp 1.2.1,1.3.0  # compiler plugin axis (default); 1.2.x runs once, 1.3+ direct off/on
 #   ./benchmark.sh --no-install    # skip ./install.sh (plugin already in Maven Local)
 #

@@ -1,16 +1,18 @@
 #!/bin/bash
 # Runs the four (koinVersion x directRegistration) combinations serially and collects JMH JSON.
-# Usage: ./bench.sh <output-dir> [--quick] [--koin 4.2.2,4.2.3-Beta1] [--kcp 1.2.1,1.3.0]
-#   --quick : 1 fork, 5+5 iterations, fixed heap, no profiler — for iterating.
-#   default : Metro-equivalent profile with -prof gc — for publishing.
-#   --kcp   : compiler plugin versions (from Maven Local / Plugin Portal). directRegistration is
-#             only an axis for 1.3+; a 1.2.x entry runs once.
+# Usage: ./bench.sh <output-dir> [--quick] [--koin 4.2.3-Beta1] [--kcp 1.2.1,1.3.0] [--control]
+#   --quick   : 1 fork, 5+5 x 1s iterations, fixed heap, no profiler — for iterating.
+#   default   : Metro-equivalent profile with -prof gc — for publishing.
+#   --koin    : koin-core versions (default: 4.2.3-Beta1 only; add 4.2.2 to see the runtime axis).
+#   --kcp     : compiler plugin versions (default 1.2.1,1.3.0). A 1.2.x entry runs once; 1.3+ runs
+#               with directRegistration=true, plus =false when --control is given.
 set -u
 OUT="${1:-results}"; shift || true
-QUICK=false; KOINS="4.2.2 4.2.3-Beta1"; KCPS="1.2.1 1.3.0"
+QUICK=false; CONTROL=false; KOINS="4.2.3-Beta1"; KCPS="1.2.1 1.3.0"
 while [ $# -gt 0 ]; do
   case "$1" in
     --quick) QUICK=true ;;
+    --control) CONTROL=true ;;
     --koin) shift; KOINS="${1//,/ }" ;;
     --kcp) shift; KCPS="${1//,/ }" ;;
   esac
@@ -36,7 +38,7 @@ for KV in $KOINS; do
   for KCP in $KCPS; do
     case "$KCP" in
       1.0.*|1.1.*|1.2.*) run "$KV" "$KCP" na ;;
-      *) run "$KV" "$KCP" false; run "$KV" "$KCP" true ;;
+      *) $CONTROL && run "$KV" "$KCP" false; run "$KV" "$KCP" true ;;
     esac
   done
 done
