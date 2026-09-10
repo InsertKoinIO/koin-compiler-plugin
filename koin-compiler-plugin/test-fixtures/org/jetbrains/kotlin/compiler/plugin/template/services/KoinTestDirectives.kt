@@ -17,4 +17,9 @@ object KoinTestDirectives : SimpleDirectivesContainer() {
     val DISABLE_DIRECT_REGISTRATION by directive(
         description = "Register annotation-discovered definitions through the runtime DSL instead of directly"
     )
+
+    /** Adds koin-core-viewmodel (and androidx.lifecycle.ViewModel) to this test's classpath. */
+    val WITH_VIEWMODEL_RUNTIME by directive(
+        description = "Put koin-core-viewmodel on the compile and runtime classpath of this test module"
+    )
 }

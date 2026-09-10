@@ -26,6 +26,8 @@ idea {
 
 val pluginVersion: String by project
 val annotationsRuntimeClasspath: Configuration by configurations.creating { isTransitive = true }
+// Only for fixtures declaring `// WITH_VIEWMODEL_RUNTIME`: on every test it pushed the test JVM into OOM.
+val viewModelRuntimeClasspath: Configuration by configurations.creating { isTransitive = true }
 
 // Kotlin version adapters: compiled per kotlin-compiler version, embedded into
 // this module's jar so the published artifact stays a single self-contained jar.
@@ -53,6 +55,8 @@ dependencies {
     // Koin libraries (koin-core for basic DSL, koin-annotations for plugin functions)
     annotationsRuntimeClasspath(libs.koin.core)
     annotationsRuntimeClasspath(libs.koin.annotations)
+    // @KoinViewModel box tests: buildViewModel lives here, ViewModel comes transitively (KMP lifecycle)
+    viewModelRuntimeClasspath(libs.koin.core.viewmodel)
 
     // Ktor + koin-ktor: `install(Koin) { }` entry-point detection tests need these real symbols
     // on the classpath (org.koin.core.KoinKtorApplication, io.ktor.server.application.install).
@@ -81,11 +85,16 @@ buildConfig {
 
 tasks.test {
     dependsOn(annotationsRuntimeClasspath)
+    dependsOn(viewModelRuntimeClasspath)
 
     useJUnitPlatform()
     workingDir = rootDir
 
     systemProperty("annotationsRuntime.classpath", annotationsRuntimeClasspath.asPath)
+
+    systemProperty("viewModelRuntime.classpath", viewModelRuntimeClasspath.asPath)
+
+    maxHeapSize = "4g"
 
     // Properties required to run the internal test framework.
     setLibraryProperty("org.jetbrains.kotlin.test.kotlin-stdlib", "kotlin-stdlib")

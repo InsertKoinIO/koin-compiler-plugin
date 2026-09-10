@@ -296,8 +296,10 @@ The key's class-name component is derived per target the way `KoinPlatformTools.
 does: `KClass.java.name` on JVM (`pkg.Outer$Inner`), `qualifiedName` on Native, `simpleName` on
 JS/Wasm. **Fallback rule — silent is worse than broken:** any definition whose key cannot be
 derived with certainty (local class, `kotlin.*`/`java.*` type — `String::class.java.name` is
-`java.lang.String` —, archetype scope such as `viewModelScope`, `viewModel`/`worker` definitions,
-missing runtime symbol) keeps the legacy `buildSingle`/`bind` call. Box tests run with
+`java.lang.String` —, archetype scope such as `viewModelScope`, missing runtime symbol) keeps the
+legacy `buildSingle`/`bind` call. `@KoinViewModel`/`@KoinWorker` are registered directly as a
+`Factory` plus the binding their satellite DSL adds (`androidx.lifecycle.ViewModel` /
+`androidx.work.ListenableWorker`), when that artifact is on the classpath. Box tests run with
 `verifyGeneratedKeys = true`, so every emitted key is checked against `indexKey()` at module load;
 `testData/box/directregistration/` covers nested classes, packages, type qualifiers, typed scopes
 and the `kotlin.*` fallback; `kill_switch.kt` pins the `directRegistration = false` shape.

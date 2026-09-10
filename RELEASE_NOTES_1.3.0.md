@@ -6,7 +6,7 @@ disappears is per-definition work Koin used to do at module load.
 Ships alongside Koin `4.2.3` (see the koin-core release notes for the runtime side of KTZ-4829).
 Runs on every Koin version the plugin supports (4.2.0+) — nothing new is required from koin-core.
 
-## ⚡ Changed: direct registration for `@Single` / `@Singleton` / `@Factory` / `@Scoped`
+## ⚡ Changed: direct registration for `@Single` / `@Singleton` / `@Factory` / `@Scoped` / `@KoinViewModel` / `@KoinWorker`
 
 Before, for each annotated class or function, the generated `module()` emitted:
 
@@ -53,8 +53,10 @@ the previous `buildSingle`/`bind` call, so a mixed module is normal and correct:
 - Local classes, unknown platforms (common metadata compilation).
 - Archetype scopes (`viewModelScope`, `activityScope`, `activityRetainedScope`, `fragmentScope`):
   their scope qualifier comes from a satellite artifact at runtime.
-- `@KoinViewModel` / `@KoinWorker`: their DSL lives in `koin-core-viewmodel` /
-  `koin-android-workmanager` and has behavior of its own.
+- `@KoinViewModel` / `@KoinWorker` are registered directly too — as a `Factory` bound to
+  `androidx.lifecycle.ViewModel` / `androidx.work.ListenableWorker`, exactly what `buildViewModel` /
+  `buildWorker` do at runtime — provided the satellite artifact is on the classpath; otherwise the
+  existing missing-artifact diagnostic fires as before.
 - Any koin-core symbol the plugin cannot resolve on the classpath.
 
 ### Two new options

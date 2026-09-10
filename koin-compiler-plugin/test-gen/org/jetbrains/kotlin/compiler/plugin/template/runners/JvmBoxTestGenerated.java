@@ -109,6 +109,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     public void testKill_switch() {
       runTest("koin-compiler-plugin/testData/box/directregistration/kill_switch.kt");
     }
+
+    @Test
+    @TestMetadata("view_model.kt")
+    public void testView_model() {
+      runTest("koin-compiler-plugin/testData/box/directregistration/view_model.kt");
+    }
   }
 
   @Nested

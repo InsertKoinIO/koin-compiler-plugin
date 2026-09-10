@@ -13,6 +13,15 @@ private val annotationsRuntimeClasspath =
     System.getProperty("annotationsRuntime.classpath")?.split(File.pathSeparator)?.map(::File)
         ?: error("Unable to get a valid classpath from 'annotationsRuntime.classpath' property")
 
+// Opt-in per fixture (WITH_VIEWMODEL_RUNTIME): koin-core-viewmodel + lifecycle on every test's
+// classpath pushed the test JVM into OutOfMemoryError.
+private val viewModelRuntimeClasspath =
+    System.getProperty("viewModelRuntime.classpath")?.takeIf { it.isNotBlank() }?.split(File.pathSeparator)?.map(::File) ?: emptyList()
+
+private fun classpathFor(module: TestModule): List<File> =
+    if (KoinTestDirectives.WITH_VIEWMODEL_RUNTIME in module.directives) annotationsRuntimeClasspath + viewModelRuntimeClasspath
+    else annotationsRuntimeClasspath
+
 fun TestConfigurationBuilder.configureAnnotations() {
     useConfigurators(::PluginAnnotationsProvider)
     useCustomRuntimeClasspathProviders(::PluginAnnotationsClasspathProvider)
@@ -20,10 +29,10 @@ fun TestConfigurationBuilder.configureAnnotations() {
 
 private class PluginAnnotationsProvider(testServices: TestServices) : EnvironmentConfigurator(testServices) {
     override fun configureCompilerConfiguration(configuration: CompilerConfiguration, module: TestModule) {
-        configuration.addJvmClasspathRoots(annotationsRuntimeClasspath)
+        configuration.addJvmClasspathRoots(classpathFor(module))
     }
 }
 
 private class PluginAnnotationsClasspathProvider(testServices: TestServices) : RuntimeClasspathProvider(testServices) {
-    override fun runtimeClassPaths(module: TestModule) = annotationsRuntimeClasspath
+    override fun runtimeClassPaths(module: TestModule) = classpathFor(module)
 }

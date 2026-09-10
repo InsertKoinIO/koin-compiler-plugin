@@ -110,6 +110,12 @@ class DirectRegistrationBuilder(
     private val scopeDslClass by lazy { referenceClass(FqName("org.koin.dsl"), "ScopeDSL") }
     private val scopeRegistryCompanion by lazy { referenceClass(FqName("org.koin.core.registry"), "ScopeRegistry")?.companionObject() }
 
+    // The satellite DSLs are `createDefinition(kind = Factory).bind(X::class)`: viewModel binds
+    // androidx.lifecycle.ViewModel, worker binds androidx.work.ListenableWorker. Direct registration
+    // mirrors them as a Factory with that one extra secondary type.
+    private val viewModelClass by lazy { referenceClass(FqName("androidx.lifecycle"), "ViewModel") }
+    private val listenableWorkerClass by lazy { referenceClass(FqName("androidx.work"), "ListenableWorker") }
+
     // BeanDefinition(scopeQualifier, primaryType, qualifier, definition, kind, secondaryTypes, allowOverride)
     private val beanDefinitionConstructor by lazy { beanDefinitionClass?.constructors?.firstOrNull { it.regularParameters.size == 7 } }
     private val singleFactoryConstructor by lazy { referenceClass(koinInstancePackage, "SingleInstanceFactory")?.constructors?.firstOrNull { it.regularParameters.size == 1 } }
@@ -138,25 +144,29 @@ class DirectRegistrationBuilder(
         if (!KoinPluginLogger.directRegistrationEnabled) return false
         val factoryConstructor = when (spec.definitionType) {
             DefinitionType.SINGLE -> singleFactoryConstructor
-            DefinitionType.FACTORY -> factoryFactoryConstructor
+            DefinitionType.FACTORY, DefinitionType.VIEW_MODEL, DefinitionType.WORKER -> factoryFactoryConstructor
             DefinitionType.SCOPED -> scopedFactoryConstructor
-            // viewModel/worker DSL lives in satellite artifacts with their own behavior — legacy path.
-            DefinitionType.VIEW_MODEL, DefinitionType.WORKER -> return false
         }
         if (factoryConstructor == null) return skip(spec, "InstanceFactory constructor not found")
+        // The caller has already resolved the satellite DSL function (and reported the missing
+        // artifact otherwise); the binding class must additionally be on the classpath.
+        if (implicitBinding(spec.definitionType) == null && spec.definitionType in setOf(DefinitionType.VIEW_MODEL, DefinitionType.WORKER)) {
+            return skip(spec, "satellite binding class (ViewModel / ListenableWorker) not found")
+        }
         if (kClassClass == null || beanDefinitionConstructor == null || kindClass == null || saveMapping == null) return skip(spec, "koin-core registration symbols not found")
         if (spec.createdAtStart && prepareForCreationAtStart == null) return skip(spec, "prepareForCreationAtStart not found")
         if (platformClassName(spec.targetType) == null) return skip(spec, "no compile-time class name for ${spec.targetType.fqNameWhenAvailable}")
-        if (spec.bindings.any { platformClassName(it) == null }) return skip(spec, "no compile-time class name for a bound type")
+        if (allBindings(spec).any { platformClassName(it) == null }) return skip(spec, "no compile-time class name for a bound type")
         if (qualifierKey(spec.qualifier) == null) return skip(spec, "no compile-time value for the qualifier")
         if (scopeKey(spec.scope) == null) return skip(spec, "no compile-time value for the scope qualifier")
         when (spec.scope) {
             ScopeSpec.Root -> if (rootScopeQualifierGetter == null) return skip(spec, "rootScopeQualifier not found")
             is ScopeSpec.Typed, is ScopeSpec.Named -> if (scopeDslModuleGetter == null || scopeDslQualifierGetter == null) return skip(spec, "ScopeDSL accessors not found")
         }
-        if (spec.bindings.isEmpty() && emptyListFunction == null) return skip(spec, "emptyList not found")
-        if (spec.bindings.size == 1 && listOfSingle == null) return skip(spec, "listOf(element) not found")
-        if (spec.bindings.size > 1 && listOfVararg == null) return skip(spec, "listOf(vararg) not found")
+        val bindingCount = allBindings(spec).size
+        if (bindingCount == 0 && emptyListFunction == null) return skip(spec, "emptyList not found")
+        if (bindingCount == 1 && listOfSingle == null) return skip(spec, "listOf(element) not found")
+        if (bindingCount > 1 && listOfVararg == null) return skip(spec, "listOf(vararg) not found")
         if (KoinPluginLogger.verifyGeneratedKeysEnabled && (indexKeyFunction == null || errorFunction == null || definitionQualifierGetter == null || definitionScopeQualifierGetter == null)) {
             return skip(spec, "verification symbols not found")
         }
@@ -173,7 +183,8 @@ class DirectRegistrationBuilder(
         val targetType = spec.targetType.defaultType
         val kClassStar = kClass.symbol.starProjectedType
         val primaryKey = indexKeyOf(spec.targetType, spec.qualifier, spec.scope)
-        val secondaryKeys = spec.bindings.map { indexKeyOf(it, spec.qualifier, spec.scope) }
+        val bindings = allBindings(spec)
+        val secondaryKeys = bindings.map { indexKeyOf(it, spec.qualifier, spec.scope) }
 
         return builder.irBlock(resultType = context.irBuiltIns.unitType) {
             val moduleExpr: IrExpression
@@ -193,7 +204,7 @@ class DirectRegistrationBuilder(
             val module = irTemporary(moduleExpr, nameHint = "koinModule")
 
             val kindExpr = IrGetEnumValueImpl(UNDEFINED_OFFSET, UNDEFINED_OFFSET, kindClass!!.defaultType, kindEntry(spec.definitionType).symbol)
-            val secondaryTypesExpr = secondaryTypesList(spec.bindings, kClass, kClassStar)
+            val secondaryTypesExpr = secondaryTypesList(bindings, kClass, kClassStar)
 
             val definitionCall = irCallConstructor(beanDefinitionConstructor!!.symbol, listOf(targetType)).apply {
                 putRegularArgument(0, scopeQualifierExpr)
@@ -208,9 +219,8 @@ class DirectRegistrationBuilder(
 
             val factoryConstructor = when (spec.definitionType) {
                 DefinitionType.SINGLE -> singleFactoryConstructor!!
-                DefinitionType.FACTORY -> factoryFactoryConstructor!!
+                DefinitionType.FACTORY, DefinitionType.VIEW_MODEL, DefinitionType.WORKER -> factoryFactoryConstructor!!
                 DefinitionType.SCOPED -> scopedFactoryConstructor!!
-                DefinitionType.VIEW_MODEL, DefinitionType.WORKER -> error("direct registration is not applicable to ${spec.definitionType}")
             }
             val factoryCall = irCallConstructor(factoryConstructor.symbol, listOf(targetType)).apply {
                 putRegularArgument(0, irGet(definition))
@@ -238,7 +248,7 @@ class DirectRegistrationBuilder(
             }
 
             if (KoinPluginLogger.verifyGeneratedKeysEnabled) {
-                val checked = listOf(spec.targetType to primaryKey) + spec.bindings.zip(secondaryKeys)
+                val checked = listOf(spec.targetType to primaryKey) + bindings.zip(secondaryKeys)
                 for ((type, key) in checked) {
                     val runtimeKey = irCall(indexKeyFunction!!.symbol).apply {
                         putRegularArgument(0, classReference(type, kClass))
@@ -319,12 +329,24 @@ class DirectRegistrationBuilder(
         classType = irClass.defaultType,
     )
 
+    // Explicit bindings plus the one the satellite DSL adds (deduplicated: a class may already
+    // declare it, and the runtime DSL's bind() would index it twice too).
+    private fun allBindings(spec: Spec): List<IrClass> {
+        val implicit = implicitBinding(spec.definitionType) ?: return spec.bindings
+        return if (spec.bindings.any { it.symbol == implicit.symbol }) spec.bindings else spec.bindings + implicit
+    }
+
+    private fun implicitBinding(definitionType: DefinitionType): IrClass? = when (definitionType) {
+        DefinitionType.VIEW_MODEL -> viewModelClass
+        DefinitionType.WORKER -> listenableWorkerClass
+        else -> null
+    }
+
     private fun kindEntry(definitionType: DefinitionType): IrEnumEntry {
         val name = when (definitionType) {
             DefinitionType.SINGLE -> "Singleton"
-            DefinitionType.FACTORY -> "Factory"
+            DefinitionType.FACTORY, DefinitionType.VIEW_MODEL, DefinitionType.WORKER -> "Factory"
             DefinitionType.SCOPED -> "Scoped"
-            DefinitionType.VIEW_MODEL, DefinitionType.WORKER -> error("no Kind for $definitionType")
         }
         return kindClass!!.declarations.filterIsInstance<IrEnumEntry>().first { it.name.asString() == name }
     }

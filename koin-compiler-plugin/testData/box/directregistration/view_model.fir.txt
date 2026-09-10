@@ -1,0 +1,117 @@
+FILE: test.kt
+    package sample.vm
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|sample/vm/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Singleton|() public final class Repository : R|kotlin/Any| {
+        public constructor(): R|sample/vm/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinViewModel|() public final class HomeViewModel : R|androidx/lifecycle/ViewModel| {
+        public constructor(repository: R|sample/vm/Repository|): R|sample/vm/HomeViewModel| {
+            super<R|androidx/lifecycle/ViewModel|>()
+        }
+
+        public final val repository: R|sample/vm/Repository| = R|<local>/repository|
+            public get(): R|sample/vm/Repository|
+
+    }
+    @R|org/koin/core/annotation/KoinViewModel|() @R|org/koin/core/annotation/Named|(value = String(detail)) public final class DetailViewModel : R|androidx/lifecycle/ViewModel| {
+        public constructor(): R|sample/vm/DetailViewModel| {
+            super<R|androidx/lifecycle/ViewModel|>()
+        }
+
+    }
+    public final class SessionScope : R|kotlin/Any| {
+        public constructor(): R|sample/vm/SessionScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinViewModel|() @R|org/koin/core/annotation/Scope|(value = <getClass>(Q|sample/vm/SessionScope|)) public final class SessionViewModel : R|androidx/lifecycle/ViewModel| {
+        public constructor(repository: R|sample/vm/Repository|): R|sample/vm/SessionViewModel| {
+            super<R|androidx/lifecycle/ViewModel|>()
+        }
+
+        public final val repository: R|sample/vm/Repository| = R|<local>/repository|
+            public get(): R|sample/vm/Repository|
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|sample/vm/TestModule.TestModule|().R|sample/vm/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval home: R|sample/vm/HomeViewModel| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/vm/HomeViewModel|>()
+        when () {
+            !==(R|<local>/home|.R|sample/vm/HomeViewModel.repository|, R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/vm/Repository|>()) ->  {
+                ^box String(FAIL: HomeViewModel dependency not injected)
+            }
+        }
+
+        when () {
+            ===(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/vm/HomeViewModel|>(), R|<local>/home|) ->  {
+                ^box String(FAIL: view model must be a factory, got the same instance)
+            }
+        }
+
+        when () {
+            ==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/vm/DetailViewModel|>(R|org/koin/core/qualifier/named|(String(detail))), Null(null)) ->  {
+                ^box String(FAIL: named view model not resolved)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/vm/DetailViewModel|>(), Null(null)) ->  {
+                ^box String(FAIL: named view model resolved without its qualifier)
+            }
+        }
+
+        lval asViewModels: R|kotlin/collections/List<androidx/lifecycle/ViewModel>| = R|<local>/koin|.R|org/koin/core/Koin.getAll|<R|androidx/lifecycle/ViewModel|>()
+        when () {
+            R|<local>/asViewModels|.R|kotlin/collections/none|<R|androidx/lifecycle/ViewModel|>(<L> = none@fun <anonymous>(it: R|androidx/lifecycle/ViewModel|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
+                ^ (R|<local>/it| is R|sample/vm/HomeViewModel|)
+            }
+            ) || R|<local>/asViewModels|.R|kotlin/collections/none|<R|androidx/lifecycle/ViewModel|>(<L> = none@fun <anonymous>(it: R|androidx/lifecycle/ViewModel|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
+                ^ (R|<local>/it| is R|sample/vm/DetailViewModel|)
+            }
+            ) ->  {
+                ^box String(FAIL: ViewModel binding missing on root view models)
+            }
+        }
+
+        lval scope: R|org/koin/core/scope/Scope| = R|<local>/koin|.R|org/koin/core/Koin.createScope|(String(s1), R|org/koin/core/qualifier/qualifier|<R|sample/vm/SessionScope|>())
+        lval session: R|sample/vm/SessionViewModel| = R|<local>/scope|.R|org/koin/core/scope/Scope.get|<R|sample/vm/SessionViewModel|>()
+        when () {
+            !==(R|<local>/session|.R|sample/vm/SessionViewModel.repository|, R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/vm/Repository|>()) ->  {
+                ^box String(FAIL: scoped view model dependency not injected)
+            }
+        }
+
+        when () {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/vm/SessionViewModel|>(), Null(null)) ->  {
+                ^box String(FAIL: scoped view model leaked to root)
+            }
+        }
+
+        when () {
+            R|<local>/scope|.R|org/koin/core/scope/Scope.getAll|<R|androidx/lifecycle/ViewModel|>().R|kotlin/collections/none|<R|androidx/lifecycle/ViewModel|>(<L> = none@fun <anonymous>(it: R|androidx/lifecycle/ViewModel|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
+                ^ (R|<local>/it| is R|sample/vm/SessionViewModel|)
+            }
+            ) ->  {
+                ^box String(FAIL: ViewModel binding missing on scoped view model)
+            }
+        }
+
+        ^box String(OK)
+    }
+FILE: sample/vm/sampleVmTestModuleModule.kt
+    package sample.vm
+
+    public final fun R|sample/vm/TestModule|.module(): R|org/koin/core/module/Module|
