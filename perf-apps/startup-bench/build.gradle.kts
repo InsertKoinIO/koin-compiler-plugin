@@ -45,16 +45,19 @@ jmh {
     fork.set(if (quick) 1 else 2)
     // champeau's default iteration length is 10 s (Metro's harness runs on that default, so the
     // full profile keeps it); quick uses 1 s iterations.
+    // Iteration length must fit the op: ~0.1 ms ops (10% scale) converge in 1 s; 5-8 ms ops (full
+    // scale) need ~5 s or a single GC pause / JIT compile owns the iteration (observed ±9 ms on 7 ms).
+    val iterationSeconds = (project.findProperty("iterationSeconds") as? String) ?: "1"
     if (quick) {
-        warmup.set("1s")
-        timeOnIteration.set("1s")
+        warmup.set("${iterationSeconds}s")
+        timeOnIteration.set("${iterationSeconds}s")
     }
     timeUnit.set("ms")
     benchmarkMode.set(listOf("avgt"))
     profilers.set(if (quick) emptyList() else listOf("gc"))
     resultFormat.set("JSON")
     resultsFile.set(layout.buildDirectory.file("results/jmh/results.json"))
-    jvmArgsAppend.set(listOf("-Dkoin.version=$koinVersion", "-Dkoin.directRegistration=$useDirectRegistration") + if (quick) listOf("-Xms2g", "-Xmx2g") else emptyList())
+    jvmArgsAppend.set(listOf("-Dkoin.version=$koinVersion", "-Dkoin.directRegistration=$useDirectRegistration") + if (quick && iterationSeconds == "1") listOf("-Xms2g", "-Xmx2g") else emptyList())
 }
 
 tasks.register("printConfig") {

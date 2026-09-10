@@ -8,11 +8,12 @@
 #               with directRegistration=true, plus =false when --control is given.
 set -u
 OUT="${1:-results}"; shift || true
-QUICK=false; CONTROL=false; KOINS="4.2.3-Beta1"; KCPS="1.2.1 1.3.0"
+QUICK=false; CONTROL=false; KOINS="4.2.3-Beta1"; KCPS="1.2.1 1.3.0"; ITER=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --quick) QUICK=true ;;
     --control) CONTROL=true ;;
+    --iter) shift; ITER="$1" ;;
     --koin) shift; KOINS="${1//,/ }" ;;
     --kcp) shift; KCPS="${1//,/ }" ;;
   esac
@@ -25,7 +26,7 @@ run() {
   local NAME="kcp-${KCP}_koin-${KV}_direct-${DR}"
   echo "===== $NAME (quick=$QUICK) : $(date) ====="
   rm -f "$(dirname "$0")/build/results/jmh/results.json"   # never let a failed run inherit the previous JSON
-  (cd "$ROOT" && ./gradlew -p perf-apps/startup-bench jmh -PkoinVersion="$KV" -PkcpVersion="$KCP" -PdirectRegistration="$DR" -Pquick="$QUICK" --console=plain) > "$OUT/$NAME.log" 2>&1
+  (cd "$ROOT" && ./gradlew -p perf-apps/startup-bench jmh -PkoinVersion="$KV" -PkcpVersion="$KCP" -PdirectRegistration="$DR" -Pquick="$QUICK" -PiterationSeconds="$ITER" --console=plain) > "$OUT/$NAME.log" 2>&1
   echo "gradle exit=$?"
   if [ -f "$(dirname "$0")/build/results/jmh/results.json" ]; then
     cp "$(dirname "$0")/build/results/jmh/results.json" "$OUT/$NAME.json"

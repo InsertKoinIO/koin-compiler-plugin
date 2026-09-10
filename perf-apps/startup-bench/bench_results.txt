@@ -67,3 +67,40 @@ warmGetAll
   configuration                            score           ±          alloc/op
   kcp-1.2.1_koin-4.2.3-Beta1_direct-na     0.005 ms/op     0.000                 -  +0%
   kcp-1.3.0_koin-4.2.3-Beta1_direct-true     0.005 ms/op     0.000                 -  -4%
+
+# 1.3.0 @ 47b374a - 2026-09-10 - profile=quick scale=1.0 - Apple M1 Max
+
+graphCreationAndInitialization
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     4.432 ms/op     0.717                 -  +0%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     7.213 ms/op     3.549                 -  +63%
+
+startOnly
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     1.383 ms/op     0.432                 -  +0%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     3.675 ms/op     6.435                 -  +166%
+
+warmGetAll
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     0.072 ms/op     0.004                 -  +0%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     0.233 ms/op     0.300                 -  +224%
+
+# 1.3.0 @ 47b374a - 2026-09-10 - profile=quick scale=1.0 - Apple M1 Max
+
+graphCreationAndInitialization
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     7.330 ms/op     9.265                 -  +0%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-false     8.669 ms/op     3.823                 -  +18%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     5.827 ms/op     3.937                 -  -21%
+
+startOnly
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     1.297 ms/op     0.354                 -  +0%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-false     2.321 ms/op     3.301                 -  +79%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     1.723 ms/op     0.385                 -  +33%
+
+warmGetAll
+  configuration                            score           ±          alloc/op
+  kcp-1.2.1_koin-4.2.3-Beta1_direct-na     0.070 ms/op     0.006                 -  +0%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-false     0.093 ms/op     0.083                 -  +33%
+  kcp-1.3.0_koin-4.2.3-Beta1_direct-true     0.064 ms/op     0.014                 -  -8%
