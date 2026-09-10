@@ -196,6 +196,8 @@ Before opening (or approving) any PR, both guards must pass:
 ./release-to-gradle-portal.sh
 ```
 
+**Release notes — concise, written for Koin users.** Target ~300 words (1.2.0/1.2.1 were rewritten from ~1300 to ~350 on 2026-09-10). One opening sentence saying what the release is for, then Added / Fixed / Changed / Compatibility / Install. Each bullet states what a user sees (the diagnostic, the crash, the false positive) and the fix, never the internal mechanism (hint carriers, relays, adapters, builder APIs). Keep contributor credits and issue links. Behavior changes still get their own explicit entry.
+
 **Release notes — Added vs Fixed:** ask *"would this affect a user on the previous supported Kotlin/Koin range?"* Yes → `Fixed`. No (only enables a new version range) → ONE umbrella `Added` entry with sub-bullets. Intentional generated-code behavior changes always get their own explicit entry.
 
 ## Plugin Configuration
