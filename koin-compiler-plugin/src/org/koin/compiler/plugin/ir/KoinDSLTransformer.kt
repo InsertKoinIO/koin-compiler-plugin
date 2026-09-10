@@ -477,6 +477,11 @@ class KoinDSLTransformer(
 
         if (compileSafetyEnabled) collectPostDescentSafetyData(functionName, callee, transformedCall)
 
+        // KTZ-4829: `single<T>() bind I::class` / `binds arrayOf(...)` on a directly registered
+        // definition — fold the bound types into the registration block instead of running
+        // KoinDefinition.bind() at runtime (which rebuilds the key String for every bound type).
+        foldBindIntoDirectRegistration(transformedCall, functionName, callee)?.let { return it }
+
         // ── CODEGEN: everything below rewrites (or dispatches a safety-only collector for) one of
         // this plugin's own target functions. Bail out now if this isn't one of ours. ──
         if (functionName !in dslTargetFunctionNames) return transformedCall
@@ -694,6 +699,26 @@ class KoinDSLTransformer(
     }
 
     // ── KTZ-4829: direct registration for DSL call sites ─────────────────────────────────────────
+
+    private fun foldBindIntoDirectRegistration(call: IrCall, functionName: Name, callee: IrSimpleFunction): IrExpression? {
+        val fqName = callee.fqNameWhenAvailable?.asString() ?: return null
+        val receiver = call.extensionReceiverArgument ?: return null
+        val bound: List<IrClass> = when {
+            functionName.asString() == "bind" && fqName in KOIN_BIND_FQNAMES -> {
+                val classArg = call.getRegularArgument(0)
+                val boundClass = if (classArg is IrClassReference) classRefToIrClass(classArg)
+                else if (classArg == null) (call.getTypeArgumentCompat(0)?.classifierOrNull as? IrClassSymbol)?.owner
+                else null
+                listOfNotNull(boundClass)
+            }
+            functionName.asString() == "binds" && fqName in KOIN_BINDS_FQNAMES -> extractClassReferenceList(call.getRegularArgument(0))
+            else -> return null
+        }
+        if (bound.isEmpty()) return null
+        return directRegistration.foldBindings(receiver, bound)?.also {
+            KoinPluginLogger.user { "Folded ${functionName}(${bound.joinToString { it.name.asString() }}) into the direct registration" }
+        }
+    }
 
     private fun dslScopeSpec(receiverClassName: String): DirectRegistrationBuilder.ScopeSpec? = when (receiverClassName) {
         "Module" -> DirectRegistrationBuilder.ScopeSpec.Root

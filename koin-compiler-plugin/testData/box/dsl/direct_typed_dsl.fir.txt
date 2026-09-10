@@ -3,6 +3,10 @@ FILE: test.kt
 
     public abstract interface Api : R|kotlin/Any| {
     }
+    public abstract interface Marker : R|kotlin/Any| {
+    }
+    public abstract interface Other : R|kotlin/Any| {
+    }
     public final class Repository : R|kotlin/Any| {
         public constructor(): R|sample/dsl/Repository| {
             super<R|kotlin/Any|>()
@@ -16,6 +20,18 @@ FILE: test.kt
 
         public final val repository: R|sample/dsl/Repository| = R|<local>/repository|
             public get(): R|sample/dsl/Repository|
+
+    }
+    public final class Multi : R|sample/dsl/Api|, R|sample/dsl/Marker|, R|sample/dsl/Other| {
+        public constructor(): R|sample/dsl/Multi| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Plain : R|sample/dsl/Api| {
+        public constructor(): R|sample/dsl/Plain| {
+            super<R|kotlin/Any|>()
+        }
 
     }
     public final class Transient : R|kotlin/Any| {
@@ -61,6 +77,8 @@ FILE: test.kt
         lval m: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
             this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Repository|>()
             this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Service|>().R|org/koin/dsl/bind|<R|sample/dsl/Api|>(<getClass>(Q|sample/dsl/Api|))
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Multi|>().R|org/koin/dsl/binds|(R|kotlin/arrayOf|<R|kotlin/reflect/KClass<*>|>(vararg(<getClass>(Q|sample/dsl/Marker|), <getClass>(Q|sample/dsl/Other|))))
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Plain|>().R|org/koin/dsl/bind|<R|kotlin/Any|>(<getClass>(Q|kotlin/Any|))
             this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|sample/dsl/Transient|>()
             this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|sample/dsl/Tagged|>()
             this@R|special/anonymous|.R|org/koin/core/module/Module.scope|<R|sample/dsl/SessionScope|>(<L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=Inline, kind=UNKNOWN>  {
@@ -92,8 +110,33 @@ FILE: test.kt
         }
 
         when () {
-            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Api|>(), R|<local>/service|) ->  {
+            !=(R|<local>/koin|.R|org/koin/core/Koin.getOrNull|<R|sample/dsl/Api|>(R|org/koin/core/qualifier/named|(String(dummy-never))), Null(null)) ->  {
+                ^box String(FAIL: a qualified lookup matched an unqualified definition)
+            }
+        }
+
+        when () {
+            R|<local>/koin|.R|org/koin/core/Koin.getAll|<R|sample/dsl/Api|>().R|kotlin/collections/none|<R|sample/dsl/Api|>(<L> = none@fun <anonymous>(it: R|sample/dsl/Api|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
+                ^ ===(R|<local>/it|, R|<local>/service|)
+            }
+            ) ->  {
                 ^box String(FAIL: chained bind on a direct registration lost)
+            }
+        }
+
+        lval multi: R|sample/dsl/Multi| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Multi|>()
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Marker|>(), R|<local>/multi|) || !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|sample/dsl/Other|>(), R|<local>/multi|) ->  {
+                ^box String(FAIL: binds arrayOf(...) not folded/registered)
+            }
+        }
+
+        when () {
+            R|<local>/koin|.R|org/koin/core/Koin.getAll|<R|kotlin/Any|>().R|kotlin/collections/none|<R|kotlin/Any|>(<L> = none@fun <anonymous>(it: R|kotlin/Any|): R|kotlin/Boolean| <inline=Inline, kind=UNKNOWN>  {
+                ^ (R|<local>/it| is R|sample/dsl/Plain|)
+            }
+            ) ->  {
+                ^box String(FAIL: kotlin.Any bind chain lost)
             }
         }
 

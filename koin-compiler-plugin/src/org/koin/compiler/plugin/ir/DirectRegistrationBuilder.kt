@@ -98,7 +98,29 @@ class DirectRegistrationBuilder(
         val definitionType: DefinitionType,
         val createdAtStart: Boolean,
         val scope: ScopeSpec,
-    )
+    ) {
+        fun withBindings(extra: List<IrClass>) = Spec(targetType, qualifier, bindings + extra.filter { e -> bindings.none { it.symbol == e.symbol } }, definitionType, createdAtStart, scope)
+    }
+
+    /** Everything needed to re-emit a block with more bindings (DSL `x bind I::class` folding). */
+    private class Emission(val spec: Spec, val receiverExpr: IrExpression, val definitionLambda: IrExpression, val builder: DeclarationIrBuilder)
+
+    // Blocks emitted for DSL call sites, so a chained bind()/binds() can be folded into them instead
+    // of running through KoinDefinition.bind() (which rebuilds the key String at runtime).
+    private val emissions = java.util.IdentityHashMap<IrExpression, Emission>()
+
+    /**
+     * If [receiver] is a block this builder emitted for a DSL call, re-emit it with [extra] bound
+     * types folded in and return the new block; null when it isn't ours or a bound type has no
+     * compile-time name (the caller then keeps the runtime bind() chain, which stays correct).
+     */
+    fun foldBindings(receiver: IrExpression, extra: List<IrClass>): IrExpression? {
+        val emission = emissions[receiver] ?: return null
+        val spec = emission.spec.withBindings(extra)
+        if (!canEmit(spec, returnDefinition = true)) return null
+        emissions.remove(receiver)
+        return emit(spec, emission.receiverExpr, emission.definitionLambda, emission.builder, returnDefinition = true)
+    }
 
     private val koinDefinitionPackage = FqName("org.koin.core.definition")
     private val koinInstancePackage = FqName("org.koin.core.instance")
@@ -203,7 +225,7 @@ class DirectRegistrationBuilder(
         val secondaryKeys = bindings.map { indexKeyOf(it, spec.qualifier, spec.scope) }
 
         val resultType = if (returnDefinition) koinDefinitionClass!!.typeWith(targetType) else context.irBuiltIns.unitType
-        return builder.irBlock(resultType = resultType) {
+        val block = builder.irBlock(resultType = resultType) {
             val moduleExpr: IrExpression
             val scopeQualifierExpr: IrExpression
             when (spec.scope) {
@@ -297,6 +319,8 @@ class DirectRegistrationBuilder(
                 }
             }
         }
+        if (returnDefinition) emissions[block] = Emission(spec, receiverExpr, definitionLambda, builder)
+        return block
     }
 
     // ── key derivation ───────────────────────────────────────────────────────────────────────────
