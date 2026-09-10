@@ -23,13 +23,17 @@ dependencies {
     implementation("io.insert-koin:koin-annotations:$koinVersion")
 }
 
-// Script-level names differ from the extension's own properties on purpose: inside the block,
-// `directRegistration` on the right-hand side would resolve to the extension property itself.
+// directRegistration / verifyGeneratedKeys exist from plugin 1.3.0; set them reflectively so the
+// same script also benchmarks 1.2.x (-PkcpVersion=1.2.1), where the properties do not exist.
 koinCompiler {
-    directRegistration.set(useDirectRegistration)
-    verifyGeneratedKeys.set(useVerifyKeys)
     compileSafety.set(useCompileSafety)
     logSeverity.set("info")
+    fun setIfPresent(name: String, value: Boolean) {
+        runCatching { javaClass.getMethod("get" + name.replaceFirstChar { it.uppercase() }).invoke(this) }
+            .getOrNull()?.let { @Suppress("UNCHECKED_CAST") (it as org.gradle.api.provider.Property<Boolean>).set(value) }
+    }
+    setIfPresent("directRegistration", useDirectRegistration)
+    setIfPresent("verifyGeneratedKeys", useVerifyKeys)
 }
 
 // Same JMH shape as Metro's startup-jvm: AverageTime, 2 forks, 4 x 1s warmup, 10 x 1s measure.
