@@ -1,0 +1,80 @@
+FILE: test.kt
+    public abstract interface Loader<K : R|kotlin/Any|, V : R|kotlin/Any|> : R|kotlin/Any| {
+        public abstract val loaderName: R|kotlin/String|
+            public get(): R|kotlin/String|
+
+    }
+    public abstract class BaseLoader<K : R|kotlin/Any|, V : R|kotlin/Any|> : R|Loader<K, V>| {
+        public constructor<K : R|kotlin/Any|, V : R|kotlin/Any|>(): R|BaseLoader<K, V>| {
+            super<R|kotlin/Any|>()
+        }
+
+        public open override val loaderName: R|kotlin/String| = <getClass>(this@R|/BaseLoader|).R|SubstitutionOverride<kotlin/reflect/KClass.qualifiedName: R|kotlin/String?|>|!!
+            public get(): R|kotlin/String|
+
+        public abstract suspend fun batchLoad(keys: R|kotlin/collections/Set<K>|): R|kotlin/collections/Map<K, V>|
+
+    }
+    @R|org/koin/core/annotation/Single|(binds = <collectionLiteralCall>(<getClass>(Q|Loader|))) public final object LengthLoader : R|BaseLoader<kotlin/String, kotlin/Int>| {
+        private constructor(): R|LengthLoader| {
+            super<R|BaseLoader<kotlin/String, kotlin/Int>|>()
+        }
+
+        public final operator fun invoke(): R|LengthLoader| {
+            ^invoke this@R|/LengthLoader|
+        }
+
+        public open override suspend fun batchLoad(keys: R|kotlin/collections/Set<kotlin/String>|): R|kotlin/collections/Map<kotlin/String, kotlin/Int>| {
+            ^batchLoad R|<local>/keys|.R|kotlin/collections/associateWith|<R|kotlin/String|, R|kotlin/Int|>(<L> = associateWith@fun <anonymous>(it: R|kotlin/String|): R|kotlin/Int| <inline=Inline, kind=UNKNOWN>  {
+                ^ R|<local>/it|.R|kotlin/String.length|
+            }
+            )
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/AppModule.AppModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        lval loaders: R|kotlin/collections/List<Loader<*, *>>| = R|<local>/koin|.R|org/koin/core/Koin.getAll|<R|Loader<*, *>|>()
+        when () {
+            !=(R|<local>/loaders|.R|SubstitutionOverride<kotlin/collections/List.size: R|kotlin/Int|>|, Int(1)) ->  {
+                ^box <strcat>(String(FAIL: expected 1 loader, got ), R|<local>/loaders|.R|SubstitutionOverride<kotlin/collections/List.size: R|kotlin/Int|>|)
+            }
+        }
+
+        when () {
+            !==(R|<local>/loaders|.R|kotlin/collections/first|<R|Loader<*, *>|>(), Q|LengthLoader|) ->  {
+                ^box String(FAIL: bound loader is not the object INSTANCE)
+            }
+        }
+
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|Loader<kotlin/String, kotlin/Int>|>(), Q|LengthLoader|) ->  {
+                ^box String(FAIL: get<Loader>() is not the INSTANCE)
+            }
+        }
+
+        when () {
+            !==(R|<local>/koin|.R|org/koin/core/Koin.get|<R|LengthLoader|>(), Q|LengthLoader|) ->  {
+                ^box String(FAIL: get<LengthLoader>() is not the INSTANCE)
+            }
+        }
+
+        when () {
+            !=(Q|LengthLoader|.R|SubstitutionOverride</LengthLoader.loaderName: R|kotlin/String|>|, String(LengthLoader)) ->  {
+                ^box <strcat>(String(FAIL: wrong loaderName ), Q|LengthLoader|.R|SubstitutionOverride</LengthLoader.loaderName: R|kotlin/String|>|)
+            }
+        }
+
+        ^box String(OK)
+    }
+FILE: /appModuleModule.kt
+    public final fun R|AppModule|.module(): R|org/koin/core/module/Module|

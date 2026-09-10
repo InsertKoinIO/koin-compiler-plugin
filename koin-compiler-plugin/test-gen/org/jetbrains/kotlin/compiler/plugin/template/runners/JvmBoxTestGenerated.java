@@ -43,6 +43,18 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("object_binding.kt")
+    public void testObject_binding() {
+      runTest("koin-compiler-plugin/testData/box/annotations/object_binding.kt");
+    }
+
+    @Test
+    @TestMetadata("object_singleton.kt")
+    public void testObject_singleton() {
+      runTest("koin-compiler-plugin/testData/box/annotations/object_singleton.kt");
+    }
+
+    @Test
     @TestMetadata("single_fun_created_at_start.kt")
     public void testSingle_fun_created_at_start() {
       runTest("koin-compiler-plugin/testData/box/annotations/single_fun_created_at_start.kt");
@@ -132,6 +144,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @TestMetadata("single_basic.kt")
     public void testSingle_basic() {
       runTest("koin-compiler-plugin/testData/box/dsl/single_basic.kt");
+    }
+
+    @Test
+    @TestMetadata("single_object.kt")
+    public void testSingle_object() {
+      runTest("koin-compiler-plugin/testData/box/dsl/single_object.kt");
     }
 
     @Test
