@@ -9,6 +9,7 @@
 #   ./benchmark.sh                 # DEFAULT, like koin's core/benchmark: 10% scale (50 modules,
 #                                  #   ~275 definitions), quick JMH, KCP 1.2.1 vs 1.3.0 on
 #                                  #   koin 4.2.3-Beta1                                    ~2 min
+#   ./benchmark.sh --scale 1.0     # full 2,756-definition workload, quick JMH profile      ~5 min
 #   ./benchmark.sh --full          # Metro fingerprint (500 modules, 2,756 definitions) and
 #                                  #   Metro-equivalent JMH (2 forks, 4+10 x 1s, -prof gc) ~1 h
 #   ./benchmark.sh --koin 4.2.2,4.2.3-Beta1   # add the koin-core axis (default: 4.2.3-Beta1)
@@ -18,17 +19,20 @@
 #
 set -u
 cd "$(dirname "$0")" || exit 1
-ARGS=(); INSTALL=true; FULL=false
+ARGS=(); INSTALL=true; FULL=false; SCALE=""
+prev=""
 for a in "$@"; do
   case "$a" in
     --no-install) INSTALL=false ;;
     --full) FULL=true ;;
-    *) ARGS+=("$a") ;;
+    --scale) ;;
+    *) if [ "$prev" = "--scale" ]; then SCALE="$a"; else ARGS+=("$a"); fi ;;
   esac
+  prev="$a"
 done
 BENCH=perf-apps/startup-bench
 RESULTS="$BENCH/results"
-if $FULL; then PROFILE="full"; SCALE=1.0; else PROFILE="quick"; SCALE=0.1; ARGS+=("--quick"); fi
+if $FULL; then PROFILE="full"; SCALE="${SCALE:-1.0}"; else PROFILE="quick"; SCALE="${SCALE:-0.1}"; ARGS+=("--quick"); fi
 
 if $INSTALL; then ./install.sh || exit 1; fi
 python3 "$BENCH/generate.py" --scale "$SCALE" || exit 1
