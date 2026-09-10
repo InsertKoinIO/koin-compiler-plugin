@@ -974,12 +974,12 @@ class KoinAnnotationProcessor(
      * share a signature while describing different providers. Dropping one throws away a distinct
      * provider at emit time; disambiguating keeps both on the wire at no cost.
      *
-     * Scope, stated precisely: this only guarantees both hints are EMITTED. It does not make a
-     * differently-qualified pair survive the round trip -- `discoverModuleScanDefinitions`'s
-     * ClassDef branch still dedupes read-back hints on type alone, qualifier-blind, unlike the
-     * five (type, qualifier) sites around it. That is a separate pre-existing defect (it reproduces
-     * identically with this disambiguation, with a drop, and with no dedupe at all) and is tracked
-     * on its own; do not read this function as fixing it.
+     * Tags occurrence N with N `Unit` markers, not one: parameter names are not part of a JVM or
+     * KLIB signature, so a single marker per duplicate leaves occurrences 2 and 3 colliding again.
+     *
+     * Scope: this guarantees the hints are EMITTED. Whether a differently-qualified pair survives
+     * being read back is `discoverModuleScanDefinitions`'s job -- its ClassDef branch dedupes on
+     * (type, qualifier) since 1.2.1 (#94); before that it was type-only and dropped the second.
      */
     private fun disambiguateDuplicateSignatures(functions: List<IrSimpleFunction>): List<IrSimpleFunction> {
         if (functions.size < 2) return functions
@@ -990,21 +990,26 @@ class KoinAnnotationProcessor(
             seen[key] = occurrence + 1
             if (occurrence == 0) return@map func
             KoinPluginLogger.debug { "    disambiguated duplicate hint signature: $key (occurrence ${occurrence + 1})" }
+            // One marker PER OCCURRENCE, not one marker total: parameter names never reach a JVM
+            // or KLIB signature, only types do, so occurrences 2 and 3 tagged with a single Unit
+            // each would collide again as `(T, Unit, Unit)`.
             func.also {
-                it.parameters = it.parameters + context.irFactory.createValueParameter(
-                    startOffset = UNDEFINED_OFFSET,
-                    endOffset = UNDEFINED_OFFSET,
-                    origin = IrDeclarationOrigin.DEFINED,
-                    name = Name.identifier("dup$occurrence"),
-                    type = context.irBuiltIns.unitType,
-                    isAssignable = false,
-                    symbol = IrValueParameterSymbolImpl(),
-                    kind = IrParameterKind.Regular,
-                    varargElementType = null,
-                    isCrossinline = false,
-                    isNoinline = false,
-                    isHidden = false,
-                ).also { p -> p.parent = func }
+                it.parameters = it.parameters + (1..occurrence).map { k ->
+                    context.irFactory.createValueParameter(
+                        startOffset = UNDEFINED_OFFSET,
+                        endOffset = UNDEFINED_OFFSET,
+                        origin = IrDeclarationOrigin.DEFINED,
+                        name = Name.identifier("dup$k"),
+                        type = context.irBuiltIns.unitType,
+                        isAssignable = false,
+                        symbol = IrValueParameterSymbolImpl(),
+                        kind = IrParameterKind.Regular,
+                        varargElementType = null,
+                        isCrossinline = false,
+                        isNoinline = false,
+                        isHidden = false,
+                    ).also { p -> p.parent = func }
+                }
             }
         }
     }

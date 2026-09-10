@@ -250,8 +250,9 @@ class DslHintGenerator(
      * "(...)V"` at class-load time, not a compile error, so it surfaces far from its cause (JVM only;
      * native/wasm's KLIB serializer already rejects this earlier via SignatureClashDetector).
      *
-     * Fix: tag every function past the first in each colliding group with an extra Unit-typed
-     * `dupN_<index>` marker — new to the decoder's ALLOW-list of recognized prefixes, so it's just
+     * Fix: tag occurrence N in each colliding group with N Unit-typed `dup1_<index>..dupN_<index>`
+     * markers (one per duplicate is NOT enough — occurrences 2 and 3 would collide again on
+     * `(T, Unit, Unit)`) — new to the decoder's ALLOW-list of recognized prefixes, so it's just
      * silently ignored there (see [discoverDslDefinitionsFromHints]'s binding-parse comment for why
      * that's the deliberate parsing stance), while making the two functions' descriptors diverge.
      * Scoped to only the definitions that actually collide, so the overwhelming majority of hint
@@ -265,10 +266,13 @@ class DslHintGenerator(
             val occurrence = seen.getOrDefault(key, 0)
             seen[key] = occurrence + 1
             if (occurrence == 0) continue
+            // One marker PER OCCURRENCE, not one marker total: parameter names never reach a JVM
+            // or KLIB signature, only types do, so occurrences 2 and 3 tagged with a single Unit
+            // each would collide again as `(T, Unit, Unit)`.
             functions[i] = function.also {
-                it.parameters = it.parameters + newValueParameter(
-                    it, Name.identifier("dup${occurrence}_$i"), context.irBuiltIns.unitType
-                )
+                it.parameters = it.parameters + (1..occurrence).map { k ->
+                    newValueParameter(it, Name.identifier("dup${k}_$i"), context.irBuiltIns.unitType)
+                }
             }
         }
     }

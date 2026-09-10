@@ -55,8 +55,9 @@ Two hints with the same signature are a hard error only when a KLIB is serialize
 the module that both relays and serializes: the module owning the `@Configuration` class compiled
 fine.
 
-Colliding hints are now made distinct by an extra marker parameter rather than deduplicated, so no
-hint is ever discarded: the erased signature is not a safe identity here, because a `@Named`
+Colliding hints are now made distinct by trailing marker parameters, one per duplicate occurrence
+(the third copy gets two, since only parameter types count toward a signature), rather than
+deduplicated, so no hint is ever discarded: the erased signature is not a safe identity here, because a `@Named`
 qualifier's value is carried in a parameter name. This covers every hint category at once.
 
 The mechanism producing the duplicate in the first place is not yet identified; this makes the

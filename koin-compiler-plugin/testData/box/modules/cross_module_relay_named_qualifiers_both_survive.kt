@@ -13,16 +13,17 @@
 // `componentscan_leaf_LeafModule_single` hints, the second carrying the `dupN` marker. Reverting
 // the emission to a drop removes one hint from that golden, which is the RED signal.
 //
-// WHAT IT DOES NOT GUARD: whether a differently-qualified pair survives being READ BACK.
-// `discoverModuleScanDefinitions` dedupes decoded hints on type alone, qualifier-blind, so `:app`
-// currently resolves only one of the two providers -- visible in this file's own `:app` golden.
-// That is a separate pre-existing defect, unaffected by the emission strategy (it reproduces the
-// same with a drop, with this disambiguation, and with no dedupe at all). Do not "fix" this test
-// by adjusting the emission; the decode site is the one to change, and when it is, this golden
-// will legitimately gain the second provider at `:app`.
+// ALSO GUARDED: the READ-BACK side. `discoverModuleScanDefinitions` dedupes decoded hints on
+// (type, qualifier) since 1.2.1 (#94); before that it was type-only and `:app` resolved only one
+// of the two providers, raising a false KOIN-D001 for the other. The `:app` golden shows both
+// `Url` providers re-published under `componentscan_mid_MidModule_single`, which is the proof.
+// Reverting the decode key to type-only fails this test with
+// `KOIN-D001 Missing dependency: leaf.Url qualified with @Named("baseUrl")`.
 //
-// box() below asserts runtime behavior is correct either way -- real codegen resolves
-// LeafModule::class directly and never reads these hints, so the loss is compile-time only.
+// Three same-typed providers are covered by `cross_module_relay_named_qualifiers_three_survive`.
+//
+// box() below asserts runtime behavior -- real codegen resolves LeafModule::class directly and
+// never reads these hints, so any loss above is compile-time only.
 //
 // Separate `// MODULE:` units are required: in one compilation the scan finds the providers locally
 // and skips the hint path entirely, so the relay never runs.
