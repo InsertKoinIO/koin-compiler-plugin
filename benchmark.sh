@@ -14,17 +14,20 @@
 #                                  #   Metro-equivalent JMH (2 forks, 4+10 x 1s, -prof gc) ~1 h
 #   ./benchmark.sh --koin 4.2.2,4.2.3-Beta1   # add the koin-core axis (default: 4.2.3-Beta1)
 #   ./benchmark.sh --control       # also run 1.3.0 with directRegistration=false
-#   ./benchmark.sh --kcp 1.2.1,1.3.0  # compiler plugin axis (default); 1.2.x runs once, 1.3+ direct off/on
+#   ./benchmark.sh --kcp 1.2.1,1.3.0,1.3.0-dsl  # compiler plugin axis (default); 1.2.x runs once, 1.3+ direct on
+#   ./benchmark.sh --dsl           # same graph declared with the safe DSL (single<T>() bind I::class)
+#                                  #   instead of annotations — measures the DSL path (1.3.0-dsl)
 #   ./benchmark.sh --no-install    # skip ./install.sh (plugin already in Maven Local)
 #
 set -u
 cd "$(dirname "$0")" || exit 1
-ARGS=(); INSTALL=true; FULL=false; SCALE=""
+ARGS=(); INSTALL=true; FULL=false; SCALE=""; WORKLOAD="annotations"; GEN_ARGS=()
 prev=""
 for a in "$@"; do
   case "$a" in
     --no-install) INSTALL=false ;;
     --full) FULL=true ;;
+    --dsl) WORKLOAD="dsl"; GEN_ARGS+=("--dsl") ;;
     --scale) ;;
     *) if [ "$prev" = "--scale" ]; then SCALE="$a"; else ARGS+=("$a"); fi ;;
   esac
@@ -37,12 +40,12 @@ if $FULL; then PROFILE="full"; SCALE="${SCALE:-1.0}"; else PROFILE="quick"; SCAL
 if ! $FULL && [ "$(python3 -c "print(1 if float('$SCALE') >= 0.5 else 0)")" = "1" ]; then ARGS+=("--iter" "5"); fi
 
 if $INSTALL; then ./install.sh || exit 1; fi
-python3 "$BENCH/generate.py" --scale "$SCALE" || exit 1
+python3 "$BENCH/generate.py" --scale "$SCALE" "${GEN_ARGS[@]:-}" || exit 1
 rm -rf "$RESULTS"
 "$BENCH/bench.sh" "$RESULTS" "${ARGS[@]:-}" || exit 1
 
 {
   echo
-  echo "# $(grep '^pluginVersion' gradle.properties | cut -d= -f2) @ $(git rev-parse --short HEAD) - $(date +%Y-%m-%d) - profile=$PROFILE scale=$SCALE - $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)"
+  echo "# $(grep '^pluginVersion' gradle.properties | cut -d= -f2) @ $(git rev-parse --short HEAD) - $(date +%Y-%m-%d) - profile=$PROFILE scale=$SCALE workload=$WORKLOAD - $(sysctl -n machdep.cpu.brand_string 2>/dev/null || uname -m)"
   python3 "$BENCH/summarize.py" "$RESULTS"
 } | tee -a "$BENCH/bench_results.txt"

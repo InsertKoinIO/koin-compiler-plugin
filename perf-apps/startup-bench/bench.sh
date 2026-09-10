@@ -8,7 +8,7 @@
 #               with directRegistration=true, plus =false when --control is given.
 set -u
 OUT="${1:-results}"; shift || true
-QUICK=false; CONTROL=false; KOINS="4.2.3-Beta1"; KCPS="1.2.1 1.3.0"; ITER=1
+QUICK=false; CONTROL=false; KOINS="4.2.3-Beta1"; KCPS="1.2.1 1.3.0 1.3.0-dsl"; ITER=1
 while [ $# -gt 0 ]; do
   case "$1" in
     --quick) QUICK=true ;;

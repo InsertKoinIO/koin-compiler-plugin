@@ -11,6 +11,7 @@ operation are reported next to time.
 # from the repo root — the one-liner, mirrors koin's core/benchmark ./benchmark.sh
 ./benchmark.sh                # default: 10% scale + quick JMH, ~4 min — the daily loop
 ./benchmark.sh --full         # Metro fingerprint + Metro JMH profile + -prof gc, ~1 h
+./benchmark.sh --dsl          # the same graph declared with single<T>() bind I::class (DSL path)
 
 # step by step
 ./install.sh                                    # plugin -> mavenLocal (version in gradle.properties)
