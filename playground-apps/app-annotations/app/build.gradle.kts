@@ -9,6 +9,7 @@ plugins {
 koinCompiler {
     userLogs = true
     debugLogs = true
+    verifyGeneratedKeys = true // KTZ-4829: every direct registration re-checks its key against indexKey()
 }
 
 android {

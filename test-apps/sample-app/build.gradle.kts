@@ -46,4 +46,5 @@ kotlin {
 koinCompiler {
     userLogs = true
     debugLogs = true
+    verifyGeneratedKeys.set(true) // KTZ-4829
 }
