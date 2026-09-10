@@ -43,6 +43,14 @@ JS/Wasm.
 Against koin-core 4.2.2 the same change is −16% on loading (the rest of the gap belongs to the
 runtime work shipped in 4.2.3). Full-scale (2,756 definitions) and Metro-harness numbers to follow.
 
+### One behavioural fix that comes with it
+
+Scoped `@KoinViewModel` definitions (`@KoinViewModel @Scope(X::class)`) are now bound to
+`androidx.lifecycle.ViewModel`, as documented. Before 1.3.0 they were not: koin-core-viewmodel's
+`ScopeDSL.buildViewModel` binds `ViewModel::class::class` — a `KClass`, by typo — so
+`scope.getAll<ViewModel>()` never returned them. Root view models are unaffected. If you relied on the
+old behaviour by accident, `directRegistration = false` restores it.
+
 ### The fallback rule
 
 A definition is registered directly only when the plugin is certain of its key. Otherwise it keeps
