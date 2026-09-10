@@ -43,6 +43,19 @@ JS/Wasm.
 Against koin-core 4.2.2 the same change is −16% on loading (the rest of the gap belongs to the
 runtime work shipped in 4.2.3). Full-scale (2,756 definitions) and Metro-harness numbers to follow.
 
+### The safe DSL too
+
+The same applies to DSL modules: `single<T>()`, `factory<T>()`, `scoped<T>()`, and koin-core's own
+`single { create(::F) }`, `single(named("x")) { … }`, `single(createdAtStart = true) { … }`,
+`factory { … }`, `scoped { … }` are registered directly when the type, the qualifier and
+`createdAtStart` are literal at the call site; a chained `bind`/`binds` is folded into the
+registration. A qualifier held in a variable, a `createdAtStart` computed at runtime,
+`singleOf(::T)` or an archetype scope keep the runtime call — nothing changes for them.
+
+Measured on the same workload declared with `single<T>() bind I::class` (10% scale, koin
+4.2.3-Beta1): module loading 0.062 → 0.038 ms (**−39%**), load + realize 0.139 → 0.095 ms
+(**−32%**) — the same gain as the annotation path.
+
 ### One behavioural fix that comes with it
 
 Scoped `@KoinViewModel` definitions (`@KoinViewModel @Scope(X::class)`) are now bound to

@@ -304,6 +304,24 @@ legacy `buildSingle`/`bind` call. `@KoinViewModel`/`@KoinWorker` are registered 
 `testData/box/directregistration/` covers nested classes, packages, type qualifiers, typed scopes
 and the `kotlin.*` fallback; `kill_switch.kt` pins the `directRegistration = false` shape.
 
+### Direct Registration — DSL call sites (1.3.0-dsl branch)
+
+The same emitter serves the safe DSL. `single<T>()`/`factory<T>()`/`scoped<T>()` (previously
+rewritten to `buildSingle`) and koin-core's own `single { create(::F) }` / `single(named("x")) { }` /
+`single(createdAtStart = true) { }` / `factory { }` / `scoped { }` (previously left to run at
+runtime) become direct registrations when the type argument, the qualifier (absent or a literal
+`named("x")`/`named<Q>()`) and `createdAtStart` (absent or a literal) are known at the call site.
+`scope<X> { }` and `scope(named("x")) { }` provide the scope key; archetype scopes don't. A chained
+`bind`/`binds` is folded into the block (no runtime `KoinDefinition.bind`); a block used as a value
+(bind on a `kotlin.*` type, `withOptions`, assignment) yields a `KoinDefinition`, a discarded
+statement doesn't. Not literal → the runtime call stays (`singleOf(::T)`, qualifier in a variable,
+`createdAtStart` from an expression). `dsl/direct_typed_dsl.kt`, `dsl/direct_lambda_dsl.kt`,
+`dsl/direct_dsl_fallbacks.kt` pin the shapes; the box runner verifies every key against `indexKey()`.
+
+Two IR traps met on the way: temporaries in an emitted block must be scoped to the enclosing
+function (an `IrValidationException` when scoped to the callee), and a non-Unit expression used as
+a statement is wrapped in `IMPLICIT_COERCION_TO_UNIT` — unwrap before matching it.
+
 ### Skip Default Values
 
 When `skipDefaultValues` is enabled (default), parameters with Kotlin default values will use the default instead of being resolved from the DI container. This applies when:
