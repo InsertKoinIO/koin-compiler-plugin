@@ -3,6 +3,7 @@ package org.koin.compiler.plugin.ir
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
+import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.irBlock
 import org.jetbrains.kotlin.ir.builders.irCall
@@ -108,6 +109,16 @@ class DirectRegistrationBuilder(
     // Blocks emitted for DSL call sites, so a chained bind()/binds() can be folded into them instead
     // of running through KoinDefinition.bind() (which rebuilds the key String at runtime).
     private val emissions = java.util.IdentityHashMap<IrExpression, Emission>()
+
+    /**
+     * A block whose KoinDefinition result is discarded — a plain `single<T>()` line in a `module { }`
+     * body — re-emitted without the result object. Null when [statement] is not one of ours.
+     */
+    fun asStatement(statement: IrStatement): IrExpression? {
+        val emission = emissions[statement] ?: return null
+        emissions.remove(statement)
+        return emit(emission.spec, emission.receiverExpr, emission.definitionLambda, emission.builder, returnDefinition = false)
+    }
 
     /**
      * If [receiver] is a block this builder emitted for a DSL call, re-emit it with [extra] bound

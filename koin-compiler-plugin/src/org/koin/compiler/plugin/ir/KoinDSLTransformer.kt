@@ -8,7 +8,11 @@ import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.IrBlockBody
+import org.jetbrains.kotlin.ir.expressions.IrBody
 import org.jetbrains.kotlin.ir.expressions.IrConst
+import org.jetbrains.kotlin.ir.expressions.IrTypeOperator
+import org.jetbrains.kotlin.ir.expressions.IrTypeOperatorCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
@@ -235,6 +239,21 @@ class KoinDSLTransformer(
     private val currentFunction: IrFunction? get() = transformContext.function
     private val currentLambda: IrSimpleFunction? get() = transformContext.lambda
     private val currentDefinitionCall: Name? get() = transformContext.definitionCall
+
+    // KTZ-4829: a direct-registration block sitting as a statement (its KoinDefinition value unused,
+    // the normal case for a DSL line inside `module { }`) is re-emitted without the result object.
+    // Blocks used as values — chained bind()/withOptions, assigned, returned — are not statements
+    // here and keep it.
+    override fun visitBlockBody(body: IrBlockBody): IrBody {
+        val visited = super.visitBlockBody(body) as IrBlockBody
+        for (i in visited.statements.indices) {
+            val statement = visited.statements[i]
+            // A non-Unit expression used as a statement is wrapped in IMPLICIT_COERCION_TO_UNIT.
+            val candidate = if (statement is IrTypeOperatorCall && statement.operator == IrTypeOperator.IMPLICIT_COERCION_TO_UNIT) statement.argument else statement
+            directRegistration.asStatement(candidate)?.let { visited.statements[i] = it }
+        }
+        return visited
+    }
 
     override fun visitFunctionExpression(expression: IrFunctionExpression): IrExpression {
         return withContext(transformContext.copy(lambda = expression.function)) {
