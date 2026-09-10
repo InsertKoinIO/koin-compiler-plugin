@@ -26,7 +26,7 @@ off for the bench build (it only validates; the emitted registration code is the
 wider error bars — it is for iterating, the default profile is for numbers you quote.
 
 Properties: `-PkoinVersion` (default `4.2.2`; a locally published koin-core works, e.g.
-`4.2.3-perfs`), `-PdirectRegistration` (default `true`), `-PverifyGeneratedKeys` (default `false`;
+`4.2.3-Beta1`), `-PdirectRegistration` (default `true`), `-PverifyGeneratedKeys` (default `false`;
 `true` makes every generated key self-check against `indexKey()` at module load — the way to prove
 key derivation at this scale, at the cost of the String build the feature removes), `-PkcpVersion`
 (default `1.3.0`).

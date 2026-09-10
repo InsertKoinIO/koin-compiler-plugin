@@ -1,11 +1,11 @@
 #!/bin/bash
 # Runs the four (koinVersion x directRegistration) combinations serially and collects JMH JSON.
-# Usage: ./bench.sh <output-dir> [--quick] [--koin 4.2.2,4.2.3-perfs]
+# Usage: ./bench.sh <output-dir> [--quick] [--koin 4.2.2,4.2.3-Beta1]
 #   --quick : 1 fork, 2+3 iterations, no profiler (~2 min per configuration) — for iterating.
 #   default : Metro-equivalent profile with -prof gc (~15 min per configuration) — for publishing.
 set -u
 OUT="${1:-results}"; shift || true
-QUICK=false; KOINS="4.2.2 4.2.3-perfs"
+QUICK=false; KOINS="4.2.2 4.2.3-Beta1"
 while [ $# -gt 0 ]; do
   case "$1" in
     --quick) QUICK=true ;;
