@@ -9,8 +9,10 @@ multibinding interface (Plugin / Initializer) realized with getAll<T>(). One Gra
 under the 64 KB method limit), one root @KoinApplication listing every module.
 
 Usage: python3 generate.py [--scale F] [--dsl]   (writes src/main/kotlin/bench/gen, overwriting)
-  --dsl: same graph declared with the safe DSL — one `val xModule = module { single<T>() bind I::class }`
+  --dsl: same graph declared with the safe DSL — one `fun xModule() = module { single<T>() bind I::class }`
   per generated module instead of @Module @ComponentScan + @Singleton — to measure the DSL path.
+  Functions, not vals: a top-level val would run the module body (where registration happens) once
+  at class load, outside the measured operation, and share its factories across containers.
   --scale 1.0 (default) is the Metro fingerprint; --scale 0.1 keeps the same shape at 10% size
   (50 modules / ~275 definitions) for qualifying plugin output in about a minute per configuration.
 """
@@ -109,7 +111,7 @@ for m in range(len(modules)):
             lines.append(f"class {name}({params})")
         lines.append("")
     if DSL:
-        lines.append(f"val {layer}{i}Module = module {{")
+        lines.append(f"fun {layer}{i}Module() = module {{")
         for idx, name in enumerate(by_module[m]):
             if name in bound:
                 iface = "Plugin" if idx % 2 == 0 else "Initializer"
@@ -122,17 +124,17 @@ for m in range(len(modules)):
         f.write("\n".join(lines))
 
 if DSL:
-    module_vals = ",\n        ".join(f"{pkg(m)}.{modules[m][0]}{modules[m][1]}Module" for m in range(len(modules)))
+    module_vals = ",\n        ".join(f"{pkg(m)}.{modules[m][0]}{modules[m][1]}Module()" for m in range(len(modules)))
     with open(os.path.join(out, "App.kt"), "w") as f:
         f.write(f'''package bench.gen
 
 import org.koin.core.Koin
 import org.koin.dsl.koinApplication
 
-// DSL flavour: the 500 modules are `module {{ single<T>() bind I::class }}` vals; the root loads
-// them with the plain runtime koinApplication, so what differs between plugin versions is only how
-// each single<T>() is registered.
-val allModules = listOf(
+// DSL flavour: the 500 modules are `fun xModule() = module {{ single<T>() bind I::class }}`; the
+// root builds them fresh per operation and loads them with the plain runtime koinApplication, so
+// what differs between plugin versions is only how each single<T>() is registered.
+fun allModules() = listOf(
         {module_vals},
 )
 
@@ -141,10 +143,10 @@ class AppComponent(val koin: Koin) {{
     fun initializers(): Set<Initializer> = koin.getAll<Initializer>().toSet()
 }}
 
-fun startOnly(): Koin = koinApplication {{ modules(allModules) }}.koin
+fun startOnly(): Koin = koinApplication {{ modules(allModules()) }}.koin
 
 fun createAndInitialize(): AppComponent {{
-    val component = AppComponent(koinApplication {{ modules(allModules) }}.koin)
+    val component = AppComponent(koinApplication {{ modules(allModules()) }}.koin)
     component.plugins()
     component.initializers()
     return component
