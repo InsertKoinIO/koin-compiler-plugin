@@ -68,4 +68,14 @@ object PropertyValueRegistry {
     fun clear() {
         defaults.clear()
     }
+
+    /**
+     * Release this compilation's registry at the end of the IR phase (`KoinIrExtension.generate`).
+     * Same reason and shape as [GeneratedResolutionCallRegistry.release]: the map holds
+     * [IrProperty] nodes, which must not outlive the compilation on a long-lived daemon thread.
+     */
+    fun release() {
+        defaults.clear()
+        propertyDefaults.remove()
+    }
 }

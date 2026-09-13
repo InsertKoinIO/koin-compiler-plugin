@@ -58,4 +58,17 @@ object GeneratedResolutionCallRegistry {
     fun clear() {
         generatedCalls.clear()
     }
+
+    /**
+     * Release this compilation's registry at the end of the IR phase (`KoinIrExtension.generate`).
+     *
+     * The set holds IR, which keeps the whole compilation reachable (module IR, FIR sessions,
+     * deserialized libraries) for as long as the thread lives — in the Kotlin daemon that is an
+     * RMI connection thread that outlives the compilation. Emptied before [ThreadLocal.remove]:
+     * threads that inherited the same set keep their reference after `remove()`.
+     */
+    fun release() {
+        generatedCalls.clear()
+        generatedCallsHolder.remove()
+    }
 }

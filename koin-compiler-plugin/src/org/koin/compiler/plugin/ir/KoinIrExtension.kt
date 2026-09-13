@@ -6,7 +6,10 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.koin.compiler.plugin.GeneratedResolutionCallRegistry
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.plugin.PropertyValueRegistry
+import org.koin.compiler.plugin.ProvidedTypeRegistry
 
 class KoinIrExtension(
     private val lookupTracker: LookupTracker?,
@@ -33,6 +36,14 @@ class KoinIrExtension(
         try {
             generateInternal(moduleFragment, pluginContext)
         } finally {
+            // Per-compilation registries hold IR (IrCall / IrProperty). collectAnnotations() clears
+            // them only for the next compilation that shares these plugin classes on this thread.
+            // In the Kotlin daemon the compilation runs on an RMI connection thread that outlives
+            // it, and later compilations may use another plugin class loader, so without releasing
+            // here the thread keeps module IR, FIR sessions and deserialized libraries reachable.
+            GeneratedResolutionCallRegistry.release()
+            PropertyValueRegistry.release()
+            ProvidedTypeRegistry.release()
             KoinPluginLogger.unbindThreadFlags()
             KoinPluginLogger.unbindThreadCollector()
         }
