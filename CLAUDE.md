@@ -113,7 +113,7 @@ fun provideHttpClient(): NetworkClient = OkHttpClient()
 | Annotation | Effect |
 |------------|--------|
 | `@Module` | Marks class as a Koin module container |
-| `@ComponentScan("pkg")` | Scans package(s) for annotated classes and top-level functions |
+| `@ComponentScan("pkg")` | Scans package(s) for annotated classes and top-level functions. Supports `*` and `**` globs. Never matches a sibling package such as `pkgx` |
 | `@Configuration` | Marks module for auto-discovery (supports labels: `@Configuration("test", "prod")`) |
 | `@KoinApplication(modules)` | Specifies modules for `startKoin<T>()` |
 

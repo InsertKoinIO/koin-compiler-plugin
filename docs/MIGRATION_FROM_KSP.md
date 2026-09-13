@@ -111,7 +111,7 @@ These work exactly the same:
 | Annotation | Status |
 |------------|--------|
 | `@Module` | ✅ Same |
-| `@ComponentScan` | ✅ Same |
+| `@ComponentScan` | ⚠️ Sibling packages are not matched, see note below |
 | `@Single` / `@Singleton` | ✅ Same |
 | `@Factory` | ✅ Same |
 | `@Scoped` | ✅ Same |
@@ -121,6 +121,20 @@ These work exactly the same:
 | `@Property("...")` | ✅ Same |
 | `@Scope(T::class)` | ✅ Same |
 | Custom `@Qualifier` annotation (no value) | ⚠️ Behavior change — see note below |
+
+### `@ComponentScan` Package Matching
+
+Glob patterns work as in KSP. `*` matches within one package segment, and `**` matches across segments.
+
+A scan value never matches a sibling package. KSP selects `com.examplex` for both `@ComponentScan("com.example")` and `@ComponentScan("com.example**")`. The compiler plugin selects only `com.example` and its subpackages.
+
+| Scan value | Matches | Does not match |
+|---|---|---|
+| `com.example` | `com.example`, `com.example.data` | `com.examplex` |
+| `com.example**` | `com.example`, `com.example.data` | `com.examplex` |
+| `com.example.**` | `com.example.data`, `com.example.data.local` | `com.example` |
+| `com.*.service` | `com.user.service` | `com.service`, `com.user.impl.service` |
+| `com.**.infra` | `com.user.infra`, `com.user.local.infra` | `com.infra`, `com.user.infra.cache` |
 
 ### Custom Qualifier Annotations — Behavior Change
 

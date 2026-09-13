@@ -30,6 +30,7 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
+import org.koin.compiler.plugin.ComponentScanPackageMatcher
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginConstants
@@ -2890,16 +2891,12 @@ class KoinAnnotationProcessor(
         }
     }
 
-    /** Check if a package matches any of the scan packages (exact or subpackage). */
-    private fun matchesScanPackages(defPackage: String, scanPackages: List<String>): Boolean {
-        return scanPackages.any { scanPkg ->
-            defPackage == scanPkg || defPackage.startsWith("$scanPkg.")
-        }
-    }
+    private fun matchesScanPackages(defPackage: String, scanPackages: List<String>): Boolean =
+        ComponentScanPackageMatcher.matchesAny(defPackage, scanPackages)
 
     /**
-     * Pull every value out of a (package → defs) index that lies in any of the scan packages
-     * (exact match or subpackage). Scans the index's key-set rather than the full def list, so
+     * Pull every value out of a (package → defs) index that matches any of the scan packages.
+     * Scans the index's key-set rather than the full def list, so
      * the per-`@Module` cost is O(distinct-packages × scan-packages) instead of O(all-defs).
      */
     private fun <T> collectFromPackageIndex(

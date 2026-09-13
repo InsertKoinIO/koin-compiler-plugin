@@ -1,0 +1,194 @@
+Module: lib
+FILE: exact.kt
+    package lib.exact.a
+
+    @R|org/koin/core/annotation/Single|() public final class LibExact : R|kotlin/Any| {
+        public constructor(): R|lib/exact/a/LibExact| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: exactSibling.kt
+    package lib.exactx
+
+    @R|org/koin/core/annotation/Single|() public final class LibExactSibling : R|kotlin/Any| {
+        public constructor(): R|lib/exactx/LibExactSibling| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: deepOne.kt
+    package lib.deep.a.infra
+
+    @R|org/koin/core/annotation/Single|() public final class LibDeepOne : R|kotlin/Any| {
+        public constructor(): R|lib/deep/a/infra/LibDeepOne| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: deepBelow.kt
+    package lib.deep.a.infra.sub
+
+    @R|org/koin/core/annotation/Single|() public final class LibDeepBelow : R|kotlin/Any| {
+        public constructor(): R|lib/deep/a/infra/sub/LibDeepBelow| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: root.kt
+    package lib.root
+
+    @R|org/koin/core/annotation/Single|() public final class LibRoot : R|kotlin/Any| {
+        public constructor(): R|lib/root/LibRoot| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: rootSibling.kt
+    package lib.rootx
+
+    @R|org/koin/core/annotation/Single|() public final class LibRootSibling : R|kotlin/Any| {
+        public constructor(): R|lib/rootx/LibRootSibling| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: singleOne.kt
+    package lib.single.a.svc
+
+    @R|org/koin/core/annotation/Single|() public final class LibSingleOne : R|kotlin/Any| {
+        public constructor(): R|lib/single/a/svc/LibSingleOne| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: singleTwo.kt
+    package lib.single.a.b.svc
+
+    @R|org/koin/core/annotation/Single|() public final class LibSingleTwo : R|kotlin/Any| {
+        public constructor(): R|lib/single/a/b/svc/LibSingleTwo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: org/koin/plugin/hints/libExactALibExactDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/exact/a/LibExact|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/libExactxLibExactSiblingDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/exactx/LibExactSibling|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/libDeepAInfraLibDeepOneDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/deep/a/infra/LibDeepOne|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/libDeepAInfraSubLibDeepBelowDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/deep/a/infra/sub/LibDeepBelow|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/libRootLibRootDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/root/LibRoot|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/libRootxLibRootSiblingDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/rootx/LibRootSibling|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/libSingleASvcLibSingleOneDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/single/a/svc/LibSingleOne|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/libSingleABSvcLibSingleTwoDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/single/a/b/svc/LibSingleTwo|): R|kotlin/Unit|
+Module: app
+FILE: test.kt
+    package app
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib.exact))) public final class LibExactModule : R|kotlin/Any| {
+        public constructor(): R|app/LibExactModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib.deep.**.infra))) public final class LibDeepModule : R|kotlin/Any| {
+        public constructor(): R|app/LibDeepModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib.root**))) public final class LibRootModule : R|kotlin/Any| {
+        public constructor(): R|app/LibRootModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib.single.*.svc))) public final class LibSingleModule : R|kotlin/Any| {
+        public constructor(): R|app/LibSingleModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval failures: R|kotlin/collections/MutableList<kotlin/String>| = R|kotlin/collections/mutableListOf|<R|kotlin/String|>()
+        local final fun expect(case: R|kotlin/String|, resolved: R|kotlin/Boolean|, expected: R|kotlin/Boolean|): R|kotlin/Unit| {
+            when () {
+                !=(R|<local>/resolved|, R|<local>/expected|) ->  {
+                    R|<local>/failures|.R|kotlin/collections/plusAssign|<R|kotlin/String|>(<strcat>(R|<local>/case|, String( resolved=), R|<local>/resolved|))
+                }
+            }
+
+        }
+
+        lval exact: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/LibExactModule.LibExactModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(lib.exact -> lib.exact.a), !=(R|<local>/exact|.R|org/koin/core/Koin.getOrNull|<R|lib/exact/a/LibExact|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(lib.exact -> lib.exactx), !=(R|<local>/exact|.R|org/koin/core/Koin.getOrNull|<R|lib/exactx/LibExactSibling|>(), Null(null)), Boolean(false))
+        lval deep: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/LibDeepModule.LibDeepModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(lib.deep.**.infra -> lib.deep.a.infra), !=(R|<local>/deep|.R|org/koin/core/Koin.getOrNull|<R|lib/deep/a/infra/LibDeepOne|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(lib.deep.**.infra -> lib.deep.a.infra.sub), !=(R|<local>/deep|.R|org/koin/core/Koin.getOrNull|<R|lib/deep/a/infra/sub/LibDeepBelow|>(), Null(null)), Boolean(false))
+        lval root: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/LibRootModule.LibRootModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(lib.root** -> lib.root), !=(R|<local>/root|.R|org/koin/core/Koin.getOrNull|<R|lib/root/LibRoot|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(lib.root** -> lib.rootx), !=(R|<local>/root|.R|org/koin/core/Koin.getOrNull|<R|lib/rootx/LibRootSibling|>(), Null(null)), Boolean(false))
+        lval single: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/LibSingleModule.LibSingleModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(lib.single.*.svc -> lib.single.a.svc), !=(R|<local>/single|.R|org/koin/core/Koin.getOrNull|<R|lib/single/a/svc/LibSingleOne|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(lib.single.*.svc -> lib.single.a.b.svc), !=(R|<local>/single|.R|org/koin/core/Koin.getOrNull|<R|lib/single/a/b/svc/LibSingleTwo|>(), Null(null)), Boolean(false))
+        ^box when () {
+            R|<local>/failures|.R|SubstitutionOverride<kotlin/collections/MutableList.isEmpty: R|kotlin/Boolean|>|() ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: ), R|<local>/failures|)
+            }
+        }
+
+    }
+FILE: app/appLibExactModuleModule.kt
+    package app
+
+    public final fun R|app/LibExactModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appLibDeepModuleModule.kt
+    package app
+
+    public final fun R|app/LibDeepModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appLibRootModuleModule.kt
+    package app
+
+    public final fun R|app/LibRootModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appLibSingleModuleModule.kt
+    package app
+
+    public final fun R|app/LibSingleModule|.module(): R|org/koin/core/module/Module|

@@ -47,6 +47,7 @@ import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isJs
 import org.jetbrains.kotlin.platform.isWasm
 import org.jetbrains.kotlin.platform.konan.isNative
+import org.koin.compiler.plugin.ComponentScanPackageMatcher
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginConstants
 
@@ -1051,15 +1052,9 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         packages
     }
 
-    /**
-     * Check if a package is covered by any local @ComponentScan.
-     * A package is covered if it equals a scan package or is a sub-package.
-     */
-    private fun isCoveredByLocalScan(packageName: String): Boolean {
-        return localScanPackages.any { scanPkg ->
-            packageName == scanPkg || packageName.startsWith("$scanPkg.")
-        }
-    }
+    /** Check if a package is covered by any local @ComponentScan. */
+    private fun isCoveredByLocalScan(packageName: String): Boolean =
+        ComponentScanPackageMatcher.matchesAny(packageName, localScanPackages)
 
     /**
      * Extract packages from @ComponentScan annotation.
