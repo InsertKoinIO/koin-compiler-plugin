@@ -1,0 +1,337 @@
+FILE: exact.kt
+    package glob.exact.a
+
+    @R|org/koin/core/annotation/Single|() public final class ExactSub : R|kotlin/Any| {
+        public constructor(): R|glob/exact/a/ExactSub| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: exactSibling.kt
+    package glob.exactx
+
+    @R|org/koin/core/annotation/Single|() public final class ExactSibling : R|kotlin/Any| {
+        public constructor(): R|glob/exactx/ExactSibling| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: deepZero.kt
+    package glob.deep.infra
+
+    @R|org/koin/core/annotation/Single|() public final class DeepZero : R|kotlin/Any| {
+        public constructor(): R|glob/deep/infra/DeepZero| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: deepOne.kt
+    package glob.deep.a.infra
+
+    @R|org/koin/core/annotation/Single|() public final class DeepOne : R|kotlin/Any| {
+        public constructor(): R|glob/deep/a/infra/DeepOne| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: deepTwo.kt
+    package glob.deep.a.b.infra
+
+    @R|org/koin/core/annotation/Single|() public final class DeepTwo : R|kotlin/Any| {
+        public constructor(): R|glob/deep/a/b/infra/DeepTwo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: deepBelow.kt
+    package glob.deep.a.infra.sub
+
+    @R|org/koin/core/annotation/Single|() public final class DeepBelow : R|kotlin/Any| {
+        public constructor(): R|glob/deep/a/infra/sub/DeepBelow| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: subRoot.kt
+    package glob.sub
+
+    @R|org/koin/core/annotation/Single|() public final class SubRoot : R|kotlin/Any| {
+        public constructor(): R|glob/sub/SubRoot| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: subOne.kt
+    package glob.sub.a
+
+    @R|org/koin/core/annotation/Single|() public final class SubOne : R|kotlin/Any| {
+        public constructor(): R|glob/sub/a/SubOne| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: subTwo.kt
+    package glob.sub.a.b
+
+    @R|org/koin/core/annotation/Single|() public final class SubTwo : R|kotlin/Any| {
+        public constructor(): R|glob/sub/a/b/SubTwo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: rootSelf.kt
+    package glob.root
+
+    @R|org/koin/core/annotation/Single|() public final class RootSelf : R|kotlin/Any| {
+        public constructor(): R|glob/root/RootSelf| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: rootSub.kt
+    package glob.root.a
+
+    @R|org/koin/core/annotation/Single|() public final class RootSub : R|kotlin/Any| {
+        public constructor(): R|glob/root/a/RootSub| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: rootSibling.kt
+    package glob.rootx
+
+    @R|org/koin/core/annotation/Single|() public final class RootSibling : R|kotlin/Any| {
+        public constructor(): R|glob/rootx/RootSibling| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: singleZero.kt
+    package glob.single.svc
+
+    @R|org/koin/core/annotation/Single|() public final class SingleZero : R|kotlin/Any| {
+        public constructor(): R|glob/single/svc/SingleZero| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: singleOne.kt
+    package glob.single.a.svc
+
+    @R|org/koin/core/annotation/Single|() public final class SingleOne : R|kotlin/Any| {
+        public constructor(): R|glob/single/a/svc/SingleOne| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: singleTwo.kt
+    package glob.single.a.b.svc
+
+    @R|org/koin/core/annotation/Single|() public final class SingleTwo : R|kotlin/Any| {
+        public constructor(): R|glob/single/a/b/svc/SingleTwo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: comboSuffix.kt
+    package glob.combo.a.service.userdata
+
+    @R|org/koin/core/annotation/Single|() public final class ComboSuffix : R|kotlin/Any| {
+        public constructor(): R|glob/combo/a/service/userdata/ComboSuffix| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: comboSplit.kt
+    package glob.combo.a.service.user.data
+
+    @R|org/koin/core/annotation/Single|() public final class ComboSplit : R|kotlin/Any| {
+        public constructor(): R|glob/combo/a/service/user/data/ComboSplit| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: function.kt
+    package glob.fn.a.infra
+
+    public final class FnRepo : R|kotlin/Any| {
+        public constructor(): R|glob/fn/a/infra/FnRepo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final fun provideFnRepo(): R|glob/fn/a/infra/FnRepo| {
+        ^provideFnRepo R|glob/fn/a/infra/FnRepo.FnRepo|()
+    }
+FILE: test.kt
+    package app
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(glob.exact))) public final class ExactModule : R|kotlin/Any| {
+        public constructor(): R|app/ExactModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(glob.deep.**.infra))) public final class DeepModule : R|kotlin/Any| {
+        public constructor(): R|app/DeepModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(glob.sub.**))) public final class SubModule : R|kotlin/Any| {
+        public constructor(): R|app/SubModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(glob.root**))) public final class RootModule : R|kotlin/Any| {
+        public constructor(): R|app/RootModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(glob.single.*.svc))) public final class SingleModule : R|kotlin/Any| {
+        public constructor(): R|app/SingleModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(glob.combo.**.service.*data))) public final class ComboModule : R|kotlin/Any| {
+        public constructor(): R|app/ComboModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(glob.fn.**.infra))) public final class FnModule : R|kotlin/Any| {
+        public constructor(): R|app/FnModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval failures: R|kotlin/collections/MutableList<kotlin/String>| = R|kotlin/collections/mutableListOf|<R|kotlin/String|>()
+        local final fun expect(case: R|kotlin/String|, resolved: R|kotlin/Boolean|, expected: R|kotlin/Boolean|): R|kotlin/Unit| {
+            when () {
+                !=(R|<local>/resolved|, R|<local>/expected|) ->  {
+                    R|<local>/failures|.R|kotlin/collections/plusAssign|<R|kotlin/String|>(<strcat>(R|<local>/case|, String( resolved=), R|<local>/resolved|))
+                }
+            }
+
+        }
+
+        lval exact: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/ExactModule.ExactModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(glob.exact -> glob.exact.a), !=(R|<local>/exact|.R|org/koin/core/Koin.getOrNull|<R|glob/exact/a/ExactSub|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.exact -> glob.exactx), !=(R|<local>/exact|.R|org/koin/core/Koin.getOrNull|<R|glob/exactx/ExactSibling|>(), Null(null)), Boolean(false))
+        lval deep: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/DeepModule.DeepModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(glob.deep.**.infra -> glob.deep.infra), !=(R|<local>/deep|.R|org/koin/core/Koin.getOrNull|<R|glob/deep/infra/DeepZero|>(), Null(null)), Boolean(false))
+        R|<local>/expect|(String(glob.deep.**.infra -> glob.deep.a.infra), !=(R|<local>/deep|.R|org/koin/core/Koin.getOrNull|<R|glob/deep/a/infra/DeepOne|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.deep.**.infra -> glob.deep.a.b.infra), !=(R|<local>/deep|.R|org/koin/core/Koin.getOrNull|<R|glob/deep/a/b/infra/DeepTwo|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.deep.**.infra -> glob.deep.a.infra.sub), !=(R|<local>/deep|.R|org/koin/core/Koin.getOrNull|<R|glob/deep/a/infra/sub/DeepBelow|>(), Null(null)), Boolean(false))
+        lval sub: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/SubModule.SubModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(glob.sub.** -> glob.sub), !=(R|<local>/sub|.R|org/koin/core/Koin.getOrNull|<R|glob/sub/SubRoot|>(), Null(null)), Boolean(false))
+        R|<local>/expect|(String(glob.sub.** -> glob.sub.a), !=(R|<local>/sub|.R|org/koin/core/Koin.getOrNull|<R|glob/sub/a/SubOne|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.sub.** -> glob.sub.a.b), !=(R|<local>/sub|.R|org/koin/core/Koin.getOrNull|<R|glob/sub/a/b/SubTwo|>(), Null(null)), Boolean(true))
+        lval root: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/RootModule.RootModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(glob.root** -> glob.root), !=(R|<local>/root|.R|org/koin/core/Koin.getOrNull|<R|glob/root/RootSelf|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.root** -> glob.root.a), !=(R|<local>/root|.R|org/koin/core/Koin.getOrNull|<R|glob/root/a/RootSub|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.root** -> glob.rootx), !=(R|<local>/root|.R|org/koin/core/Koin.getOrNull|<R|glob/rootx/RootSibling|>(), Null(null)), Boolean(false))
+        lval single: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/SingleModule.SingleModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(glob.single.*.svc -> glob.single.svc), !=(R|<local>/single|.R|org/koin/core/Koin.getOrNull|<R|glob/single/svc/SingleZero|>(), Null(null)), Boolean(false))
+        R|<local>/expect|(String(glob.single.*.svc -> glob.single.a.svc), !=(R|<local>/single|.R|org/koin/core/Koin.getOrNull|<R|glob/single/a/svc/SingleOne|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.single.*.svc -> glob.single.a.b.svc), !=(R|<local>/single|.R|org/koin/core/Koin.getOrNull|<R|glob/single/a/b/svc/SingleTwo|>(), Null(null)), Boolean(false))
+        lval combo: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/ComboModule.ComboModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(glob.combo.**.service.*data -> glob.combo.a.service.userdata), !=(R|<local>/combo|.R|org/koin/core/Koin.getOrNull|<R|glob/combo/a/service/userdata/ComboSuffix|>(), Null(null)), Boolean(true))
+        R|<local>/expect|(String(glob.combo.**.service.*data -> glob.combo.a.service.user.data), !=(R|<local>/combo|.R|org/koin/core/Koin.getOrNull|<R|glob/combo/a/service/user/data/ComboSplit|>(), Null(null)), Boolean(false))
+        lval fn: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/FnModule.FnModule|().R|app/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/expect|(String(glob.fn.**.infra -> fun in glob.fn.a.infra), !=(R|<local>/fn|.R|org/koin/core/Koin.getOrNull|<R|glob/fn/a/infra/FnRepo|>(), Null(null)), Boolean(true))
+        ^box when () {
+            R|<local>/failures|.R|SubstitutionOverride<kotlin/collections/MutableList.isEmpty: R|kotlin/Boolean|>|() ->  {
+                String(OK)
+            }
+            else ->  {
+                <strcat>(String(FAIL: ), R|<local>/failures|)
+            }
+        }
+
+    }
+FILE: app/appExactModuleModule.kt
+    package app
+
+    public final fun R|app/ExactModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appDeepModuleModule.kt
+    package app
+
+    public final fun R|app/DeepModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appSubModuleModule.kt
+    package app
+
+    public final fun R|app/SubModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appRootModuleModule.kt
+    package app
+
+    public final fun R|app/RootModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appSingleModuleModule.kt
+    package app
+
+    public final fun R|app/SingleModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appComboModuleModule.kt
+    package app
+
+    public final fun R|app/ComboModule|.module(): R|org/koin/core/module/Module|
+FILE: app/appFnModuleModule.kt
+    package app
+
+    public final fun R|app/FnModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/globExactxExactSiblingDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/exactx/ExactSibling|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/globDeepInfraDeepZeroDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/deep/infra/DeepZero|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/globDeepAInfraSubDeepBelowDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/deep/a/infra/sub/DeepBelow|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/globSubSubRootDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/sub/SubRoot|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/globRootxRootSiblingDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/rootx/RootSibling|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/globSingleSvcSingleZeroDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/single/svc/SingleZero|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/globSingleABSvcSingleTwoDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/single/a/b/svc/SingleTwo|): R|kotlin/Unit|
+FILE: org/koin/plugin/hints/globComboAServiceUserDataComboSplitDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|glob/combo/a/service/user/data/ComboSplit|): R|kotlin/Unit|

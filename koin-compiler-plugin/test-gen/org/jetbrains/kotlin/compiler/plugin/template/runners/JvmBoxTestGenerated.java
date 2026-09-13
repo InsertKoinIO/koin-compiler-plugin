@@ -175,6 +175,18 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("component_scan_glob.kt")
+    public void testComponent_scan_glob() {
+      runTest("koin-compiler-plugin/testData/box/modules/component_scan_glob.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_component_scan_glob.kt")
+    public void testCross_module_component_scan_glob() {
+      runTest("koin-compiler-plugin/testData/box/modules/cross_module_component_scan_glob.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_componentscan_dedup.kt")
     public void testCross_module_componentscan_dedup() {
       runTest("koin-compiler-plugin/testData/box/modules/cross_module_componentscan_dedup.kt");

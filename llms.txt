@@ -124,7 +124,7 @@ Apply to classes, to functions inside `@Module` classes, or to top-level functio
 | Annotation | Effect |
 |---|---|
 | `@Module` | Marks a class as a Koin module container |
-| `@ComponentScan("pkg")` | Scans package(s) for annotated classes and top-level functions |
+| `@ComponentScan("pkg")` | Scans package(s) for annotated classes and top-level functions. Supports `*` and `**` globs. Never matches a sibling package such as `pkgx` |
 | `@Configuration` | Auto-discovered by `@KoinApplication` (supports labels: `@Configuration("test", "prod")`) |
 | `@KoinApplication(modules)` | Application entry point — assembles `@Configuration` modules and runs full-graph validation |
 
