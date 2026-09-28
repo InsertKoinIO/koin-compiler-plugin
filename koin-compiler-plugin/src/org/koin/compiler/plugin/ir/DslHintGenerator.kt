@@ -218,8 +218,8 @@ class DslHintGenerator(
         val params = mutableListOf(contributedParam)
         params += buildBindingParams(function, def.bindings)
         // The definition's own REAL requirement types (req$i), not a guess re-derived from
-        // targetClass's constructor — see [buildRequirementParams].
-        params += buildRequirementParams(function, def.requirements)
+        // targetClass's constructor — see [buildRequirementParams]. req$i carries no skip flags.
+        params += buildRequirementParams(function, def.requirements.filter { it.requiresValidation() })
         // Cross-module reachability marker.
         def.modulePropertyId?.let { params += buildModuleIdParam(function, it) }
         // create(::function) definitions.
