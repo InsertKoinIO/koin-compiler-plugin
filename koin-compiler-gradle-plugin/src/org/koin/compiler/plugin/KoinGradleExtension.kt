@@ -59,6 +59,12 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
     val compileSafety: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
 
     /**
+     * Run compile-time safety checks in test compilations (`test`, `*Test`) too (default: true).
+     * Set to false when tests load partial graphs; main compilations keep [compileSafety].
+     */
+    val testCompileSafety: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(true)
+
+    /**
      * Force the safety pass to always run, bypassing Kotlin's incremental compilation cache.
      *
      * When left unset (the default), the Gradle plugin scans source files for `startKoin`,
