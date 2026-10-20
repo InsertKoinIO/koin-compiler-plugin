@@ -2,6 +2,8 @@
 
 A native Kotlin Compiler Plugin for Koin dependency injection. Transforms `single<T>()` DSL calls and processes `@Singleton`/`@Factory` annotations at compile-time.
 
+Cross-agent essentials (build/test, change rules, Koin terminology) are in [AGENTS.md](AGENTS.md); this file holds the deeper contributor notes.
+
 ## Doctrine
 
 - **Evidence-based claims.** "fixed/verified/done" must cite file:line, test output, or a box-test run — never "looks right + tests pass".
@@ -74,7 +76,7 @@ koin-compiler-plugin/
 | `create(::T)` | `Scope` | Create instance in scope |
 | `module<T>()` | `KoinApplication` | Load a single `@Module` class |
 | `modules(vararg KClass)` | `KoinApplication` | Load multiple `@Module` classes |
-| `singleOf(::T)` | `Module` | Singleton via constructor/function reference (Koin's constructor-shorthand DSL, `org.koin.core.module.dsl`) |
+| `singleOf(::T)` | `Module` | Singleton via constructor/function reference (Autowire DSL, `org.koin.core.module.dsl`) |
 | `factoryOf(::T)` | `Module` | Factory via constructor/function reference |
 | `scopedOf(::T)` | `ScopeDSL` | Scoped via constructor/function reference |
 | `viewModelOf(::T)` | `Module` | ViewModel via constructor/function reference |
