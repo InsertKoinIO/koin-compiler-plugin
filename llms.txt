@@ -1,6 +1,6 @@
 # Koin Compiler Plugin — Kotlin Compiler Plugin for Koin DI
 
-> Native Kotlin Compiler Plugin (K2) for the Koin dependency injection framework. Compiles both Koin styles — Koin DSL (Safe DSL `single<T>()`, ...) and Koin Annotations (`@Singleton`, `@Factory`, `@KoinViewModel`, ...) — and checks the whole dependency graph at build time. Compile safe in both styles: no KSP, no kapt, no generated files.
+> Native Kotlin Compiler Plugin (K2) for the Koin dependency injection framework. Compiles both Koin styles — Koin DSL (Compiler Plugin DSL `single<T>()`, ...) and Koin Annotations (`@Singleton`, `@Factory`, `@KoinViewModel`, ...) — and checks the whole dependency graph at build time. Compile safe in both styles: no KSP, no kapt, no generated files.
 
 ## Key Facts
 
@@ -14,7 +14,7 @@
 
 ## Koin in short
 
-- **Two styles, one container** — **Koin DSL** (`module { }`, Safe DSL `single<T>()`) or **Koin Annotations** (`@Singleton`, `@Factory`, `@KoinViewModel`), the same model as Hilt / Dagger and **JSR-330 compatible** (`@Inject`, `@Singleton`, `@Named`, `@Qualifier` from `javax.inject` / `jakarta.inject`).
+- **Two styles, one container** — **Koin DSL** (`module { }`, Compiler Plugin DSL `single<T>()`) or **Koin Annotations** (`@Singleton`, `@Factory`, `@KoinViewModel`), the same model as Hilt / Dagger and **JSR-330 compatible** (`@Inject`, `@Singleton`, `@Named`, `@Qualifier` from `javax.inject` / `jakarta.inject`).
 - **Choose one style explicitly** per project and keep to it. Don't mix Annotations and DSL unless asked — and then one style per module, never both inside a module.
 - **DSL keeps DI out of the code** — classes carry no DI annotations; wiring lives in separate `module { }` files.
 - **Compile safe in both styles** — this plugin checks the whole graph at build time, DSL and Annotations alike. Replaces runtime `verify()` / `checkModules()`.
@@ -36,7 +36,7 @@ plugins {
 dependencies {
     implementation(platform("io.insert-koin:koin-bom:4.2.2"))   // versions every Koin artifact
     implementation("io.insert-koin:koin-core")
-    // Annotations style (or Safe DSL classes carrying @Named / @InjectedParam / @Qualifier):
+    // Annotations style (or Compiler Plugin DSL classes carrying @Named / @InjectedParam / @Qualifier):
     implementation("io.insert-koin:koin-annotations")           // version from the BOM
 }
 ```
@@ -75,13 +75,13 @@ All three are compiled and compile-time checked by the plugin (since 1.2.x, incl
 
 | Form | Example | Use when |
 |---|---|---|
-| **Safe DSL** | `single<MyClass>()`, `single { create(::MyClass) }` | **Recommended with the Compiler Plugin** — plain constructor or function builder |
-| Autowire DSL | `singleOf(::MyClass)` | Project without the Compiler Plugin, or matching existing code |
+| **Compiler Plugin DSL** | `single<MyClass>()`, `single { create(::MyClass) }` | **Recommended with the Compiler Plugin** — plain constructor or function builder |
+| Constructor DSL | `singleOf(::MyClass)` | Project without the Compiler Plugin, or matching existing code |
 | Classic DSL | `single { MyClass(get()) }` | A custom expression a constructor or function builder can't express |
 
-Safe DSL primitives and the reified entry points import from **`org.koin.plugin.module.dsl`**. The autowire `*Of` family lives in `org.koin.core.module.dsl`.
+Compiler Plugin DSL primitives and the reified entry points import from **`org.koin.plugin.module.dsl`**. The Constructor DSL `*Of` family lives in `org.koin.core.module.dsl`.
 
-### Safe DSL functions
+### Compiler Plugin DSL functions
 
 | Function | Receiver | Generates |
 |---|---|---|
@@ -226,7 +226,7 @@ The compiler plugin replaces the deprecated KSP processor (`koin-ksp-compiler`).
 - **Compile-time safety design**: `docs/COMPILE_TIME_SAFETY.md`
 - **Roadmap**: `docs/ROADMAP.md`
 - **Case study (Now in Android)**: `docs/CASE_STUDY_NOW_IN_ANDROID.md`
-- **Official Koin docs**: https://insert-koin.io/docs/intro/index
+- **Official Koin docs**: https://insert-koin.io/docs/intro
 
 ## Related
 

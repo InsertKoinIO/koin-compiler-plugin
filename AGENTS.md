@@ -62,18 +62,18 @@ cd test-apps && ./gradlew :sample-app:jvmRun
 
 These names match the official Koin skills
 ([InsertKoinIO/koin-skills](https://github.com/InsertKoinIO/koin-skills)) and
-https://insert-koin.io/docs/intro/index:
+https://insert-koin.io/docs/intro:
 
 - **Two styles, one container**: **Koin DSL** or **Koin Annotations**
   (`@Singleton`, `@Factory`, `@KoinViewModel`), JSR-330 compatible. One style
   per project; no mixing unless asked.
 - **Three DSL forms**, all compiled and checked by this plugin:
-  - **Safe DSL** — `single<T>()`, `single { create(::T) }` — recommended with the Compiler Plugin
-  - **Autowire DSL** — `singleOf(::T)`
+  - **Compiler Plugin DSL** — `single<T>()`, `single { create(::T) }` — recommended with the Compiler Plugin
+  - **Constructor DSL** — `singleOf(::T)`
   - **Classic DSL** — `single { T(get()) }`
-- Safe DSL primitives and the reified entry points (`startKoin<App>`,
+- Compiler Plugin DSL primitives and the reified entry points (`startKoin<App>`,
   `koinApplication<App>`, `koinConfiguration<App>`, `module<T>()`) import from
-  `org.koin.plugin.module.dsl`. Autowire `*Of` lives in `org.koin.core.module.dsl`.
+  `org.koin.plugin.module.dsl`. Constructor DSL `*Of` lives in `org.koin.core.module.dsl`.
 - Prefer `@Singleton` over `@Single` in examples.
 - Never suggest KSP for Koin: no `koin-ksp-compiler`, no
   `org.koin.ksp.generated.*`, no `AppModule().module` (use `module<AppModule>()`).
