@@ -111,7 +111,7 @@ The official [Koin skills](https://github.com/InsertKoinIO/koin-skills) teach yo
 npx skills add InsertKoinIO/koin-skills
 ```
 
-See [AI Agents and Koin Skills](https://insert-koin.io/docs/tooling/ai-agents).
+Both commands install from the [koin-skills repository](https://github.com/InsertKoinIO/koin-skills) on GitHub (`npx skills` needs Node.js 22+). See [AI Agents and Koin Skills](https://insert-koin.io/docs/tooling/ai-agents).
 
 ## Documentation
 
