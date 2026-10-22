@@ -98,6 +98,21 @@ koinCompiler {
   ([KT-82395](https://youtrack.jetbrains.com/issue/KT-82395)); JVM/Android, iOS/Native, and
   DSL-based WASM/JS work across the range.
 
+## AI Coding Agents
+
+The official [Koin skills](https://github.com/InsertKoinIO/koin-skills) teach your coding agent to use the Compiler Plugin: Compiler Plugin DSL or annotations, compile-time checks, and migration from Koin KSP or another DI framework.
+
+```
+# Claude Code
+/plugin marketplace add InsertKoinIO/koin-skills
+/plugin install koin@koin-skills
+
+# Cursor, Codex, Copilot and other agents
+npx skills add InsertKoinIO/koin-skills
+```
+
+See [AI Agents and Koin Skills](https://insert-koin.io/docs/tooling/ai-agents).
+
 ## Documentation
 
 See the [docs/](docs/) folder:
