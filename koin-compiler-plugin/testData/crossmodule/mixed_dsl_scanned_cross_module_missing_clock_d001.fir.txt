@@ -1,0 +1,54 @@
+Module: lib
+FILE: Bindings.kt
+    package repro.lib
+
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|repro/lib/Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Repository : R|kotlin/Any| {
+        public constructor(clock: R|repro/lib/Clock|): R|repro/lib/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val clock: R|repro/lib/Clock| = R|<local>/clock|
+            public get(): R|repro/lib/Clock|
+
+    }
+    public final class Scanned : R|kotlin/Any| {
+        @R|javax/inject/Inject|() public constructor(repository: R|repro/lib/Repository|): R|repro/lib/Scanned| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repository: R|repro/lib/Repository| = R|<local>/repository|
+            public get(): R|repro/lib/Repository|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(repro.lib))) public final class ComponentsModule : R|kotlin/Any| {
+        public constructor(): R|repro/lib/ComponentsModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val bindings: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|repro/lib/Repository|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+FILE: repro/lib/reproLibComponentsModuleModule.kt
+    package repro.lib
+
+    public final fun R|repro/lib/ComponentsModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package repro.app
+
+    public final fun start(): R|org/koin/core/KoinApplication| {
+        ^start R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|repro/lib/bindings|)
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/modules|(vararg(<getClass>(Q|repro/lib/ComponentsModule|)))
+        }
+        )
+    }

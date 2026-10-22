@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: repro.lib.Clock
+  required by: dsl:repro.lib.Repository (parameter 'clock')
+  in module: repro.lib.bindings

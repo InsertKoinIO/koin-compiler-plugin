@@ -53,6 +53,7 @@ dependencies {
     // Koin libraries (koin-core for basic DSL, koin-annotations for plugin functions)
     annotationsRuntimeClasspath(libs.koin.core)
     annotationsRuntimeClasspath(libs.koin.annotations)
+    annotationsRuntimeClasspath("javax.inject:javax.inject:1")
 
     // Ktor + koin-ktor: `install(Koin) { }` entry-point detection tests need these real symbols
     // on the classpath (org.koin.core.KoinKtorApplication, io.ktor.server.application.install).
