@@ -75,6 +75,7 @@ class KoinIrExtension(
 
         // Instantiate extracted helper classes
         val dslHintGenerator = DslHintGenerator(pluginContext, ParameterAnalyzer(qualifierExtractor))
+        val dslGraphAssembler = DslGraphAssembler(dslHintGenerator)
         val callSiteValidator = CallSiteValidator(pluginContext)
         val injectedParamHints = InjectedParamHintGenerator(pluginContext, qualifierExtractor)
 
@@ -127,7 +128,10 @@ class KoinIrExtension(
         // Into: startKoin { printLogger(); modules(listOf(Module1().module, ...)) }
         // A3 full-graph validation includes DSL definitions as providers + consumers
         KoinPluginLogger.debug { "Phase 3: Transforming startKoin calls" }
-        val startKoinTransformer = KoinStartTransformer(pluginContext, moduleFragment, annotationProcessor, safetyValidator, lookupTracker, expectActualTracker, dslDefinitions)
+        val startKoinTransformer = KoinStartTransformer(
+            pluginContext, moduleFragment, annotationProcessor, safetyValidator, lookupTracker, expectActualTracker,
+            koinTransformer, dslGraphAssembler
+        )
         moduleFragment.transform(startKoinTransformer, null)
 
         // A3 §4: single graph-verification pass over the reified entry points. Must run before
@@ -145,10 +149,16 @@ class KoinIrExtension(
             && startKoinTransformer.hasKoinEntryPoint) {
             KoinPluginLogger.debug { "Phase 3.1: DSL-only A3 validation (${dslDefinitions.size} local DSL definitions)" }
             callSiteValidator.validateDslDefinitionGraph(
-                dslDefinitions, annotationProcessor, safetyValidator, dslHintGenerator,
+                dslDefinitions, annotationProcessor, safetyValidator, dslGraphAssembler,
+                if (koinTransformer.entryModulesIncomplete) {
+                    DslModuleRoots.Unknown(
+                        koinTransformer.startKoinModules.toSet(),
+                        koinTransformer.entryModulesIncompleteOrigin,
+                    )
+                } else {
+                    DslModuleRoots.Known(koinTransformer.startKoinModules.toSet())
+                },
                 koinTransformer.startKoinModules, koinTransformer.moduleIncludes,
-                entryModulesIncomplete = koinTransformer.entryModulesIncomplete,
-                entryModulesIncompleteOrigin = koinTransformer.entryModulesIncompleteOrigin,
                 modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
                 ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph
             )

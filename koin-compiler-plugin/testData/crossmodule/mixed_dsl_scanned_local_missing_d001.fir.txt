@@ -1,0 +1,34 @@
+FILE: mixed_dsl_scanned_local_missing_d001.kt
+    package repro.local
+
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|repro/local/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Scanned : R|kotlin/Any| {
+        @R|javax/inject/Inject|() public constructor(missing: R|repro/local/Missing|): R|repro/local/Scanned| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val missing: R|repro/local/Missing| = R|<local>/missing|
+            public get(): R|repro/local/Missing|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(repro.local))) public final class ComponentsModule : R|kotlin/Any| {
+        public constructor(): R|repro/local/ComponentsModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun start(): R|org/koin/core/KoinApplication| {
+        ^start R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/modules|(vararg(<getClass>(Q|repro/local/ComponentsModule|)))
+        }
+        )
+    }
+FILE: repro/local/reproLocalComponentsModuleModule.kt
+    package repro.local
+
+    public final fun R|repro/local/ComponentsModule|.module(): R|org/koin/core/module/Module|

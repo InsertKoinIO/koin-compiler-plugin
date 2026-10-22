@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: repro.local.Missing
+  required by: repro.local.Scanned (parameter 'missing')
+  in module: repro.local

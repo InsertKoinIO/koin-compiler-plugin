@@ -73,7 +73,7 @@ enum class EntryClassification { ROOT, DYNAMIC }
  * the assembled graph unverifiable at compile time (→ [EntryClassification.DYNAMIC], KOIN-W003).
  */
 data class LambdaModules(val classes: List<IrClass>, val dynamic: Boolean)
-data class EntryPoint(
+internal data class EntryPoint(
     val kind: EntryKind,
     // Mutable: the plugin-stub path reifies the entry as ROOT, then reclassifies to DYNAMIC once the
     // lambda walk finds a non-static modules(...) argument (assigned once, single-threaded IR walk).
@@ -96,18 +96,20 @@ data class EntryPoint(
     // when it's a deliberately isolated fragment (Compose preview / test fixture). See
     // [KoinStartTransformer.ownsAuthoritativeGraph].
     val isolatedReceiver: Boolean = false,
+    internal var dslRoots: DslModuleRoots = DslModuleRoots.Known(emptySet()),
 )
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 @Suppress("DEPRECATION", "DEPRECATION_ERROR")
-class KoinStartTransformer(
+class KoinStartTransformer internal constructor(
     private val context: IrPluginContext,
     private val moduleFragment: IrModuleFragment,
     private val annotationProcessor: KoinAnnotationProcessor? = null,
     private val safetyValidator: CompileSafetyValidator? = null,
     private val lookupTracker: LookupTracker? = null,
     private val expectActualTracker: ExpectActualTracker? = null,
-    private val dslDefinitions: List<Definition> = emptyList()
+    private val dslTransformer: KoinDSLTransformer? = null,
+    private val dslGraphAssembler: DslGraphAssembler? = null,
 ) : IrElementTransformerVoid() {
 
     private var currentFile: IrFile? = null
@@ -116,7 +118,7 @@ class KoinStartTransformer(
      * Reified entry points detected in this compilation (A3 §4). Each ROOT carries its own resolved
      * module closure; [verifyEntryPoints] routes them all through the single graph verifier.
      */
-    val entryPoints = mutableListOf<EntryPoint>()
+    internal val entryPoints = mutableListOf<EntryPoint>()
 
     /** True if any entry point (startKoin / koinApplication / koinConfiguration, generic or not) was found. */
     val hasKoinEntryPoint: Boolean get() = entryPoints.isNotEmpty()
@@ -173,7 +175,7 @@ class KoinStartTransformer(
      * Roots with an empty closure (today: the real koin-core `startKoin{}` / `koinConfiguration{}`
      * path, still flag-only) are skipped here — their resolution is wired in a later Gate-1 sub-step.
      */
-    fun verifyEntryPoints() {
+    internal fun verifyEntryPoints() {
         val validator = safetyValidator ?: return
         val processor = annotationProcessor ?: return
         KoinPluginLogger.debug { "── A3 verify: ${entryPoints.size} reified entry point(s) ──" }
@@ -185,13 +187,18 @@ class KoinStartTransformer(
             KoinPluginLogger.debug {
                 "  verify ${ep.kind} '${ep.appName}' [${ep.classification}] — ${ep.resolvedModules.size} module(s) @ ${ep.origin}"
             }
-            validator.validateFullGraph(
+            validator.validateFullGraphWithDslGraph(
                 "${ep.appName} (${entryKindDisplayLabel(ep.kind)})",
                 ep.resolvedModules,
                 processor.collectedModuleClasses,
                 processor::getDefinitionsForModule,
                 processor::getDefinitionsForDependencyModule,
-                dslDefinitions
+                dslGraphAssembler?.assemble(
+                    dslTransformer?.dslDefinitions.orEmpty().filterIsInstance<Definition.DslDef>(),
+                    ep.dslRoots,
+                    dslTransformer?.moduleIncludes.orEmpty(),
+                    dslTransformer?.modulesWithIncompleteIncludes.orEmpty(),
+                ) ?: DslGraphAssembly.Known(emptySet(), emptyList(), emptyList())
             )
         }
     }
@@ -275,7 +282,9 @@ class KoinStartTransformer(
     private fun registerLambdaWalkedEntryPoint(kind: EntryKind, label: String, logTag: String, expression: IrCall) {
         val lambdaModules = collectModuleClassesFromLambda(expression)
         val classification = if (lambdaModules.dynamic) EntryClassification.DYNAMIC else EntryClassification.ROOT
-        entryPoints.add(EntryPoint(kind, classification, lambdaModules.classes, originOf(expression), label))
+        val entryPoint = EntryPoint(kind, classification, lambdaModules.classes, originOf(expression), label)
+        entryPoint.dslRoots = dslTransformer?.collectDslModuleRoots(expression) ?: DslModuleRoots.Known(emptySet())
+        entryPoints.add(entryPoint)
         val entryFile = currentFile
         for (moduleClass in lambdaModules.classes) {
             trackClassLookup(lookupTracker, entryFile, moduleClass)
@@ -396,6 +405,7 @@ class KoinStartTransformer(
             entryKind, EntryClassification.ROOT, emptyList(), originOf(expression),
             isolatedReceiver = isWithConfiguration && isChainedOnIsolatedKoinApplication(expression),
         )
+        entryPoint.dslRoots = dslTransformer?.collectDslModuleRoots(expression) ?: DslModuleRoots.Known(emptySet())
         entryPoints.add(entryPoint)
         KoinPluginLogger.debug { "  entry point (stub): $entryKind @ ${originOf(expression)}" }
 

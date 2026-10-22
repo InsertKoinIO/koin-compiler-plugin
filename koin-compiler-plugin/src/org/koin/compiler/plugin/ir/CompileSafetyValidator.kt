@@ -69,6 +69,22 @@ class CompileSafetyValidator(
         getDefinitionsForModule: (ModuleClass) -> DependencyModuleResult,
         getDefinitionsForDependencyModule: (String) -> DependencyModuleResult,
         dslDefinitions: List<Definition> = emptyList()
+    ) = validateFullGraphWithDslGraph(
+        appName,
+        allModuleIrClasses,
+        collectedModuleClasses,
+        getDefinitionsForModule,
+        getDefinitionsForDependencyModule,
+        DslGraphAssembly.Known(emptySet(), dslDefinitions.filterIsInstance<Definition.DslDef>(), emptyList())
+    )
+
+    internal fun validateFullGraphWithDslGraph(
+        appName: String,
+        allModuleIrClasses: List<IrClass>,
+        collectedModuleClasses: List<ModuleClass>,
+        getDefinitionsForModule: (ModuleClass) -> DependencyModuleResult,
+        getDefinitionsForDependencyModule: (String) -> DependencyModuleResult,
+        dslAssembly: DslGraphAssembly,
     ) {
         KoinPluginLogger.debug { "── A3 Safety: Full-graph for $appName ──" }
         KoinPluginLogger.debug { "  modules in graph: ${allModuleIrClasses.size}" }
@@ -101,10 +117,25 @@ class CompileSafetyValidator(
             }
         }
 
-        // Include DSL definitions as both providers and consumers
-        if (dslDefinitions.isNotEmpty()) {
-            KoinPluginLogger.debug { "    + DSL definitions: ${dslDefinitions.size}" }
-            allDefinitions.addAll(dslDefinitions)
+        var topologyUnknown = false
+        when (dslAssembly) {
+            is DslGraphAssembly.Known -> {
+                KoinPluginLogger.debug { "    + reachable DSL definitions: ${dslAssembly.definitions.size}" }
+                allDefinitions.addAll(dslAssembly.definitions)
+            }
+            is DslGraphAssembly.Unknown -> {
+                topologyUnknown = true
+                KoinPluginLogger.report(
+                    KoinDiagnostic.UnverifiableDynamicGraph(
+                        entry = "the entry point loading ${appName.substringBefore(" (")}",
+                        origin = dslAssembly.origin?.let { origin ->
+                            origin.filePath?.let { "${it.substringAfterLast('/')}:${origin.line ?: "?"}" }
+                        },
+                    )
+                )
+                KoinPluginLogger.debug { "    + DSL definitions with unknown reachability: ${dslAssembly.definitions.size}" }
+                allDefinitions.addAll(dslAssembly.definitions)
+            }
         }
 
         // Store assembled graph types for A4 call-site validation
@@ -138,6 +169,7 @@ class CompileSafetyValidator(
             qualifierExtractor,
             reportedCycles = reportedCycles,
             reportedMissingDeps = reportedMissingDeps,
+            topologyUnknown = topologyUnknown,
         )
         if (errorCount > 0) {
             KoinPluginLogger.debug { "  -> DONE: $errorCount errors found" }
