@@ -68,4 +68,14 @@ object ProvidedTypeRegistry {
     fun clear() {
         providedTypes.clear()
     }
+
+    /**
+     * Release this compilation's registry at the end of the IR phase (`KoinIrExtension.generate`).
+     * Holds only FQ names, released alongside the IR-holding registries so no per-compilation
+     * state stays bound to a daemon thread.
+     */
+    fun release() {
+        providedTypes.clear()
+        providedTypesHolder.remove()
+    }
 }
