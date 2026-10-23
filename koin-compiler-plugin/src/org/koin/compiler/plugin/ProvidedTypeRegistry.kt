@@ -34,7 +34,7 @@ object ProvidedTypeRegistry {
     // arriving via `loadKoinModules(...)` (see docs/COMPILE_TIME_SAFETY.md), so an unreliable
     // registry makes the documented escape hatch unreliable too. Found by a full-suite run of
     // `entry_load_koin_modules_ok`, which passed in isolation and failed in the suite — the same
-    // symptom and the same root cause as KTZ-4414 for @PropertyValue.
+    // symptom and the same root cause as the parallel-daemon flakiness fix for @PropertyValue.
     //
     // Held per-thread via InheritableThreadLocal: IR fan-out threads inherit the same set
     // reference, so one compilation's threads share one set while distinct compilations stay

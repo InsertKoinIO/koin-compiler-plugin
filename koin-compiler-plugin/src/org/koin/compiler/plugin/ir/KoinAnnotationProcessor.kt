@@ -462,7 +462,7 @@ class KoinAnnotationProcessor(
      * Get the scope qualifier name from `@Scope(name = "session")` (string-named scope).
      * Returns null when the annotation only has the typed `value` argument — use [getScopeClass] for that.
      *
-     * Bug it fixes (KTZ-4039 / #34): without this, both `@Scope(name = ...)` variants were silently
+     * Bug it fixes (#34): without this, both `@Scope(name = ...)` variants were silently
      * dropped — the typed-scope partition in `buildModuleBody` saw `scopeClass == null` and routed the
      * definition through `buildScoped` on a `Module` receiver, where no such overload exists, producing
      * no bean definition at all.
@@ -552,7 +552,7 @@ class KoinAnnotationProcessor(
     /**
      * Get `createdAtStart` from `@Module(createdAtStart = true)`. Drives whether the generated
      * `module(...)` DSL call passes `createdAtStart = true` to eagerly instantiate every
-     * `@Single` / `@Singleton` in the module at `startKoin`. KTZ-4048 / koin#2415.
+     * `@Single` / `@Singleton` in the module at `startKoin`. koin#2415.
      *
      * Signature: `@Module(includes: Array<KClass<*>> = [], createdAtStart: Boolean = false)`.
      */
@@ -2302,7 +2302,7 @@ class KoinAnnotationProcessor(
         // N identical `componentscan_<moduleId>_<defType>` roster hints (an ExternalFunctionDef is
         // provider-only — no `single { }` body is generated in the consumer, only the re-export roster hint)
         // → a hard KLIB SignatureClashDetector error on native/wasm (invisible on JVM/DEX). Analogous to the
-        // class-path dedup in findMatchingDefinitions (KTZ-4365), but keyed on type+qualifier rather than
+        // class-path dedup in findMatchingDefinitions, but keyed on type+qualifier rather than
         // class identity, since a function-provided type legitimately varies by qualifier. See issue #62's
         // cross-module native manifestation.
         val seenKeys = mutableSetOf<String>()
@@ -2964,7 +2964,7 @@ class KoinAnnotationProcessor(
 
         // Separate definitions by scope type. A definition belongs to root iff none of the
         // three scope-flavor fields is set; otherwise route into the matching group. This
-        // partition is the bug surface for KTZ-4039 / #34 — before scopeName existed, a
+        // partition is the bug surface for #34 — before scopeName existed, a
         // `@Scope(name = "session") @Scoped` definition had `scopeClass == null` and fell
         // through to `rootDefinitions`, where `buildScoped` on a `Module` receiver doesn't
         // exist and the call was silently dropped.
@@ -3002,7 +3002,7 @@ class KoinAnnotationProcessor(
             }
         }
 
-        // Generate scope(named("...")) { ... } blocks for string-named scope definitions (KTZ-4039)
+        // Generate scope(named("...")) { ... } blocks for string-named scope definitions
         for ((scopeName, scopeDefs) in namedScopeGroups) {
             val scopeBlock = buildNamedScopeBlock(scopeName, scopeDefs, moduleClass, moduleReceiverParam, lambdaFunction, lambdaBuilder, parentFunction)
             if (scopeBlock != null) {
@@ -3040,7 +3040,7 @@ class KoinAnnotationProcessor(
                 putRegularArgument(moduleDeclarationIndex, lambdaExpr)
             }
 
-            // KTZ-4048 / koin#2415 — propagate `@Module(createdAtStart = true)` to the
+            // koin#2415 — propagate `@Module(createdAtStart = true)` to the
             // `module(...)` DSL call. Without this, Kotlin's `module$default` trampoline
             // substitutes the parameter default (false) regardless of what the user wrote
             // on the annotation, and the eager-init behavior silently goes missing.
@@ -3091,7 +3091,7 @@ class KoinAnnotationProcessor(
 
     /**
      * Build: scope(named("name")) { scoped(...) } — string-named scope variant for
-     * `@Scope(name = "...")`. KTZ-4039 / #34.
+     * `@Scope(name = "...")`. #34.
      */
     private fun buildNamedScopeBlock(
         scopeName: String,

@@ -1,5 +1,5 @@
 // FILE: test.kt
-// Real-world shape (Kotzilla server): two SEPARATE anonymous `single<Clock> { ... }` blocks (no
+// Real-world shape: two SEPARATE anonymous `single<Clock> { ... }` blocks (no
 // val/fun id) in the same file, each inside its own inline `module { }` used by a different
 // koinApplication { } call. Both provide the SAME type, both provider-only (no bindings, no
 // requirements, no qualifier), so their generated `dsl_single` hint functions are IDENTICAL at the

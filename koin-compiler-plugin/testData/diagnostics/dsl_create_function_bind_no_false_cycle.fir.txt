@@ -1,32 +1,32 @@
 FILE: test.kt
     package testpkg
 
-    public abstract interface StoreService : R|kotlin/Any| {
+    public abstract interface BlobStore : R|kotlin/Any| {
     }
-    public final class ObjectStoreService : R|testpkg/StoreService| {
-        public constructor(): R|testpkg/ObjectStoreService| {
+    public final class DiskBlobStore : R|testpkg/BlobStore| {
+        public constructor(): R|testpkg/DiskBlobStore| {
             super<R|kotlin/Any|>()
         }
 
     }
-    public final class InstrumentedStoreService : R|testpkg/StoreService| {
-        public constructor(delegate: R|testpkg/StoreService|): R|testpkg/InstrumentedStoreService| {
+    public final class MeteredBlobStore : R|testpkg/BlobStore| {
+        public constructor(delegate: R|testpkg/BlobStore|): R|testpkg/MeteredBlobStore| {
             super<R|kotlin/Any|>()
         }
 
-        private final val delegate: R|testpkg/StoreService| = R|<local>/delegate|
-            private get(): R|testpkg/StoreService|
+        private final val delegate: R|testpkg/BlobStore| = R|<local>/delegate|
+            private get(): R|testpkg/BlobStore|
 
     }
-    public final fun buildInstrumentedStoreService(os: R|testpkg/ObjectStoreService|): R|testpkg/InstrumentedStoreService| {
-        ^buildInstrumentedStoreService R|testpkg/InstrumentedStoreService.InstrumentedStoreService|(R|<local>/os|)
+    public final fun buildMeteredBlobStore(os: R|testpkg/DiskBlobStore|): R|testpkg/MeteredBlobStore| {
+        ^buildMeteredBlobStore R|testpkg/MeteredBlobStore.MeteredBlobStore|(R|<local>/os|)
     }
     public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
-        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/ObjectStoreService|>()
-        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|testpkg/InstrumentedStoreService|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|testpkg/InstrumentedStoreService| <inline=NoInline>  {
-            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|testpkg/InstrumentedStoreService|, R|@R|kotlin/ParameterName|(name = String(os))  testpkg/ObjectStoreService|>(::R|testpkg/buildInstrumentedStoreService|)
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/DiskBlobStore|>()
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|testpkg/MeteredBlobStore|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|testpkg/MeteredBlobStore| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|testpkg/MeteredBlobStore|, R|@R|kotlin/ParameterName|(name = String(os))  testpkg/DiskBlobStore|>(::R|testpkg/buildMeteredBlobStore|)
         }
-        ).R|org/koin/dsl/bind|<R|testpkg/StoreService|>(<getClass>(Q|testpkg/StoreService|))
+        ).R|org/koin/dsl/bind|<R|testpkg/BlobStore|>(<getClass>(Q|testpkg/BlobStore|))
     }
     )
         public get(): R|org/koin/core/module/Module|

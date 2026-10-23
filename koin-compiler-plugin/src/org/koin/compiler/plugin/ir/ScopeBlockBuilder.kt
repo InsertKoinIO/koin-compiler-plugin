@@ -126,7 +126,7 @@ class ScopeBlockBuilder(
     /**
      * Build `scope(named("name")) { ... }` for the string-named `@Scope(name = "...")` variant.
      * Mirrors [buildScopeBlock] but uses `org.koin.core.qualifier.named(String)` as the qualifier
-     * instead of `typeQualifier<ScopeClass>()`. KTZ-4039 / #34.
+     * instead of `typeQualifier<ScopeClass>()`. #34.
      */
     fun buildNamedScopeBlock(
         scopeName: String,

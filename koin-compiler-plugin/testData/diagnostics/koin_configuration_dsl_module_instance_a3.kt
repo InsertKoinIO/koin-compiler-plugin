@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
-// Issue #38 (follow-up to KTZ-4037): the Compose entry
+// Issue #38 (follow-up to #38): the Compose entry
 // `KoinApplication(configuration = koinConfiguration { modules(appModule) })` loads a DSL
 // `module { }` *instance* (not a @Module class). collectModuleClassesFromLambda only collects
 // @Module CLASSES from `modules(KClass)`, so for an instance-loaded DSL module the entry's

@@ -6,7 +6,7 @@ import org.koin.core.annotation.Factory
 import org.koin.core.annotation.InjectedParam
 import org.koin.core.parameter.parametersOf
 
-// Regression for compiler#40 / #44 (KTZ-4151): when the SAME @InjectedParam target
+// Regression for compiler#40 / #44: when the SAME @InjectedParam target
 // is collected by more than one module — here two @ComponentScan modules over the
 // same package — getAllKnownDefinitions() returns it twice with identical target +
 // @InjectedParam shape. The plugin must still emit the `injectedparams_*` hint

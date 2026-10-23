@@ -21,7 +21,7 @@ class KoinIrExtension(
     // Captured at construction (same reason as messageCollector): the compilation's config
     // flags, re-bound onto the IR-phase thread below. Without this, IR-phase reads of
     // compileSafety / skipDefaultValues fell through to the shared global on pool workers
-    // (KTZ-4414 flakiness).
+    // (parallel-daemon flakiness).
     private val flagsHandle: Any,
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {

@@ -1,5 +1,5 @@
 // FILE: test.kt
-// Regression test for KTZ-4049 / GH koin#2400.
+// Regression test for koin#2400.
 //
 // Reporter's pattern (3 levels of `module { includes(other) }` composition):
 //   :app    joinedModule = module { includes(dataModule) }

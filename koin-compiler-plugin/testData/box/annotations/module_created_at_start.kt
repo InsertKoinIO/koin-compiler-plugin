@@ -1,5 +1,5 @@
 // FILE: test.kt
-// Regression test for KTZ-4048 / GH koin#2415:
+// Regression test for koin#2415:
 // `@Module(createdAtStart = true)` and `@Single(createdAtStart = true)` were both
 // silently ignored — the generated `module(...)` and `buildSingle(...)` calls used
 // Kotlin's `$default` trampoline with the bit set for `createdAtStart`, so the runtime

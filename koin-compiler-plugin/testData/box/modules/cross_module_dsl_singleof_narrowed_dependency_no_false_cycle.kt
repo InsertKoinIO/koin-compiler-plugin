@@ -6,38 +6,38 @@
 // that encoding path doesn't reintroduce the wrong-source-of-requirements bug for singleOf
 // specifically.
 //
-// singleOf(::buildInstrumentedStoreService) { bind<StoreService>() }
-//   fun buildInstrumentedStoreService(os: ObjectStoreService): InstrumentedStoreService
+// singleOf(::buildMeteredBlobStore) { bind<BlobStore>() }
+//   fun buildMeteredBlobStore(os: DiskBlobStore): MeteredBlobStore
 //
-// Locally this correctly derives requirements from buildInstrumentedStoreService's OWN parameter
-// (ObjectStoreService) — see KoinDSLTransformer.requirementsFor. The cross-module hint must carry
-// that same real requirement, not re-guess from InstrumentedStoreService's constructor (delegate:
-// StoreService — the same type this definition also `bind`s), which would false-cycle KOIN-D004.
+// Locally this correctly derives requirements from buildMeteredBlobStore's OWN parameter
+// (DiskBlobStore) — see KoinDSLTransformer.requirementsFor. The cross-module hint must carry
+// that same real requirement, not re-guess from MeteredBlobStore's constructor (delegate:
+// BlobStore — the same type this definition also `bind`s), which would false-cycle KOIN-D004.
 
 // MODULE: core
-// FILE: filestore.kt
-package io.kotzilla.ingestion.filestore.service
+// FILE: blobstore.kt
+package com.example.blobstore
 
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.single
 
-interface StoreService
-class ObjectStoreService : StoreService
-class InstrumentedStoreService(private val delegate: StoreService) : StoreService
+interface BlobStore
+class DiskBlobStore : BlobStore
+class MeteredBlobStore(private val delegate: BlobStore) : BlobStore
 
-fun buildInstrumentedStoreService(os: ObjectStoreService): InstrumentedStoreService = InstrumentedStoreService(os)
+fun buildMeteredBlobStore(os: DiskBlobStore): MeteredBlobStore = MeteredBlobStore(os)
 
-fun fileStorageModule() = module {
-    single<ObjectStoreService>()
-    singleOf(::buildInstrumentedStoreService) { bind<StoreService>() }
+fun blobStoreModule() = module {
+    single<DiskBlobStore>()
+    singleOf(::buildMeteredBlobStore) { bind<BlobStore>() }
 }
 
 // MODULE: app(core)
 // FILE: test.kt
-import io.kotzilla.ingestion.filestore.service.StoreService
-import io.kotzilla.ingestion.filestore.service.fileStorageModule
+import com.example.blobstore.BlobStore
+import com.example.blobstore.blobStoreModule
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.single
@@ -49,9 +49,9 @@ class Marker
 
 fun box(): String {
     val koin = koinApplication {
-        modules(module { single<Marker>() }, fileStorageModule())
+        modules(module { single<Marker>() }, blobStoreModule())
     }.koin
-    koin.get<StoreService>()
+    koin.get<BlobStore>()
     koin.get<Marker>()
     return "OK"
 }

@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
-// Repro for KTZ-4256 / GH koin-compiler-plugin#51.
+// Repro for koin-compiler-plugin#51.
 //
 // Two sibling @Module classes, DataModule and FeatureModule, both listed in the app's
 // @KoinApplication(modules = [DataModule, FeatureModule]). Service (declared by FeatureModule)

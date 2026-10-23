@@ -1,6 +1,6 @@
 // FILE: test.kt
-// singleOf(::Ctor) { bind<Interface>() } — the real production shape (kotzilla.io/server's
-// ValkeyModule.kt): the trailing options block's bind<T>() must attach to singleOf's own DslDef.
+// singleOf(::Ctor) { bind<Interface>() } — a real production shape: the trailing
+// options block's bind<T>() must attach to singleOf's own DslDef.
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.koinApplication

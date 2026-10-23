@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
-// 1.1.0 — A2 (and its KOIN-W002 deferral mechanism, KTZ-4256 / GH #51) is gone; this compilation
+// 1.1.0 — A2 (and its KOIN-W002 deferral mechanism, #51) is gone; this compilation
 // now emits NO diagnostic at all (empty golden). Kept under its original name for history.
 //
 // A library module compiles two sibling @Module classes with NO Koin entry point in this

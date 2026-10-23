@@ -401,7 +401,7 @@ class KoinStartTransformer(
 
         // Untyped variants — `startKoin { modules(A::class) }`, `koinApplication { modules(...) }`,
         // and especially the Compose Composable-friendly `koinConfiguration { modules(...) }`
-        // (issue #38 / KTZ-4037) — don't have a `<T>` type parameter to drive `@KoinApplication`
+        // (issue #38) — don't have a `<T>` type parameter to drive `@KoinApplication`
         // discovery, but they DO carry the module list directly inside the trailing lambda. Walk
         // the lambda for `KoinApplication.modules(vararg KClass)` calls and route the result
         // through A3 so the bare-config entry point gets the same full-graph validation as the
@@ -806,7 +806,7 @@ class KoinStartTransformer(
      * `IrVariable` / `IrTypeOperatorCall` / `IrSetValue` cuts through the scaffolding
      * regardless of the exact shape.
      *
-     * Used by the untyped-entry A3 path (KTZ-4037 / #38) — without a `<T>` type parameter we
+     * Used by the untyped-entry A3 path (#38) — without a `<T>` type parameter we
      * can't get modules from `@KoinApplication(modules = [...])`, but the user's `modules(...)`
      * call inside the lambda gives us the same list at the IR level.
      */

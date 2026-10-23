@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
-// Regression test for KTZ-4041 / GH koin-compiler-plugin#16 — KOIN-D007.
+// Regression test for koin-compiler-plugin#16 — KOIN-D007.
 //
 // `@Factory` returning a fun interface that extends `suspend (P) -> R` would auto-bind to
 // `kotlin.coroutines.SuspendFunctionN` via supertype walk. Koin runtime does not support
