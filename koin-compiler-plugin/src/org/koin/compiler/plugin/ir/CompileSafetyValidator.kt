@@ -76,7 +76,7 @@ class CompileSafetyValidator(
         // Collect definitions from all modules in the graph — every one needs validation, since
         // there is no A2 pre-pass to have already handled any of them.
         val allDefinitions = mutableListOf<Definition>()
-        var allModulesComplete = true
+        val incompleteModules = mutableListOf<String>()
 
         KoinPluginLogger.debug { "  collecting definitions from all modules:" }
         for (moduleIrClass in allModuleIrClasses) {
@@ -89,7 +89,7 @@ class CompileSafetyValidator(
                 // Local module — collect all definitions (includes cross-module hints)
                 val result = getDefinitionsForModule(moduleClass)
                 allDefinitions.addAll(result.definitions)
-                if (!result.isComplete) allModulesComplete = false
+                incompleteModules += result.unresolvedModules
                 KoinPluginLogger.debug { "    + $moduleFqName (local): ${result.definitions.size} definitions [complete=${result.isComplete}]" }
             } else {
                 // Cross-module @Configuration module from dependency JAR
@@ -97,7 +97,7 @@ class CompileSafetyValidator(
                 val result = getDefinitionsForDependencyModule(moduleFqName)
                 KoinPluginLogger.debug { "      -> ${result.definitions.size} definitions [complete=${result.isComplete}]" }
                 allDefinitions.addAll(result.definitions)
-                if (!result.isComplete) allModulesComplete = false
+                incompleteModules += result.unresolvedModules
             }
         }
 
@@ -116,10 +116,10 @@ class CompileSafetyValidator(
         }
         KoinPluginLogger.debug { "  assembled graph: ${_assembledGraphTypes.size} provided types" }
 
-        if (!allModulesComplete) {
-            // Incomplete subgraph: at least one module's definitions couldn't be resolved on this
-            // compile classpath (e.g. hint functions unavailable). We cannot prove anything missing.
-            KoinPluginLogger.debug { "  -> SKIPPED: some dependency modules have incomplete definitions (hint functions unavailable)" }
+        if (incompleteModules.isNotEmpty()) {
+            // Incomplete subgraph: we cannot prove anything missing, so say so instead of passing silently.
+            KoinPluginLogger.debug { "  -> SKIPPED: incomplete definitions (hint functions unavailable): $incompleteModules" }
+            KoinPluginLogger.report(KoinDiagnostic.UnverifiableModuleHints(appName, incompleteModules.distinct()))
             return
         }
 

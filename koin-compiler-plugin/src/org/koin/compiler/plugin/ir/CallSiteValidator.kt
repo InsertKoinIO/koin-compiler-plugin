@@ -2,14 +2,9 @@ package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
-import org.jetbrains.kotlin.fir.builder.buildPackageDirective
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.builder.buildFile
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
@@ -23,8 +18,6 @@ import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 /** FqNames a definition provides — its own type plus every explicit binding. */
 private fun Definition.providedTypeNames(): List<String> = buildList {
@@ -208,7 +201,6 @@ class CallSiteValidator(private val context: IrPluginContext) {
         moduleFragment: IrModuleFragment,
         unresolvedCallSites: List<PendingCallSiteValidation>
     ) {
-        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
         val hintName = Name.identifier(KoinPluginConstants.CALLSITE_HINT_NAME)
 
         // Get FIR module data from current module (not from target class which may be external)
@@ -286,32 +278,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             val basePath = callSite.filePath
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
-            val fakeNewPath = Path(basePath).parent.resolve(fileName)
-
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = fileName
-                // KLIB metadata serialization (Native/JS/Wasm) requires a resolvable io
-                // File per file; a null sourceFile fails the wasm/js serializer (KT-82395).
-                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-            }
-
-            val hintFile = IrFileImpl(
-                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
-                    moduleFragment.descriptor,
-                    hintsPackage
-                ),
-                module = moduleFragment
-            ).also { it.metadata = FirMetadataSource.File(firFile) }
-
-            moduleFragment.addFile(hintFile)
-            hintFile.addChild(function)
-
-            // Register for downstream visibility
-            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+            addHintFunctions(context, moduleFragment, listOf(function), firModuleData, basePath, fileName)
 
             KoinPluginLogger.debug { "  Generated call-site hint: callsite(${callSite.targetFqName})" }
         }

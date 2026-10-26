@@ -2,14 +2,9 @@ package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
-import org.jetbrains.kotlin.fir.builder.buildPackageDirective
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.builder.buildFile
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
@@ -22,8 +17,6 @@ import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 class DslHintGenerator(
@@ -75,8 +68,6 @@ class DslHintGenerator(
         allModuleIds: Set<String> = emptySet(),
         modulesWithIncompleteIncludes: Set<String> = emptySet()
     ) {
-        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
-
         // Group by owning module (its `module { }` val), so each module's hints live in one file.
         // Fallback for a definition with no modulePropertyId: its registration source file's SIMPLE
         // name (path-free → deterministic across machines/CI; the full path is a temp dir under test).
@@ -164,26 +155,7 @@ class DslHintGenerator(
             val fileName = HintFileNaming.fileName(
                 "koin_dsl_hints_", KoinPluginLogger.moduleId, firModuleData.name.asString(), groupKey,
             )
-            val fakeNewPath = Path(basePath).parent.resolve(fileName)
-
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = fileName
-                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-            }
-            val hintFile = IrFileImpl(
-                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, hintsPackage),
-                module = moduleFragment
-            ).also { it.metadata = FirMetadataSource.File(firFile) }
-
-            moduleFragment.addFile(hintFile)
-            for (function in functions) {
-                hintFile.addChild(function)
-                context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
-            }
+            addHintFunctions(context, moduleFragment, functions, firModuleData, basePath, fileName)
             val includeCount = moduleIncludes[groupKey].orEmpty().size
             KoinPluginLogger.debug {
                 "  Generated DSL module hints: $fileName (${groupDefs.size} definition(s)" +
@@ -716,7 +688,6 @@ class DslHintGenerator(
         val hints = farIncludedIds.flatMap { relayDslDefinitionHints(it) }
         if (hints.isEmpty()) return
 
-        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
         val firModuleData = extractFirModuleDataFromModule(moduleFragment)
         if (firModuleData == null) {
             KoinPluginLogger.debug { "  WARN: relayIncludedDefinitionHints: no FIR module data, skipping ${hints.size} hint(s)" }
@@ -724,26 +695,7 @@ class DslHintGenerator(
         }
         val basePath = moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name ?: "/synthetic"
         val fileName = HintFileNaming.fileName("koin_dsl_hints_relay_", KoinPluginLogger.moduleId)
-        val fakeNewPath = Path(basePath).parent.resolve(fileName)
-
-        val firFile = buildFile {
-            moduleData = firModuleData
-            origin = FirDeclarationOrigin.Synthetic.PluginFile
-            packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-            name = fileName
-            sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-        }
-        val hintFile = IrFileImpl(
-            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-            packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, hintsPackage),
-            module = moduleFragment,
-        ).also { it.metadata = FirMetadataSource.File(firFile) }
-        moduleFragment.addFile(hintFile)
-        for (hint in hints) {
-            hintFile.addChild(hint)
-            hint.parent = hintFile
-            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(hint)
-        }
+        addHintFunctions(context, moduleFragment, hints, firModuleData, basePath, fileName)
         KoinPluginLogger.debug {
             "  Relayed ${hints.size} DSL definition hint(s) from classpath-invisible includes: $farIncludedIds"
         }

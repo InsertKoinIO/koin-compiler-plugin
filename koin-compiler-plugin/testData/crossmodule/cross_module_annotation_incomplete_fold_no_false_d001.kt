@@ -17,10 +17,11 @@
 // module is incomplete), an entry point reachable through a genuinely-incomplete module must defer
 // validation entirely instead of reporting spurious diagnostics against a graph it never fully saw.
 //
-// EXPECTED (after the fix): SILENT — `mid`'s isComplete correctly inherits `data`'s incompleteness,
-// so validateFullGraph's fail-open path takes over for the whole entry point and no diagnostic (false
-// or otherwise) is reported. If this test ever reports KOIN-D001 again, the isComplete propagation
-// through the includes fold has regressed.
+// EXPECTED: no KOIN-D001 — `mid`'s isComplete correctly inherits the incompleteness below it, so
+// validateFullGraph's fail-open path takes over for the whole entry point. But never silently: the
+// skip is disclosed as KOIN-W008 naming the unresolved module, since `SomeMissing` really is missing
+// and a bare green build would imply it was checked. If this test ever reports KOIN-D001 again, the
+// isComplete propagation through the includes fold has regressed; if it goes silent, the disclosure has.
 
 // MODULE: data
 // FILE: data/Data.kt

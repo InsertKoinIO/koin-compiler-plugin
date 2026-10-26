@@ -1,1 +1,1 @@
-
+[Koin][KOIN-W008] Graph not verified at compile time for MainApplication (startKoin): the definitions of mid.MidModule are not visible on this classpath (missing hints, an empty @ComponentScan, or a module class off the classpath). Compile-time dependency checks are skipped for this entry point. Rebuild that module with this Koin compiler plugin version, or add it as a direct dependency.
