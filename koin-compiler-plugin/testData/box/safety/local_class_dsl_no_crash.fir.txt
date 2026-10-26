@@ -3,6 +3,12 @@ FILE: test.kt
     }
     public abstract interface Clock : R|kotlin/Any| {
     }
+    public final class Tagged : R|kotlin/Any| {
+        public constructor(): R|Tagged| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
     public final fun box(): R|kotlin/String| {
         local final class FakeRepo : R|Repo| {
             public constructor(): R|<local>/FakeRepo| {
@@ -21,6 +27,13 @@ FILE: test.kt
         local final class FakeApi : R|<local>/LocalApi| {
             public constructor(): R|<local>/FakeApi| {
                 super<R|<local>/LocalApi|>()
+            }
+
+        }
+
+        local final class LocalTag : R|kotlin/Any| {
+            public constructor(): R|<local>/LocalTag| {
+                super<R|kotlin/Any|>()
             }
 
         }
@@ -58,13 +71,17 @@ FILE: test.kt
                 ^ R|<local>/FakeApi.FakeApi|()
             }
             ).R|org/koin/dsl/bind|<R|<local>/LocalApi|>(<getClass>(Q|<local>/LocalApi|))
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|Tagged|>(R|org/koin/core/qualifier/named|<R|<local>/LocalTag|>(), <L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|Tagged| <inline=NoInline>  {
+                ^ R|/Tagged.Tagged|()
+            }
+            )
         }
         )
         lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
             this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/m|)
         }
         ).R|org/koin/core/KoinApplication.koin|
-        lval ok: R|kotlin/Boolean| = (R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repo|>() is R|<local>/FakeRepo|) && (R|<local>/koin|.R|org/koin/core/Koin.get|<R|<local>/FakeRepo|>() is R|<local>/FakeRepo|) && (R|<local>/koin|.R|org/koin/core/Koin.get|<R|<local>/LocalApi|>() is R|<local>/FakeApi|) && ==(R|<local>/koin|.R|org/koin/core/Koin.getAll|<R|Clock|>().R|SubstitutionOverride<kotlin/collections/List.size: R|kotlin/Int|>|, Int(1))
+        lval ok: R|kotlin/Boolean| = (R|<local>/koin|.R|org/koin/core/Koin.get|<R|Repo|>() is R|<local>/FakeRepo|) && (R|<local>/koin|.R|org/koin/core/Koin.get|<R|<local>/FakeRepo|>() is R|<local>/FakeRepo|) && (R|<local>/koin|.R|org/koin/core/Koin.get|<R|<local>/LocalApi|>() is R|<local>/FakeApi|) && ==(R|<local>/koin|.R|org/koin/core/Koin.getAll|<R|Clock|>().R|SubstitutionOverride<kotlin/collections/List.size: R|kotlin/Int|>|, Int(1)) && (R|<local>/koin|.R|org/koin/core/Koin.get|<R|Tagged|>(R|org/koin/core/qualifier/named|<R|<local>/LocalTag|>()) is R|Tagged|)
         ^box when () {
             R|<local>/ok| ->  {
                 String(OK)

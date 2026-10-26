@@ -164,8 +164,12 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 // as external (generation only — see CompileSafetyValidator's class doc). Only a
                 // local type in a compilation that DOES own an entry point (dynamic modules, an
                 // incomplete graph, etc.) still errors immediately below.
+                // A local class / anonymous object is never deferred: no other module can provide it,
+                // and it can't be written into a hint (#101) — KOIN-D002 right here instead.
                 val isExternalType = callSite.targetClass.origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
-                if (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint || topologyUnverifiable) {
+                val isDeferrable = callSite.targetClass.isNameableCrossModule() &&
+                    (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint || topologyUnverifiable)
+                if (isDeferrable) {
                     unresolvedCallSites.add(callSite)
                     if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
                     KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType, hasEntryPoint=$hasKoinEntryPoint, topologyUnverifiable=$topologyUnverifiable)" }

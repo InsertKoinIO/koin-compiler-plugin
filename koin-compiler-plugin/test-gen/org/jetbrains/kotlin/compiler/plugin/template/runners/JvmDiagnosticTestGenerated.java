@@ -27,6 +27,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("call_site_local_class_no_entry_point_d002.kt")
+  public void testCall_site_local_class_no_entry_point_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_local_class_no_entry_point_d002.kt");
+  }
+
+  @Test
   @TestMetadata("call_site_param_arity_mismatch.kt")
   public void testCall_site_param_arity_mismatch() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_arity_mismatch.kt");
