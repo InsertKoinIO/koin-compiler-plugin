@@ -11,6 +11,7 @@ Two identical multi-module Android apps — one using **Annotations**, one using
 | `app-annotations/` | `@Singleton`, `@Module`, `@ComponentScan`, `@Configuration`, `@KoinApplication` | 2.4.0 | Annotation-driven with auto-discovery |
 | `app-dsl/` | `single<T>()`, `factory<T>()`, `viewModel<T>()`, `create(::fn)`, `bind` | 2.4.0 | DSL with explicit module composition |
 | `app-floor-2320/` | minimal DSL (JVM-only) | **2.3.20 (floor)** | Guard for the oldest supported Kotlin; quick probe of any line via `-PkotlinVersion=` |
+| `app-kmp-klib-hints/` | annotations + DSL across KMP modules (jvm, wasmJs, iosArm64) | 2.4.20 | Cross-module hints reach the KLIB (#105, #106, #113); `./verify.sh` RED/GREEN matrix |
 
 Both use the **Koin Compiler Plugin** for compile-time dependency validation.
 

@@ -4,18 +4,13 @@ import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
-import org.jetbrains.kotlin.fir.builder.buildPackageDirective
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.declarations.builder.buildFile
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
@@ -40,8 +35,6 @@ import org.koin.compiler.plugin.PropertyValueRegistry
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 /**
  * Processes Koin annotations and generates module extension properties with definitions.
@@ -147,7 +140,7 @@ class KoinAnnotationProcessor(
      */
     fun getDefinitionsForModule(moduleClass: ModuleClass): DependencyModuleResult {
         val definitions = (cachedModuleDefinitions?.get(moduleClass) ?: collectAllDefinitions(moduleClass)).toMutableList()
-        var allComplete = true
+        val unresolvedModules = mutableListOf<String>()
 
         // Track visited modules to prevent infinite recursion on circular includes
         val visited = mutableSetOf<String>()
@@ -172,13 +165,13 @@ class KoinAnnotationProcessor(
                 definitions.addAll(newDefs)
             } else {
                 val result = collectDefinitionsFromDependencyModule(includedFqName, visited)
-                if (!result.isComplete) allComplete = false
+                unresolvedModules += result.unresolvedModules
                 val newDefs = result.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
                 definitions.addAll(newDefs)
             }
         }
 
-        return DependencyModuleResult(definitions, allComplete)
+        return DependencyModuleResult(definitions, unresolvedModules)
     }
 
     /** Get all definitions across all modules (for A4 call-site validation). */
@@ -918,9 +911,9 @@ class KoinAnnotationProcessor(
     }
 
     /**
-     * Batch [functions] into one synthetic hint file (package [KoinModuleFirGenerator.HINTS_PACKAGE],
-     * named [fileName], anchored under [basePath]'s directory) and register them for metadata
-     * serialization. Shared by every site that batches hint functions into one file — batching (vs.
+     * Batch [functions] into one hint file (see [addHintFunctions]: the FIR anchor's file on KLIB
+     * platforms, else a synthetic file named [fileName] under [basePath]'s directory) and register
+     * them for metadata serialization. Shared by every site that batches hint functions into one file — batching (vs.
      * one file per declaration) is what lets a removed hint disappear on the next compile instead of
      * orphaning a stale `.class` that IC never deletes.
      */
@@ -931,28 +924,7 @@ class KoinAnnotationProcessor(
         basePath: String,
         fileName: String,
     ) {
-        val fakeNewPath = Path(basePath).parent.resolve(fileName)
-        val firFile = buildFile {
-            moduleData = firModuleData
-            origin = FirDeclarationOrigin.Synthetic.PluginFile
-            packageDirective = buildPackageDirective { packageFqName = KoinModuleFirGenerator.HINTS_PACKAGE }
-            name = fileName
-            // KLIB metadata serialization (Native/JS/Wasm) requires every file to resolve to an io
-            // File; a synthetic file with no sourceFile fails wasm/js with "No file found for source
-            // null" (KT-82395).
-            sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-        }
-        val hintFile = IrFileImpl(
-            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-            packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, KoinModuleFirGenerator.HINTS_PACKAGE),
-            module = moduleFragment
-        ).also { it.metadata = FirMetadataSource.File(firFile) }
-        moduleFragment.addFile(hintFile)
-        for (func in disambiguateDuplicateSignatures(functions)) {
-            hintFile.addChild(func)
-            func.parent = hintFile
-            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(func)
-        }
+        addHintFunctions(context, moduleFragment, disambiguateDuplicateSignatures(functions), firModuleData, basePath, fileName)
     }
 
     /**
@@ -1027,8 +999,6 @@ class KoinAnnotationProcessor(
         moduleFragment: IrModuleFragment,
         moduleDefinitions: Map<ModuleClass, List<Definition>>
     ) {
-        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
-
         // Process all @Module classes that have @ComponentScan.
         // @Configuration is for module grouping/auto-loading labels; it must not gate cross-module
         // hint visibility. Without this, a @Module + @ComponentScan (no @Configuration) in a
@@ -2331,7 +2301,7 @@ class KoinAnnotationProcessor(
         // Guard against circular module includes (A includes B, B includes A)
         if (!visited.add(moduleFqName)) {
             KoinPluginLogger.debug { "      Cycle detected: $moduleFqName already visited, skipping" }
-            return DependencyModuleResult(emptyList(), isComplete = true)
+            return DependencyModuleResult(emptyList())
         }
 
         val definitions = mutableListOf<Definition>()
@@ -2364,13 +2334,13 @@ class KoinAnnotationProcessor(
         val includedModules = getModuleIncludes(moduleIrClass)
         // Keyed by (type, qualifier), not type alone — see [definitionDedupeKey] / issue #94.
         val knownKeys = definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }
-        val classpathIncludesComplete = collectIncludedModuleDefinitions(includedModules, knownKeys, definitions, visited)
+        val classpathIncludesUnresolved = collectIncludedModuleDefinitions(includedModules, knownKeys, definitions, visited)
 
         // getModuleIncludes silently drops an edge whose INCLUDED class isn't on this reader's
         // classpath (2+ `implementation` hops away) — union in what its includes hint still saw.
         val classpathIncludeFqNames = includedModules.mapNotNull { it.fqNameWhenAvailable?.asString() }.toSet()
         val hintOnlyIncludes = discoverModuleIncludesFromHints(moduleFqName).filterNot { it in classpathIncludeFqNames }
-        val hintOnlyIncludesComplete = foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownKeys, visited)
+        val hintOnlyIncludesUnresolved = foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownKeys, visited)
 
         if (definitions.isNotEmpty()) {
             KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName (hasComponentScan=$hasComponentScan)" }
@@ -2382,11 +2352,13 @@ class KoinAnnotationProcessor(
         // whole thing look whole. When hint functions are unavailable, discoverModuleScanDefinitions
         // returns empty; in that case we can't fully resolve the module's scanned definitions and
         // must mark it incomplete to skip safety validation.
-        val isComplete = (!hasComponentScan || scanDefinitionsFound) && classpathIncludesComplete && hintOnlyIncludesComplete
-        if (!isComplete) {
+        val scanUnresolved = hasComponentScan && !scanDefinitionsFound
+        if (scanUnresolved) {
             KoinPluginLogger.debug { "    -> WARNING: $moduleFqName has @ComponentScan but no scan hints found (hint functions unavailable)" }
         }
-        return DependencyModuleResult(definitions, isComplete = isComplete)
+        val unresolvedModules = (if (scanUnresolved) listOf(moduleFqName) else emptyList()) +
+            classpathIncludesUnresolved + hintOnlyIncludesUnresolved
+        return DependencyModuleResult(definitions, unresolvedModules)
     }
 
     /**
@@ -2418,9 +2390,10 @@ class KoinAnnotationProcessor(
         // Own class unresolvable → its includes=[...] can't be read off the classpath either, but
         // it already re-published them as a hint (generateModuleScanHints), so we can walk past it.
         val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
-        val hintIncludesComplete = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }, visited)
+        val hintIncludesUnresolved = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }, visited)
 
-        return DependencyModuleResult(definitions, isComplete = (definitions.isNotEmpty() || hintIncludes.isNotEmpty()) && hintIncludesComplete)
+        val selfUnresolved = definitions.isEmpty() && hintIncludes.isEmpty()
+        return DependencyModuleResult(definitions, (if (selfUnresolved) listOf(moduleFqName) else emptyList()) + hintIncludesUnresolved)
     }
 
     /** Step 1 of [collectDefinitionsFromDependencyModule]: function definitions declared directly on the module class. */
@@ -2491,8 +2464,8 @@ class KoinAnnotationProcessor(
         knownKeys: MutableSet<String>,
         definitions: MutableList<Definition>,
         visited: MutableSet<String>,
-    ): Boolean {
-        var classpathIncludesComplete = true
+    ): List<String> {
+        val unresolvedModules = mutableListOf<String>()
         for (included in includedModules) {
             val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
             // Check if already collected locally (avoid re-processing)
@@ -2506,14 +2479,14 @@ class KoinAnnotationProcessor(
             } else {
                 // Included module from JAR — recursively collect
                 val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
-                if (!includedResult.isComplete) classpathIncludesComplete = false
+                unresolvedModules += includedResult.unresolvedModules
                 includedResult.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
             }
             definitions.addAll(newDefs)
             val source = if (localModuleClass != null) "local" else "dependency"
             KoinPluginLogger.debug { "      Included ($source) $includedFqName: ${newDefs.size} new definitions" }
         }
-        return classpathIncludesComplete
+        return unresolvedModules
     }
 
     /**
@@ -2546,7 +2519,7 @@ class KoinAnnotationProcessor(
      * [knownKeys] is [definitionDedupeKey] (type + qualifier), NOT type alone — see
      * [collectIncludedModuleDefinitions] / issue #94.
      *
-     * @return false if any folded-in submodule itself came back incomplete — a partial submodule's
+     * @return the unresolved modules of any folded-in submodule that came back incomplete — a partial submodule's
      *   definitions still get folded in (best-effort), but the caller must not report the combined
      *   result as complete, or a genuinely missing dependency inside that submodule goes unvalidated
      *   while everything else in the (wrongly-marked-complete) graph is checked as if it were whole.
@@ -2556,16 +2529,16 @@ class KoinAnnotationProcessor(
         definitions: MutableList<Definition>,
         knownKeys: MutableSet<String>,
         visited: MutableSet<String>,
-    ): Boolean {
-        var allComplete = true
+    ): List<String> {
+        val unresolvedModules = mutableListOf<String>()
         for (includedFqName in includedFqNames) {
             val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
-            if (!includedResult.isComplete) allComplete = false
+            unresolvedModules += includedResult.unresolvedModules
             val newDefs = includedResult.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
             definitions.addAll(newDefs)
             KoinPluginLogger.debug { "      Included (hint-only, classpath-invisible) $includedFqName: ${newDefs.size} new definitions" }
         }
-        return allComplete
+        return unresolvedModules
     }
 
     /**

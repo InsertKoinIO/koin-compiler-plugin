@@ -47,6 +47,8 @@ import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.isJs
 import org.jetbrains.kotlin.platform.isWasm
 import org.jetbrains.kotlin.platform.konan.isNative
+import org.jetbrains.kotlin.platform.jvm.isJvm
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginConstants
 
@@ -138,6 +140,8 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
 
         // Generated names
         private val MODULE_FUNCTION_NAME = Name.identifier(KoinPluginConstants.MODULE_FUNCTION_NAME)
+        private val HINT_ANCHOR_NAME = Name.identifier(KoinPluginConstants.HINT_ANCHOR_NAME)
+        private const val HINT_ANCHOR_FILE_NAME = "KoinHintsAnchor.kt"
 
         // Hint package for all @Configuration modules and definition classes
         // Function names are label-specific: configuration_<label> (e.g., configuration_default, configuration_test)
@@ -1616,6 +1620,10 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             callableIds.add(CallableId(HINTS_PACKAGE, definitionFunctionHintFunctionName(defType)))
         }
 
+        if (declaresHintAnchor) {
+            callableIds.add(CallableId(HINTS_PACKAGE, HINT_ANCHOR_NAME))
+        }
+
         // Generate qualifier hint function for custom qualifier annotations
         // This enables cross-module discovery of custom qualifier annotations
         if (qualifierAnnotationInfos.isNotEmpty()) {
@@ -1689,9 +1697,35 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
             if (callableId.callableName == QUALIFIER_HINT_NAME) {
                 return generateQualifierHintFunctions(callableId)
             }
+
+            if (callableId.callableName == HINT_ANCHOR_NAME) {
+                return generateHintAnchorFunction(callableId)
+            }
         }
 
         return emptyList()
+    }
+
+    /**
+     * KLIB platforms only, root session only (one anchor per compilation). Its generated file is in
+     * the FIR output, so hints parented to it reach the KLIB metadata (KT-79565).
+     */
+    private val declaresHintAnchor: Boolean by lazy {
+        !session.moduleData.platform.isJvm() && session.moduleData.dependsOnDependencies.isEmpty()
+    }
+
+    private fun generateHintAnchorFunction(callableId: CallableId): List<FirNamedFunctionSymbol> {
+        if (!declaresHintAnchor) return emptyList()
+        return listOf(
+            createTopLevelFunction(
+                Key,
+                callableId,
+                session.builtinTypes.unitType.coneType,
+                containingFileName = HINT_ANCHOR_FILE_NAME
+            ) {
+                visibility = Visibilities.Private
+            }.symbol
+        )
     }
 
     /** Hint functions for @Configuration modules. Function name is label-specific: configuration_<label>. */

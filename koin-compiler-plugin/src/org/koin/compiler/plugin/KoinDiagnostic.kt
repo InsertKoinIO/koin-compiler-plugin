@@ -404,6 +404,25 @@ sealed class KoinDiagnostic(
     // than warned on every opaque-lambda definition regardless of whether one exists. See
     // docs/COMPILE_TIME_SAFETY.md.
 
+    /**
+     * KOIN-W008 — Full-graph validation skipped: the definitions of some module in the graph are
+     * not visible on this classpath. Its hints are missing (built by an older plugin, or KLIB hints
+     * dropped on Kotlin 2.4.20 before 1.2.2), its `@ComponentScan` matched nothing, or its class is
+     * not on the classpath; these look the same from here. Skipping must never be silent.
+     */
+    class UnverifiableModuleHints(
+        entry: String,
+        modules: List<String>,
+    ) : KoinDiagnostic(
+        code = "KOIN-W008",
+        severity = Severity.WARNING,
+        message = "Graph not verified at compile time for $entry: the definitions of " +
+            "${modules.joinToString()} are not visible on this classpath (missing hints, an empty " +
+            "@ComponentScan, or a module class off the classpath). Compile-time dependency checks are " +
+            "skipped for this entry point. Rebuild that module with this Koin compiler plugin version, " +
+            "or add it as a direct dependency.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,

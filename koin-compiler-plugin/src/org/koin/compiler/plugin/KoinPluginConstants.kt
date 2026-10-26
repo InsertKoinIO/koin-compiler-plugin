@@ -211,6 +211,12 @@ object KoinPluginConstants {
     /** Function name for qualifier annotation hint functions (e.g., qualifier). */
     const val QUALIFIER_HINT_NAME = "qualifier"
 
+    /**
+     * Private FIR-declared function whose generated file carries every IR-built hint on KLIB
+     * platforms (see `addHintFunctions`). Never declared on JVM.
+     */
+    const val HINT_ANCHOR_NAME = "koin_hints_anchor"
+
     /** Function name for call-site hints (deferred validation across modules). */
     const val CALLSITE_HINT_NAME = "callsite"
 

@@ -123,6 +123,16 @@ For A3 validation, the application name is used:
   in module: MyApp (startKoin)
 ```
 
+When a module's definitions can't be seen from the entry point's compilation, the full-graph check can't prove anything, so it is skipped. It is never skipped silently: `KOIN-W008` names the module.
+
+```
+[Koin][KOIN-W008] Graph not verified at compile time for MyApp (startKoin): the definitions of
+com.example.data.DataModule are not visible on this classpath (missing hints, an empty @ComponentScan,
+or a module class off the classpath). Compile-time dependency checks are skipped for this entry point.
+```
+
+Usual causes: the dependency was built by an older plugin version, its `@ComponentScan` matches nothing, or the module sits more than one `implementation` hop away. Rebuild it with the same plugin version, or add it as a direct dependency.
+
 ## External Types: `@Provided` and Whitelist
 
 Some types are provided by the platform or framework at runtime (e.g., Android's `Context`, `SavedStateHandle`) and are never declared as Koin definitions. Without special handling, these would trigger false "missing dependency" errors.
@@ -595,6 +605,14 @@ if (KoinPluginLogger.compileSafetyEnabled && moduleClasses.isNotEmpty() && annot
 `validateFullGraph()` collects ALL definitions from ALL modules via `annotationProcessor.getDefinitionsForModule()`, includes DSL definitions (`DslDef`) passed from Phase 2, and runs `BindingRegistry.validateModule()` on the union.
 
 The `annotationProcessor` reference is passed from `KoinIrExtension` (Phase 1 → Phase 3).
+
+## Hints on KLIB targets (Native, wasm, JS)
+
+Most hints (`componentscan_*`, `dsl_*`, `injectedparams_*`, `callsite`, `funcreqs_*`) are built in IR and registered with `registerFunctionAsMetadataVisible`. KLIB metadata only carries such a declaration for the `FirFile` that contains it, and only files of the FIR output are serialized (KT-79565, Kotlin 2.4.20; before that, only when another FIR-output file shared the hints package). A synthetic hint file is never in the FIR output, so those hints were silently dropped from KLIBs (#105, #106, #113).
+
+On non-JVM platforms, `KoinModuleFirGenerator` declares a private `org.koin.plugin.hints.koin_hints_anchor()` in a generated file (`KoinHintsAnchor.kt`), in the compilation's root session only. `addHintFunctions` (`ir/HintFiles.kt`) attaches every IR-built hint to that file. On JVM there is no anchor: each batch keeps its own synthetic file, compiled to its own class and regenerated wholesale, so incremental compilation never leaves a removed hint behind.
+
+Regression check: `playground-apps/app-kmp-klib-hints` (`./verify.sh <plugin version> <kotlin versions…>`).
 
 ## Cross-module DSL hint discovery
 
