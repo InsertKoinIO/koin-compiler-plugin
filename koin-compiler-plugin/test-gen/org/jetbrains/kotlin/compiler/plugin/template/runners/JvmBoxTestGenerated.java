@@ -123,6 +123,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("provider_only_no_false_d001.kt")
+    public void testProvider_only_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/box/dsl/provider_only_no_false_d001.kt");
+    }
+
+    @Test
     @TestMetadata("scoped_basic.kt")
     public void testScoped_basic() {
       runTest("koin-compiler-plugin/testData/box/dsl/scoped_basic.kt");
