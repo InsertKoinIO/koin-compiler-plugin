@@ -164,11 +164,21 @@ class DslHintGenerator(
         }
     }
 
-    /** Build one DSL hint function encoding a definition (contributed type + bindings + moduleId +
-     *  providerOnly + qualifier). Returns null when the target type has no resolvable FqName. */
+    /**
+     * Build one DSL hint function encoding a definition (contributed type + bindings + moduleId +
+     * providerOnly + qualifier).
+     *
+     * Returns null when the contributed type or a type qualifier has no ClassId (local class,
+     * anonymous object): it cannot be serialized as a hint parameter, and no other module can name
+     * it anyway. Bindings without a ClassId are dropped for the same reason.
+     */
     private fun buildDslHintFunction(def: Definition.DslDef): IrSimpleFunction? {
         val targetClass = def.returnTypeClass
-        targetClass.fqNameWhenAvailable ?: return null
+        val typeQualifierClass = (def.qualifier as? QualifierValue.TypeQualifier)?.irClass
+        if (!targetClass.isNameableCrossModule() || typeQualifierClass?.isNameableCrossModule() == false) {
+            KoinPluginLogger.debug { "  Skipping DSL hint for local type ${targetClass.name}: not nameable from another module" }
+            return null
+        }
 
         val defTypeString = when (def.definitionType) {
             DefinitionType.SINGLE -> KoinPluginConstants.DEF_TYPE_SINGLE
@@ -250,7 +260,7 @@ class DslHintGenerator(
     }
 
     private fun buildBindingParams(function: IrSimpleFunction, bindings: List<IrClass>): List<IrValueParameter> =
-        bindings.mapIndexed { index, binding ->
+        bindings.filter { it.isNameableCrossModule() }.mapIndexed { index, binding ->
             newValueParameter(function, Name.identifier("binding$index"), binding.hintParameterType(context))
         }
 

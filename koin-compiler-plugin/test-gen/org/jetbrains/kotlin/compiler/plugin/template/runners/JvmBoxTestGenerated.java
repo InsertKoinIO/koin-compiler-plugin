@@ -545,6 +545,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("local_class_dsl_no_crash.kt")
+    public void testLocal_class_dsl_no_crash() {
+      runTest("koin-compiler-plugin/testData/box/safety/local_class_dsl_no_crash.kt");
+    }
+
+    @Test
     @TestMetadata("module_includes_chain.kt")
     public void testModule_includes_chain() {
       runTest("koin-compiler-plugin/testData/box/safety/module_includes_chain.kt");
