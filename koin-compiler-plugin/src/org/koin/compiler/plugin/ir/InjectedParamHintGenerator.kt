@@ -107,7 +107,8 @@ class InjectedParamHintGenerator(
             // shapes, so a single hint is correct. Emitting per-definition produces
             // duplicate IR functions with identical signatures — tolerated on JVM but
             // a hard KLIB serialization failure on Native/JS/Wasm (compiler#40, #44).
-            if (localSlots.putIfAbsent(targetFqName, slots) == null) {
+            // Local classes are indexed for in-module D005/D006 but get no hint (#101): no ClassId.
+            if (localSlots.putIfAbsent(targetFqName, slots) == null && targetClass.isNameableCrossModule()) {
                 emitHintFunction(moduleFragment, def, targetClass, targetFqName, slots)
             }
         }
