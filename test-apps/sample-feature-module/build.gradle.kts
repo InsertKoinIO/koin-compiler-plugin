@@ -1,6 +1,6 @@
 plugins {
     kotlin("multiplatform")
-    alias(libs.plugins.koin.plugin)
+    id("io.insert-koin.compiler.plugin")
 }
 
 kotlin {

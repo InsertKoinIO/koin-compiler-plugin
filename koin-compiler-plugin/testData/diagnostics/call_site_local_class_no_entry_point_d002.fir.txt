@@ -1,0 +1,13 @@
+FILE: test.kt
+    package testpkg
+
+    public final fun useIt(koin: R|org/koin/core/Koin|): R|kotlin/Unit| {
+        local final class LocalOnly : R|kotlin/Any| {
+            public constructor(): R|<local>/LocalOnly| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+        lval x: R|<local>/LocalOnly| = R|<local>/koin|.R|org/koin/core/Koin.get|<R|<local>/LocalOnly|>()
+    }

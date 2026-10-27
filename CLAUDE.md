@@ -180,7 +180,7 @@ Before opening (or approving) any PR, both guards must pass:
 ### 2. New tests for every new case or fixed use-case
 - **Bug fix** → a box test in `testData/box/<area>/` that reproduces the issue: fails before the fix, returns "OK" after.
 - **New transformation/case** → box test(s) + golden files (`./test.sh -Pupdate.testdata=true`) covering the new shape, including qualifier/nullable/default-value variants where relevant.
-- **Codegen changes: JVM-green is not done.** Duplicate-signature and KLIB errors are invisible on JVM — compile `test-apps` for at least `iosArm64` (or another native target) and `wasmJs` before declaring a codegen change complete.
+- **Codegen changes: JVM-green is not done.** Duplicate-signature and KLIB errors are invisible on JVM — compile `test-apps` for at least `iosArm64` (or another native target) and `wasmJs` before declaring a codegen change complete: `./install.sh && cd test-apps && ./gradlew :sample-app:compileKotlinIosArm64 :sample-app:compileKotlinWasmJs :sample-app:compileKotlinJs :sample-app:jvmTest`. `test-apps` uses the repo's own `pluginVersion` (override with `-PkoinPluginVersion=…`) and Kotlin 2.4.20 — JS/wasm with `@ComponentScan` can't compile on 2.3.20 (KT-82395).
 
 ### 3. Compile-safety stress test — run for EVERY published version
 - Run the full numbered checklist (scenarios 0–4: baseline, removed definition, transitive-includes edge, module dropped from root's list, fully-emptied module) against **both** `playground-apps/app-annotations` and `app-dsl`. Full procedure, exact file:line targets, and expected diagnostics: [`playground-apps/README.md`](playground-apps/README.md#compile-safety-stress-test-run-for-every-plugin-version).

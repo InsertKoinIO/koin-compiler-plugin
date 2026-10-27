@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
-    alias(libs.plugins.koin.plugin) apply false
+    id("io.insert-koin.compiler.plugin") apply false
 }
 
 allprojects {

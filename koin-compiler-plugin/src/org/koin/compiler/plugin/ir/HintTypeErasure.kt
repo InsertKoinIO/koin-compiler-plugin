@@ -4,6 +4,7 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.typeWith
+import org.jetbrains.kotlin.ir.util.classId
 import org.jetbrains.kotlin.ir.util.defaultType
 
 /**
@@ -31,3 +32,6 @@ internal fun IrClass.hintParameterType(context: IrPluginContext): IrType {
         typeWith(*Array(typeParameters.size) { anyN })
     }
 }
+
+/** Local classes and anonymous objects have no ClassId: metadata can't serialize them in a hint. */
+internal fun IrClass.isNameableCrossModule(): Boolean = classId != null
