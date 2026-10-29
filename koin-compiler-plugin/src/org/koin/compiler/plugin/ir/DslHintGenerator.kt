@@ -32,6 +32,8 @@ class DslHintGenerator(
     private val REQ_PARAM_NAME = Regex("^req(\\d+)_(.+)$")
     private val REQ_STRING_QUALIFIER = Regex("^req(\\d+)qn_(.+)$")
     private val REQ_TYPE_QUALIFIER = Regex("^req(\\d+)qt$")
+    private val REQ_FLAG = Regex("^req(\\d+)f_(.+)$")
+    private val REQ_SCOPE_ID = Regex("^req(\\d+)sid_(.+)$")
 
     /** Build one value parameter, parented to [function]. Shared boilerplate for synthetic hint functions. */
     private fun newValueParameter(function: IrSimpleFunction, name: Name, type: IrType): IrValueParameter =
@@ -279,6 +281,18 @@ class DslHintGenerator(
      * Dropping a requirement's qualifier here previously matched it against the wrong (or no)
      * cross-module provider — e.g. an unqualified guess for a `@Named(...) CoroutineDispatcher`.
      *
+     * Per-parameter flags (GH #115), Unit-typed, also tied by index:
+     *   req<i>f_<flag>       — one per set flag: nullable, default, lazy, list, injected, provided,
+     *                          scopeid, property
+     *   req<i>sid_<name>     — @ScopeId name
+     * Without them the consumer rebuilt every requirement with all flags false, so a parameter that
+     * needs no provider (default, nullable, List, @InjectedParam, ...) became a hard one — false
+     * KOIN-D001 — and a Lazy edge became a hard cycle edge — false KOIN-D004. A hint from an older
+     * producer has none and decodes with all flags false, as before.
+     * The @Property KEY is deliberately not carried: KOIN-P001 (@PropertyValue default) is a
+     * same-module check and the consumer can't see the producer's @PropertyValue declarations, so
+     * carrying it would turn a skip into a false P001 warning.
+     *
      * All-or-nothing: if ANY requirement's type has no resolvable ClassId, this returns empty
      * (no `reqsEncoded` marker either) rather than encoding a partial list — a partial list marked
      * "encoded" would tell the consumer the requirements are complete when one is silently missing,
@@ -286,16 +300,23 @@ class DslHintGenerator(
      * KoinAnnotationProcessor's analogous funcreqs carrier aborts the whole hint on the same case.
      */
     private fun buildRequirementParams(function: IrSimpleFunction, requirements: List<Requirement>): List<IrValueParameter> {
-        val resolved = mutableListOf<Triple<String, IrClass, QualifierValue?>>()
+        val resolved = mutableListOf<Pair<Requirement, IrClass>>()
         for (req in requirements) {
             val reqClassId = req.typeKey.classId ?: return emptyList()
             val reqClass = context.referenceClass(reqClassId)?.owner ?: return emptyList()
-            resolved += Triple(req.paramName, reqClass, req.qualifier)
+            resolved += req to reqClass
         }
-        val params = mutableListOf(newValueParameter(function, Name.identifier("reqsEncoded"), context.irBuiltIns.unitType))
-        resolved.forEachIndexed { index, (paramName, reqClass, qualifier) ->
-            params += newValueParameter(function, Name.identifier("req${index}_$paramName"), reqClass.hintParameterType(context))
-            when (qualifier) {
+        val unit = context.irBuiltIns.unitType
+        val params = mutableListOf(newValueParameter(function, Name.identifier("reqsEncoded"), unit))
+        resolved.forEachIndexed { index, (req, reqClass) ->
+            params += newValueParameter(function, Name.identifier("req${index}_${req.paramName}"), reqClass.hintParameterType(context))
+            for (flag in encodeRequirementFlags(req)) {
+                params += newValueParameter(function, Name.identifier("req${index}f_$flag"), unit)
+            }
+            req.scopeIdName?.let {
+                params += newValueParameter(function, Name.identifier("req${index}sid_${KoinPluginConstants.sanitizeQualifierName(it)}"), unit)
+            }
+            when (val qualifier = req.qualifier) {
                 is QualifierValue.StringQualifier -> params += newValueParameter(
                     function,
                     Name.identifier("req${index}qn_${KoinPluginConstants.sanitizeQualifierName(qualifier.name)}"),
@@ -308,6 +329,17 @@ class DslHintGenerator(
             }
         }
         return params
+    }
+
+    private fun encodeRequirementFlags(req: Requirement): List<String> = buildList {
+        if (req.isNullable) add("nullable")
+        if (req.hasDefault) add("default")
+        if (req.isLazy) add("lazy")
+        if (req.isList) add("list")
+        if (req.isInjectedParam) add("injected")
+        if (req.isProvided) add("provided")
+        if (req.isScopeId) add("scopeid")
+        if (req.isProperty) add("property")
     }
 
     /** Unit-typed marker `module_<id with . → $>` — cross-module reachability, shared with [buildDslIncludesHintFunction]. */
@@ -561,25 +593,35 @@ class DslHintGenerator(
                         m.groupValues[1].toInt() to QualifierValue.TypeQualifier(qClass)
                     }.toMap()
                     val reqQualifiers = stringReqQualifiers + typeReqQualifiers
+                    // Per-parameter flags (absent on a hint from an older producer → all false).
+                    val reqFlags: Map<Int, Set<String>> = params.mapNotNull { param ->
+                        val m = REQ_FLAG.matchEntire(param.name.asString()) ?: return@mapNotNull null
+                        m.groupValues[1].toInt() to m.groupValues[2]
+                    }.groupBy({ it.first }, { it.second }).mapValues { it.value.toSet() }
+                    val scopeIdNames: Map<Int, String> = params.mapNotNull { param ->
+                        val m = REQ_SCOPE_ID.matchEntire(param.name.asString()) ?: return@mapNotNull null
+                        m.groupValues[1].toInt() to KoinPluginConstants.unsanitizeQualifierName(m.groupValues[2])
+                    }.toMap()
 
                     params.mapNotNull { param ->
                         val m = REQ_PARAM_NAME.matchEntire(param.name.asString()) ?: return@mapNotNull null
                         val index = m.groupValues[1].toInt()
                         val paramName = m.groupValues[2]
                         val reqClass = (param.type.classifierOrNull as? IrClassSymbol)?.owner ?: return@mapNotNull null
+                        val flags = reqFlags[index].orEmpty()
                         Requirement(
                             typeKey = TypeKey(ParameterAnalyzer.classIdFromIrClass(reqClass), reqClass.fqNameWhenAvailable),
                             paramName = paramName,
-                            isNullable = false,
-                            hasDefault = false,
-                            isInjectedParam = false,
-                            isProvided = false,
-                            isScopeId = false,
-                            scopeIdName = null,
-                            isLazy = false,
-                            isList = false,
-                            isProperty = false,
-                            propertyKey = null,
+                            isNullable = "nullable" in flags,
+                            hasDefault = "default" in flags,
+                            isInjectedParam = "injected" in flags,
+                            isProvided = "provided" in flags,
+                            isScopeId = "scopeid" in flags,
+                            scopeIdName = scopeIdNames[index],
+                            isLazy = "lazy" in flags,
+                            isList = "list" in flags,
+                            isProperty = "property" in flags,
+                            propertyKey = null, // not carried — see buildRequirementParams
                             qualifier = reqQualifiers[index]
                         )
                     }

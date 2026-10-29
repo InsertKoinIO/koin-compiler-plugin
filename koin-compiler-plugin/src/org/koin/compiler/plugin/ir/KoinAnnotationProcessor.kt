@@ -1515,6 +1515,9 @@ class KoinAnnotationProcessor(
         // to the preceding r_ by position):
         //   qn_<sanitized-value>    : Unit                   — @Named / string @Qualifier value
         //   qt                      : <qualifier annotation>  — typed @Qualifier(T::class)
+        // and, for a Lazy<T> requirement, an adjacent flag companion (GH #115):
+        //   lz                      : Unit                   — Lazy edge, skipped by cycle detection
+        //                                                       (without it: false KOIN-D004)
         val params = mutableListOf<IrValueParameter>()
         for (req in toCarry) {
             val classId = req.typeKey.classId ?: run {
@@ -1526,6 +1529,7 @@ class KoinAnnotationProcessor(
                 return null
             }
             params.add(hintParam("r_${KoinPluginConstants.sanitizeQualifierName(req.paramName)}", reqClass.hintParameterType(context)))
+            if (req.isLazy) params.add(hintParam("lz", context.irBuiltIns.unitType))
             when (val q = req.qualifier) {
                 is QualifierValue.StringQualifier ->
                     params.add(hintParam("qn_${KoinPluginConstants.sanitizeQualifierName(q.name)}", context.irBuiltIns.unitType))
@@ -1723,6 +1727,7 @@ class KoinAnnotationProcessor(
                     val qClass = (p.type.classifierOrNull as? IrClassSymbol)?.owner
                     if (qClass != null) reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.TypeQualifier(qClass))
                 }
+                name == "lz" && reqs.isNotEmpty() -> reqs[reqs.lastIndex] = reqs.last().copy(isLazy = true)
             }
         }
         if (reqs.isNotEmpty()) {
