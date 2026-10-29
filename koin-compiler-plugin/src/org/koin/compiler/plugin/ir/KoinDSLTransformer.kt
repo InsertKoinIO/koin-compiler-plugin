@@ -12,6 +12,8 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -1023,8 +1025,49 @@ class KoinDSLTransformer(
         KoinPluginLogger.debug { "  named: ${lastDef.returnTypeClass.name} -> $qualifier" }
     }
 
-    /** SAFETY ONLY. Records `includes()`/`modules()` edges into the module graph used to compute
-     *  reachability (see [CallSiteValidator.validateDslDefinitionGraph]'s reachable-modules walk). */
+    internal fun collectDslModuleRoots(entryPoint: IrCall): DslModuleRoots {
+        val moduleIds = linkedSetOf<String>()
+        var incompleteOrigin: SourceOrigin? = null
+
+        val visitor = object : IrVisitorVoid() {
+            override fun visitElement(element: IrElement) {
+                element.acceptChildrenVoid(this)
+            }
+
+            override fun visitCall(expression: IrCall) {
+                val callee = expression.symbol.owner
+                val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
+                    ?.type?.classFqName?.asString()
+                if (callee.name.asString() == "modules" &&
+                    receiverType == "org.koin.core.KoinApplication" &&
+                    isDslModuleLoadingCall(callee)
+                ) {
+                    val resolved = resolveModuleReferences(expression)
+                    moduleIds.addAll(resolved.ids)
+                    if (!resolved.complete && incompleteOrigin == null) {
+                        val file = currentFile
+                        val line = file?.let {
+                            runCatching { it.fileEntry.getLineNumber(expression.startOffset) + 1 }.getOrNull()
+                        }
+                        incompleteOrigin = SourceOrigin(null, file?.fileEntry?.name, line)
+                    }
+                }
+                expression.acceptChildrenVoid(this)
+            }
+        }
+        entryPoint.acceptChildrenVoid(visitor)
+
+        val roots = moduleIds.toSet()
+        return incompleteOrigin?.let { DslModuleRoots.Unknown(roots, it) }
+            ?: DslModuleRoots.Known(roots)
+    }
+
+    private fun isDslModuleLoadingCall(callee: IrSimpleFunction): Boolean {
+        val parameter = callee.regularParameters.firstOrNull() ?: return false
+        val moduleType = parameter.varargElementType ?: parameter.type
+        return moduleType.classFqName?.asString() == KOIN_MODULE_FQNAME || isModuleListType(moduleType)
+    }
+
     private fun collectModuleLoadingInfo(expression: IrCall, callee: IrSimpleFunction) {
         val functionName = callee.name.asString()
         if (functionName == "includes") {
@@ -1047,7 +1090,7 @@ class KoinDSLTransformer(
         if (functionName == "modules") {
             val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
                 ?.type?.classFqName?.asString()
-            if (receiverType == "org.koin.core.KoinApplication") {
+            if (receiverType == "org.koin.core.KoinApplication" && isDslModuleLoadingCall(callee)) {
                 val (loadedModules, complete) = resolveModuleReferences(expression)
                 if (!complete) {
                     _entryModulesIncomplete = true

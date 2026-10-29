@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: repro.lib.Repository
+  required by: repro.lib.Scanned (parameter 'repository')
+  in module: startKoin { … } (startKoin)

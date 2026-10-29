@@ -418,52 +418,63 @@ class CallSiteValidator(private val context: IrPluginContext) {
      * (local DSL + dependency DSL hints + annotation definitions).
      * This runs when there's no startKoin<T>() / @KoinApplication (which would trigger the full A3).
      */
-    fun validateDslDefinitionGraph(
+    internal fun validateDslDefinitionGraph(
         dslDefinitions: List<Definition.DslDef>,
         annotationProcessor: KoinAnnotationProcessor?,
         safetyValidator: CompileSafetyValidator,
-        dslHintGenerator: DslHintGenerator,
+        dslGraphAssembler: DslGraphAssembler,
+        dslRoots: DslModuleRoots,
         startKoinModules: List<String> = emptyList(),
         moduleIncludes: Map<String, List<String>> = emptyMap(),
-        entryModulesIncomplete: Boolean = false,
-        entryModulesIncompleteOrigin: SourceOrigin? = null,
         modulesWithIncompleteIncludes: Set<String> = emptySet(),
         ownsAuthoritativeGraph: Boolean = true
     ) {
+        val assembly = dslGraphAssembler.assemble(
+            dslDefinitions,
+            dslRoots,
+            moduleIncludes,
+            modulesWithIncompleteIncludes,
+        )
+        val reachableDefs: List<Definition.DslDef>
+        val unreachableDefs: List<Definition.DslDef>
+        val reachableModuleIds: Set<String>
+        val topologyUnknown: Boolean
+        when (assembly) {
+            is DslGraphAssembly.Known -> {
+                reachableDefs = assembly.definitions
+                unreachableDefs = assembly.unreachableDefinitions
+                reachableModuleIds = assembly.reachableModuleIds
+                topologyUnknown = false
+            }
+            is DslGraphAssembly.Unknown -> {
+                reachableDefs = assembly.definitions
+                unreachableDefs = emptyList()
+                reachableModuleIds = emptySet()
+                topologyUnknown = true
+                val originStr = assembly.origin?.filePath?.let {
+                    "${it.substringAfterLast('/')}:${assembly.origin.line ?: "?"}"
+                }
+                KoinPluginLogger.report(
+                    KoinDiagnostic.UnverifiableDynamicGraph(
+                        entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
+                            ?.let { "the entry point loading $it" } ?: "this entry point",
+                        origin = originStr,
+                    )
+                )
+                topologyUnverifiable = true
+            }
+        }
+
         val allDefinitions = mutableListOf<Definition>()
-        allDefinitions.addAll(dslDefinitions)
-        val dependencyDslDefs = dslHintGenerator.discoverDslDefinitionsFromHints()
-        allDefinitions.addAll(dependencyDslDefs)
+        allDefinitions.addAll(reachableDefs)
+        allDefinitions.addAll(unreachableDefs)
         if (annotationProcessor != null) {
             allDefinitions.addAll(annotationProcessor.getAllKnownDefinitions())
         }
 
-        KoinPluginLogger.debug { "  providers: ${allDefinitions.size} (local DSL=${dslDefinitions.size}, dependency DSL=${dependencyDslDefs.size}, annotations=${allDefinitions.size - dslDefinitions.size - dependencyDslDefs.size})" }
+        KoinPluginLogger.debug { "  providers: ${allDefinitions.size} (reachable DSL=${reachableDefs.size}, unreachable DSL=${unreachableDefs.size}, annotations=${allDefinitions.size - reachableDefs.size - unreachableDefs.size})" }
 
         if (allDefinitions.isEmpty()) return
-
-        // null = loaded set unknowable → fail OPEN: no KOIN-W001, nothing withheld from call sites,
-        // and (topologyUnknown/topologyUnverifiable below) KOIN-D001/D002 withheld too — an
-        // incomplete provider set can't be trusted for a hard "not found". Disclosed via KOIN-W003.
-        val resolvedReachable = computeReachableModules(
-            startKoinModules, moduleIncludes, dslHintGenerator,
-            entryModulesIncomplete, modulesWithIncompleteIncludes
-        )
-        if (resolvedReachable == null) {
-            topologyUnverifiable = true
-            val originStr = entryModulesIncompleteOrigin?.filePath
-                ?.let { "${it.substringAfterLast('/')}:${entryModulesIncompleteOrigin.line ?: "?"}" }
-            KoinPluginLogger.report(
-                KoinDiagnostic.UnverifiableDynamicGraph(
-                    entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
-                        ?.let { "the entry point loading $it" } ?: "this entry point",
-                    origin = originStr,
-                )
-            )
-        }
-        val reachableModuleIds = resolvedReachable ?: emptySet()
-        val allDslDefs = dslDefinitions + dependencyDslDefs.filterIsInstance<Definition.DslDef>()
-        val (reachableDefs, unreachableDefs) = partitionByReachability(allDslDefs, reachableModuleIds)
 
         val providerDefinitions = mutableListOf<Definition>()
         providerDefinitions.addAll(reachableDefs)
@@ -493,7 +504,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             providerDefinitions,
             qualifierExtractor,
             defsToValidate,
-            topologyUnknown = resolvedReachable == null
+            topologyUnknown = topologyUnknown
         )
 
         // KOIN-W001 means "you declared this module and never loaded it". Whose module it is decides
@@ -512,7 +523,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             if (ownsAuthoritativeGraph) unreachableDefs
             else unreachableDefs.filter { it.modulePropertyId in localModuleIds }
         if (reportableUnreachable.isNotEmpty()) {
-            reportUnreachableModules(reportableUnreachable, reachableModuleIds)
+            reportUnreachableModules(reportableUnreachable)
         }
         val withheld = unreachableDefs.size - reportableUnreachable.size
         if (withheld > 0) {
@@ -544,76 +555,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
     }
 
-    /**
-     * Breadth-first walk of the loaded-module closure, from the entry point's `modules(...)` down
-     * through every `includes()` edge.
-     *
-     * Two edge sources, because a DSL module's membership lives in a lambda body and so only half of
-     * it is locally visible:
-     *  - [moduleIncludes] — edges walked from THIS compilation's IR (same-compile modules);
-     *  - the includes-edge hint — edges a DEPENDENCY module declared, which have no other way to
-     *    cross the module boundary.
-     *
-     * Both are consulted at every hop, so a chain that alternates between local and dependency
-     * modules still resolves, as does a relay module that includes others but defines nothing.
-     * When a dependency predates the carrier its hint is simply absent and the walk falls back to
-     * local edges only — the pre-carrier behavior.
-     */
-    private fun computeReachableModules(
-        startKoinModules: List<String>,
-        moduleIncludes: Map<String, List<String>>,
-        dslHintGenerator: DslHintGenerator?,
-        entryModulesIncomplete: Boolean = false,
-        modulesWithIncompleteIncludes: Set<String> = emptySet()
-    ): Set<String>? {
-        // An unresolvable argument at the entry point means the loaded set itself is unknown.
-        if (entryModulesIncomplete) return null
-        if (startKoinModules.isEmpty()) return emptySet()
-        val reachable = mutableSetOf<String>()
-        val queue = ArrayDeque(startKoinModules)
-        while (queue.isNotEmpty()) {
-            val moduleId = queue.removeFirst()
-            // Reaching a module whose own includes() were only partly readable means everything
-            // below it is unknown. Scoped this way, an unresolvable includes() in a module the entry
-            // point never loads costs nothing.
-            if (moduleId in modulesWithIncompleteIncludes) return null
-            if (reachable.add(moduleId)) {
-                val localEdges = moduleIncludes[moduleId].orEmpty()
-                val crossModule = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId)
-                // A dependency that could not read all of its own includes() carries a marker saying
-                // so. Its edge list is partial, so anything below it is unknown — same conclusion as
-                // for a local module with unreadable includes.
-                if (crossModule?.incomplete == true) return null
-                for (included in localEdges + crossModule?.edges.orEmpty()) {
-                    if (included !in reachable) queue.add(included)
-                }
-            }
-        }
-        KoinPluginLogger.debug { "  Reachable modules: $reachable (from entry: $startKoinModules)" }
-        return reachable
-    }
-
-    private fun partitionByReachability(
-        dslDefinitions: List<Definition.DslDef>,
-        reachableModuleIds: Set<String>
-    ): Pair<List<Definition.DslDef>, List<Definition.DslDef>> {
-        if (reachableModuleIds.isEmpty()) return dslDefinitions to emptyList()
-        val reachable = mutableListOf<Definition.DslDef>()
-        val unreachable = mutableListOf<Definition.DslDef>()
-        for (def in dslDefinitions) {
-            val moduleId = def.modulePropertyId
-            if (moduleId == null || moduleId in reachableModuleIds) {
-                reachable.add(def)
-            } else {
-                unreachable.add(def)
-            }
-        }
-        return reachable to unreachable
-    }
-
     private fun reportUnreachableModules(
-        unreachableDefs: List<Definition.DslDef>,
-        reachableModuleIds: Set<String>
+        unreachableDefs: List<Definition.DslDef>
     ) {
         val byModule = unreachableDefs.groupBy { it.modulePropertyId ?: "<unknown>" }
         for ((moduleId, defs) in byModule) {

@@ -632,5 +632,47 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     public void testCross_module_withconfiguration_owns_authoritative_graph_d003() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_withconfiguration_owns_authoritative_graph_d003.kt");
     }
+
+    @Test
+    @TestMetadata("mixed_dsl_scanned_cross_module_includes_ok.kt")
+    public void testMixed_dsl_scanned_cross_module_includes_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/mixed_dsl_scanned_cross_module_includes_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("mixed_dsl_scanned_cross_module_missing_clock_d001.kt")
+    public void testMixed_dsl_scanned_cross_module_missing_clock_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/mixed_dsl_scanned_cross_module_missing_clock_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("mixed_dsl_scanned_cross_module_missing_repository_d001.kt")
+    public void testMixed_dsl_scanned_cross_module_missing_repository_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/mixed_dsl_scanned_cross_module_missing_repository_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("mixed_dsl_scanned_cross_module_ok.kt")
+    public void testMixed_dsl_scanned_cross_module_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/mixed_dsl_scanned_cross_module_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("mixed_dsl_scanned_cross_module_reverse_order_ok.kt")
+    public void testMixed_dsl_scanned_cross_module_reverse_order_ok() {
+      runTest("koin-compiler-plugin/testData/crossmodule/mixed_dsl_scanned_cross_module_reverse_order_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("mixed_dsl_scanned_cross_module_unloaded_provider_d001.kt")
+    public void testMixed_dsl_scanned_cross_module_unloaded_provider_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/mixed_dsl_scanned_cross_module_unloaded_provider_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("mixed_dsl_scanned_local_missing_d001.kt")
+    public void testMixed_dsl_scanned_local_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/mixed_dsl_scanned_local_missing_d001.kt");
+    }
   }
 }
