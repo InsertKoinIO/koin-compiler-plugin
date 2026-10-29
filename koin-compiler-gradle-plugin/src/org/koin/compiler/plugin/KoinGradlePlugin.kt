@@ -163,14 +163,16 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         // moduleId so synthetic hint files in org.koin.plugin.hints get module-disambiguated
         // and don't collide at dex merge. See KoinPluginConstants.OPTION_MODULE_ID.
         val moduleId = project.path
+        val isTestCompilation = kotlinCompilation.name.let { it == KotlinCompilation.TEST_COMPILATION_NAME || it.endsWith("Test") }
 
         return project.provider {
+            val compileSafety = extension.compileSafety.get() && (!isTestCompilation || extension.testCompileSafety.get())
             listOf(
                 SubpluginOption(OPTION_USER_LOGS, extension.userLogs.get().toString()),
                 SubpluginOption(OPTION_DEBUG_LOGS, extension.debugLogs.get().toString()),
                 SubpluginOption(OPTION_UNSAFE_DSL_CHECKS, extension.unsafeDslChecks.get().toString()),
                 SubpluginOption(OPTION_SKIP_DEFAULT_VALUES, extension.skipDefaultValues.get().toString()),
-                SubpluginOption(OPTION_COMPILE_SAFETY, extension.compileSafety.get().toString()),
+                SubpluginOption(OPTION_COMPILE_SAFETY, compileSafety.toString()),
                 SubpluginOption(OPTION_AI_ASSIST, extension.aiAssist.get().toString()),
                 SubpluginOption(OPTION_MODULE_ID, moduleId),
                 SubpluginOption(OPTION_LOG_SEVERITY, extension.logSeverity.get()),
