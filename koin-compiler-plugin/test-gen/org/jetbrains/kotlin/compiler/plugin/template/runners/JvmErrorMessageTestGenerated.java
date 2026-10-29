@@ -526,9 +526,63 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_dsl_default_value_no_false_d001.kt")
+    public void testCross_module_dsl_default_value_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_default_value_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_injected_param_no_false_d001.kt")
+    public void testCross_module_dsl_injected_param_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_injected_param_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_lazy_cycle_no_false_d004.kt")
+    public void testCross_module_dsl_lazy_cycle_no_false_d004() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_lazy_cycle_no_false_d004.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_lazy_missing_d001.kt")
+    public void testCross_module_dsl_lazy_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_lazy_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_list_no_false_d001.kt")
+    public void testCross_module_dsl_list_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_list_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_nullable_no_false_d001.kt")
+    public void testCross_module_dsl_nullable_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_nullable_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_property_no_false_d001.kt")
+    public void testCross_module_dsl_property_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_property_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_provided_param_no_false_d001.kt")
+    public void testCross_module_dsl_provided_param_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_provided_param_no_false_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_dsl_provider_missing_d001.kt")
     public void testCross_module_dsl_provider_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_scope_id_no_false_d001.kt")
+    public void testCross_module_dsl_scope_id_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_scope_id_no_false_d001.kt");
     }
 
     @Test
@@ -577,6 +631,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_funcprovider_qualified_ok.kt")
     public void testCross_module_funcprovider_qualified_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcprovider_qualified_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_funcreqs_lazy_cycle_no_false_d004.kt")
+    public void testCross_module_funcreqs_lazy_cycle_no_false_d004() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_lazy_cycle_no_false_d004.kt");
     }
 
     @Test
