@@ -215,7 +215,7 @@ The compiler plugin replaces the deprecated KSP processor (`koin-ksp-compiler`).
 
 ## AI agents
 
-- **Koin skills** (official, for Claude Code and other agents): set up Koin, write Koin code, migrate from Hilt / Dagger / Koin KSP, diagnose Koin apps — https://github.com/InsertKoinIO/koin-skills
+- **Koin skills** (official, for Claude Code and other agents): set up Koin, write Koin code, migrate from Hilt, Dagger, Toothpick, Kodein, Koin KSP or Koin 3.x, diagnose Koin apps — https://github.com/InsertKoinIO/koin-skills. Install guide: https://insert-koin.io/docs/tooling/ai-agents. Claude Code: `/plugin marketplace add InsertKoinIO/koin-skills`, then `/plugin install koin@koin-skills`. Other agents (Cursor, Codex, Copilot, Windsurf, Gemini…): `npx skills add InsertKoinIO/koin-skills` (Node.js 22+)
 - **Kotzilla MCP** — `https://mcp.kotzilla.io/mcp`: diagnose `[KOIN-…]` compile-safety errors and Koin runtime exceptions; with the Kotzilla SDK, debug app behavior, performance and memory. The plugin checks the graph is complete; Kotzilla checks how it behaves. Claude Code: `claude mcp add kotzilla --transport http https://mcp.kotzilla.io/mcp`
 
 ## Documentation
