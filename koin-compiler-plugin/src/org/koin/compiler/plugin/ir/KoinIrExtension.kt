@@ -163,6 +163,13 @@ class KoinIrExtension(
                 modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
                 ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph
             )
+        } else if (safetyValidator != null && dslDefinitions.isEmpty()
+            && safetyValidator.assembledGraphTypes.isEmpty()
+            && startKoinTransformer.hasKoinEntryPoint) {
+            // Disclosure, same stance as the no-entry-point one below: Phase 3.1 needs at least one
+            // local DSL definition, so an entry point that only loads other modules' DSL definitions
+            // validates nothing. Not changing that here — just not doing it silently.
+            KoinPluginLogger.warn("compile-safety: DSL graph not validated — no DSL definition in this entry-point module.")
         }
 
         // Phase 3.5: Validate pending call sites (simple loop, no tree walk)
