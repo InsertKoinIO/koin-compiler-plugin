@@ -1,0 +1,36 @@
+FILE: stub.kt
+    package org.koin.androidx.viewmodel.ext.android
+
+    public final inline fun <reified T : R|kotlin/Any|> activityViewModel(noinline parameters: R|(() -> org/koin/core/parameter/ParametersHolder)?| = Null(null)): R|kotlin/Lazy<T>| {
+        ^activityViewModel R|kotlin/lazy|<R|kotlin/Nothing|>(<L> = lazy@fun <anonymous>(): R|kotlin/Nothing| <inline=NoInline>  {
+            R|kotlin/TODO|()
+        }
+        )
+    }
+FILE: test.kt
+    package testpkg
+
+    public final class Present : R|kotlin/Any| {
+        public constructor(): R|testpkg/Present| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Undefined : R|kotlin/Any| {
+        public constructor(): R|testpkg/Undefined| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Present|>()
+            }
+            ))
+        }
+        )
+    }
+    public final fun fragment(): R|kotlin/Unit| {
+        lval viewModel: R|kotlin/Lazy<testpkg/Undefined>| = R|org/koin/androidx/viewmodel/ext/android/activityViewModel|<R|testpkg/Undefined|>()
+    }

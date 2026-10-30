@@ -21,6 +21,24 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("call_site_activity_viewmodel_missing_type_d002.kt")
+  public void testCall_site_activity_viewmodel_missing_type_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_activity_viewmodel_missing_type_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_activity_viewmodel_no_creator_w010.kt")
+  public void testCall_site_activity_viewmodel_no_creator_w010() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_activity_viewmodel_no_creator_w010.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_activity_viewmodel_no_false_d006.kt")
+  public void testCall_site_activity_viewmodel_no_false_d006() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_activity_viewmodel_no_false_d006.kt");
+  }
+
+  @Test
   @TestMetadata("call_site_android_get_koin_global_d002.kt")
   public void testCall_site_android_get_koin_global_d002() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_android_get_koin_global_d002.kt");

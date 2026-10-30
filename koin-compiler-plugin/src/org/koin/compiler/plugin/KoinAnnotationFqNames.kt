@@ -237,6 +237,11 @@ object KoinAnnotationFqNames {
     val KTOR_GET = FqName("org.koin.ktor.ext.get")
     val KTOR_INJECT = FqName("org.koin.ktor.ext.inject")
 
+    /** Return a ViewModel the activity already created with its own parameters (#121). */
+    val REUSED_INSTANCE_RESOLUTION_FUNCTIONS = setOf(
+        ANDROID_ACTIVITY_VIEW_MODEL, ANDROID_GET_ACTIVITY_VIEW_MODEL, KOIN_ACTIVITY_VIEW_MODEL_COMPOSE,
+    )
+
     /** All call-site resolution functions for A4 validation. */
     val CALL_SITE_RESOLUTION_FUNCTIONS = listOf(
         // compose

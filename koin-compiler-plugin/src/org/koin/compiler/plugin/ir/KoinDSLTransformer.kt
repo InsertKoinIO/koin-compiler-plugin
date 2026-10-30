@@ -791,6 +791,7 @@ class KoinDSLTransformer(
             hasParametersLambda = paramsLambdaPresent,
             parametersOfArgs = parametersOfArgs,
             receiver = classifyCallSiteReceiver(expression, calleeFqName),
+            reusesInstance = callee.fqNameWhenAvailable in KoinAnnotationFqNames.REUSED_INSTANCE_RESOLUTION_FUNCTIONS,
         ))
 
         // IC: call site file depends on the target class
@@ -1709,6 +1710,7 @@ data class PendingCallSiteValidation(
     val hasParametersLambda: Boolean = false,
     val parametersOfArgs: List<BindingRegistry.Companion.ParametersOfArg>? = null,
     val receiver: CallSiteReceiver = CallSiteReceiver.GRAPH_BOUND,
+    val reusesInstance: Boolean = false,
 )
 
 /**

@@ -98,6 +98,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
             CallSiteReceiver.FOREIGN -> false
         }
         val notValidatedHere = mutableListOf<PendingCallSiteValidation>()
+        // #121: an activity-scoped ViewModel is only reused if some call site created it with parametersOf.
+        val createdWithParameters = callSites.filter { it.hasParametersLambda }.mapTo(mutableSetOf()) { it.targetFqName }
 
         // Discover DSL definitions from dependency hints (cross-module DSL discovery).
         // Always merge: A3's assembled graph only contains @Module classes' definitions, not
@@ -152,7 +154,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             // Check assembled graph + DSL definitions + DSL hints
             if (callSite.targetFqName in allKnownTypes) {
                 KoinPluginLogger.debug { "A4: OK ${callSite.callFunctionName}<${callSite.targetFqName}>() — found in graph" }
-                if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
                 continue
             }
 
@@ -164,7 +166,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 }
                 if (hasAnnotation) {
                     KoinPluginLogger.debug { "A4: OK ${callSite.callFunctionName}<${callSite.targetFqName}>() — has definition annotation" }
-                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
                     continue
                 }
             }
@@ -185,13 +187,13 @@ class CallSiteValidator(private val context: IrPluginContext) {
                     (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint || topologyUnverifiable)
                 if (isDeferrable) {
                     unresolvedCallSites.add(callSite)
-                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
                     KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType, hasEntryPoint=$hasKoinEntryPoint, topologyUnverifiable=$topologyUnverifiable)" }
                     continue
                 }
                 if (isNameable && !judged) {
                     notValidatedHere.add(callSite)
-                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
                     KoinPluginLogger.debug { "A4: Not validated ${callSite.callFunctionName}<${callSite.targetFqName}>() — receiver ${callSite.receiver}, graph not visible here" }
                     continue
                 }
@@ -638,16 +640,28 @@ class CallSiteValidator(private val context: IrPluginContext) {
      * Decision matrix:
      *   slots == null              → def doesn't need params (or unknown) → no report
      *   !hasParametersLambda       → user forgot `parametersOf` entirely → KOIN-D006
+     *                                 (`activityViewModel` reuses an instance, #121: nothing if a call
+     *                                 site creates it with parametersOf, else KOIN-W010)
      *   parametersOfArgs == null   → trailing lambda was non-trivial → ambiguous, no report
      *   shape != Ok                → KOIN-D005 with reason ARITY or TYPE
      */
     private fun validateInjectedParamShapeAtCallSite(
         callSite: PendingCallSiteValidation,
         hints: InjectedParamHintGenerator,
+        createdWithParameters: Set<String>,
     ) {
         val slots = hints.getSlots(callSite.targetFqName) ?: return
 
         if (!callSite.hasParametersLambda) {
+            if (callSite.reusesInstance) {
+                if (callSite.targetFqName !in createdWithParameters) {
+                    KoinPluginLogger.report(
+                        KoinDiagnostic.UnverifiedReusedInstanceParams(callSite.targetFqName, callSite.callFunctionName),
+                        callSite.filePath, callSite.line, callSite.column,
+                    )
+                }
+                return
+            }
             KoinPluginLogger.report(
                 KoinDiagnostic.MissingInjectedParams(
                     target = callSite.targetFqName,

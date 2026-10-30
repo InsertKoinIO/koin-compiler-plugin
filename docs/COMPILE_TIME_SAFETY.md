@@ -154,6 +154,13 @@ They are only checked at runtime.
 
 Known limit: a judged call site is checked against every graph the compilation builds, merged. With two `koinApplication { }` blocks in one compilation, `a.koin.get<T>()` passes when only the other one provides `T`.
 
+### `activityViewModel()` and `parametersOf`
+
+`activityViewModel<T>()` returns the instance the activity created. When `T` has `@InjectedParam` and the call passes no `parametersOf(...)`:
+
+- a call site in the same module creates `T` with `parametersOf(...)` → nothing reported;
+- none does → `KOIN-W010`. The creator may be in another module; if nothing creates `T` first, this call creates it without parameters and fails at runtime.
+
 ## External Types: `@Provided` and Whitelist
 
 Some types are provided by the platform or framework at runtime (e.g., Android's `Context`, `SavedStateHandle`) and are never declared as Koin definitions. Without special handling, these would trigger false "missing dependency" errors.

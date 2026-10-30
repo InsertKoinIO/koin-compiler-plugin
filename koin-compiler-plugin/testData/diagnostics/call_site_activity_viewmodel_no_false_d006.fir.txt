@@ -1,0 +1,68 @@
+FILE: stub.kt
+    package org.koin.androidx.viewmodel.ext.android
+
+    public final inline fun <reified T : R|kotlin/Any|> activityViewModel(noinline parameters: R|(() -> org/koin/core/parameter/ParametersHolder)?| = Null(null)): R|kotlin/Lazy<T>| {
+        ^activityViewModel R|kotlin/lazy|<R|kotlin/Nothing|>(<L> = lazy@fun <anonymous>(): R|kotlin/Nothing| <inline=NoInline>  {
+            R|kotlin/TODO|()
+        }
+        )
+    }
+    public final inline fun <reified T : R|kotlin/Any|> viewModel(noinline parameters: R|(() -> org/koin/core/parameter/ParametersHolder)?| = Null(null)): R|kotlin/Lazy<T>| {
+        ^viewModel R|kotlin/lazy|<R|kotlin/Nothing|>(<L> = lazy@fun <anonymous>(): R|kotlin/Nothing| <inline=NoInline>  {
+            R|kotlin/TODO|()
+        }
+        )
+    }
+FILE: test.kt
+    package testpkg
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(testpkg))) public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|testpkg/TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class MyViewModel : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/InjectedParam|() url: R|kotlin/String|): R|testpkg/MyViewModel| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val url: R|kotlin/String| = R|<local>/url|
+            public get(): R|kotlin/String|
+
+    }
+    public final fun useIt(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/TestModule.TestModule|().R|testpkg/module|())
+        }
+        )
+    }
+    public final class MyActivity : R|kotlin/Any| {
+        public constructor(): R|testpkg/MyActivity| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val viewModel: R|testpkg/MyViewModel|by R|org/koin/androidx/viewmodel/ext/android/viewModel|<R|testpkg/MyViewModel|>(<L> = viewModel@fun <anonymous>(): R|org/koin/core/parameter/ParametersHolder| <inline=NoInline>  {
+            ^ R|org/koin/core/parameter/parametersOf|(vararg(String(https://insert-koin.io)))
+        }
+        )
+            public get(): R|testpkg/MyViewModel| {
+                ^ this@R|testpkg/MyActivity|.D|testpkg/MyActivity.viewModel|.R|kotlin/getValue|<R|testpkg/MyViewModel|>(this@R|testpkg/MyActivity|, ::R|testpkg/MyActivity.viewModel|)
+            }
+
+    }
+    public final class MyFragment : R|kotlin/Any| {
+        public constructor(): R|testpkg/MyFragment| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val viewModel: R|testpkg/MyViewModel|by R|org/koin/androidx/viewmodel/ext/android/activityViewModel|<R|testpkg/MyViewModel|>()
+            public get(): R|testpkg/MyViewModel| {
+                ^ this@R|testpkg/MyFragment|.D|testpkg/MyFragment.viewModel|.R|kotlin/getValue|<R|testpkg/MyViewModel|>(this@R|testpkg/MyFragment|, ::R|testpkg/MyFragment.viewModel|)
+            }
+
+    }
+FILE: testpkg/testpkgTestModuleModule.kt
+    package testpkg
+
+    public final fun R|testpkg/TestModule|.module(): R|org/koin/core/module/Module|

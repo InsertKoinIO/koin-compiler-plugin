@@ -441,6 +441,23 @@ sealed class KoinDiagnostic(
             "can't see. They are only checked at runtime.",
     )
 
+    /**
+     * KOIN-W010 — `activityViewModel<T>()` without `parametersOf`, for a T with `@InjectedParam`, and
+     * no call site in this compilation creates T with `parametersOf` (#121). Reuse of the activity's
+     * instance is fine; creating T here would crash. The creator may sit in another module, so this
+     * can't be KOIN-D006.
+     */
+    class UnverifiedReusedInstanceParams(
+        target: String,
+        callFn: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W010",
+        severity = Severity.WARNING,
+        message = "$callFn<${target.substringAfterLast('.')}>() has no parametersOf(...) and no call site " +
+            "in this module creates $target with parametersOf(...). Fine if the activity creates it first; " +
+            "otherwise it is created here without its @InjectedParam values and fails at runtime.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,
