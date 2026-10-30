@@ -1,0 +1,27 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Report : R|kotlin/Any| {
+        public constructor(): R|testpkg/Report| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class LocalThing : R|kotlin/Any| {
+        public constructor(): R|testpkg/LocalThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun isolatedGraph(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/LocalThing|>()
+            }
+            ))
+        }
+        )
+    }
+    public final fun render(koin: R|org/koin/core/Koin|): R|testpkg/Report| {
+        ^render R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/Report|>()
+    }

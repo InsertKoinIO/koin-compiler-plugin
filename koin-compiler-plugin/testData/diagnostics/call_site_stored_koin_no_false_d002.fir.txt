@@ -1,0 +1,37 @@
+FILE: test.kt
+    package testpkg
+
+    public final class LocalThing : R|kotlin/Any| {
+        public constructor(): R|testpkg/LocalThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|testpkg/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final object Di : R|kotlin/Any| {
+        private constructor(): R|testpkg/Di| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final lateinit var koin: R|org/koin/core/Koin|
+            public get(): R|org/koin/core/Koin|
+            public set(value: R|org/koin/core/Koin|): R|kotlin/Unit|
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        Q|testpkg/Di|.R|testpkg/Di.koin| = R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/LocalThing|>()
+            }
+            ))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+    }
+    public final fun load(): R|testpkg/Missing| {
+        ^load Q|testpkg/Di|.R|testpkg/Di.koin|.R|org/koin/core/Koin.get|<R|testpkg/Missing|>()
+    }

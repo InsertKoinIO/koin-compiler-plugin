@@ -133,6 +133,34 @@ or a module class off the classpath). Compile-time dependency checks are skipped
 
 Usual causes: the dependency was built by an older plugin version, its `@ComponentScan` matches nothing, or the module sits more than one `implementation` hop away. Rebuild it with the same plugin version, or add it as a direct dependency.
 
+### Which call sites are judged
+
+Every call site is judged against this compilation's graph, except two cases:
+
+| Call site | Judged here when |
+|---|---|
+| `koin.get()` / `koin.getScope(..).get()` on a `Koin` that comes from outside Koin's API: a function parameter, a `lateinit var`, a property with a custom getter or `by lazy`, a function of your own (`TestFixture().koin`, an overridden `getKoin()`) | never — the same shape holds your app's Koin or a test helper's, so its graph is unknown here |
+| `KoinComponent.get()` / `by inject()`, `koinInject()`, `koinViewModel()`, Android `viewModel()`, Ktor | unless every entry point here is a plain `koinApplication { }` (a test fixture, a preview) |
+
+Everything else is judged as before, including `get()` in a definition lambda, `koinApplication { }.koin`, a `val` initialized with `startKoin { }.koin`, `getKoin()` and `with(koin) { }`.
+
+A call site that isn't judged here and whose type nothing in this compilation defines is not an error. It is never dropped silently: one `KOIN-W009` per compilation counts them.
+
+```
+[Koin][KOIN-W009] 3 call site(s) not validated at compile time (first: get<Clock>()): their type is
+not defined in this compilation, and they resolve on a Koin instance whose modules it can't see.
+They are only checked at runtime.
+```
+
+Known limit: a judged call site is checked against every graph the compilation builds, merged. With two `koinApplication { }` blocks in one compilation, `a.koin.get<T>()` passes when only the other one provides `T`.
+
+### `activityViewModel()` and `parametersOf`
+
+`activityViewModel<T>()` returns the instance the activity created. When `T` has `@InjectedParam` and the call passes no `parametersOf(...)`:
+
+- a call site in the same module creates `T` with `parametersOf(...)` → nothing reported;
+- none does → `KOIN-W010`. The creator may be in another module; if nothing creates `T` first, this call creates it without parameters and fails at runtime.
+
 ## External Types: `@Provided` and Whitelist
 
 Some types are provided by the platform or framework at runtime (e.g., Android's `Context`, `SavedStateHandle`) and are never declared as Koin definitions. Without special handling, these would trigger false "missing dependency" errors.

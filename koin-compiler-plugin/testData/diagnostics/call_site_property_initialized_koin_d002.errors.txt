@@ -1,0 +1,8 @@
+[Koin][KOIN-D002] Missing definition: testpkg.AlsoMissing
+  resolved by: get<AlsoMissing>()
+  No matching definition found in any loaded module.
+  Check your declaration with Annotation or DSL.
+[Koin][KOIN-D002] Missing definition: testpkg.Missing
+  resolved by: get<Missing>()
+  No matching definition found in any loaded module.
+  Check your declaration with Annotation or DSL.

@@ -155,6 +155,14 @@ class KoinStartTransformer(
      * classpath — types it neither owns nor should provide. Regression test:
      * `testData/crossmodule/cross_module_koinapplication_library_ok.kt`.
      */
+    /**
+     * Every entry point here is a plain `koinApplication { }` — a test fixture or a preview. The
+     * global context is not built in this compilation, so global call sites can't be judged here
+     * (#58). `koinConfiguration { }` doesn't count: it is a Compose app's root (#38).
+     */
+    val onlyIsolatedEntryPoints: Boolean
+        get() = entryPoints.isNotEmpty() && entryPoints.all { it.kind == EntryKind.KOIN_APPLICATION }
+
     val ownsAuthoritativeGraph: Boolean
         get() = entryPoints.any {
             when (it.kind) {
