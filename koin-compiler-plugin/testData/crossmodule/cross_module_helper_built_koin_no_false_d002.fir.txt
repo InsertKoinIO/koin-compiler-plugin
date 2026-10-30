@@ -1,0 +1,58 @@
+Module: testing
+FILE: TestFixture.kt
+    package testing
+
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|testing/Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val infraModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testing/Clock|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final class TestFixture : R|kotlin/Any| {
+        public constructor(): R|testing/TestFixture| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val koin: R|org/koin/core/Koin|by R|kotlin/lazy|<R|org/koin/core/Koin|>(<L> = lazy@fun <anonymous>(): R|org/koin/core/Koin| <inline=NoInline>  {
+            ^ R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testing/infraModule|)
+            }
+            ).R|org/koin/core/KoinApplication.koin|
+        }
+        )
+            public get(): R|org/koin/core/Koin| {
+                ^ this@R|testing/TestFixture|.D|testing/TestFixture.koin|.R|kotlin/getValue|<R|org/koin/core/Koin|>(this@R|testing/TestFixture|, ::R|testing/TestFixture.koin|)
+            }
+
+    }
+Module: spec
+FILE: IsolatedGraphSpec.kt
+    package spec
+
+    public final class LocalThing : R|kotlin/Any| {
+        public constructor(): R|spec/LocalThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun isolatedGraph(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|spec/LocalThing|>()
+            }
+            ))
+        }
+        )
+    }
+FILE: HelperSpec.kt
+    package spec
+
+    public final fun helperGraph(): R|kotlin/Unit| {
+        lval app: R|testing/TestFixture| = R|testing/TestFixture.TestFixture|()
+        lval clock: R|testing/Clock| = R|<local>/app|.R|testing/TestFixture.koin|.R|org/koin/core/Koin.get|<R|testing/Clock|>()
+    }

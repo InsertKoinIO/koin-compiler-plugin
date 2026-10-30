@@ -389,6 +389,9 @@ class KoinDSLTransformer(
     // collectCallSiteIfResolutionFunction.
     private val callSiteResolutionFqNames: Set<String> =
         KoinAnnotationFqNames.CALL_SITE_RESOLUTION_FUNCTIONS.map { it.asString() }.toSet()
+    private val koinGetFqName = KoinAnnotationFqNames.KOIN_GET.asString()
+    private val koinInjectFqName = KoinAnnotationFqNames.KOIN_INJECT.asString()
+    private val scopeGetFqName = KoinAnnotationFqNames.SCOPE_GET.asString()
 
     // SHARED — scope function name for detecting scope<ScopeType> { } blocks (pushed into
     // transformContext.scopeTypeClass, read by both codegen and the SCOPED buildDslDef calls).
@@ -787,11 +790,67 @@ class KoinDSLTransformer(
             column = column,
             hasParametersLambda = paramsLambdaPresent,
             parametersOfArgs = parametersOfArgs,
+            receiver = classifyCallSiteReceiver(expression, calleeFqName),
         ))
 
         // IC: call site file depends on the target class
         trackClassLookup(lookupTracker, currentFile, targetClass)
         linkDeclarationsForIC(expectActualTracker, currentFile, targetClass)
+    }
+
+    /** SAFETY ONLY. See [CallSiteReceiver]. */
+    private fun classifyCallSiteReceiver(expression: IrCall, calleeFqName: String): CallSiteReceiver =
+        when (calleeFqName) {
+            koinGetFqName, koinInjectFqName -> koinSourceOf(expression.dispatchReceiver)
+            scopeGetFqName -> scopeSourceOf(expression.dispatchReceiver)
+            else -> CallSiteReceiver.GLOBAL
+        }
+
+    /**
+     * FOREIGN only when the `Koin` provably comes from outside Koin's own API: a function parameter,
+     * a non-Koin property, or a non-Koin function's result. Any other shape keeps being judged.
+     */
+    private fun koinSourceOf(expression: IrExpression?): CallSiteReceiver = when (val source = expression.unwrapValChain()) {
+        is IrGetValue -> {
+            val parameter = source.symbol.owner as? IrValueParameter
+            val inLambda = (parameter?.parent as? IrFunction)?.origin == IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA
+            if (parameter?.kind == IrParameterKind.Regular && !inLambda) CallSiteReceiver.FOREIGN else CallSiteReceiver.GRAPH_BOUND
+        }
+        is IrGetField -> CallSiteReceiver.FOREIGN
+        is IrCall -> if (source.symbol.owner.declaredByKoin()) CallSiteReceiver.GRAPH_BOUND else CallSiteReceiver.FOREIGN
+        else -> CallSiteReceiver.GRAPH_BOUND
+    }
+
+    /** A scope opened on a `Koin` (`koin.getScope(..)`) is as foreign as that Koin; any other scope is judged. */
+    private fun scopeSourceOf(expression: IrExpression?): CallSiteReceiver {
+        val source = expression.unwrapValChain() as? IrCall ?: return CallSiteReceiver.GRAPH_BOUND
+        val koin = (source.dispatchReceiver ?: source.extensionReceiverArgument)
+            ?.takeIf { it.type.classFqName == KoinAnnotationFqNames.KOIN_CLASS }
+            ?: return CallSiteReceiver.GRAPH_BOUND
+        return koinSourceOf(koin)
+    }
+
+    /** Fake overrides (`getKoin()` inside a KoinComponent) resolve to the function they inherit. */
+    private fun IrSimpleFunction.declaredByKoin(): Boolean {
+        val declared = if (isFakeOverride) overriddenSymbols.firstOrNull()?.owner?.takeIf { it != this } else null
+        if (declared != null) return declared.declaredByKoin()
+        val owner = correspondingPropertySymbol?.owner?.fqNameWhenAvailable ?: fqNameWhenAvailable
+        return owner?.asString()?.startsWith("org.koin.") == true
+    }
+
+    /** Through casts, `!!` and `val` initializers (local, or a plain property in source) to the value's origin. */
+    private fun IrExpression?.unwrapValChain(): IrExpression? = when (this) {
+        is IrTypeOperatorCall -> argument.unwrapValChain()
+        is IrGetValue -> (symbol.owner as? IrVariable)?.takeIf { !it.isVar }?.initializer?.unwrapValChain() ?: this
+        is IrGetField -> symbol.owner.takeIf { it.isFinal }?.initializer?.expression?.unwrapValChain() ?: this
+        is IrCall -> when {
+            symbol.owner.name.asString() == "CHECK_NOT_NULL" -> getRegularArgument(0).unwrapValChain() ?: this
+            symbol.owner.origin == IrDeclarationOrigin.DEFAULT_PROPERTY_ACCESSOR ->
+                symbol.owner.correspondingPropertySymbol?.owner?.backingField
+                    ?.takeIf { it.isFinal }?.initializer?.expression?.unwrapValChain() ?: this
+            else -> this
+        }
+        else -> this
     }
 
     /**
@@ -1649,4 +1708,19 @@ data class PendingCallSiteValidation(
     val column: Int,
     val hasParametersLambda: Boolean = false,
     val parametersOfArgs: List<BindingRegistry.Companion.ParametersOfArg>? = null,
+    val receiver: CallSiteReceiver = CallSiteReceiver.GRAPH_BOUND,
 )
+
+/**
+ * Which Koin graph a call site resolves from (#58) — decides which graph may judge it.
+ *
+ *  - [GRAPH_BOUND]: the default — judged against this compilation's graphs, all of them merged
+ *    (known limit), exactly as before 1.2.2. Any shape not proven foreign lands here.
+ *  - [GLOBAL]: resolves from the global context (`KoinComponent`, Compose, Android, Ktor). Not
+ *    judged where every entry point is an isolated `koinApplication { }` (a test fixture).
+ *  - [FOREIGN]: `koin.get()` on a `Koin` from a function parameter, a non-Koin property or a non-Koin
+ *    function (`TestFixture().koin`, `by lazy`, a `lateinit var`). The same shape holds this app's Koin or
+ *    a helper's, so its graph is unknown and it is never judged here. A plain `val` initialized in
+ *    this compilation is followed to its initializer instead.
+ */
+enum class CallSiteReceiver { GRAPH_BOUND, GLOBAL, FOREIGN }

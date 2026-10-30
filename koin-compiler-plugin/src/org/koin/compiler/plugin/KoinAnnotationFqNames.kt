@@ -220,6 +220,9 @@ object KoinAnnotationFqNames {
     // the gap) — found via the app-dsl playground's own AnalyticsModule.kt.
     val SCOPE_GET = FqName("org.koin.core.scope.Scope.get")
 
+    // Receiver type of `koin.getScope(..)` — a scope opened on a foreign Koin is foreign (#58).
+    val KOIN_CLASS = FqName("org.koin.core.Koin")
+
     // --- android ---
     val ANDROID_COMPONENT_GET = FqName("org.koin.android.ext.android.get")
     val ANDROID_COMPONENT_INJECT = FqName("org.koin.android.ext.android.inject")

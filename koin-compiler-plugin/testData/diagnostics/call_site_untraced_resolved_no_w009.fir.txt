@@ -1,0 +1,41 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Present : R|kotlin/Any| {
+        public constructor(): R|testpkg/Present| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun preview(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Present|>()
+            }
+            ))
+        }
+        )
+    }
+    public final fun render(koin: R|org/koin/core/Koin|): R|testpkg/Present| {
+        ^render R|<local>/koin|.R|org/koin/core/Koin.get|<R|testpkg/Present|>()
+    }
+    public final class Screen : R|org/koin/core/component/KoinComponent| {
+        public constructor(): R|testpkg/Screen| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final fun load(): R|testpkg/Present| {
+            ^load this@R|testpkg/Screen|.R|org/koin/core/component/get|<R|testpkg/Present|>()
+        }
+
+    }
+    public final fun local(koin: R|org/koin/core/Koin|): R|kotlin/Unit| {
+        local final class LocalOnly : R|kotlin/Any| {
+            public constructor(): R|<local>/LocalOnly| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|<local>/LocalOnly|>()
+    }

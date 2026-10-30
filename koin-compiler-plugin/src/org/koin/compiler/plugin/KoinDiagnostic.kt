@@ -423,6 +423,24 @@ sealed class KoinDiagnostic(
             "or add it as a direct dependency.",
     )
 
+    /**
+     * KOIN-W009 — Call sites this compilation can't judge (#58): a `Koin` it can't trace to its
+     * entry point (a parameter, a property, a helper's instance), or the global context while only
+     * an isolated `koinApplication { }` / `koinConfiguration { }` is declared here. Only those that
+     * would otherwise be KOIN-D002 are counted: judging them against this compilation's graph gave
+     * false errors, and skipping them must never be silent. One per compilation, at the first one.
+     */
+    class UntracedCallSites(
+        count: Int,
+        first: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W009",
+        severity = Severity.WARNING,
+        message = "$count call site(s) not validated at compile time (first: $first): their type is " +
+            "not defined in this compilation, and they resolve on a Koin instance whose modules it " +
+            "can't see. They are only checked at runtime.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,
