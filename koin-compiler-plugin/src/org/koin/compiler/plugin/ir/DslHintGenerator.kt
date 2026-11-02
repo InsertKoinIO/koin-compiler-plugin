@@ -66,10 +66,12 @@ class DslHintGenerator(
     fun generateDslDefinitionHints(
         moduleFragment: IrModuleFragment,
         dslDefinitions: List<Definition.DslDef>,
-        moduleIncludes: Map<String, List<String>> = emptyMap(),
-        allModuleIds: Set<String> = emptySet(),
-        modulesWithIncompleteIncludes: Set<String> = emptySet()
+        topology: ModuleTopology = ModuleTopology(),
     ) {
+        val moduleIncludes = topology.moduleIncludes
+        val allModuleIds = topology.allModuleIds
+        val modulesWithIncompleteIncludes = topology.modulesWithIncompleteIncludes
+        val moduleAlternatives = topology.moduleAlternatives
         // Group by owning module (its `module { }` val), so each module's hints live in one file.
         // Fallback for a definition with no modulePropertyId: its registration source file's SIMPLE
         // name (path-free → deterministic across machines/CI; the full path is a temp dir under test).
@@ -87,6 +89,7 @@ class DslHintGenerator(
             addAll(byModule.keys)
             addAll(moduleIncludes.keys)
             addAll(allModuleIds)
+            addAll(moduleAlternatives.keys)
         }
 
         // KOIN-D008 (#75, Tier 1): two distinct module ids that flatten to the same identifier
@@ -116,7 +119,12 @@ class DslHintGenerator(
             // they are regenerated wholesale and can never orphan (same reason as the defs above).
             val edges = moduleIncludes[groupKey].orEmpty()
             val edgesIncomplete = groupKey in modulesWithIncompleteIncludes
-            buildDslIncludesHintFunction(groupKey, edges, incomplete = edgesIncomplete)
+            buildDslIncludesHintFunction(
+                groupKey,
+                edges,
+                incomplete = edgesIncomplete,
+                alternatives = moduleAlternatives[groupKey],
+            )
                 ?.let { functions.add(it) }
 
             // Keep-alive marker. A module that currently contributes NOTHING — last definition or
@@ -382,11 +390,13 @@ class DslHintGenerator(
         ownerModuleId: String,
         includedModuleIds: List<String>,
         emitWhenEmpty: Boolean = false,
-        incomplete: Boolean = false
+        incomplete: Boolean = false,
+        alternatives: ModuleChoice? = null,
     ): IrSimpleFunction? {
         val included = includedModuleIds.distinct()
-        // An incomplete module MUST emit even with nothing readable — the marker is the payload.
-        if (included.isEmpty() && !emitWhenEmpty && !incomplete) return null
+        // An incomplete module or a runtime choice MUST emit even with no edge — the markers are the payload.
+        val hasPayload = included.isNotEmpty() || incomplete || alternatives != null
+        if (!hasPayload && !emitWhenEmpty) return null
 
         val function = context.irFactory.createKoinHintFunction(
             name = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId)),
@@ -398,9 +408,21 @@ class DslHintGenerator(
         // The incomplete marker means this module's own includes() had an unreadable argument, so
         // the edge list below is PARTIAL — without it the consumer would treat it as authoritative
         // and report everything beyond it unreachable (a false KOIN-D001/D002/W001).
-        val markerParams = if (incomplete) {
-            listOf(newValueParameter(function, Name.identifier(KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER), context.irBuiltIns.unitType))
-        } else emptyList()
+        val markerNames = buildList {
+            if (incomplete) add(KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER)
+            if (alternatives != null) {
+                add(KoinPluginConstants.DSL_INCLUDES_ALTERNATIVES_MARKER)
+                for (moduleId in alternatives.moduleIds) {
+                    add(KoinPluginConstants.DSL_INCLUDES_ALTERNATIVE_PREFIX + moduleId.replace('.', '$'))
+                }
+                repeat(alternatives.inlineModules) { index ->
+                    add(KoinPluginConstants.DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX + index)
+                }
+            }
+        }
+        val markerParams = markerNames.map { name ->
+            newValueParameter(function, Name.identifier(name), context.irBuiltIns.unitType)
+        }
 
         function.parameters = markerParams + included.map { includedId -> buildModuleIdParam(function, includedId) }
 
@@ -479,8 +501,19 @@ class DslHintGenerator(
         types
     }
 
-    /** Edges a dependency declared, plus whether that list is known to be PARTIAL. */
-    data class ModuleIncludes(val edges: List<String>, val incomplete: Boolean)
+    /** This compilation's module graph, as published in the includes-edge hints. */
+    data class ModuleTopology(
+        val moduleIncludes: Map<String, List<String>> = emptyMap(),
+        val allModuleIds: Set<String> = emptySet(),
+        val modulesWithIncompleteIncludes: Set<String> = emptySet(),
+        val moduleAlternatives: Map<String, ModuleChoice> = emptyMap(),
+    )
+
+    /**
+     * Edges a dependency declared, plus whether that list is known to be PARTIAL. [alternatives]: set
+     * when the owner is a module function returning one of several modules chosen at runtime.
+     */
+    data class ModuleIncludes(val edges: List<String>, val incomplete: Boolean, val alternatives: ModuleChoice? = null)
 
     /**
      * Read the `includes()` edges a module val declares, from its cross-module includes hint —
@@ -502,13 +535,26 @@ class DslHintGenerator(
                 .map { it.removePrefix(prefix).replace('$', '.') }
                 .distinct()
             val incomplete = params.any { it == KoinPluginConstants.DSL_INCLUDES_INCOMPLETE_MARKER }
+            val alternatives = if (KoinPluginConstants.DSL_INCLUDES_ALTERNATIVES_MARKER in params) {
+                ModuleChoice(
+                    moduleIds = params.filter { it.startsWith(KoinPluginConstants.DSL_INCLUDES_ALTERNATIVE_PREFIX) }
+                        .map { it.removePrefix(KoinPluginConstants.DSL_INCLUDES_ALTERNATIVE_PREFIX).replace('$', '.') }
+                        .distinct(),
+                    // The same hint can be visible twice on a classpath: count distinct markers.
+                    inlineModules = params
+                        .filter { it.startsWith(KoinPluginConstants.DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX) }
+                        .distinct().size,
+                )
+            } else {
+                null
+            }
             if (edges.isNotEmpty() || incomplete) {
                 KoinPluginLogger.debug {
                     "  includes (cross-module hint): $ownerModuleId -> $edges" +
                         if (incomplete) " (PARTIAL — producer could not read all arguments)" else ""
                 }
             }
-            ModuleIncludes(edges, incomplete)
+            ModuleIncludes(edges, incomplete, alternatives)
         }
 
     /** Memoized per owner id — `referenceFunctions` is invariant within a compile and the

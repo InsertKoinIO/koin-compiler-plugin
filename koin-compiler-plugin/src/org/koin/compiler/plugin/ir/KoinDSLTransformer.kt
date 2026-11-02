@@ -18,6 +18,8 @@ import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
+import org.jetbrains.kotlin.ir.visitors.IrVisitorVoid
+import org.jetbrains.kotlin.ir.visitors.acceptChildrenVoid
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
@@ -155,11 +157,17 @@ class KoinDSLTransformer(
             }
         }
 
+    /** Module functions returning one of several modules, chosen at runtime. */
+    private val _moduleAlternatives = linkedMapOf<String, ModuleChoice>()
+    val moduleAlternatives: Map<String, ModuleChoice> get() = _moduleAlternatives
+
     private companion object {
         // SHARED — the module-typed receiver both codegen (which functions to intercept) and
         // safety (module-graph resolution) key off.
         const val KOIN_MODULE_FQNAME = "org.koin.core.module.Module"
         const val SCOPE_DSL_FQNAME = "org.koin.dsl.ScopeDSL"
+        const val KOIN_MODULE_DSL_FQNAME = "org.koin.dsl.module"
+        private val RECEIVER_RETURNING_SCOPE_FUNCTIONS = setOf("kotlin.apply", "kotlin.also")
 
         // SAFETY — module-graph resolution ([resolveModuleRef]) only. Stable List<Module>
         // constructors: same content every time, no branching — safe to recurse into their
@@ -288,11 +296,108 @@ class KoinDSLTransformer(
                 privateHelper = declaration,
             )
         }
-        val functionModuleId = buildModuleFunctionId(declaration) ?: return baseContext
+        val functionModuleId = buildModuleFunctionId(declaration)
+            ?: moduleGetterPropertyId(declaration)
+            ?: return baseContext
         KoinPluginLogger.debug { "Module-returning function: $functionModuleId" }
         _allModuleIds.add(functionModuleId)
+        collectReturnedModuleEdges(declaration, functionModuleId)
         return baseContext.copy(modulePropertyId = functionModuleId)
     }
+
+    /** A `val x: Module get() = …` with no backing field is a module function under its property's id. */
+    private fun moduleGetterPropertyId(function: IrSimpleFunction): String? {
+        val property = function.correspondingPropertySymbol?.owner ?: return null
+        val isComputedModuleGetter = property.getter == function && property.backingField == null &&
+            function.returnType.classFqName?.asString() == KOIN_MODULE_FQNAME
+        return if (isComputedModuleGetter) buildModulePropertyId(property) else null
+    }
+
+    /**
+     * SAFETY ONLY. `fun f(c) = if (c) a else b` (or `= otherModule()`) loads whatever it returns. Each
+     * returned module becomes an `includes()` edge from [functionModuleId]: all branches count as loaded.
+     * Two or more branches are a runtime choice, recorded so the entry point loading [functionModuleId]
+     * discloses it (KOIN-W011). The loaded set is unknown (edges marked incomplete, KOIN-W003) when a
+     * caller-supplied module is returned, or when one of several branches can't be read.
+     */
+    private fun collectReturnedModuleEdges(function: IrSimpleFunction, functionModuleId: String) {
+        val body = function.body ?: return
+        val returned = ReturnedModules(functionModuleId)
+        body.acceptChildrenVoid(object : IrVisitorVoid() {
+            override fun visitElement(element: IrElement) = element.acceptChildrenVoid(this)
+
+            override fun visitReturn(expression: IrReturn) {
+                if (expression.returnTargetSymbol == function.symbol) collectReturnedModules(expression.value, returned)
+                super.visitReturn(expression)
+            }
+        })
+        if (returned.moduleIds.isNotEmpty()) {
+            _moduleIncludes.getOrPut(functionModuleId) { mutableListOf() }.addAll(returned.moduleIds)
+            KoinPluginLogger.debug { "  returned modules: $functionModuleId -> ${returned.moduleIds}" }
+        }
+        val isChoice = returned.choiceCount >= 2
+        if (returned.callerSupplied || (isChoice && returned.unreadableBranches > 0)) {
+            _modulesWithIncompleteIncludes.add(functionModuleId)
+            KoinPluginLogger.debug { "  returned modules: $functionModuleId returns a module that can't be known here" }
+        } else if (isChoice) {
+            _moduleAlternatives[functionModuleId] =
+                ModuleChoice(returned.moduleIds.toList(), returned.ownModules.size)
+            KoinPluginLogger.debug { "  returned modules: $functionModuleId, choice of ${returned.choiceCount}" }
+        }
+    }
+
+    /** What a module function's return values load. */
+    private class ReturnedModules(val owner: String) {
+        val moduleIds = linkedSetOf<String>()
+
+        // Its own `module { }` blocks, by identity: two inline branches are two choices.
+        val ownModules = mutableSetOf<IrExpression>()
+        var unreadableBranches = 0
+        var callerSupplied = false
+        val choiceCount: Int get() = moduleIds.size + ownModules.size + unreadableBranches
+    }
+
+    private fun collectReturnedModules(expression: IrExpression, returned: ReturnedModules) {
+        when {
+            // throw / error() / the compiler's exhaustive-`when` else / `null`: loads nothing.
+            expression.loadsNothing() -> Unit
+            expression is IrWhen -> expression.branches.forEach { collectReturnedModules(it.result, returned) }
+            expression is IrTypeOperatorCall -> collectReturnedModules(expression.argument, returned)
+            // `when (subject)` and `a ?: b` lower to a block: temporaries, then the value.
+            expression is IrContainerExpression ->
+                (expression.statements.lastOrNull() as? IrExpression)?.let { collectReturnedModules(it, returned) }
+            expression is IrGetValue -> collectReturnedValue(expression, returned)
+            expression is IrCall && expression.isScopeFunctionOnReceiver() ->
+                expression.extensionReceiverArgument?.let { collectReturnedModules(it, returned) }
+            expression is IrCall && expression.symbol.owner.fqNameWhenAvailable?.asString() == KOIN_MODULE_DSL_FQNAME ->
+                returned.ownModules += expression
+            else -> collectReturnedReference(expression, returned)
+        }
+    }
+
+    private fun collectReturnedReference(expression: IrExpression, returned: ReturnedModules) {
+        val ids = mutableListOf<String>()
+        if (!resolveModuleRef(expression, ids)) {
+            returned.unreadableBranches++
+            return
+        }
+        // A recursive call loads nothing new.
+        returned.moduleIds += ids.filter { it != returned.owner && it != KOIN_MODULE_DSL_FQNAME }
+    }
+
+    private fun collectReturnedValue(expression: IrGetValue, returned: ReturnedModules) {
+        when (val value = expression.symbol.owner) {
+            is IrValueParameter -> returned.callerSupplied = true
+            is IrVariable -> value.initializer?.takeUnless { value.isVar }?.let { collectReturnedModules(it, returned) }
+            else -> Unit
+        }
+    }
+
+    private fun IrExpression.loadsNothing(): Boolean = type.isNothing() || (this is IrConst && value == null)
+
+    /** `module { }.apply { … }` / `.also { … }` return their receiver. */
+    private fun IrCall.isScopeFunctionOnReceiver(): Boolean =
+        symbol.owner.fqNameWhenAvailable?.asString() in RECEIVER_RETURNING_SCOPE_FUNCTIONS
 
     override fun visitProperty(declaration: IrProperty): IrStatement {
         if (!compileSafetyEnabled) return super.visitProperty(declaration)
@@ -1877,3 +1982,6 @@ private class PrivateHelpers {
         fun isPlaceholder(moduleId: String): Boolean = moduleId.startsWith(PLACEHOLDER_PREFIX)
     }
 }
+
+/** The modules a module function can return: other modules by id, plus [inlineModules] `module { }` of its own. */
+data class ModuleChoice(val moduleIds: List<String>, val inlineModules: Int)

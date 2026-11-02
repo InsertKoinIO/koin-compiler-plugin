@@ -315,9 +315,45 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_module_function_branch_gap_w011.kt")
+  public void testDsl_module_function_branch_gap_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_branch_gap_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_exhaustive_branches_w011.kt")
+  public void testDsl_module_function_exhaustive_branches_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_exhaustive_branches_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_inline_branches_w011.kt")
+  public void testDsl_module_function_inline_branches_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_inline_branches_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_override_param_w003.kt")
+  public void testDsl_module_function_override_param_w003() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_override_param_w003.kt");
+  }
+
+  @Test
   @TestMetadata("dsl_module_function_returns_list_precision_d001.kt")
   public void testDsl_module_function_returns_list_precision_d001() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_returns_list_precision_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_typed_entry_w011.kt")
+  public void testDsl_module_function_typed_entry_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_typed_entry_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_unreadable_branch_w003.kt")
+  public void testDsl_module_function_unreadable_branch_w003() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_unreadable_branch_w003.kt");
   }
 
   @Test

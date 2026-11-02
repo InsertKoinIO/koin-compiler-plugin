@@ -44,6 +44,9 @@ class CallSiteValidator(private val context: IrPluginContext) {
      */
     private var unreachableOnlyTypes: Set<String> = emptySet()
 
+    /** The module whose partial edge set made the loaded set unknown, for KOIN-W003's label. */
+    private var incompleteModuleReached: String? = null
+
     /** Set by [validateDslDefinitionGraph] on KOIN-W003; makes [validatePendingCallSites] defer instead of hard KOIN-D002. */
     private var topologyUnverifiable: Boolean = false
 
@@ -432,7 +435,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
         entryModulesIncomplete: Boolean = false,
         entryModulesIncompleteOrigin: SourceOrigin? = null,
         modulesWithIncompleteIncludes: Set<String> = emptySet(),
-        ownsAuthoritativeGraph: Boolean = true
+        ownsAuthoritativeGraph: Boolean = true,
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -459,10 +462,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 ?.let { "${it.substringAfterLast('/')}:${entryModulesIncompleteOrigin.line ?: "?"}" }
             KoinPluginLogger.report(
                 KoinDiagnostic.UnverifiableDynamicGraph(
-                    entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
+                    entry = (incompleteModuleReached ?: startKoinModules.firstOrNull { it != INLINE_MODULE_ID })
+                        ?.substringAfterLast('.')
                         ?.let { "the entry point loading $it" } ?: "this entry point",
                     origin = originStr,
-                )
+                ),
             )
         }
         val reachableModuleIds = resolvedReachable ?: emptySet()
@@ -533,6 +537,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             for (def in unreachableDefs) addAll(def.providedTypeNames())
             for (def in providerDefinitions) removeAll(def.providedTypeNames())
         }
+
         if (unreachableOnlyTypes.isNotEmpty()) {
             KoinPluginLogger.debug { "  unreachable-only types (withheld from call sites): $unreachableOnlyTypes" }
         }
@@ -580,14 +585,20 @@ class CallSiteValidator(private val context: IrPluginContext) {
             // Reaching a module whose own includes() were only partly readable means everything
             // below it is unknown. Scoped this way, an unresolvable includes() in a module the entry
             // point never loads costs nothing.
-            if (moduleId in modulesWithIncompleteIncludes) return null
+            if (moduleId in modulesWithIncompleteIncludes) {
+                incompleteModuleReached = moduleId
+                return null
+            }
             if (reachable.add(moduleId)) {
                 val localEdges = moduleIncludes[moduleId].orEmpty()
                 val crossModule = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId)
                 // A dependency that could not read all of its own includes() carries a marker saying
                 // so. Its edge list is partial, so anything below it is unknown — same conclusion as
                 // for a local module with unreadable includes.
-                if (crossModule?.incomplete == true) return null
+                if (crossModule?.incomplete == true) {
+                    incompleteModuleReached = moduleId
+                    return null
+                }
                 for (included in localEdges + crossModule?.edges.orEmpty()) {
                     if (included !in reachable) queue.add(included)
                 }
@@ -613,6 +624,35 @@ class CallSiteValidator(private val context: IrPluginContext) {
             }
         }
         return reachable to unreachable
+    }
+
+    /**
+     * KOIN-W011, once per module function loaded from [entryModules] whose returned module is chosen at
+     * runtime. Independent of which validation path the entry point takes: the choice is
+     * disclosed wherever compile safety counted every branch as loaded.
+     */
+    fun discloseRuntimeModuleChoices(
+        entryModules: List<String>,
+        moduleIncludes: Map<String, List<String>>,
+        localModuleAlternatives: Map<String, ModuleChoice>,
+        dslHintGenerator: DslHintGenerator,
+    ) {
+        val loaded = linkedSetOf<String>()
+        val queue = ArrayDeque(entryModules)
+        while (queue.isNotEmpty()) {
+            val moduleId = queue.removeFirst()
+            if (!loaded.add(moduleId)) continue
+            queue.addAll(moduleIncludes[moduleId].orEmpty())
+            queue.addAll(dslHintGenerator.discoverModuleIncludesFromHints(moduleId).edges)
+        }
+        for (owner in loaded) {
+            val choice = localModuleAlternatives[owner]
+                ?: dslHintGenerator.discoverModuleIncludesFromHints(owner).alternatives
+                ?: continue
+            val labels = choice.moduleIds.map { it.substringAfterLast('.') } +
+                List(choice.inlineModules) { "an inline module { }" }
+            KoinPluginLogger.report(KoinDiagnostic.RuntimeModuleChoice("${owner.substringAfterLast('.')}()", labels))
+        }
     }
 
     private fun reportUnreachableModules(
@@ -706,3 +746,5 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
     }
 }
+
+private const val INLINE_MODULE_ID = "org.koin.dsl.module"

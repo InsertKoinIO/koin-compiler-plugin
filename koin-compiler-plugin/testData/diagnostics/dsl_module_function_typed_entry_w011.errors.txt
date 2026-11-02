@@ -1,0 +1,1 @@
+[Koin][KOIN-W011] feature() loads one of otherModule / an inline module { } at runtime (if/when). Compile safety checked them as if all were loaded: a definition not provided by all of them is not guaranteed at runtime.

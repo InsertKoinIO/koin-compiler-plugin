@@ -1,0 +1,2 @@
+[Koin][KOIN-W011] dispatchModule() loads one of loggedModule / topicModule at runtime (if/when). Compile safety checked them as if all were loaded: a definition not provided by all of them is not guaranteed at runtime.
+[Koin][KOIN-W011] dispatchModuleByMode() loads one of loggedModule / topicModule at runtime (if/when). Compile safety checked them as if all were loaded: a definition not provided by all of them is not guaranteed at runtime.

@@ -161,6 +161,25 @@ Known limit: a judged call site is checked against every graph the compilation b
 - a call site in the same module creates `T` with `parametersOf(...)` → nothing reported;
 - none does → `KOIN-W010`. The creator may be in another module; if nothing creates `T` first, this call creates it without parameters and fails at runtime.
 
+### Module functions that choose a module at runtime
+
+A module function can return one of several modules:
+
+```kotlin
+fun dispatchModule(local: Boolean) = if (local) loggedModule else topicModule
+startKoin { modules(dispatchModule(isLocal)) }
+```
+
+Compile safety sees the whole tree, not the runtime choice, so every branch counts as loaded. A definition no branch provides is still `KOIN-D001`/`KOIN-D002`. The choice itself is disclosed once per function an entry point loads:
+
+```
+[Koin][KOIN-W011] dispatchModule() loads one of loggedModule / topicModule at runtime (if/when).
+Compile safety checked them as if all were loaded: a definition not provided by all of them is not
+guaranteed at runtime.
+```
+
+Known limit: a binding only some branches provide passes. Branches that throw or return `null` (including the compiler's `else` of an exhaustive `when`) don't count. A function that returns a caller-supplied module (`overrides ?: module { }`), or has a branch the compiler can't read (a member call on an object, for example), makes the loaded set unknown: `KOIN-W003`, as for `modules(if (c) a else b)` written inline.
+
 ## External Types: `@Provided` and Whitelist
 
 Some types are provided by the platform or framework at runtime (e.g., Android's `Context`, `SavedStateHandle`) and are never declared as Koin definitions. Without special handling, these would trigger false "missing dependency" errors.

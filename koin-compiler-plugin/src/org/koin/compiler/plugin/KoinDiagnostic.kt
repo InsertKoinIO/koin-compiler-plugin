@@ -458,6 +458,23 @@ sealed class KoinDiagnostic(
             "otherwise it is created here without its @InjectedParam values and fails at runtime.",
     )
 
+    /**
+     * KOIN-W011 — a loaded module function returns one of several modules, chosen at runtime
+     * (`fun f(c) = if (c) a else b`). Compile safety sees the whole tree, not the runtime
+     * choice: it checks them as if all were loaded. A definition none of them provide is still an
+     * error; one that not all of them provide is not guaranteed at runtime, hence this warning.
+     */
+    class RuntimeModuleChoice(
+        moduleFunction: String,
+        modules: List<String>,
+    ) : KoinDiagnostic(
+        code = "KOIN-W011",
+        severity = Severity.WARNING,
+        message = "$moduleFunction loads one of ${modules.joinToString(" / ")} at runtime (if/when). " +
+            "Compile safety checked them as if all were loaded: a definition not provided by all of them " +
+            "is not guaranteed at runtime.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,

@@ -1,0 +1,66 @@
+Module: kernel
+FILE: Dispatch.kt
+    package kernel
+
+    public abstract interface Publisher : R|kotlin/Any| {
+    }
+    public final class LoggedPublisher : R|kernel/Publisher| {
+        public constructor(): R|kernel/LoggedPublisher| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class TopicPublisher : R|kernel/Publisher| {
+        public constructor(): R|kernel/TopicPublisher| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Audit : R|kotlin/Any| {
+        public constructor(): R|kernel/Audit| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    private final val loggedModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/LoggedPublisher|>().R|org/koin/dsl/bind|<R|kernel/Publisher|>(<getClass>(Q|kernel/Publisher|))
+    }
+    )
+        private get(): R|org/koin/core/module/Module|
+    private final val topicModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/TopicPublisher|>().R|org/koin/dsl/bind|<R|kernel/Publisher|>(<getClass>(Q|kernel/Publisher|))
+    }
+    )
+        private get(): R|org/koin/core/module/Module|
+    public final fun dispatchModule(local: R|kotlin/Boolean|): R|org/koin/core/module/Module| {
+        ^dispatchModule when () {
+            R|<local>/local| ->  {
+                R|kernel/loggedModule|
+            }
+            else ->  {
+                R|kernel/topicModule|
+            }
+        }
+
+    }
+Module: app
+FILE: DispatchTest.kt
+    package app
+
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|app/Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/Config|>()
+            }
+            ), R|kernel/dispatchModule|(Boolean(false))))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|kernel/Publisher|>()
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|kernel/Audit|>()
+    }
