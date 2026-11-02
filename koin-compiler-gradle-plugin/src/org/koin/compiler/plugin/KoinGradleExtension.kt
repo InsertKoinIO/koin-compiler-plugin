@@ -92,9 +92,10 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      * Explicit acknowledgement that [strictSafety]'s auto-detection is a confirmed misfire on
      * this module — the `startKoin`/`koinApplication`/`@KoinApplication` marker it found only
      * appears in a comment or string literal, not a real entry point (default: `false`).
+     * Only takes effect together with `strictSafety = false`.
      *
      * This is a SEPARATE flag from `strictSafety = false` on purpose: since 1.1.0 a plain
-     * `strictSafety = false` is silently ignored whenever detection fires, because the two
+     * `strictSafety = false` is ignored (with a lifecycle log) whenever detection fires, because the two
      * cases ("this really isn't an aggregator" vs. "I just don't want the cost") are otherwise
      * indistinguishable from the Gradle side, and the wrong guess there reopens a real
      * freshness gap. Set this to `true` only when you've confirmed the detection is wrong.
@@ -103,7 +104,7 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
 
     /**
      * Append a single AI-assist hint at the end of compilation if any Koin diagnostic fires (default: true).
-     * Emitted once per build (not per error), pointing developers to the Kotzilla MCP Server,
+     * Emitted once per Kotlin compilation (not per error), pointing developers to the Kotzilla MCP Server,
      * which can classify Koin errors and walk an AI coding assistant through the fix.
      * Set to false to suppress the CTA.
      * See: https://doc.kotzilla.io/docs/fixIssues/koinMcp

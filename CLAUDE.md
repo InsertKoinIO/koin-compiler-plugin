@@ -48,26 +48,61 @@ koin-compiler-plugin/
 
 ### Compiler Plugin (`koin-compiler-plugin/src/org/koin/compiler/plugin/`)
 
+**Entry points and shared state**
+
 | File | Purpose |
 |------|---------|
-| `ir/KoinDSLTransformer.kt` | Transforms `single<T>()`, `factory<T>()`, `viewModel<T>()`, `worker<T>()`, `scoped<T>()`, `create(::T)` |
-| `ir/KoinStartTransformer.kt` | Transforms `startKoin<T>()`, `koinApplication<T>()`, `koinConfiguration<T>()`, `withConfiguration<T>()`, `module<T>()`, `modules(vararg KClass)` |
-| `ir/KoinAnnotationProcessor.kt` | Processes `@Module`, `@ComponentScan`, `@Singleton`, `@PropertyValue`, `@Provided` annotations |
-| `ir/KoinIrExtension.kt` | Plugin entry point, orchestrates IR phases |
-| `ir/LambdaBuilder.kt` | Creates lambda expressions with proper scope/parameter handling |
-| `ir/ScopeBlockBuilder.kt` | Builds `scope { }` DSL blocks |
-| `ir/QualifierExtractor.kt` | Extracts qualifier annotations (`@Named`, `@Qualifier`) |
-| `PropertyValueRegistry.kt` | Stores `@PropertyValue` defaults for property injection |
-| `ProvidedTypeRegistry.kt` | Stores `@Provided` types (skipped during safety validation) |
+| `KoinPluginComponentRegistrar.kt` | Compiler plugin entry point; also hosts `KoinPluginLogger` |
+| `KoinCommandLineProcessor.kt` | Compiler options (`koin.*` keys) passed from the Gradle plugin |
+| `KoinPluginRegistrar.kt` | FIR extension registrar |
+| `KoinDiagnostic.kt` | Catalog of `KOIN-…` diagnostics (D/W/A/S/P/M families); codes are stable API |
 | `KoinPluginConstants.kt` | Shared constants (definition types, hint prefixes, option keys) |
 | `KoinAnnotationFqNames.kt` | Centralized registry of all annotation FQNames |
-| `ir/CompileSafetyValidator.kt` | Full-graph validation for typed entry points (`startKoin<T>()`, `@KoinApplication`) |
-| `ir/CallSiteValidator.kt` | Call-site checks (`get<T>()`, `inject<T>()`, `koinViewModel<T>()`…) and DSL-graph validation when no typed entry point exists |
-| `ir/DslHintGenerator.kt` | Batched per-module DSL hints (`koin_dsl_hints_<module>.kt`) + includes-edge relay for cross-module safety |
-| `ir/KoinHintTransformer.kt` | Fills bodies of hint functions declared in FIR |
-| `KoinDiagnostic.kt` | `KOIN-Dxxx`/`KOIN-Wxxx` diagnostic codes and messages |
-| `fir/KoinModuleFirGenerator.kt` | Generates `fun T.module()` extension functions and hint declarations |
-| `KoinPluginRegistrar.kt` / `KoinPluginComponentRegistrar.kt` | FIR / component registrars |
+| `PropertyValueRegistry.kt` | Stores `@PropertyValue` defaults for property injection |
+| `ProvidedTypeRegistry.kt` | Stores `@Provided` types (skipped during safety validation) |
+| `GeneratedResolutionCallRegistry.kt` | `get()`/`inject()` calls the plugin generated itself, so call-site validation skips them |
+
+**FIR** (`fir/`)
+
+| File | Purpose |
+|------|---------|
+| `KoinModuleFirGenerator.kt` | Generates `fun T.module()` extensions and the FIR-declared hints (annotation definitions, qualifiers); emits D007 |
+| `FirKoinLookupRecorder.kt` | Records IC lookups from `@KoinApplication` to the `@Configuration` modules it discovers via hints |
+
+**IR codegen** (`ir/`)
+
+| File | Purpose |
+|------|---------|
+| `KoinIrExtension.kt` | IR entry point, runs the pipeline below |
+| `KoinDSLTransformer.kt` | Transforms `single<T>()`, `factory<T>()`, `viewModel<T>()`, `worker<T>()`, `scoped<T>()`, `create(::T)`; collects DSL defs, call sites, `includes()` edges |
+| `KoinStartTransformer.kt` | Transforms `startKoin<T>()`, `koinApplication<T>()`, `koinConfiguration<T>()`, `withConfiguration<T>()`, `module<T>()`, `modules(vararg KClass)`; emits W003 |
+| `KoinAnnotationProcessor.kt` | Processes `@Module`, `@ComponentScan`, `@Singleton`, `@PropertyValue`, `@Provided` annotations |
+| `DefinitionCallBuilder.kt` | Builds every definition, `bind` and `includes` IR call; emits A001/A002 |
+| `KoinArgumentGenerator.kt` | Builds constructor arguments (`get()`, `getOrNull()`, `inject()`, `getProperty()`…) |
+| `LambdaBuilder.kt` | Creates lambda expressions with proper scope/parameter handling |
+| `ScopeBlockBuilder.kt` | Builds `scope { }` DSL blocks |
+| `QualifierExtractor.kt` | Extracts qualifier annotations (`@Named`, `@Qualifier`) |
+| `ModuleFunctionResolver.kt` | Resolves `module()` extensions for `@Module` classes, cross-module included |
+| `KoinMonitorTransformer.kt` | Wraps `@Monitor` functions with Kotzilla trace calls |
+
+**Compile safety** (`ir/`) — design in [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.md)
+
+| File | Purpose |
+|------|---------|
+| `ParameterAnalyzer.kt` | Derives each definition's requirements; must mirror `KoinArgumentGenerator` or safety drifts from codegen |
+| `BindingRegistry.kt` | Matching engine: provided types vs requirements → D001, D004 (cycles), P001 |
+| `CompileSafetyValidator.kt` | Full-graph check for typed entry points (`startKoin<T>()`, `@KoinApplication`), called from `KoinStartTransformer`; W008 |
+| `CallSiteValidator.kt` | Call sites (`get<T>()`, `inject<T>()`, `koinViewModel<T>()`…) → D002/D003, `parametersOf` shape → D005/D006, W001/W003/W009/W010; and `validateDslDefinitionGraph` — the DSL-graph D001/D004 path when no typed entry point exists |
+
+**Cross-module hints** (`ir/`) — also drive `@Configuration` discovery, so they run even with `compileSafety = false`
+
+| File | Purpose |
+|------|---------|
+| `KoinHintTransformer.kt` | Fills bodies of hint functions declared in FIR |
+| `DslHintGenerator.kt` | Batched per-module DSL hints (`koin_dsl_hints_<module>.kt` on JVM) + includes-edge relay; emits D008 |
+| `InjectedParamHintGenerator.kt` | `@InjectedParam` shape hints that carry D005/D006 across modules |
+| `HintFiles.kt` | Where IR-built hints land: on Native/JS/wasm they attach to a FIR anchor file or KLIB drops them (KT-79565, #105) |
+| `IncrementalTracking.kt` | `LookupTracker`/`ExpectActualTracker` wiring for Kotlin IC |
 
 ### IR pipeline (`KoinIrExtension.generateInternal`, one pass each, in order)
 
@@ -77,6 +112,7 @@ koin-compiler-plugin/
 4. `DslHintGenerator` — emit/relay DSL hints for downstream modules
 5. `KoinStartTransformer` — entry points; full-graph safety via `CompileSafetyValidator`
 6. `CallSiteValidator.validateDslDefinitionGraph` — only when DSL defs exist and no typed entry point assembled a graph
+7. `KoinMonitorTransformer`, then the `aiAssist` hint if any diagnostic fired
 
 Cross-module data travels only through hint functions (see [docs/PLUGIN_HINTS.md](docs/PLUGIN_HINTS.md)) — custom `@Qualifier` meta-annotations are not preserved in Kotlin metadata, so anything a downstream module must see needs a hint.
 
@@ -182,29 +218,37 @@ cd test-apps
 ## Test Structure
 
 ```
-koin-compiler-plugin/testData/
-├── box/                    # Runtime tests (return "OK" or "FAIL")
-│   ├── dsl/               # DSL transformations (single<T>, factory<T>, etc.)
-│   ├── annotations/       # @Singleton, @Factory
-│   ├── qualifiers/        # @Named, @Qualifier
-│   ├── params/            # @InjectedParam, @Property, Lazy<T>
-│   ├── modules/           # @Module, @ComponentScan
-│   ├── startkoin/         # startKoin, koinApplication
-│   ├── scopes/            # @Scoped, @Scope
-│   ├── toplevel/          # Top-level function definitions
-│   ├── bindings/          # Interface auto-binding
-│   ├── safety/            # Compile-time safety (largest suite)
-│   └── monitor/           # @Monitor (Kotzilla SDK)
-├── diagnostics/           # Expected KOIN-Dxxx/Wxxx errors (`*.errors.txt` goldens)
-├── crossmodule/           # Multi-module diagnostics (`// MODULE:` blocks)
-└── registry/              # Input for KoinIrExtensionRegistryReleaseTest (not generated)
+koin-compiler-plugin/
+├── testData/
+│   ├── box/               # Runtime tests (return "OK" or "FAIL"), golden *.fir.txt + *.fir.ir.txt
+│   │   ├── dsl/           # DSL transformations (single<T>, factory<T>, etc.)
+│   │   ├── annotations/   # @Singleton, @Factory
+│   │   ├── qualifiers/    # @Named, @Qualifier
+│   │   ├── params/        # @InjectedParam, @Property, Lazy<T>
+│   │   ├── modules/       # @Module, @ComponentScan
+│   │   ├── startkoin/     # startKoin, koinApplication
+│   │   ├── scopes/        # @Scoped, @Scope
+│   │   ├── toplevel/      # Top-level function definitions
+│   │   ├── bindings/      # Interface auto-binding
+│   │   ├── safety/        # Compile safety that must still compile and run (largest suite)
+│   │   └── monitor/       # @Monitor (Kotzilla SDK)
+│   ├── diagnostics/       # Single-module KOIN-Dxxx/Wxxx tests: *.errors.txt + *.fir.txt, both asserted
+│   ├── crossmodule/       # Multi-module diagnostics (`// MODULE:` blocks): only *.errors.txt is asserted
+│   └── registry/          # Input for KoinIrExtensionRegistryReleaseTest / KoinCompilationRetentionTest (not generated)
+├── test/                  # Plain JUnit tests (registries, constants, retention/leak guards)
+├── test-fixtures/         # Runners, GenerateTests.kt (testData dir → runner), services/KoinTestDirectives.kt
+└── test-gen/              # Generated test classes, committed — don't edit by hand
 ```
 
-Each test file has golden files (`*.fir.txt`, `*.fir.ir.txt`) containing expected compiler output. Test classes are generated: `generateTests` (runs before `compileTestKotlin`, driven by `test-fixtures/.../GenerateTests.kt`) writes `test-gen/.../JvmBoxTestGenerated.java` (one nested class per `box/` dir), `JvmDiagnosticTestGenerated`, `JvmErrorMessageTestGenerated` — a new `.kt` in `testData/` is picked up automatically. Test-only directives (e.g. `DISABLE_COMPILE_SAFETY`) live in `test-fixtures/.../services/KoinTestDirectives.kt`. Plain unit tests are in `koin-compiler-plugin/test/`.
+Test classes are generated: `generateTests` (runs before `compileTestKotlin` when `testData/` changed, every time under `./test.sh`'s `--rerun-tasks`) writes `JvmBoxTestGenerated.java` (one nested class per `box/` dir), `JvmDiagnosticTestGenerated` and `JvmErrorMessageTestGenerated` into `test-gen/`. A new `.kt` in `testData/` is picked up automatically — commit the regenerated `test-gen/` files with it. Test-only directives (e.g. `DISABLE_COMPILE_SAFETY`) live in `test-fixtures/.../services/KoinTestDirectives.kt`.
+
+**Where a new test goes**: wrong/missing codegen → `box/<area>/`. A diagnostic that should (or should not) fire → `diagnostics/`, or `crossmodule/` when it needs more than one Gradle module. Name false-positive regressions `*_no_false_dNNN`.
+
+**Proving RED for a diagnostic test**: the error-message runner passes when nothing fires and no `.errors.txt` exists, and writes whatever fires into a missing golden. So for a *missing*-diagnostic bug, hand-write the expected `.errors.txt` first; for a *false-positive* bug, commit an empty `.errors.txt` first. Otherwise the test is green on unfixed code, or bakes the bug into the golden.
 
 ## PR Guards — check on EVERY pull request
 
-Before opening (or approving) any PR, both guards must pass:
+Before opening (or approving) any PR, guards 1 and 2 must pass; guard 3 gates every published version.
 
 ### 1. Don't break the current API
 - **Plugin configuration surface** (`koinCompiler { }` options), **supported DSL functions**, and **annotation semantics** are public API — no removals or behavior changes without a deprecation/migration path.
@@ -212,15 +256,15 @@ Before opening (or approving) any PR, both guards must pass:
 - Golden-file diffs (`*.fir.txt`, `*.fir.ir.txt`) are the review surface for this: an unexpected golden-file change in an unrelated test = a regression, not noise. Never blanket-regenerate golden files to make CI green.
 
 ### 2. New tests for every new case or fixed use-case
-- **Bug fix** → a box test in `testData/box/<area>/` that reproduces the issue: fails before the fix, returns "OK" after.
+- **Bug fix** → a test that reproduces the issue and fails before the fix: a box test in `testData/box/<area>/` (returns "OK" after), or a `diagnostics/`/`crossmodule/` test for a wrong or missing diagnostic (see Test Structure).
 - **New transformation/case** → box test(s) + golden files (`./test.sh -Pupdate.testdata=true`) covering the new shape, including qualifier/nullable/default-value variants where relevant.
 - **Codegen changes: JVM-green is not done.** Duplicate-signature and KLIB errors are invisible on JVM — compile `test-apps` for at least `iosArm64` (or another native target) and `wasmJs` before declaring a codegen change complete: `./install.sh && cd test-apps && ./gradlew :sample-app:compileKotlinIosArm64 :sample-app:compileKotlinWasmJs :sample-app:compileKotlinJs :sample-app:jvmTest`. `test-apps` uses the repo's own `pluginVersion` (override with `-PkoinPluginVersion=…`) and Kotlin 2.4.20 — JS/wasm with `@ComponentScan` can't compile on 2.3.20 (KT-82395).
 
 ### 3. Compile-safety stress test — run for EVERY published version
 - Run the full numbered checklist (scenarios 0–4: baseline, removed definition, transitive-includes edge, module dropped from root's list, fully-emptied module) against **both** `playground-apps/app-annotations` and `app-dsl`. Full procedure, exact file:line targets, and expected diagnostics: [`playground-apps/README.md`](playground-apps/README.md#compile-safety-stress-test-run-for-every-plugin-version).
-- **Scenario 1 — `app-annotations` needs `--rerun-tasks`, `app-dsl` doesn't (found 2026-08-28, 1.2.0-Beta7, daemon-isolated — real, not a shared-daemon artifact).** Removing `@Singleton` from a class on `app-annotations` (class kept, rest of the module unchanged) can pass a *plain* `./gradlew :app:compileDebugKotlin` silently: the owning module correctly regenerates its `@ComponentScan` hint in the same build (verified: definition count in the hint drops), but `:app`'s own compile task — which also re-executes, this is not a Gradle up-to-date skip — validates against a stale view of it. `--rerun-tasks` (discards Kotlin's own IC cache, not just Gradle's) reliably catches it. Narrow, not systemic: scenarios 2 and 3 on the same app caught their breaks on the first plain build, no rerun needed. Not fixed. Full detail: checklist scenario 1 in the README link above.
-- **No clean/rerun needed for DSL removed-definition detection (as of 1.1.0-Beta3).** Incremental DSL rebuilds detect a removed definition on a plain build — `./gradlew :app:compileDebugKotlin` on `app-dsl` MUST fail with `KOIN-D001`. The old DSL orphan-hint false-green (removing a `single<T>()` left an orphaned per-def hint class `…Dsl_singleKt.class` that IC never deleted) is fixed: each module's DSL hints are batched into one `koin_dsl_hints_<module>.kt` regenerated wholesale (same shape the annotation hints always used), so a removed def leaves no orphan.
-- **Known limitation — a module that goes COMPLETELY empty** (loses its last `includes()` AND has no definitions): confirmed **still true for `app-dsl`** (2026-08-28, 1.2.0-Beta7) — plain incremental `compileDebugKotlin` passes silently, only a full clean + `--no-build-cache` catches it (the emitted artifact is correct; the residual is K2 re-resolving a changed hint signature inside one IC session). Confirmed **no longer reproducing for `app-annotations`** in the same verification pass — a plain incremental build caught it with no clean needed, contradicting this bullet's previous unconditional claim. Root cause not deliberately investigated; plausibly an incidental side effect of hint-batching/multi-hop `@Configuration` work already on this branch. **Treat the annotation-path fix as observed, not guaranteed — re-verify on both apps before relying on it for a release.** Full procedure + rationale: checklist scenario 4 in the README link above.
+- Open incremental-build gaps — a plain build can false-green, so follow the README's command for each:
+  - **Scenario 1 on `app-annotations`**: needs `--rerun-tasks` (`:app` validates against a stale `@ComponentScan` hint). `app-dsl` must fail on a plain build.
+  - **Scenario 4 (module emptied entirely) on `app-dsl`**: only a full `clean` + `--no-build-cache` catches it. Currently caught incrementally on `app-annotations`, but unexplained — re-verify on both apps each release.
 
 ## Release
 
@@ -232,7 +276,7 @@ Before opening (or approving) any PR, both guards must pass:
 ./release-to-gradle-portal.sh
 ```
 
-**Release notes — concise, written for Koin users.** Target ~300 words (1.2.0/1.2.1 were rewritten from ~1300 to ~350 on 2026-09-10). One opening sentence saying what the release is for, then Added / Fixed / Changed / Compatibility / Install. Each bullet states what a user sees (the diagnostic, the crash, the false positive) and the fix, never the internal mechanism (hint carriers, relays, adapters, builder APIs). Keep contributor credits and issue links. Behavior changes still get their own explicit entry.
+**Release notes — concise, written for Koin users.** Target ~300 words. One opening sentence saying what the release is for, then Added / Fixed / Changed / Compatibility / Install. Each bullet states what a user sees (the diagnostic, the crash, the false positive) and the fix, never the internal mechanism (hint carriers, relays, adapters, builder APIs). Keep contributor credits and issue links. Behavior changes still get their own explicit entry.
 
 **Release notes — Added vs Fixed:** ask *"would this affect a user on the previous supported Kotlin/Koin range?"* Yes → `Fixed`. No (only enables a new version range) → ONE umbrella `Added` entry with sub-bullets. Intentional generated-code behavior changes always get their own explicit entry.
 
@@ -247,7 +291,8 @@ koinCompiler {
     skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
     compileSafety = true       // Compile-time dependency validation (default: true)
     strictSafety = true        // Force safety pass to bypass Kotlin IC on this module (default: auto-detect; `false` is ignored once an entry point is detected)
-    strictSafetyForceOff = true // Escape hatch: confirms a detected entry point is a misfire, actually disables strictSafety (default: false)
+    strictSafetyForceOff = true // With strictSafety = false: confirms a detected entry point is a misfire, actually disables it (default: false)
+    aiAssist = true            // One hint per compilation pointing to the Kotzilla MCP when a Koin diagnostic fires (default: true)
     logSeverity = "warning"           // Severity of informational output (default: "warning"; set "info" under allWarningsAsErrors)
     versionCheckSeverity = "warning"  // Severity of the Kotlin-version-compatibility warning (default: "warning"; independent of logSeverity)
 }
@@ -270,32 +315,12 @@ their own severity (see [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.m
 
 ### Strict Safety (incremental compilation bypass)
 
-**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans source files at configuration time, detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
+- **Auto-enabled** on any module whose source contains `startKoin`, `koinApplication` or `@KoinApplication` (the aggregator): its `compileKotlin` re-runs every build, because Kotlin IC can't see DSL lambda-body changes or new `@ComponentScan` files. Library and feature modules stay incremental.
+- **Mandatory once detected (1.1.0+)**: `strictSafety = false` alone is ignored (lifecycle log) — A3 at the aggregator is the only graph verifier. Turning it off takes **both** `strictSafety = false` and `strictSafetyForceOff = true`, for a detector misfire (marker in a comment or string).
+- **Detection is text-based and narrower than the compiler's entry points**: Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })` and `withConfiguration` aggregators are not auto-detected — set `strictSafety = true` there.
+- No effect when `compileSafety = false`.
 
-**Mandatory once detected (1.1.0+).** `strictSafety = false` no longer silently wins on a module where detection fires — the plugin ignores it, forces the safety pass on anyway, and logs a warning explaining why. Full-graph validation no longer has a redundant per-module safety net once A2 stops verifying (see [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.md)), so an aggregator silently skipping re-validation on an incremental rebuild is a correctness gap, not a preference. `strictSafety = true` still works everywhere (forces it on regardless of detection).
-
-**Escape hatch for a genuine detector misfire**: if the `startKoin`/`koinApplication`/`@KoinApplication` marker only appears in a comment or string literal (not a real entry point), set `strictSafetyForceOff = true` — a separate, explicit acknowledgement from a plain `strictSafety = false`, since the two cases ("this isn't really an aggregator" vs. "I just don't want the cost") are otherwise indistinguishable from the Gradle side.
-
-**Why**: full-graph safety only runs in the aggregator's `compileKotlin`, and Kotlin's IC — today, in K2 with the Build Tools API path that AGP uses — doesn't give the aggregator a reason to re-run when the graph actually changed. Two places where IC's tracking is too coarse for a DI graph:
-
-- **DSL definitions sit inside `module { … }` lambda bodies.** Lambda bodies aren't part of any declaration's ABI, and IC tracks per-declaration changes. So `single<X>() bind I::class` going away produces no signal the aggregator can see — its references to the module class are still valid, IC marks the task UP-TO-DATE, the removed binding goes unverified.
-
-- **`@ComponentScan` works by package, not by source reference.** Adding `@Singleton class NewService` to a scanned package creates a file nothing in the aggregator's source mentions. IC needs a source-level edge to invalidate downstream consumers, and there isn't one — the aggregator never re-scans, never sees the new class.
-
-We already record file-pair links via `ExpectActualTracker` to plug some of this (same primitive Metro uses for its `@BindingContainer` case), but those links only fire when both files participate in a build, and they don't cover newly-introduced files that nothing pointed to before. Forcing the aggregator to re-run is the smallest correct behavior we can produce on top of what K2 IC tells us today — a workaround framed against IC limitations, not a permanent design statement. If K2's IC tracking later grows package-scope edges or surfaces lambda-body changes through a different signal, this auto-enable becomes redundant and we can revisit.
-
-**Cost** is bounded: only the aggregator's `compileKotlin` task runs every build. Library and feature modules stay fully incremental.
-
-**When auto-detection triggers**:
-
-| Aggregator style | Detected via |
-|---|---|
-| DSL (`startKoin { modules(...) }`, `koinApplication { … }`) | `startKoin` / `koinApplication` string in source |
-| Annotation (`@KoinApplication`) | `@KoinApplication` string in source |
-
-When the auto-detection misfires (e.g. test fixtures referencing `startKoin` in comments, or a non-aggregator helper file with the marker), set `strictSafetyForceOff = true` explicitly to opt out — plain `strictSafety = false` alone is ignored once detection fires (see above).
-
-Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
+Full rationale and the IC limits it works around: [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.md#strict-safety-incremental-compilation-bypass), GH #32.
 
 ### DSL Safety Checks
 

@@ -73,7 +73,7 @@ class KoinCommandLineProcessor : CommandLineProcessor {
         CliOption(
             optionName = OPTION_AI_ASSIST,
             valueDescription = "<true|false>",
-            description = "Append an AI-assist hint pointing to Kotzilla MCP at the end of each Koin error message",
+            description = "Append one AI-assist hint pointing to Kotzilla MCP at the end of a compilation that reported a Koin diagnostic",
             required = false
         ),
         CliOption(

@@ -115,8 +115,8 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
      *
      * We still match identifiers that appear in comments and string literals — stripping
      * those at config time would need a real lexer. In practice this remains a heuristic; the
-     * lifecycle log makes the decision visible, and `strictSafetyForceOff = true` (not a plain
-     * `strictSafety = false`, which is now ignored once this detects a hit — see
+     * lifecycle log makes the decision visible, and `strictSafetyForceOff = true` together with
+     * `strictSafety = false` (a plain `strictSafety = false` is ignored once this detects a hit — see
      * [KoinGradlePlugin.configureStrictSafety]) is the escape for a confirmed misfire.
      */
     private val aggregatorMarkerRegex: Regex = Regex(

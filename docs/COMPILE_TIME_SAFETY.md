@@ -427,10 +427,44 @@ Runtime Koin matches on (raw class + qualifier), and the compile-safety validato
 ```kotlin
 koinCompiler {
     compileSafety = true   // Enable/disable compile-time safety checks (default: true)
+    aiAssist = true        // One hint per compilation pointing to the Kotzilla MCP when a Koin diagnostic fires (default: true)
 }
 ```
 
 Safety checks are gated by `KoinPluginLogger.compileSafetyEnabled`, controlled by the `compileSafety` Gradle option.
+
+`aiAssist` appends a single line (once per Kotlin compilation, not per error — a multi-module or
+multi-target build can show it more than once) when any `KOIN-…` diagnostic fires,
+pointing to the [Kotzilla MCP Server](https://doc.kotzilla.io/docs/fixIssues/koinMcp), which
+classifies Koin errors and walks an AI coding assistant through the fix. Set it to `false` to
+suppress the line; it never changes which diagnostics fire.
+
+### Strict safety (incremental compilation bypass)
+
+**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans source files at configuration time, detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
+
+**Mandatory once detected (1.1.0+).** `strictSafety = false` no longer silently wins on a module where detection fires — the plugin ignores it, forces the safety pass on anyway, and logs a lifecycle message explaining why. Full-graph validation has no per-module safety net since A2 stopped verifying, so an aggregator silently skipping re-validation on an incremental rebuild is a correctness gap, not a preference. `strictSafety = true` still works everywhere (forces it on regardless of detection).
+
+**Escape hatch for a genuine detector misfire**: if the `startKoin`/`koinApplication`/`@KoinApplication` marker only appears in a comment or string literal (not a real entry point), set `strictSafetyForceOff = true` **together with** `strictSafety = false` — a separate, explicit acknowledgement from a plain `strictSafety = false`, since the two cases ("this isn't really an aggregator" vs. "I just don't want the cost") are otherwise indistinguishable from the Gradle side.
+
+**Why**: full-graph safety only runs in the aggregator's `compileKotlin`, and Kotlin's IC — today, in K2 with the Build Tools API path that AGP uses — doesn't give the aggregator a reason to re-run when the graph actually changed. Two places where IC's tracking is too coarse for a DI graph:
+
+- **DSL definitions sit inside `module { … }` lambda bodies.** Lambda bodies aren't part of any declaration's ABI, and IC tracks per-declaration changes. So `single<X>() bind I::class` going away produces no signal the aggregator can see — its references to the module class are still valid, IC marks the task UP-TO-DATE, the removed binding goes unverified.
+
+- **`@ComponentScan` works by package, not by source reference.** Adding `@Singleton class NewService` to a scanned package creates a file nothing in the aggregator's source mentions. IC needs a source-level edge to invalidate downstream consumers, and there isn't one — the aggregator never re-scans, never sees the new class.
+
+We already record file-pair links via `ExpectActualTracker` to plug some of this (same primitive Metro uses for its `@BindingContainer` case), but those links only fire when both files participate in a build, and they don't cover newly-introduced files that nothing pointed to before. Forcing the aggregator to re-run is the smallest correct behavior we can produce on top of what K2 IC tells us today — a workaround framed against IC limitations, not a permanent design statement. If K2's IC tracking later grows package-scope edges or surfaces lambda-body changes through a different signal, this auto-enable becomes redundant and we can revisit.
+
+**Cost** is bounded: only the aggregator's `compileKotlin` task runs every build. Library and feature modules stay fully incremental.
+
+| Aggregator style | Detected via |
+|---|---|
+| DSL (`startKoin { modules(...) }`, `koinApplication { … }`) | `startKoin` / `koinApplication` string in source |
+| Annotation (`@KoinApplication`) | `@KoinApplication` string in source |
+
+Not detected: Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })` and `withConfiguration` entry points, which the compiler does treat as authoritative. Set `strictSafety = true` explicitly on those modules.
+
+Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
 
 ---
 

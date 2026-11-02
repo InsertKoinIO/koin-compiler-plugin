@@ -17,6 +17,13 @@ replaces the deprecated Koin KSP processor (`koin-ksp-compiler`).
 - Kotlin: K2, 2.3.20 minimum; verified versions in `supported-kotlin-versions.txt`
 - Koin: 4.2.0+ (users: latest Koin BOM)
 
+## Active branch
+
+Work for the next patch goes to branch **`1.2.2`**: branch from it and target
+PRs at it, not `main`. That includes contributor docs (CLAUDE.md, AGENTS.md,
+docs/). Only fixes to user-facing docs for the published version (README,
+llms.txt) may target `main`. Update this line when the release ships.
+
 ## Project layout
 
 ```
@@ -49,9 +56,11 @@ cd test-apps && ./gradlew :sample-app:jvmRun
 - **Golden files** (`*.fir.txt`, `*.fir.ir.txt`) are the review surface. An
   unexpected diff in an unrelated test is a regression. Never blanket-regenerate
   to make CI green.
-- **Tests for every case** — a bug fix gets a box test in
-  `koin-compiler-plugin/testData/box/<area>/` that fails before the fix and
-  returns `"OK"` after; a new transformation gets box tests + golden files.
+- **Tests for every case** — a bug fix gets a test that fails before the fix:
+  a box test in `koin-compiler-plugin/testData/box/<area>/` (returns `"OK"`
+  after), or a `testData/diagnostics/` / `testData/crossmodule/` test for a
+  wrong or missing `KOIN-…` diagnostic. A new transformation gets box tests +
+  golden files. Layout: "Test Structure" in [CLAUDE.md](CLAUDE.md).
 - **Codegen changes: JVM-green is not done** — also compile `test-apps` for a
   native target (e.g. `iosArm64`) and `wasmJs`.
 - **Silent is worse than broken** — never drop a definition, qualifier or
