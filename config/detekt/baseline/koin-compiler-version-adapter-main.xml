@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ArgumentListWrapping:KotlinAdapterLoader.kt:KotlinAdapterLoader$( null, warnings, "Koin compiler plugin: Kotlin $compilerVersion is older than the oldest supported version (${registry.first().first.raw}). " + "Upgrade Kotlin or use a koin-compiler-plugin release matching your Kotlin version. Verified versions: ${supportedList(registry)}.", )</ID>
+    <ID>ArgumentListWrapping:KotlinAdapterLoader.kt:KotlinAdapterLoader$(null, decision.warnings, "Koin compiler plugin: failed to load Kotlin version adapter '${entry.second}' for Kotlin $compilerVersion: $e")</ID>
+    <ID>ArgumentListWrapping:KotlinAdapterLoader.kt:KotlinAdapterLoader$(null, emptyList(), "Koin compiler plugin: no Kotlin version adapters found on the plugin classpath ($REGISTRY_PATH)")</ID>
+    <ID>ArgumentListWrapping:KotlinAdapterLoader.kt:KotlinAdapterLoader$(registry)</ID>
+    <ID>BinaryExpressionWrapping:KotlinAdapterLoader.kt:KotlinAdapterLoader$warnings += "Koin compiler plugin: Kotlin $compilerVersion is $relation — proceeding with the $proceedingWith adapter. " + "If compilation fails, check for a koin-compiler-plugin update. Verified versions: ${supportedList(registry)}."</ID>
+    <ID>BinaryExpressionWrapping:KotlinAdapterLoader.kt:KotlinAdapterLoader$warnings += "Koin compiler plugin: unrecognized Kotlin version '$compilerVersion' — using the adapter for Kotlin ${newest.first.raw} (newest available). Verified versions: ${supportedList(registry)}."</ID>
+    <ID>DestructuringDeclarationWithTooManyEntries:KotlinReleaseVersion.kt:KotlinReleaseVersion.Companion$val (major, minor, patch, qualifier, _) = match.destructured</ID>
+    <ID>MaxLineLength:KotlinAdapterLoader.kt:KotlinAdapterLoader$"Koin compiler plugin: Kotlin $compilerVersion is older than the oldest supported version (${registry.first().first.raw}). "</ID>
+    <ID>MaxLineLength:KotlinAdapterLoader.kt:KotlinAdapterLoader$"Upgrade Kotlin or use a koin-compiler-plugin release matching your Kotlin version. Verified versions: ${supportedList(registry)}."</ID>
+    <ID>MaxLineLength:KotlinAdapterLoader.kt:KotlinAdapterLoader$Selection(null, decision.warnings, "Koin compiler plugin: failed to load Kotlin version adapter '${entry.second}' for Kotlin $compilerVersion: $e")</ID>
+    <ID>MaxLineLength:KotlinAdapterLoader.kt:KotlinAdapterLoader$return Selection(null, emptyList(), "Koin compiler plugin: no Kotlin version adapters found on the plugin classpath ($REGISTRY_PATH)")</ID>
+    <ID>MaxLineLength:KotlinAdapterLoader.kt:KotlinAdapterLoader$warnings</ID>
+    <ID>MaxLineLength:KotlinAdapterLoader.kt:KotlinAdapterLoader$warnings += "Koin compiler plugin: unrecognized Kotlin version '$compilerVersion' — using the adapter for Kotlin ${newest.first.raw} (newest available). Verified versions: ${supportedList(registry)}."</ID>
+    <ID>MultiLineIfElse:KotlinAdapterLoader.kt:KotlinAdapterLoader$"newer than the newest verified version (${newest.first.raw})"</ID>
+    <ID>MultiLineIfElse:KotlinAdapterLoader.kt:KotlinAdapterLoader$"not among the verified versions"</ID>
+    <ID>ReturnCount:KotlinAdapterLoader.kt:KotlinAdapterLoader$fun load: Selection</ID>
+    <ID>TooGenericExceptionCaught:KotlinAdapterLoader.kt:KotlinAdapterLoader$e: Throwable</ID>
+  </CurrentIssues>
+</SmellBaseline>

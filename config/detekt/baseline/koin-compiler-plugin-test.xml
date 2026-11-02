@@ -1,0 +1,120 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ArgumentListWrapping:BindingRegistryTest.kt:BindingRegistryTest$(BindingRegistry.Companion.ShapeCheck.Ambiguous, BindingRegistry.validateInjectedParamShape(slots, args))</ID>
+    <ID>ArgumentListWrapping:BindingRegistryTest.kt:BindingRegistryTest$(slots, args)</ID>
+    <ID>ArgumentListWrapping:KoinAnnotationFqNamesTest.kt:KoinAnnotationFqNamesTest$("org.koin.android.annotation.ActivityRetainedScope", KoinAnnotationFqNames.ACTIVITY_RETAINED_SCOPE.asString())</ID>
+    <ID>ArgumentListWrapping:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$("none")</ID>
+    <ID>ArgumentListWrapping:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$(null)</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$( KoinDiagnostic.MissingCallSite("T", "get"), filePath = "/src/A.kt", line = 10, column = 5, )</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$( KoinDiagnostic.MissingCallSite("U", "get"), filePath = "/src/B.kt", line = 42, column = 7, )</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$( KoinDiagnostic.MissingCallSite(type = "T", callFn = "get"), filePath = "/abs/path/App.kt", line = 14, column = 5, )</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$( type = "Repository", qualifier = null, def = "Service", param = "repo", module = "M", hint = null, )</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$("KOIN-D008", KoinDiagnostic.DuplicateModuleHintIdentity("p.q_r.mod", "p.q.r_mod", "p_q_r_mod").code)</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$("T", null, "D", "p", "M", null)</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$("p.q_r.mod", "p.q.r_mod", "p_q_r_mod")</ID>
+    <ID>ArgumentListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest$(KoinDiagnostic.Severity.ERROR, KoinDiagnostic.MissingBinding("T", null, "D", "p", "M", null).severity)</ID>
+    <ID>ArgumentListWrapping:KoinLogSeverityTest.kt:KoinLogSeverityTest$( MessageCollector.NONE, userLogs = false, debugLogs = false, aiAssist = false, logSeverity = KoinLogSeverity.WARNING, versionCheckSeverity = KoinLogSeverity.INFO, )</ID>
+    <ID>ArgumentListWrapping:KoinLogSeverityTest.kt:KoinLogSeverityTest$(MessageCollector.NONE, userLogs = false, debugLogs = false, aiAssist = false, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>ArgumentListWrapping:KoinLogSeverityTest.kt:KoinLogSeverityTest$(rec, userLogs = false, debugLogs = false, aiAssist = false, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>ArgumentListWrapping:KoinLogSeverityTest.kt:KoinLogSeverityTest$(rec, userLogs = false, debugLogs = false, aiAssist = true, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>ArgumentListWrapping:KoinLogSeverityTest.kt:KoinLogSeverityTest$(rec, userLogs = true, debugLogs = true, aiAssist = false, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>ArgumentListWrapping:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.DefaultValueClassification$( "kotlin.String", "name", hasDefault = true, qualifier = QualifierValue.StringQualifier("appName") )</ID>
+    <ID>ArgumentListWrapping:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.EdgeCases$( "com.example.Repository", "repo", hasDefault = true, qualifier = QualifierValue.StringQualifier("cached") )</ID>
+    <ID>ArgumentListWrapping:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.LazyClassification$( "com.example.Repository", "repo", hasDefault = true, qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>ArgumentListWrapping:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.LazyClassification$( "com.example.Repository", "repo", qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>ArgumentListWrapping:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.MultipleRequirements$( "com.example.DataSource", "dataSource", qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>ArgumentListWrapping:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.NullableClassification$( "com.example.Logger", "logger", isNullable = true, qualifier = QualifierValue.StringQualifier("console") )</ID>
+    <ID>ArgumentListWrapping:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.RegularClassification$( "com.example.Repository", "repo", qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>BinaryExpressionWrapping:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$runCatching { f.isAccessible = true; f.get(null) as ThreadLocal&lt;*&gt; }.getOrNull() ?: return@mapNotNull null</ID>
+    <ID>BinaryExpressionWrapping:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$value == null || (value is Collection&lt;*&gt; &amp;&amp; value.isEmpty()) || (value is Map&lt;*, *&gt; &amp;&amp; value.isEmpty())</ID>
+    <ID>BinaryExpressionWrapping:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$value is Map&lt;*, *&gt; &amp;&amp; value.isEmpty()</ID>
+    <ID>FunctionExpressionBody:BindingRegistryTest.kt:BindingRegistryTest${ return Requirement( typeKey = TypeKey( classId = ClassId.topLevel(FqName(typeFqName)), fqName = FqName(typeFqName) ), paramName = paramName, isNullable = isNullable, hasDefault = hasDefault, isInjectedParam = isInjectedParam, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = isLazy, isList = isList, isProperty = isProperty, propertyKey = propertyKey, qualifier = qualifier ) }</ID>
+    <ID>FunctionExpressionBody:BindingRegistryTest.kt:BindingRegistryTest${ return TypeKey( classId = ClassId.topLevel(FqName(fqName)), fqName = FqName(fqName) ) }</ID>
+    <ID>FunctionLiteral:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$&lt;anonymous&gt;</ID>
+    <ID>HasPlatformType:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest.Companion$val captured = java.util.Collections.synchronizedList(mutableListOf&lt;WeakReference&lt;IrModuleFragment&gt;&gt;())</ID>
+    <ID>ImportOrdering:BindingRegistryTest.kt:import org.jetbrains.kotlin.cli.common.messages.MessageCollector import org.junit.jupiter.api.BeforeEach import org.junit.jupiter.api.Test import org.koin.compiler.plugin.ir.* import org.jetbrains.kotlin.name.ClassId import org.jetbrains.kotlin.name.FqName import kotlin.test.assertEquals import kotlin.test.assertFalse import kotlin.test.assertTrue</ID>
+    <ID>ImportOrdering:QualifierExtractorTest.kt:import org.junit.jupiter.api.Test import org.koin.compiler.plugin.ir.QualifierValue import kotlin.test.assertEquals import kotlin.test.assertNotEquals import kotlin.test.assertIs</ID>
+    <ID>LongParameterList:BindingRegistryTest.kt:BindingRegistryTest$private fun makeRequirement: Requirement</ID>
+    <ID>MaxLineLength:BindingRegistryTest.kt:BindingRegistryTest$assertEquals(BindingRegistry.Companion.ShapeCheck.Ambiguous, BindingRegistry.validateInjectedParamShape(slots, args))</ID>
+    <ID>MaxLineLength:KoinAnnotationFqNamesTest.kt:KoinAnnotationFqNamesTest$assertEquals("org.koin.android.annotation.ActivityRetainedScope", KoinAnnotationFqNames.ACTIVITY_RETAINED_SCOPE.asString())</ID>
+    <ID>MaxLineLength:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$val empty = value == null || (value is Collection&lt;*&gt; &amp;&amp; value.isEmpty()) || (value is Map&lt;*, *&gt; &amp;&amp; value.isEmpty())</ID>
+    <ID>MaxLineLength:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$val tl = runCatching { f.isAccessible = true; f.get(null) as ThreadLocal&lt;*&gt; }.getOrNull() ?: return@mapNotNull null</ID>
+    <ID>MaxLineLength:KoinDiagnosticTest.kt:KoinDiagnosticTest$assertEquals("KOIN-D008", KoinDiagnostic.DuplicateModuleHintIdentity("p.q_r.mod", "p.q.r_mod", "p_q_r_mod").code)</ID>
+    <ID>MaxLineLength:KoinDiagnosticTest.kt:KoinDiagnosticTest$assertEquals(KoinDiagnostic.Severity.ERROR, KoinDiagnostic.MissingBinding("T", null, "D", "p", "M", null).severity)</ID>
+    <ID>MaxLineLength:KoinDiagnosticTest.kt:KoinDiagnosticTest.Recorder$Report</ID>
+    <ID>MaxLineLength:KoinDiagnosticTest.kt:KoinDiagnosticTest.Recorder$override</ID>
+    <ID>MaxLineLength:KoinLogSeverityTest.kt:KoinLogSeverityTest$KoinPluginLogger.init(MessageCollector.NONE, userLogs = false, debugLogs = false, aiAssist = false, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>MaxLineLength:KoinLogSeverityTest.kt:KoinLogSeverityTest$KoinPluginLogger.init(rec, userLogs = false, debugLogs = false, aiAssist = false, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>MaxLineLength:KoinLogSeverityTest.kt:KoinLogSeverityTest$KoinPluginLogger.init(rec, userLogs = false, debugLogs = false, aiAssist = true, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>MaxLineLength:KoinLogSeverityTest.kt:KoinLogSeverityTest$KoinPluginLogger.init(rec, userLogs = true, debugLogs = true, aiAssist = false, logSeverity = KoinLogSeverity.INFO)</ID>
+    <ID>MaxLineLength:KoinLogSeverityTest.kt:KoinLogSeverityTest.Recorder$Report</ID>
+    <ID>MaxLineLength:KoinLogSeverityTest.kt:KoinLogSeverityTest.Recorder$override</ID>
+    <ID>NoNameShadowing:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest${ it.get() == null }</ID>
+    <ID>NoUnusedImports:PropertyValueRegistryTest.kt:org.koin.compiler.plugin.PropertyValueRegistryTest.kt</ID>
+    <ID>ParameterListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest.Recorder$(severity: CompilerMessageSeverity, message: String, location: CompilerMessageSourceLocation?)</ID>
+    <ID>ParameterListWrapping:KoinDiagnosticTest.kt:KoinDiagnosticTest.Recorder.Report$(val severity: CompilerMessageSeverity, val message: String, val location: CompilerMessageSourceLocation?)</ID>
+    <ID>ParameterListWrapping:KoinLogSeverityTest.kt:KoinLogSeverityTest.Recorder$(severity: CompilerMessageSeverity, message: String, location: CompilerMessageSourceLocation?)</ID>
+    <ID>ParameterListWrapping:KoinLogSeverityTest.kt:KoinLogSeverityTest.Recorder.Report$(val severity: CompilerMessageSeverity, val message: String, val location: CompilerMessageSourceLocation?)</ID>
+    <ID>StatementWrapping:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$;</ID>
+    <ID>StatementWrapping:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$f.isAccessible = true; f.get(null) as ThreadLocal&lt;*&gt;</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( // AuthData is in UserScope (different scope) Triple(makeTypeKey("com.example.AuthData"), null as QualifierValue?, "com.example.UserScope" as String?) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( // Repository is in root scope (scopeFqName = null) Triple(makeTypeKey("com.example.Repository"), null as QualifierValue?, null as String?) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( QualifierValue.StringQualifier("prod"), QualifierValue.StringQualifier("prod") )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( QualifierValue.StringQualifier("prod"), QualifierValue.StringQualifier("test") )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( QualifierValue.StringQualifier("prod"), null )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( Triple( makeTypeKey("com.example.Repository"), QualifierValue.StringQualifier("prod") as QualifierValue?, null as String? ) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( Triple( makeTypeKey("com.example.Repository"), QualifierValue.StringQualifier("test") as QualifierValue?, null as String? ) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( Triple("com.example.Service", null as String?, req1), Triple("com.example.Service", null as String?, req2) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( Triple(makeTypeKey("com.example.AuthData"), null as QualifierValue?, "com.example.SessionScope" as String?) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( Triple(makeTypeKey("com.example.Service"), null as QualifierValue?, null as String?) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( Triple(makeTypeKey("com.example.Service"), null as QualifierValue?, null as String?), Triple(makeTypeKey("com.example.Repository"), null as QualifierValue?, null as String?) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( classId = ClassId.topLevel(FqName("com.example.MyClass")), fqName = FqName("com.example.MyClass") )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( classId = ClassId.topLevel(FqName("com.example.MyClass")), fqName = null )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( classId = ClassId.topLevel(FqName(fqName)), fqName = FqName(fqName) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( classId = ClassId.topLevel(FqName(typeFqName)), fqName = FqName(typeFqName) )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( collector = MessageCollector.NONE, userLogs = false, debugLogs = false, skipDefaultValues = true )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( hasDefault = true, qualifier = QualifierValue.StringQualifier("named") )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( makeTypeKey("com.example.Repository"), QualifierValue.StringQualifier("prod") as QualifierValue?, null as String? )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( makeTypeKey("com.example.Repository"), QualifierValue.StringQualifier("test") as QualifierValue?, null as String? )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( null, QualifierValue.StringQualifier("prod") )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( typeFqName = "com.example.Repository", paramName = "repo", isLazy = true )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( typeFqName = "com.example.Repository", paramName = "repo", qualifier = QualifierValue.StringQualifier("prod") )</ID>
+    <ID>TrailingCommaOnCallSite:BindingRegistryTest.kt:BindingRegistryTest$( typeKey = TypeKey( classId = ClassId.topLevel(FqName(typeFqName)), fqName = FqName(typeFqName) ), paramName = paramName, isNullable = isNullable, hasDefault = hasDefault, isInjectedParam = isInjectedParam, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = isLazy, isList = isList, isProperty = isProperty, propertyKey = propertyKey, qualifier = qualifier )</ID>
+    <ID>TrailingCommaOnCallSite:KoinCompilationRetentionTest.kt:KoinCompilationRetentionTest$( "${modules.count { it.get() != null }} compiled IrModuleFragment(s) still reachable after the " + "compilation finished — the plugin retains IR (Kotlin daemon OOM, #110).\n" + "Plugin ThreadLocals still bound on this thread: ${boundPluginThreadLocals().ifEmpty { listOf("none") }}" )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( classId = ClassId.topLevel(FqName(fqName)), fqName = FqName(fqName) )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( collector = MessageCollector.NONE, userLogs = false, debugLogs = false, skipDefaultValues = true )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeKey = makeTypeKey(elementTypeFqName), paramName = paramName, isNullable = isNullable, hasDefault = hasDefault, isInjectedParam = false, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = false, isList = true, isProperty = false, propertyKey = null, qualifier = qualifier )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeKey = makeTypeKey(innerTypeFqName), paramName = paramName, isNullable = innerNullable, hasDefault = hasDefault, isInjectedParam = false, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = true, isList = false, isProperty = false, propertyKey = null, qualifier = qualifier )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeKey = makeTypeKey(typeFqName), paramName = paramName, isNullable = isNullable, hasDefault = hasDefault, isInjectedParam = false, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = false, isList = false, isProperty = false, propertyKey = null, qualifier = qualifier )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeKey = makeTypeKey(typeFqName), paramName = paramName, isNullable = isNullable, hasDefault = hasDefault, isInjectedParam = false, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = false, isList = false, isProperty = true, propertyKey = propertyKey, qualifier = null )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeKey = makeTypeKey(typeFqName), paramName = paramName, isNullable = isNullable, hasDefault = hasDefault, isInjectedParam = true, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = false, isList = false, isProperty = false, propertyKey = null, qualifier = null )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.DefaultValueClassification$( "kotlin.String", "name", hasDefault = true, qualifier = QualifierValue.StringQualifier("appName") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.DefaultValueClassification$( collector = MessageCollector.NONE, userLogs = false, debugLogs = false, skipDefaultValues = false )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.EdgeCases$( "com.example.Repository", "repo", hasDefault = true, qualifier = QualifierValue.StringQualifier("cached") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.EdgeCases$( collector = MessageCollector.NONE, userLogs = false, debugLogs = false, skipDefaultValues = false )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.EdgeCases$( collector = MessageCollector.NONE, userLogs = false, debugLogs = false, skipDefaultValues = true )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.EdgeCases$( typeKey = TypeKey(classId = null, fqName = null), paramName = "unknown", isNullable = false, hasDefault = false, isInjectedParam = false, isProvided = false, isScopeId = false, scopeIdName = null, isLazy = false, isList = false, isProperty = false, propertyKey = null, qualifier = null )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.LazyClassification$( "com.example.Repository", "repo", hasDefault = true, qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.LazyClassification$( "com.example.Repository", "repo", qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.MultipleRequirements$( "com.example.DataSource", "dataSource", qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.MultipleRequirements$( simulateInjectedParam("kotlin.String", "userId"), simulatePropertyParam("kotlin.String", "url", propertyKey = "db.url"), simulateRegularParam("com.example.Logger", "logger", isNullable = true), simulateListParam("com.example.Plugin", "plugins"), simulateRegularParam("kotlin.Int", "timeout", hasDefault = true) )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.MultipleRequirements$( simulateLazyParam("com.example.Repository", "repo"), simulateRegularParam( "com.example.DataSource", "dataSource", qualifier = QualifierValue.StringQualifier("remote") ) )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.MultipleRequirements$( simulateRegularParam("com.example.Repository", "repo"), simulateInjectedParam("kotlin.String", "userId"), simulatePropertyParam("kotlin.String", "url", propertyKey = "db.url"), simulateRegularParam("com.example.Logger", "logger", isNullable = true, hasDefault = true), simulateListParam("com.example.Plugin", "plugins") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.NullableClassification$( "com.example.Logger", "logger", isNullable = true, qualifier = QualifierValue.StringQualifier("console") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.RegularClassification$( "com.example.Repository", "repo", qualifier = QualifierValue.StringQualifier("remote") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.TypeKeyRendering$( classId = ClassId.topLevel(FqName("com.example.MyService")), fqName = FqName("com.example.MyService") )</ID>
+    <ID>TrailingCommaOnCallSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest.TypeKeyRendering$( classId = ClassId.topLevel(FqName("com.example.MyService")), fqName = null )</ID>
+    <ID>TrailingCommaOnCallSite:QualifierExtractorTest.kt:QualifierExtractorTest$( QualifierValue.StringQualifier("a"), QualifierValue.StringQualifier("b"), QualifierValue.StringQualifier("a") // duplicate )</ID>
+    <ID>TrailingCommaOnDeclarationSite:BindingRegistryTest.kt:BindingRegistryTest$( typeFqName: String = "com.example.Dependency", paramName: String = "dep", isNullable: Boolean = false, hasDefault: Boolean = false, isInjectedParam: Boolean = false, isLazy: Boolean = false, isList: Boolean = false, isProperty: Boolean = false, propertyKey: String? = null, qualifier: QualifierValue? = null )</ID>
+    <ID>TrailingCommaOnDeclarationSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( elementTypeFqName: String, paramName: String, isNullable: Boolean = false, hasDefault: Boolean = false, qualifier: QualifierValue? = null )</ID>
+    <ID>TrailingCommaOnDeclarationSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( innerTypeFqName: String, paramName: String, innerNullable: Boolean = false, hasDefault: Boolean = false, qualifier: QualifierValue? = null )</ID>
+    <ID>TrailingCommaOnDeclarationSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeFqName: String, paramName: String, isNullable: Boolean = false, hasDefault: Boolean = false )</ID>
+    <ID>TrailingCommaOnDeclarationSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeFqName: String, paramName: String, isNullable: Boolean = false, hasDefault: Boolean = false, qualifier: QualifierValue? = null )</ID>
+    <ID>TrailingCommaOnDeclarationSite:ParameterAnalyzerTest.kt:ParameterAnalyzerTest$( typeFqName: String, paramName: String, propertyKey: String, isNullable: Boolean = false, hasDefault: Boolean = false )</ID>
+    <ID>WildcardImport:BindingRegistryTest.kt:import org.koin.compiler.plugin.ir.*</ID>
+    <ID>WildcardImport:ParameterAnalyzerTest.kt:import org.koin.compiler.plugin.ir.*</ID>
+    <ID>Wrapping:BindingRegistryTest.kt:BindingRegistryTest$(</ID>
+  </CurrentIssues>
+</SmellBaseline>

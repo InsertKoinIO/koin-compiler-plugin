@@ -1,0 +1,16 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>FunctionExpressionBody:KoinGradlePlugin.kt:KoinGradlePlugin${ return kotlinCompilation.kotlinSourceSets.any { srcSet -&gt; srcSet.kotlin.files.any { file -&gt; try { aggregatorMarkerRegex.containsMatchIn(file.readText()) } catch (_: Throwable) { false } } } }</ID>
+    <ID>Indentation:BuildConfig.kt:BuildConfig$ </ID>
+    <ID>PackageName:BuildConfig.kt:package io.insert_koin.compiler.plugin</ID>
+    <ID>PackageNaming:BuildConfig.kt:package io.insert_koin.compiler.plugin</ID>
+    <ID>TrailingCommaOnCallSite:KoinGradlePlugin.kt:KoinGradlePlugin$( "(?:(?&lt;![A-Za-z0-9_])startKoin(?![A-Za-z0-9_]))" + "|(?:(?&lt;![A-Za-z0-9_])koinApplication(?![A-Za-z0-9_]))" + "|(?:@KoinApplication(?![A-Za-z0-9_]))" )</ID>
+    <ID>TrailingCommaOnCallSite:KoinGradlePlugin.kt:KoinGradlePlugin$( "[Koin] Auto-enabling strictSafety on ${project.path} " + "(detected startKoin / @KoinApplication / koinApplication)." )</ID>
+    <ID>TrailingCommaOnCallSite:KoinGradlePlugin.kt:KoinGradlePlugin$( "[Koin] strictSafety = false is being ignored on ${project.path}: this compilation " + "contains a real Koin entry point (startKoin / @KoinApplication / koinApplication), " + "so full-graph compile safety must run on every build. If this detection is wrong " + "(e.g. the marker only appears in a comment or string literal), set " + "`strictSafetyForceOff = true` in koinCompiler { } to confirm that and disable it." )</ID>
+    <ID>TrailingCommaOnCallSite:KoinGradlePlugin.kt:KoinGradlePlugin$( "[Koin] strictSafety left OFF on ${project.path} despite detecting startKoin / " + "@KoinApplication / koinApplication — strictSafetyForceOff = true acknowledges " + "this is a detector misfire, not a real entry point in this compilation." )</ID>
+    <ID>TrailingCommaOnCallSite:KoinGradlePlugin.kt:KoinGradlePlugin$( SubpluginOption(OPTION_USER_LOGS, extension.userLogs.get().toString()), SubpluginOption(OPTION_DEBUG_LOGS, extension.debugLogs.get().toString()), SubpluginOption(OPTION_UNSAFE_DSL_CHECKS, extension.unsafeDslChecks.get().toString()), SubpluginOption(OPTION_SKIP_DEFAULT_VALUES, extension.skipDefaultValues.get().toString()), SubpluginOption(OPTION_COMPILE_SAFETY, extension.compileSafety.get().toString()), SubpluginOption(OPTION_AI_ASSIST, extension.aiAssist.get().toString()), SubpluginOption(OPTION_MODULE_ID, moduleId), SubpluginOption(OPTION_LOG_SEVERITY, extension.logSeverity.get()), SubpluginOption(OPTION_VERSION_CHECK_SEVERITY, extension.versionCheckSeverity.get()) )</ID>
+    <ID>TrailingCommaOnDeclarationSite:KoinGradlePlugin.kt:KoinGradlePlugin$( kotlinCompilation: KotlinCompilation&lt;*&gt; )</ID>
+  </CurrentIssues>
+</SmellBaseline>
