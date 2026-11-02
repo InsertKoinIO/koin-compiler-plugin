@@ -1,0 +1,49 @@
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    @R|org/koin/core/annotation/Qualifier|() public final annotation class Remote : R|kotlin/Annotation| {
+        public constructor(): R|lib/Remote| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Store : R|kotlin/Any| {
+        public constructor(): R|lib/Store| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Client : R|kotlin/Any| {
+        public constructor(): R|lib/Client| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib))) public final class LibModule : R|kotlin/Any| {
+        public constructor(): R|lib/LibModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() @R|lib/Remote|() public final fun provideRemoteClient(store: R|lib/Store|): R|lib/Client| {
+        ^provideRemoteClient R|lib/Client.Client|()
+    }
+FILE: lib/libLibModuleModule.kt
+    package lib
+
+    public final fun R|lib/LibModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/libRemoteDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun qualifier(contributed: R|lib/Remote|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package app
+
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/modules|(vararg(<getClass>(Q|lib/LibModule|)))
+        }
+        )
+    }

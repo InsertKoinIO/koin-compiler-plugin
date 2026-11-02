@@ -289,15 +289,25 @@ object KoinPluginConstants {
      * Sanitize a qualifier name for use in a Kotlin identifier (hint parameter name).
      *
      * Characters not valid in Kotlin identifiers are escaped as `$XX` where XX is
-     * the lowercase 2-digit hex code of the character. Literal `$` is escaped as `$$`.
+     * the lowercase 2-digit hex code of the character, or as `$uXXXX` above U+00FF
+     * (fixed width, so decoding knows where it ends). Literal `$` is escaped as `$$`.
      *
      * Example: `"my.service-1"` → `"my$2eservice$2d1"`
      */
+    private const val MAX_NARROW_ESCAPE_CODE = 0xFF
+    private const val WIDE_ESCAPE_MARKER = "\$u"
+    private const val WIDE_ESCAPE_DIGITS = 4
+    private const val HEX_RADIX = 16
+
     fun sanitizeQualifierName(name: String): String = buildString(name.length) {
         for (ch in name) {
             when {
                 ch == '$' -> append("$$")
                 ch.isLetterOrDigit() || ch == '_' -> append(ch)
+                ch.code > MAX_NARROW_ESCAPE_CODE -> {
+                    append(WIDE_ESCAPE_MARKER)
+                    append(ch.code.toString(HEX_RADIX).padStart(WIDE_ESCAPE_DIGITS, '0'))
+                }
                 else -> {
                     append('$')
                     append(ch.code.toString(16).padStart(2, '0'))
@@ -317,9 +327,15 @@ object KoinPluginConstants {
         while (i < encoded.length) {
             val ch = encoded[i]
             if (ch == '$' && i + 1 < encoded.length) {
+                val wideEnd = i + WIDE_ESCAPE_MARKER.length + WIDE_ESCAPE_DIGITS
+                val wideCode = encoded.takeIf { encoded.startsWith(WIDE_ESCAPE_MARKER, i) && wideEnd <= it.length }
+                    ?.substring(i + WIDE_ESCAPE_MARKER.length, wideEnd)?.toIntOrNull(HEX_RADIX)
                 if (encoded[i + 1] == '$') {
                     append('$')
                     i += 2
+                } else if (wideCode != null) {
+                    append(wideCode.toChar())
+                    i = wideEnd
                 } else if (i + 2 < encoded.length) {
                     val hex = encoded.substring(i + 1, i + 3)
                     val code = hex.toIntOrNull(16)
