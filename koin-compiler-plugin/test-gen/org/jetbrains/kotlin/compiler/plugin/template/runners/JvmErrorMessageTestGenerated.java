@@ -730,15 +730,51 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_funcreqs_custom_qualifier_missing_d001.kt")
+    public void testCross_module_funcreqs_custom_qualifier_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_custom_qualifier_missing_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_funcreqs_lazy_cycle_no_false_d004.kt")
     public void testCross_module_funcreqs_lazy_cycle_no_false_d004() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_lazy_cycle_no_false_d004.kt");
     }
 
     @Test
+    @TestMetadata("cross_module_funcreqs_library_type_provider_no_false_d001.kt")
+    public void testCross_module_funcreqs_library_type_provider_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_library_type_provider_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_funcreqs_non_latin_qualifier_missing_d001.kt")
+    public void testCross_module_funcreqs_non_latin_qualifier_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_non_latin_qualifier_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_funcreqs_qualified_first_keeps_unqualified_d001.kt")
+    public void testCross_module_funcreqs_qualified_first_keeps_unqualified_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_qualified_first_keeps_unqualified_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_funcreqs_qualified_zero_param_no_false_d004.kt")
+    public void testCross_module_funcreqs_qualified_zero_param_no_false_d004() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_qualified_zero_param_no_false_d004.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_funcreqs_two_qualified_same_type_d001.kt")
     public void testCross_module_funcreqs_two_qualified_same_type_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_two_qualified_same_type_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_funcreqs_unqualified_zero_param_no_false_d004.kt")
+    public void testCross_module_funcreqs_unqualified_zero_param_no_false_d004() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_funcreqs_unqualified_zero_param_no_false_d004.kt");
     }
 
     @Test

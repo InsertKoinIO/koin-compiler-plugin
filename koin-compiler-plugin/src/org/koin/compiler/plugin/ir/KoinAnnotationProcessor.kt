@@ -112,9 +112,9 @@ class KoinAnnotationProcessor(
         definitionTopLevelFunctions.groupBy { it.packageFqName.asString() }
     }
 
-    // A3 Gate-3: return-type FqNames for which a `funcreqs_*` carrier hint has already been emitted in
-    // THIS compilation. Shared by the scan-path emission (generateModuleScanHints) and the orphan-path
-    // emission (emitOrphanFuncReqsHints) so each return type gets exactly one hint — an unscoped hint
+    // A3 Gate-3: (return-type FqName, qualifier) keys for which a `funcreqs_*` carrier hint has already
+    // been emitted in THIS compilation. Shared by the scan-path emission (generateModuleScanHints) and the
+    // orphan-path emission (emitOrphanFuncReqsHints) so each key gets exactly one hint — an unscoped hint
     // emitted twice is a hard KLIB SignatureClash on native/wasm. Fresh per compilation (this processor
     // is instantiated per IR generation).
     private val emittedFuncReqsReturnFqns = mutableSetOf<String>()
@@ -1185,20 +1185,11 @@ class KoinAnnotationProcessor(
                 hintFunctions.add(reqHint)
                 KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn${carrierQualifier?.let { " @$it" } ?: ""} (${reqHint.parameters.size} requirement(s))" }
             }
-            // Compatibility carrier under the BARE name. The consumer derives its
-            // qualifier from the FIR-generated discovery hint, which understands only
-            // @Named/@Qualifier — not custom meta-annotation qualifiers, which the IR
-            // extractor here DOES resolve. When the two disagree the consumer looks up
-            // the bare name, and without this it would find nothing and silently drop
-            // the provider's requirements. Emitting the bare form once per return type
-            // keeps that case at its pre-qualifier-key behavior instead of regressing
-            // it to empty. Harmless where the sides agree: the qualified lookup wins.
-            if (carrierQualifier != null && emittedFuncReqsReturnFqns.add("$returnFqn|")) {
-                createFuncReqsHintFunction(targetClass, definition.requirements, null)?.let {
-                    hintFunctions.add(it)
-                    KoinPluginLogger.debug { "    + funcreqs carrier (bare fallback): $returnFqn" }
-                }
-            }
+            // No bare "compatibility" carrier for a qualified provider (#96): the bare name
+            // belongs to the unqualified provider of this type. Sharing it let a qualified provider's
+            // requirements leak onto an unqualified one (false KOIN-D004/D001), or take its slot and
+            // hide its real KOIN-D001. On this scan path the discovery hint and this carrier read the
+            // qualifier with the same extractor, so the consumer's qualified lookup finds the exact one.
         }
 
         // Top-level functions extract qualifier from the function declaration
@@ -1682,20 +1673,12 @@ class KoinAnnotationProcessor(
         val hintName = Name.identifier(
             KoinPluginConstants.funcReqsHintFunctionName(returnFqn, qualifier?.let { qualifierDiscriminator(it) })
         )
-        val hintFunc = (context.referenceFunctions(
+        // Exact name only: the bare carrier is another (unqualified) provider's, never a fallback.
+        // No carrier: the provider has no requirement to carry, or (orphan path, see KTZ ticket on
+        // FIR-derived qualifiers) the consumer's qualifier differs from the producer's.
+        val hintFunc = context.referenceFunctions(
             CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
-        ).firstOrNull()
-        // Fall back to the bare name: producer and consumer can disagree on the qualifier (the
-        // consumer's comes from the FIR discovery hint, which does not model custom meta-annotation
-        // qualifiers). Missing here would mean silently unvalidated requirements.
-            ?: qualifier?.let {
-                context.referenceFunctions(
-                    CallableId(
-                        KoinModuleFirGenerator.HINTS_PACKAGE,
-                        Name.identifier(KoinPluginConstants.funcReqsHintFunctionName(returnFqn, null))
-                    )
-                ).firstOrNull()
-            })?.owner ?: return emptyList()
+        ).firstOrNull()?.owner ?: return emptyList()
 
         val reqs = mutableListOf<Requirement>()
         for (p in hintFunc.regularParameters) {
