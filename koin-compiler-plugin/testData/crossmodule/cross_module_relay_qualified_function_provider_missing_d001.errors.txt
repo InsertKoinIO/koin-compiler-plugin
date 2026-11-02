@@ -1,0 +1,4 @@
+[Koin][KOIN-D001] Missing dependency: serialization.Json qualified with @Named("absent")
+  required by: feature.Api (parameter 'missing')
+  in module: App (startKoin)
+  Hint: Found similar binding: serialization.Json with qualifier @Named("lenient")

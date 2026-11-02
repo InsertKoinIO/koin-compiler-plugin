@@ -1137,7 +1137,7 @@ class KoinAnnotationProcessor(
 
             when (definition) {
                 is Definition.ClassDef, is Definition.ExternalFunctionDef -> {
-                    scanHintFor(definition, sanitizedModuleId)?.let { hintFunctions.add(it) }
+                    scanHintFor(definition, sanitizedModuleId, qualifiedEntriesByDefType)?.let { hintFunctions.add(it) }
                     KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr)" }
                 }
                 is Definition.TopLevelFunctionDef -> collectTopLevelFunctionHint(
@@ -1228,22 +1228,55 @@ class KoinAnnotationProcessor(
     }
 
     /**
-     * `componentscan_<moduleId>_<defType>` hint for a [Definition.ClassDef] / [Definition.ExternalFunctionDef]
-     * under [sanitizedModuleId] — shared by the scan loop below and [relayIncludedModuleHints] /
-     * [relayConfigurationHints]. Null for any other definition kind (those aren't scan-hint-shaped).
+     * Re-published scan hint for a [Definition.ClassDef] / [Definition.ExternalFunctionDef] under
+     * [sanitizedModuleId] — shared by the scan loop below and [relayIncludedModuleHints]. A class
+     * goes under the class-scan name; a function provider under the function-scan names (shared name
+     * when unqualified, per-qualifier entry recorded in [qualifiedEntriesByDefType] for the roster),
+     * or the consumer would rebuild it as a class and validate its return type's constructor (#114).
+     * Null for any other definition kind (those aren't scan-hint-shaped).
      */
-    private fun scanHintFor(definition: Definition, sanitizedModuleId: String): IrSimpleFunction? {
+    private fun scanHintFor(
+        definition: Definition,
+        sanitizedModuleId: String,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ): IrSimpleFunction? {
         val defTypeStr = definitionTypeToString(definition.definitionType)
-        val (bindings, scopeClass, qualifier) = when (definition) {
-            is Definition.ClassDef -> Triple(
-                definition.bindings, definition.scopeClass,
-                definition.qualifier ?: qualifierExtractor.extractFromClass(definition.irClass)
+        return when (definition) {
+            is Definition.ClassDef -> createHintFunction(
+                KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedModuleId, defTypeStr),
+                definition.returnTypeClass,
+                definition.bindings,
+                definition.scopeClass,
+                definition.qualifier ?: qualifierExtractor.extractFromClass(definition.irClass),
             )
-            is Definition.ExternalFunctionDef -> Triple(definition.bindings, definition.scopeClass, definition.qualifier)
-            else -> return null
+            is Definition.ExternalFunctionDef ->
+                functionScanHintFor(definition, defTypeStr, sanitizedModuleId, qualifiedEntriesByDefType)
+            else -> null
         }
-        val hintName = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedModuleId, defTypeStr)
-        return createHintFunction(hintName, definition.returnTypeClass, bindings, scopeClass, qualifier)
+    }
+
+    private fun functionScanHintFor(
+        definition: Definition.ExternalFunctionDef,
+        defTypeStr: String,
+        sanitizedModuleId: String,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ): IrSimpleFunction? {
+        val qualifier = definition.qualifier
+        val hintName = if (qualifier == null) {
+            KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
+        } else {
+            val discriminator = qualifierDiscriminator(qualifier)
+            // Same (defType, qualifier) twice is a Koin-level duplicate: the first entry stands.
+            if (!qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)) return null
+            KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
+        }
+        return createHintFunction(
+            hintName,
+            definition.returnTypeClass,
+            definition.bindings,
+            definition.scopeClass,
+            qualifier,
+        )
     }
 
     /**
@@ -2560,7 +2593,16 @@ class KoinAnnotationProcessor(
         val result = collectDefinitionsFromDependencyModule(includedFqName)
         if (result.definitions.isEmpty()) return
         val sanitizedIncludedId = KoinModuleFirGenerator.sanitizeModuleIdForHint(ClassId.topLevel(FqName(includedFqName)))
-        val relayed = result.definitions.mapNotNull { scanHintFor(it, sanitizedIncludedId) }
+        val qualifiedEntriesByDefType = mutableMapOf<String, LinkedHashSet<String>>()
+        val relayedDefinitions = result.definitions.mapNotNull {
+            scanHintFor(it, sanitizedIncludedId, qualifiedEntriesByDefType)
+        }
+        val relayed = relayedDefinitions + qualifiedEntriesByDefType.map { (defTypeStr, discriminators) ->
+                createRosterHintFunction(
+                    KoinModuleFirGenerator.moduleScanFunctionRosterHintName(sanitizedIncludedId, defTypeStr),
+                    discriminators.sorted(),
+                )
+            }
         into.addAll(relayed)
         if (relayed.isNotEmpty()) {
             KoinPluginLogger.debug { "    + relayed ${relayed.size} hint(s) from classpath-invisible include $includedFqName (id=$sanitizedIncludedId)" }
