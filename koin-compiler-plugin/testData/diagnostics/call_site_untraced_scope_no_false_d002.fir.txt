@@ -1,0 +1,27 @@
+FILE: test.kt
+    package testpkg
+
+    public final class LocalThing : R|kotlin/Any| {
+        public constructor(): R|testpkg/LocalThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|testpkg/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/LocalThing|>()
+            }
+            ))
+        }
+        )
+    }
+    public final fun renderScope(koin: R|org/koin/core/Koin|): R|testpkg/Missing| {
+        ^renderScope R|<local>/koin|.R|org/koin/core/Koin.getScope|(String(s)).R|org/koin/core/scope/Scope.get|<R|testpkg/Missing|>()
+    }

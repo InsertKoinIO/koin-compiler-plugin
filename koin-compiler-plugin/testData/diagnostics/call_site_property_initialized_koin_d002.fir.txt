@@ -1,0 +1,51 @@
+FILE: test.kt
+    package testpkg
+
+    public final class LocalThing : R|kotlin/Any| {
+        public constructor(): R|testpkg/LocalThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|testpkg/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class AlsoMissing : R|kotlin/Any| {
+        public constructor(): R|testpkg/AlsoMissing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val appKoin: R|org/koin/core/Koin| = R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/LocalThing|>()
+        }
+        ))
+    }
+    ).R|org/koin/core/KoinApplication.koin|
+        public get(): R|org/koin/core/Koin|
+    public final fun load(): R|testpkg/Missing| {
+        ^load R|testpkg/appKoin|.R|org/koin/core/Koin.get|<R|testpkg/Missing|>()
+    }
+    public final class Holder : R|kotlin/Any| {
+        public constructor(): R|testpkg/Holder| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/LocalThing|>()
+            }
+            ))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+            public get(): R|org/koin/core/Koin|
+
+        public final fun load(): R|testpkg/AlsoMissing| {
+            ^load this@R|testpkg/Holder|.R|testpkg/Holder.koin|.R|org/koin/core/Koin.get|<R|testpkg/AlsoMissing|>()
+        }
+
+    }

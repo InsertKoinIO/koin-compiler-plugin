@@ -1,0 +1,1 @@
+[Koin][KOIN-W010] activityViewModel<MyViewModel>() has no parametersOf(...) and no call site in this module creates testpkg.MyViewModel with parametersOf(...). Fine if the activity creates it first; otherwise it is created here without its @InjectedParam values and fails at runtime.

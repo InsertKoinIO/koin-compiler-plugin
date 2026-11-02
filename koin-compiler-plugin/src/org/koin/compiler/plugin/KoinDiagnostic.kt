@@ -423,6 +423,41 @@ sealed class KoinDiagnostic(
             "or add it as a direct dependency.",
     )
 
+    /**
+     * KOIN-W009 — Call sites this compilation can't judge (#58): a `Koin` it can't trace to its
+     * entry point (a parameter, a property, a helper's instance), or the global context while only
+     * an isolated `koinApplication { }` / `koinConfiguration { }` is declared here. Only those that
+     * would otherwise be KOIN-D002 are counted: judging them against this compilation's graph gave
+     * false errors, and skipping them must never be silent. One per compilation, at the first one.
+     */
+    class UntracedCallSites(
+        count: Int,
+        first: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W009",
+        severity = Severity.WARNING,
+        message = "$count call site(s) not validated at compile time (first: $first): their type is " +
+            "not defined in this compilation, and they resolve on a Koin instance whose modules it " +
+            "can't see. They are only checked at runtime.",
+    )
+
+    /**
+     * KOIN-W010 — `activityViewModel<T>()` without `parametersOf`, for a T with `@InjectedParam`, and
+     * no call site in this compilation creates T with `parametersOf` (#121). Reuse of the activity's
+     * instance is fine; creating T here would crash. The creator may sit in another module, so this
+     * can't be KOIN-D006.
+     */
+    class UnverifiedReusedInstanceParams(
+        target: String,
+        callFn: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W010",
+        severity = Severity.WARNING,
+        message = "$callFn<${target.substringAfterLast('.')}>() has no parametersOf(...) and no call site " +
+            "in this module creates $target with parametersOf(...). Fine if the activity creates it first; " +
+            "otherwise it is created here without its @InjectedParam values and fails at runtime.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,

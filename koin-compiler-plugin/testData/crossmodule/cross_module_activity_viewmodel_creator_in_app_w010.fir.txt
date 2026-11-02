@@ -1,0 +1,63 @@
+Module: feature
+FILE: Stub.kt
+    package org.koin.androidx.viewmodel.ext.android
+
+    public final inline fun <reified T : R|kotlin/Any|> activityViewModel(noinline parameters: R|(() -> org/koin/core/parameter/ParametersHolder)?| = Null(null)): R|kotlin/Lazy<T>| {
+        ^activityViewModel R|kotlin/lazy|<R|kotlin/Nothing|>(<L> = lazy@fun <anonymous>(): R|kotlin/Nothing| <inline=NoInline>  {
+            R|kotlin/TODO|()
+        }
+        )
+    }
+    public final inline fun <reified T : R|kotlin/Any|> viewModel(noinline parameters: R|(() -> org/koin/core/parameter/ParametersHolder)?| = Null(null)): R|kotlin/Lazy<T>| {
+        ^viewModel R|kotlin/lazy|<R|kotlin/Nothing|>(<L> = lazy@fun <anonymous>(): R|kotlin/Nothing| <inline=NoInline>  {
+            R|kotlin/TODO|()
+        }
+        )
+    }
+FILE: Feature.kt
+    package feature
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() public final class MyViewModel : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/InjectedParam|() url: R|kotlin/String|): R|feature/MyViewModel| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val url: R|kotlin/String| = R|<local>/url|
+            public get(): R|kotlin/String|
+
+    }
+    public final fun fragment(): R|kotlin/Unit| {
+        lval viewModel: R|kotlin/Lazy<feature/MyViewModel>| = R|org/koin/androidx/viewmodel/ext/android/activityViewModel|<R|feature/MyViewModel|>()
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|feature/FeatureModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|app/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+    public final fun activity(): R|kotlin/Unit| {
+        lval viewModel: R|kotlin/Lazy<feature/MyViewModel>| = R|org/koin/androidx/viewmodel/ext/android/viewModel|<R|feature/MyViewModel|>(<L> = viewModel@fun <anonymous>(): R|org/koin/core/parameter/ParametersHolder| <inline=NoInline>  {
+            ^ R|org/koin/core/parameter/parametersOf|(vararg(String(https://insert-koin.io)))
+        }
+        )
+    }

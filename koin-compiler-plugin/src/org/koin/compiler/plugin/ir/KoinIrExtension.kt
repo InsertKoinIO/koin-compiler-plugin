@@ -185,6 +185,7 @@ class KoinIrExtension(
             callSiteValidator.validatePendingCallSites(
                 moduleFragment, pendingCallSites, safetyValidator.assembledGraphTypes, dslDefinitions,
                 annotationProcessor, dslHintGenerator, injectedParamHints, startKoinTransformer.hasKoinEntryPoint,
+                globalContextBuiltHere = !startKoinTransformer.onlyIsolatedEntryPoints,
             )
         }
 
