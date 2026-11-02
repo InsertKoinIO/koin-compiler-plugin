@@ -441,7 +441,7 @@ suppress the line; it never changes which diagnostics fire.
 
 ### Strict safety (incremental compilation bypass)
 
-**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans source files at configuration time, detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
+**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans the compilation's source files when the compile task checks whether it is up to date (never at configuration time, so the configuration cache survives source edits), detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
 
 **Mandatory once detected (1.1.0+).** `strictSafety = false` no longer silently wins on a module where detection fires — the plugin ignores it, forces the safety pass on anyway, and logs a lifecycle message explaining why. Full-graph validation has no per-module safety net since A2 stopped verifying, so an aggregator silently skipping re-validation on an incremental rebuild is a correctness gap, not a preference. `strictSafety = true` still works everywhere (forces it on regardless of detection).
 
