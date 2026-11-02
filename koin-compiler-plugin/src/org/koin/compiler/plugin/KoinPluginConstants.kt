@@ -252,6 +252,16 @@ object KoinPluginConstants {
      */
     const val DSL_INCLUDES_INCOMPLETE_MARKER = "incomplete_topology"
 
+    /**
+     * Marks an includes-edge hint whose owner is a module function returning one of several modules
+     * chosen at runtime, listed as [DSL_INCLUDES_ALTERNATIVE_PREFIX]`<id>` and, for its own
+     * `module { }` blocks, [DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX]`<n>`. Consumers that predate it
+     * ignore all three and read the edges as a plain union.
+     */
+    const val DSL_INCLUDES_ALTERNATIVES_MARKER = "alternatives"
+    const val DSL_INCLUDES_ALTERNATIVE_PREFIX = "alt_"
+    const val DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX = "altinline_"
+
     /** Hint function name carrying the `includes()` edges declared by [ownerModuleId]'s `module { }`. */
     fun dslIncludesHintFunctionName(ownerModuleId: String): String =
         "$DSL_INCLUDES_HINT_PREFIX${flattenFqNameForHint(ownerModuleId)}"

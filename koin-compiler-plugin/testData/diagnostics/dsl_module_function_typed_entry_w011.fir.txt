@@ -1,0 +1,105 @@
+FILE: dsl_module_function_typed_entry_w011.kt
+    public final class LocalOnly : R|kotlin/Any| {
+        public constructor(): R|LocalOnly| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class RemoteOnly : R|kotlin/Any| {
+        public constructor(): R|RemoteOnly| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class DebugTools : R|kotlin/Any| {
+        public constructor(): R|DebugTools| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Common : R|kotlin/Any| {
+        public constructor(): R|Common| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class X : R|kotlin/Any| {
+        public constructor(c: R|Common|): R|X| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val c: R|Common| = R|<local>/c|
+            public get(): R|Common|
+
+    }
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val otherModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Other|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val commonModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Common|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val clockModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Clock|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun feature(c: R|kotlin/Boolean|): R|org/koin/core/module/Module| {
+        ^feature when () {
+            R|<local>/c| ->  {
+                R|/otherModule|
+            }
+            else ->  {
+                R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                    this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|/commonModule|))
+                    this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|X|>()
+                }
+                )
+            }
+        }
+
+    }
+    public final fun nested(depth: R|kotlin/Int|): R|org/koin/core/module/Module| {
+        ^nested when () {
+            CMP(<=, R|<local>/depth|.R|kotlin/Int.compareTo|(Int(0))) ->  {
+                R|/clockModule|
+            }
+            else ->  {
+                R|/nested|(R|<local>/depth|.R|kotlin/Int.minus|(Int(1)))
+            }
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|() public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|/feature|(Boolean(false)), R|/nested|(Int(2))))
+        }
+        )
+    }

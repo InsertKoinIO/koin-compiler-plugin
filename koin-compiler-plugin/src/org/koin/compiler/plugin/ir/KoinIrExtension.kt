@@ -106,8 +106,14 @@ class KoinIrExtension(
                     " + ${koinTransformer.moduleIncludes.size} includes-edge hint(s)"
             }
             dslHintGenerator.generateDslDefinitionHints(
-                moduleFragment, dslDefinitions, koinTransformer.moduleIncludes, koinTransformer.allModuleIds,
-                koinTransformer.modulesWithIncompleteIncludes
+                moduleFragment,
+                dslDefinitions,
+                DslHintGenerator.ModuleTopology(
+                    moduleIncludes = koinTransformer.moduleIncludes,
+                    allModuleIds = koinTransformer.allModuleIds,
+                    modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
+                    moduleAlternatives = koinTransformer.moduleAlternatives,
+                ),
             )
             // Relay classpath-invisible includes() targets' own DSL definition hints through THIS
             // module's output — otherwise a provider 2+ implementation hops away is never on a
@@ -161,7 +167,7 @@ class KoinIrExtension(
                 entryModulesIncomplete = koinTransformer.entryModulesIncomplete,
                 entryModulesIncompleteOrigin = koinTransformer.entryModulesIncompleteOrigin,
                 modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
-                ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph
+                ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph,
             )
         } else if (safetyValidator != null && dslDefinitions.isEmpty()
             && safetyValidator.assembledGraphTypes.isEmpty()
@@ -170,6 +176,16 @@ class KoinIrExtension(
             // local DSL definition, so an entry point that only loads other modules' DSL definitions
             // validates nothing. Not changing that here — just not doing it silently.
             KoinPluginLogger.warn("compile-safety: DSL graph not validated — no DSL definition in this entry-point module.")
+        }
+
+        // Phase 3.2: disclose runtime-chosen modules loaded by any entry point (KOIN-W011).
+        if (safetyValidator != null && startKoinTransformer.hasKoinEntryPoint) {
+            callSiteValidator.discloseRuntimeModuleChoices(
+                koinTransformer.startKoinModules,
+                koinTransformer.moduleIncludes,
+                koinTransformer.moduleAlternatives,
+                dslHintGenerator,
+            )
         }
 
         // Phase 3.5: Validate pending call sites (simple loop, no tree walk)
