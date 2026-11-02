@@ -1048,6 +1048,18 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_same_qualifier_two_types_missing_d001.kt")
+    public void testCross_module_same_qualifier_two_types_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_same_qualifier_two_types_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_same_qualifier_two_types_no_false_d001.kt")
+    public void testCross_module_same_qualifier_two_types_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_same_qualifier_two_types_no_false_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_scope_satisfied_ok.kt")
     public void testCross_module_scope_satisfied_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scope_satisfied_ok.kt");

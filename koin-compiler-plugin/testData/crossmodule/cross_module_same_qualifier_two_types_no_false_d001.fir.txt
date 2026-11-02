@@ -1,0 +1,61 @@
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    public final class A : R|kotlin/Any| {
+        public constructor(): R|lib/A| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class B : R|kotlin/Any| {
+        public constructor(): R|lib/B| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib))) public final class LibModule : R|kotlin/Any| {
+        public constructor(): R|lib/LibModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(x)) public final fun provideA(): R|lib/A| {
+        ^provideA R|lib/A.A|()
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(x)) public final fun provideB(): R|lib/B| {
+        ^provideB R|lib/B.B|()
+    }
+FILE: lib/libLibModuleModule.kt
+    package lib
+
+    public final fun R|lib/LibModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/Single|() public final class User : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(x)) b: R|lib/B|): R|app/User| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val b: R|lib/B| = R|<local>/b|
+            public get(): R|lib/B|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(app))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/modules|(vararg(<getClass>(Q|lib/LibModule|), <getClass>(Q|app/AppModule|)))
+        }
+        )
+    }
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|

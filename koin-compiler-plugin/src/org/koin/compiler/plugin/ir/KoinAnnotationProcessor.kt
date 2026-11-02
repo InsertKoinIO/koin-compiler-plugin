@@ -1204,8 +1204,9 @@ class KoinAnnotationProcessor(
             // Qualified: per-qualifier entry under unique name to avoid signature clashes
             // when multiple functions share the same target type (e.g., Unit-returning initializers).
             val discriminator = qualifierDiscriminator(funcQualifier)
-            val existing = qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }
-            if (!existing.add(discriminator)) {
+            qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)
+            val entryKey = qualifiedEntryKey(sanitizedModuleId, defTypeStr, targetClass, discriminator)
+            if (!emittedQualifiedEntryKeys.add(entryKey)) {
                 // Two source funcs with the same (target, qualifier) — Koin-level duplicate binding.
                 // Silent-skip here; runtime will still raise if both are actually needed.
                 KoinPluginLogger.debug { "    ! duplicate qualifier '$discriminator' for $defTypeStr in ${moduleClass.irClass.name} — skipping second entry" }
@@ -1257,8 +1258,10 @@ class KoinAnnotationProcessor(
             KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
         } else {
             val discriminator = qualifierDiscriminator(qualifier)
-            // Same (defType, qualifier) twice is a Koin-level duplicate: the first entry stands.
-            if (!qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)) return null
+            qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)
+            // Same (type, qualifier) twice is a Koin-level duplicate: the first entry stands.
+            val entryKey = qualifiedEntryKey(sanitizedModuleId, defTypeStr, definition.returnTypeClass, discriminator)
+            if (!emittedQualifiedEntryKeys.add(entryKey)) return null
             KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
         }
         return createHintFunction(
@@ -2591,6 +2594,16 @@ class KoinAnnotationProcessor(
             KoinPluginLogger.debug { "    + relayed ${relayed.size} hint(s) from classpath-invisible include $includedFqName (id=$sanitizedIncludedId)" }
         }
     }
+
+    /**
+     * Per-qualifier entry hints already emitted, keyed by return type too: two `@Named("x")` providers
+     * of different types share an entry name as overloads (the consumer reads every overload), while
+     * the same type + qualifier twice is a duplicate definition.
+     */
+    private val emittedQualifiedEntryKeys = mutableSetOf<String>()
+
+    private fun qualifiedEntryKey(moduleId: String, defType: String, returnType: IrClass, discriminator: String) =
+        "$moduleId|$defType|${returnType.fqNameWhenAvailable?.asString()}|$discriminator"
 
     /** Compilation-wide dedupe for [relayIncludedModuleHints] — see its kdoc. */
     private val relayedIncludedModuleFqNames = mutableSetOf<String>()

@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: lib.Store
+  required by: lib.B (parameter 'store')
+  in module: startKoin { … } (startKoin)
