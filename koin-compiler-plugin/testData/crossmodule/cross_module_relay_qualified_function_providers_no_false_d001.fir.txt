@@ -1,0 +1,106 @@
+Module: serialization
+FILE: Json.kt
+    package serialization
+
+    public final class JsonConfiguration : R|kotlin/Any| {
+        public constructor(): R|serialization/JsonConfiguration| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class SerializersModule : R|kotlin/Any| {
+        public constructor(): R|serialization/SerializersModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Json : R|kotlin/Any| {
+        internal constructor(configuration: R|serialization/JsonConfiguration|, serializersModule: R|serialization/SerializersModule|): R|serialization/Json| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val configuration: R|serialization/JsonConfiguration| = R|<local>/configuration|
+            public get(): R|serialization/JsonConfiguration|
+
+        public final val serializersModule: R|serialization/SerializersModule| = R|<local>/serializersModule|
+            public get(): R|serialization/SerializersModule|
+
+        public final companion object Companion : R|kotlin/Any| {
+            private constructor(): R|serialization/Json.Companion| {
+                super<R|kotlin/Any|>()
+            }
+
+            public final fun build(): R|serialization/Json| {
+                ^build R|serialization/Json.Json|(R|serialization/JsonConfiguration.JsonConfiguration|(), R|serialization/SerializersModule.SerializersModule|())
+            }
+
+        }
+
+    }
+Module: network
+FILE: Network.kt
+    package network
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(network))) public final class NetworkModule : R|kotlin/Any| {
+        public constructor(): R|network/NetworkModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(strict)) public final fun provideStrictJson(): R|serialization/Json| {
+        ^provideStrictJson Q|serialization/Json|.R|serialization/Json.Companion.build|()
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(lenient)) public final fun provideLenientJson(): R|serialization/Json| {
+        ^provideLenientJson Q|serialization/Json|.R|serialization/Json.Companion.build|()
+    }
+FILE: network/networkNetworkModuleModule.kt
+    package network
+
+    public final fun R|network/NetworkModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/networkNetworkModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|network/NetworkModule|): R|kotlin/Unit|
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|network/NetworkModule|))) @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class Api : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(strict)) json: R|serialization/Json|, @R|org/koin/core/annotation/Named|(value = String(lenient)) lenient: R|serialization/Json|): R|feature/Api| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val json: R|serialization/Json| = R|<local>/json|
+            public get(): R|serialization/Json|
+
+        public final val lenient: R|serialization/Json| = R|<local>/lenient|
+            public get(): R|serialization/Json|
+
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/featureFeatureModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|feature/FeatureModule|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|() public final class App : R|kotlin/Any| {
+        public constructor(): R|app/App| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/App|>()
+    }
