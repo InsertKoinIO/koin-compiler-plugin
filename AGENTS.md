@@ -31,7 +31,8 @@ docs/                            # Design and user docs
 ## Build and test
 
 ```bash
-./gradlew build --continue                 # what CI runs (JDK 21)
+./gradlew build --continue                 # what CI runs (JDK 21), detekt included
+./gradlew detekt                           # lint; new findings fail, existing ones are baselined
 ./test.sh                                  # compiler plugin tests (:koin-compiler-plugin:test --rerun-tasks)
 ./test.sh --tests "*SingleBasic*"          # specific tests
 ./test.sh -Pupdate.testdata=true           # update golden files — only for intended output changes
