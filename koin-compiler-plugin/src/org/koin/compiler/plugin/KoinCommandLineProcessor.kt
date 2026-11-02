@@ -73,8 +73,8 @@ class KoinCommandLineProcessor : CommandLineProcessor {
         CliOption(
             optionName = OPTION_AI_ASSIST,
             valueDescription = "<true|false>",
-            description = "Append one AI-assist hint pointing to Kotzilla MCP at the end of a compilation that reported a Koin diagnostic",
-            required = false
+            description = "Append one Kotzilla MCP hint per compilation that reported a Koin diagnostic",
+            required = false,
         ),
         CliOption(
             optionName = OPTION_MODULE_ID,
@@ -92,8 +92,8 @@ class KoinCommandLineProcessor : CommandLineProcessor {
             optionName = OPTION_VERSION_CHECK_SEVERITY,
             valueDescription = "<warning|info>",
             description = "Severity of the Kotlin-version-compatibility warning, independent of logSeverity. 'info' is safe under allWarningsAsErrors.",
-            required = false
-        )
+            required = false,
+        ),
     )
 
     override fun processOption(option: AbstractCliOption, value: String, configuration: CompilerConfiguration) {
