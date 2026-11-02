@@ -1,11 +1,15 @@
 package org.koin.compiler.plugin
 
 import org.gradle.api.Project
+import org.gradle.api.file.FileCollection
+import org.gradle.api.logging.Logger
+import org.gradle.api.logging.Logging
 import org.gradle.api.provider.Provider
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilation
 import org.jetbrains.kotlin.gradle.plugin.KotlinCompilerPluginSupportPlugin
 import org.jetbrains.kotlin.gradle.plugin.SubpluginArtifact
 import org.jetbrains.kotlin.gradle.plugin.SubpluginOption
+import java.io.File
 
 @Suppress("unused") // Used via reflection.
 class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
@@ -44,96 +48,22 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         // a SEPARATE, explicit acknowledgement, not the same flag `strictSafety` already used for
         // "off by default" semantics elsewhere.
         //
-        // Lazy so the file walk (and the one-time lifecycle log) happens at most once. Explicit
-        // `strictSafety = true` short-circuits before the scan — detection can't change that
-        // outcome, so there's no reason to pay for it (same short-circuit the old
-        // `orNull ?: autoDetected.value` elvis gave for free; preserved deliberately here since an
-        // unconditional scan on every explicitly-pinned module is real config-time cost on a large
-        // multi-module project).
+        // Decided when Gradle evaluates the specs, at execution time, once per build: the source
+        // read is then never a configuration-cache input. A Lazy captured here was forced when the
+        // configuration cache serialized the specs, so editing any Kotlin source invalidated the
+        // entry. Explicit `strictSafety = true` and `compileSafety = false` skip the scan.
         val project = kotlinCompilation.target.project
-        val explicit = extension.strictSafety.orNull
-        val effective = lazy {
-            if (explicit == true) {
-                true
-            } else {
-                val detected = looksLikeAggregator(kotlinCompilation)
-                val requestedOff = explicit == false
-                val forceOff = extension.strictSafetyForceOff.getOrElse(false)
-                when {
-                    detected && requestedOff && forceOff -> {
-                        project.logger.lifecycle(
-                            "[Koin] strictSafety left OFF on ${project.path} despite detecting startKoin / " +
-                                "@KoinApplication / koinApplication — strictSafetyForceOff = true acknowledges " +
-                                "this is a detector misfire, not a real entry point in this compilation."
-                        )
-                        false
-                    }
-                    detected && requestedOff -> {
-                        project.logger.lifecycle(
-                            "[Koin] strictSafety = false is being ignored on ${project.path}: this compilation " +
-                                "contains a real Koin entry point (startKoin / @KoinApplication / koinApplication), " +
-                                "so full-graph compile safety must run on every build. If this detection is wrong " +
-                                "(e.g. the marker only appears in a comment or string literal), set " +
-                                "`strictSafetyForceOff = true` in koinCompiler { } to confirm that and disable it."
-                        )
-                        true
-                    }
-                    detected -> {
-                        if (!extension.strictSafety.isPresent) {
-                            project.logger.lifecycle(
-                                "[Koin] Auto-enabling strictSafety on ${project.path} " +
-                                    "(detected startKoin / @KoinApplication / koinApplication)."
-                            )
-                        }
-                        true
-                    }
-                    // Not detected: explicit is null or false here (true already handled above).
-                    else -> false
-                }
-            }
-        }
+        val decision = StrictSafetyDecision(
+            projectPath = project.path,
+            strictSafety = extension.strictSafety,
+            strictSafetyForceOff = extension.strictSafetyForceOff,
+            compileSafety = extension.compileSafety,
+            sources = project.files(project.provider { kotlinCompilation.kotlinSourceSets.map { it.kotlin } }),
+        )
 
         kotlinCompilation.compileTaskProvider.configure { task ->
-            task.outputs.upToDateWhen { !(effective.value && extension.compileSafety.get()) }
-            task.outputs.cacheIf { !(effective.value && extension.compileSafety.get()) }
-        }
-    }
-
-    /**
-     * Identifier-boundary regex for the three aggregator markers. A plain substring check
-     * (`"startKoin" in text`) flips strictSafety on for anything containing the token —
-     * `restartKoinIfNeeded`, `myStartKoinHelper`, comments, string literals — which forces
-     * `compileKotlin` to re-run every build for modules that aren't actually aggregators.
-     *
-     * Boundary rules:
-     *  - `startKoin` / `koinApplication` must be preceded by something that isn't a Kotlin
-     *    identifier part (`[A-Za-z0-9_]`) so `restartKoin` doesn't match `startKoin`, and
-     *    `myStartKoin` doesn't match either. Trailing side is similar — `startKoinInternal`
-     *    is not the call we care about.
-     *  - `@KoinApplication` only needs the trailing boundary; the `@` already anchors the
-     *    leading side.
-     *
-     * We still match identifiers that appear in comments and string literals — stripping
-     * those at config time would need a real lexer. In practice this remains a heuristic; the
-     * lifecycle log makes the decision visible, and `strictSafetyForceOff = true` together with
-     * `strictSafety = false` (a plain `strictSafety = false` is ignored once this detects a hit — see
-     * [KoinGradlePlugin.configureStrictSafety]) is the escape for a confirmed misfire.
-     */
-    private val aggregatorMarkerRegex: Regex = Regex(
-        "(?:(?<![A-Za-z0-9_])startKoin(?![A-Za-z0-9_]))" +
-            "|(?:(?<![A-Za-z0-9_])koinApplication(?![A-Za-z0-9_]))" +
-            "|(?:@KoinApplication(?![A-Za-z0-9_]))"
-    )
-
-    private fun looksLikeAggregator(kotlinCompilation: KotlinCompilation<*>): Boolean {
-        return kotlinCompilation.kotlinSourceSets.any { srcSet ->
-            srcSet.kotlin.files.any { file ->
-                try {
-                    aggregatorMarkerRegex.containsMatchIn(file.readText())
-                } catch (_: Throwable) {
-                    false
-                }
-            }
+            task.outputs.upToDateWhen { !decision.isActive() }
+            task.outputs.cacheIf { !decision.isActive() }
         }
     }
 
@@ -177,5 +107,92 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
                 SubpluginOption(OPTION_VERSION_CHECK_SEVERITY, extension.versionCheckSeverity.get())
             )
         }
+    }
+}
+
+/**
+ * Identifier-boundary regex for the three aggregator markers. A plain substring check
+ * (`"startKoin" in text`) flips strictSafety on for anything containing the token —
+ * `restartKoinIfNeeded`, `myStartKoinHelper`, comments, string literals — which forces
+ * `compileKotlin` to re-run every build for modules that aren't actually aggregators.
+ *
+ * Boundary rules:
+ *  - `startKoin` / `koinApplication` must be preceded by something that isn't a Kotlin
+ *    identifier part (`[A-Za-z0-9_]`) so `restartKoin` doesn't match `startKoin`, and
+ *    `myStartKoin` doesn't match either. Trailing side is similar — `startKoinInternal`
+ *    is not the call we care about.
+ *  - `@KoinApplication` only needs the trailing boundary; the `@` already anchors the
+ *    leading side.
+ *
+ * We still match identifiers that appear in comments and string literals — stripping
+ * those would need a real lexer. In practice this remains a heuristic; the
+ * lifecycle log makes the decision visible, and `strictSafetyForceOff = true` together with
+ * `strictSafety = false` (a plain `strictSafety = false` is ignored once this detects a hit — see
+ * [KoinGradlePlugin.configureStrictSafety]) is the escape for a confirmed misfire.
+ */
+private val aggregatorMarkerRegex: Regex = Regex(
+    "(?:(?<![A-Za-z0-9_])startKoin(?![A-Za-z0-9_]))" +
+        "|(?:(?<![A-Za-z0-9_])koinApplication(?![A-Za-z0-9_]))" +
+        "|(?:@KoinApplication(?![A-Za-z0-9_]))",
+)
+
+private fun containsAggregatorMarker(file: File): Boolean =
+    runCatching { aggregatorMarkerRegex.containsMatchIn(file.readText()) }.getOrDefault(false)
+
+/**
+ * Whether strictSafety is on for one compilation. Evaluated lazily by the compile task's
+ * up-to-date and cache specs, once per build, so the source scan never runs at configuration time.
+ *
+ * Policy: explicit `true` wins; detection forces it on even over an explicit `false`, unless
+ * `strictSafetyForceOff` confirms a misfire. Off, with no scan and no log, when compileSafety is.
+ */
+internal class StrictSafetyDecision(
+    private val projectPath: String,
+    private val strictSafety: Provider<Boolean>,
+    private val strictSafetyForceOff: Provider<Boolean>,
+    private val compileSafety: Provider<Boolean>,
+    private val sources: FileCollection,
+) {
+    @Volatile
+    private var active: Boolean? = null
+
+    fun isActive(): Boolean = active ?: decide().also { active = it }
+
+    private fun decide(): Boolean {
+        val explicit = strictSafety.orNull
+        return when {
+            !compileSafety.getOrElse(true) -> false
+            explicit == true -> true
+            sources.asFileTree.files.none(::containsAggregatorMarker) -> false
+            explicit == false && strictSafetyForceOff.getOrElse(false) -> {
+                logger.lifecycle(
+                    "[Koin] strictSafety left OFF on $projectPath despite detecting startKoin / " +
+                        "@KoinApplication / koinApplication — strictSafetyForceOff = true acknowledges " +
+                        "this is a detector misfire, not a real entry point in this compilation.",
+                )
+                false
+            }
+            explicit == false -> {
+                logger.lifecycle(
+                    "[Koin] strictSafety = false is being ignored on $projectPath: this compilation " +
+                        "contains a real Koin entry point (startKoin / @KoinApplication / koinApplication), " +
+                        "so full-graph compile safety must run on every build. If this detection is wrong " +
+                        "(e.g. the marker only appears in a comment or string literal), set " +
+                        "`strictSafetyForceOff = true` in koinCompiler { } to confirm that and disable it.",
+                )
+                true
+            }
+            else -> {
+                logger.lifecycle(
+                    "[Koin] Auto-enabling strictSafety on $projectPath " +
+                        "(detected startKoin / @KoinApplication / koinApplication).",
+                )
+                true
+            }
+        }
+    }
+
+    private companion object {
+        val logger: Logger = Logging.getLogger(KoinGradlePlugin::class.java)
     }
 }

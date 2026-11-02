@@ -67,3 +67,7 @@ gradlePlugin {
 
 // Maven Central publishing
 apply(from = file("../gradle/publish-gradle-plugin.gradle.kts"))
+
+tasks.test {
+    useJUnitPlatform()
+}
