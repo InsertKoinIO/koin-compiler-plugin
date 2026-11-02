@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ArgumentListWrapping:ExtensionRegistrarConfigurator.kt:ExtensionRegistrarConfigurator$(KoinIrExtension(lookupTracker = null, expectActualTracker = org.jetbrains.kotlin.incremental.components.ExpectActualTracker.DoNothing, messageCollector = messageCollector, flagsHandle = KoinPluginLogger.captureFlags()))</ID>
+    <ID>ArgumentListWrapping:ExtensionRegistrarConfigurator.kt:ExtensionRegistrarConfigurator$(lookupTracker = null, expectActualTracker = org.jetbrains.kotlin.incremental.components.ExpectActualTracker.DoNothing, messageCollector = messageCollector, flagsHandle = KoinPluginLogger.captureFlags())</ID>
+    <ID>ArgumentListWrapping:ExtensionRegistrarConfigurator.kt:ExtensionRegistrarConfigurator$(messageCollector, userLogs = true, debugLogs = true, compileSafety = compileSafety, aiAssist = false)</ID>
+    <ID>CommentSpacing:AbstractJvmDiagnosticTest.kt:AbstractJvmDiagnosticTest$//TODO commented from Kotlin 2.1.21</ID>
+    <ID>FinalNewline:PluginAnnotationsProvider.kt:org.jetbrains.kotlin.compiler.plugin.template.services.PluginAnnotationsProvider.kt</ID>
+    <ID>FunctionExpressionBody:AbstractJvmBoxTest.kt:AbstractJvmBoxTest${ return EnvironmentBasedStandardLibrariesPathProvider }</ID>
+    <ID>FunctionExpressionBody:AbstractJvmDiagnosticTest.kt:AbstractJvmDiagnosticTest${ return EnvironmentBasedStandardLibrariesPathProvider }</ID>
+    <ID>ImportOrdering:ExtensionRegistrarConfigurator.kt:import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSourceLocation import org.jetbrains.kotlin.cli.common.messages.MessageCollector import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar import org.jetbrains.kotlin.config.CommonConfigurationKeys import org.koin.compiler.plugin.KoinPluginLogger import org.koin.compiler.plugin.KoinPluginRegistrar import org.koin.compiler.plugin.ir.KoinIrExtension import org.jetbrains.kotlin.config.CompilerConfiguration import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter import org.jetbrains.kotlin.test.builders.TestConfigurationBuilder import org.jetbrains.kotlin.test.model.TestModule import org.jetbrains.kotlin.test.services.EnvironmentConfigurator import org.jetbrains.kotlin.test.services.TestServices</ID>
+    <ID>Indentation:AbstractJvmErrorMessageTest.kt:AbstractJvmErrorMessageTest$ </ID>
+    <ID>MaxLineLength:ExtensionRegistrarConfigurator.kt:ExtensionRegistrarConfigurator$IrGenerationExtension.registerExtension(KoinIrExtension(lookupTracker = null, expectActualTracker = org.jetbrains.kotlin.incremental.components.ExpectActualTracker.DoNothing, messageCollector = messageCollector, flagsHandle = KoinPluginLogger.captureFlags()))</ID>
+    <ID>MaxLineLength:ExtensionRegistrarConfigurator.kt:ExtensionRegistrarConfigurator$KoinPluginLogger.init(messageCollector, userLogs = true, debugLogs = true, compileSafety = compileSafety, aiAssist = false)</ID>
+    <ID>NewLineAtEndOfFile:PluginAnnotationsProvider.kt:org.jetbrains.kotlin.compiler.plugin.template.services.PluginAnnotationsProvider.kt</ID>
+    <ID>StatementWrapping:ExtensionRegistrarConfigurator.kt:CapturedErrors${ threadLocalErrors.get().clear() }</ID>
+    <ID>TrailingCommaOnCallSite:AbstractJvmErrorMessageTest.kt:AbstractJvmErrorMessageTest$( "Error messages mismatch for ${File(filePath).name}.\n\n" + "Expected:\n$expectedErrors\n\n" + "Actual:\n$actualErrors\n\n" + "Run with -Pupdate.testdata=true to update golden files." )</ID>
+    <ID>TrailingCommaOnCallSite:AbstractJvmErrorMessageTest.kt:AbstractJvmErrorMessageTest$( "Golden file ${errorsFile.name} did not exist — created it. " + "Review and re-run, or run with -Pupdate.testdata=true." )</ID>
+    <ID>TrailingCommaOnCallSite:KoinTestDirectives.kt:KoinTestDirectives$( description = "Disable compile-safety hint generation/validation for this test module" )</ID>
+    <ID>TrailingCommaOnDeclarationSite:ExtensionRegistrarConfigurator.kt:ExtensionRegistrarConfigurator$( module: TestModule, configuration: CompilerConfiguration )</ID>
+  </CurrentIssues>
+</SmellBaseline>

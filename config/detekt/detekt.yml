@@ -1,0 +1,21 @@
+# Layered on detekt's defaults (buildUponDefaultConfig). Existing findings are parked per module in
+# baseline/; new code must not add any. Refresh a baseline only when removing findings, never to admit one.
+
+style:
+  MaxLineLength:
+    maxLineLength: 120
+
+ktlint:
+  # Duplicates of style:MaxLineLength and style:WildcardImport.
+  MaximumLineLength:
+    active: false
+  NoWildcardImports:
+    active: false
+  # They collapse multi-line signatures onto one line, which fights trailing commas and MaxLineLength.
+  ClassSignature:
+    active: false
+  FunctionSignature:
+    active: false
+  # A blank line between every `when` branch once one is multiline doubles dispatch tables' height.
+  BlankLineBetweenWhenConditions:
+    active: false

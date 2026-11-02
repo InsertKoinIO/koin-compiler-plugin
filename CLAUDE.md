@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Koin Compiler Plugin
 
 A native Kotlin Compiler Plugin for Koin dependency injection. Transforms `single<T>()` DSL calls and processes `@Singleton`/`@Factory` annotations at compile-time.
@@ -18,9 +22,12 @@ Cross-agent essentials (build/test, change rules, Koin terminology) are in [AGEN
 koin-compiler-plugin/
 ├── koin-compiler-plugin/           # Compiler plugin (FIR + IR phases)
 ├── koin-compiler-gradle-plugin/    # Gradle plugin for easy integration
+├── koin-compiler-version-adapter/  # Per-Kotlin-line adapters (kotlin-2.3.20/, kotlin-2.4.0/), see Compatibility
 ├── test-apps/                      # Separate Gradle project for testing
 │   ├── sample-app/                 # KMP sample application
 │   └── sample-feature-module/      # Multi-module test
+├── playground-apps/                # Compile-safety stress-test apps (PR Guard #3)
+├── tools/abi-check/                # check-kotlin-abi.sh — gates a new Kotlin version
 └── docs/                           # Documentation
 ```
 
@@ -54,8 +61,24 @@ koin-compiler-plugin/
 | `ProvidedTypeRegistry.kt` | Stores `@Provided` types (skipped during safety validation) |
 | `KoinPluginConstants.kt` | Shared constants (definition types, hint prefixes, option keys) |
 | `KoinAnnotationFqNames.kt` | Centralized registry of all annotation FQNames |
-| `fir/KoinModuleFirGenerator.kt` | Generates `fun T.module()` extension functions |
-| `fir/KoinPluginRegistrar.kt` | FIR extension registrar |
+| `ir/CompileSafetyValidator.kt` | Full-graph validation for typed entry points (`startKoin<T>()`, `@KoinApplication`) |
+| `ir/CallSiteValidator.kt` | Call-site checks (`get<T>()`, `inject<T>()`, `koinViewModel<T>()`…) and DSL-graph validation when no typed entry point exists |
+| `ir/DslHintGenerator.kt` | Batched per-module DSL hints (`koin_dsl_hints_<module>.kt`) + includes-edge relay for cross-module safety |
+| `ir/KoinHintTransformer.kt` | Fills bodies of hint functions declared in FIR |
+| `KoinDiagnostic.kt` | `KOIN-Dxxx`/`KOIN-Wxxx` diagnostic codes and messages |
+| `fir/KoinModuleFirGenerator.kt` | Generates `fun T.module()` extension functions and hint declarations |
+| `KoinPluginRegistrar.kt` / `KoinPluginComponentRegistrar.kt` | FIR / component registrars |
+
+### IR pipeline (`KoinIrExtension.generateInternal`, one pass each, in order)
+
+1. `KoinHintTransformer` — hint function bodies
+2. `KoinAnnotationProcessor` — collect annotated definitions, generate `@Module` extensions
+3. `KoinDSLTransformer` — rewrite DSL calls; collect `dslDefinitions`, call sites, `includes()` edges
+4. `DslHintGenerator` — emit/relay DSL hints for downstream modules
+5. `KoinStartTransformer` — entry points; full-graph safety via `CompileSafetyValidator`
+6. `CallSiteValidator.validateDslDefinitionGraph` — only when DSL defs exist and no typed entry point assembled a graph
+
+Cross-module data travels only through hint functions (see [docs/PLUGIN_HINTS.md](docs/PLUGIN_HINTS.md)) — custom `@Qualifier` meta-annotations are not preserved in Kotlin metadata, so anything a downstream module must see needs a hint.
 
 ### Gradle Plugin (`koin-compiler-gradle-plugin/src/`)
 
@@ -142,12 +165,19 @@ fun provideHttpClient(): NetworkClient = OkHttpClient()
 # Run compiler plugin tests
 ./test.sh                           # Run all tests
 ./test.sh --tests "*SingleBasic*"   # Run specific tests
+./test.sh --tests "*JvmBoxTestGenerated*Safety*"  # One generated suite/dir
 ./test.sh -Pupdate.testdata=true    # Update golden files
+./gradlew build --continue          # What CI runs (JDK 21) — includes detekt via `check`
+
+# Lint (detekt + ktlint rules, config in config/detekt/)
+./gradlew detekt                    # Must stay green; existing findings parked in config/detekt/baseline/
 
 # Run sample app (from test-apps/)
 cd test-apps
 ./gradlew :sample-app:jvmRun
 ```
+
+**Lint rules.** Fix new detekt findings in the code; never add them to a baseline. Regenerate a baseline (`./gradlew detektBaselineMain detektBaselineTest detektBaselineTestFixtures`) only to drop findings you fixed. `-PdetektAutoCorrect` also rewrites code that is already baselined (verified: 14 unrelated lines in `KoinGradlePlugin.kt`), so scope it to one module and keep only your own hunks. `testData/` is never linted or reformatted — golden files pin its source positions.
 
 ## Test Structure
 
@@ -162,11 +192,15 @@ koin-compiler-plugin/testData/
 │   ├── startkoin/         # startKoin, koinApplication
 │   ├── scopes/            # @Scoped, @Scope
 │   ├── toplevel/          # Top-level function definitions
-│   └── bindings/          # Interface auto-binding
-└── diagnostics/           # Compilation error tests (future)
+│   ├── bindings/          # Interface auto-binding
+│   ├── safety/            # Compile-time safety (largest suite)
+│   └── monitor/           # @Monitor (Kotzilla SDK)
+├── diagnostics/           # Expected KOIN-Dxxx/Wxxx errors (`*.errors.txt` goldens)
+├── crossmodule/           # Multi-module diagnostics (`// MODULE:` blocks)
+└── registry/              # Input for KoinIrExtensionRegistryReleaseTest (not generated)
 ```
 
-Each test file has golden files (`*.fir.txt`, `*.fir.ir.txt`) containing expected compiler output.
+Each test file has golden files (`*.fir.txt`, `*.fir.ir.txt`) containing expected compiler output. Test classes are generated: `generateTests` (runs before `compileTestKotlin`, driven by `test-fixtures/.../GenerateTests.kt`) writes `test-gen/.../JvmBoxTestGenerated.java` (one nested class per `box/` dir), `JvmDiagnosticTestGenerated`, `JvmErrorMessageTestGenerated` — a new `.kt` in `testData/` is picked up automatically. Test-only directives (e.g. `DISABLE_COMPILE_SAFETY`) live in `test-fixtures/.../services/KoinTestDirectives.kt`. Plain unit tests are in `koin-compiler-plugin/test/`.
 
 ## PR Guards — check on EVERY pull request
 
