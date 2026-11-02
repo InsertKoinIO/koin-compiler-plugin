@@ -1,0 +1,81 @@
+Module: feat
+FILE: Capabilities.kt
+    package feat
+
+    public final class Database : R|kotlin/Any| {
+        public constructor(): R|feat/Database| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Rehash : R|kotlin/Any| {
+        public constructor(db: R|feat/Database|): R|feat/Rehash| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val db: R|feat/Database| = R|<local>/db|
+            public get(): R|feat/Database|
+
+    }
+    public final class Links : R|kotlin/Any| {
+        public constructor(db: R|feat/Database|): R|feat/Links| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val db: R|feat/Database| = R|<local>/db|
+            public get(): R|feat/Database|
+
+    }
+    public final class TicketStore : R|kotlin/Any| {
+        public constructor(): R|feat/TicketStore| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Invoicing : R|kotlin/Any| {
+        public constructor(store: R|feat/TicketStore|, db: R|feat/Database|): R|feat/Invoicing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|feat/TicketStore| = R|<local>/store|
+            public get(): R|feat/TicketStore|
+
+        public final val db: R|feat/Database| = R|<local>/db|
+            public get(): R|feat/Database|
+
+    }
+    public final fun reportModule(): R|org/koin/core/module/Module| {
+        ^reportModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|feat/Rehash|>()
+        }
+        )
+    }
+    public final fun alertModule(): R|org/koin/core/module/Module| {
+        ^alertModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|feat/Links|>()
+        }
+        )
+    }
+    public final fun invoicingModule(): R|org/koin/core/module/Module| {
+        ^invoicingModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|feat/Invoicing|>()
+        }
+        )
+    }
+Module: app
+FILE: Scripts.kt
+    package app
+
+    public final fun main(): R|kotlin/Unit| {
+        lval database: R|feat/Database| = R|feat/Database.Database|()
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|feat/Database|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|feat/Database| <inline=NoInline>  {
+                    ^ R|<local>/database|
+                }
+                )
+            }
+            ), R|feat/reportModule|(), R|feat/alertModule|()))
+        }
+        )
+    }

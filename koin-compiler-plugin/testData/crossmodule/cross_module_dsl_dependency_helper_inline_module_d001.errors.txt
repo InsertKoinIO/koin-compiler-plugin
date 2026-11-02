@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: lib.Store
+  required by: dsl:lib.Invoicing (parameter 'store')
+  in module: DSL graph

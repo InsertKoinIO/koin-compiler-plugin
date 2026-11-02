@@ -1,0 +1,59 @@
+Module: feat
+FILE: Capabilities.kt
+    package feat
+
+    public final class Links : R|kotlin/Any| {
+        public constructor(): R|feat/Links| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class TicketStore : R|kotlin/Any| {
+        public constructor(): R|feat/TicketStore| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Invoicing : R|kotlin/Any| {
+        public constructor(store: R|feat/TicketStore|): R|feat/Invoicing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|feat/TicketStore| = R|<local>/store|
+            public get(): R|feat/TicketStore|
+
+    }
+    public final fun alertModule(): R|org/koin/core/module/Module| {
+        ^alertModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|feat/Links|>()
+        }
+        )
+    }
+    public final fun invoicingModule(): R|org/koin/core/module/Module| {
+        ^invoicingModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|feat/connectionBeans|()
+        }
+        )
+    }
+    private final fun R|org/koin/core/module/Module|.connectionBeans(): R|kotlin/Unit| {
+        this@R|feat/connectionBeans|.R|org/koin/plugin/module/dsl/single|<R|feat/Invoicing|>()
+    }
+Module: app
+FILE: Scripts.kt
+    package app
+
+    public final class Database : R|kotlin/Any| {
+        public constructor(): R|app/Database| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/Database|>()
+            }
+            ), R|feat/alertModule|()))
+        }
+        )
+    }

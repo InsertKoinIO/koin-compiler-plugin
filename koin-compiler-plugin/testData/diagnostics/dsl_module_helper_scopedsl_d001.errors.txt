@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: Store
+  required by: dsl:Scoped1 (parameter 'store')
+  in module: DSL graph

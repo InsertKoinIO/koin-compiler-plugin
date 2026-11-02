@@ -1,0 +1,6 @@
+[Koin][KOIN-D001] Missing dependency: feat.CreatorStore
+  required by: dsl:feat.Creator (parameter 'store')
+  in module: feat.invoicingModule
+[Koin][KOIN-D001] Missing dependency: feat.TicketStore
+  required by: dsl:feat.Invoicing (parameter 'store')
+  in module: feat.invoicingModule
