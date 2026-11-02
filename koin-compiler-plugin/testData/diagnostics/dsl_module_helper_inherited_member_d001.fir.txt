@@ -1,0 +1,54 @@
+FILE: dsl_module_helper_inherited_member_d001.kt
+    public final class Store : R|kotlin/Any| {
+        public constructor(): R|Store| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Creator : R|kotlin/Any| {
+        public constructor(store: R|Store|): R|Creator| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|Store| = R|<local>/store|
+            public get(): R|Store|
+
+    }
+    public final class Consumer : R|kotlin/Any| {
+        public constructor(c: R|Creator|): R|Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val c: R|Creator| = R|<local>/c|
+            public get(): R|Creator|
+
+    }
+    public abstract class BaseModules : R|kotlin/Any| {
+        public constructor(): R|BaseModules| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final fun R|org/koin/core/module/Module|.commonBeans(): R|kotlin/Unit| {
+            this@R|/BaseModules.commonBeans|.R|org/koin/plugin/module/dsl/single|<R|Creator|>()
+        }
+
+    }
+    public final object AppModules : R|BaseModules| {
+        private constructor(): R|AppModules| {
+            super<R|BaseModules|>()
+        }
+
+        public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            (this@R|/AppModules|, this@R|special/anonymous|).R|/BaseModules.commonBeans|()
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Consumer|>()
+        }
+        )
+            public get(): R|org/koin/core/module/Module|
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(Q|AppModules|.R|/AppModules.appModule|)
+        }
+        )
+    }

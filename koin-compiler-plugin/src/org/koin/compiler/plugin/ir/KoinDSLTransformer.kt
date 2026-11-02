@@ -1,14 +1,20 @@
 package org.koin.compiler.plugin.ir
 
+import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
+import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
+import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
+import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.IrElement
+import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.expressions.*
+import org.jetbrains.kotlin.ir.expressions.IrGetField
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
+import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformerVoid
@@ -16,15 +22,10 @@ import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
-import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
-import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
-import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.koin.compiler.plugin.GeneratedResolutionCallRegistry
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
 import org.koin.compiler.plugin.KoinPluginLogger
-import org.jetbrains.kotlin.ir.expressions.IrGetField
 
 /**
  * Transforms Koin DSL calls — AND, in the SAME tree walk, collects the data A3 compile-safety
@@ -73,7 +74,21 @@ class KoinDSLTransformer(
 
     // ── Collected DSL definitions (for A3 full-graph validation) ──
     private val _dslDefinitions = mutableListOf<Definition.DslDef>()
-    val dslDefinitions: List<Definition.DslDef> get() = _dslDefinitions
+    val dslDefinitions: List<Definition.DslDef>
+        get() {
+            val roots = privateHelpers.resolveRoots()
+            if (roots.isEmpty()) return _dslDefinitions
+            return _dslDefinitions.map { def ->
+                val helperId = def.modulePropertyId?.takeIf(PrivateHelpers::isPlaceholder) ?: return@map def
+                def.copy(modulePropertyId = roots[helperId]).retainA3Metadata(def)
+            }
+        }
+
+    /** Private `fun Module.x()` helpers of this compilation and where they are called from. */
+    private val privateHelpers = PrivateHelpers()
+
+    /** Lambdas Koin runs with a `Module`/`ScopeDSL` receiver: `module { }`, `scope<T> { }`. */
+    private val koinBuilderLambdas = mutableSetOf<IrFunction>()
 
     // ── Collected call-site validations (replaces KoinCallSiteValidator tree walk) ──
     private val _pendingCallSites = mutableListOf<PendingCallSiteValidation>()
@@ -81,7 +96,17 @@ class KoinDSLTransformer(
 
     // ── Module loading graph (for DSL module loading validation) ──
     private val _moduleIncludes = mutableMapOf<String, MutableList<String>>()
-    val moduleIncludes: Map<String, List<String>> get() = _moduleIncludes
+    val moduleIncludes: Map<String, List<String>>
+        get() {
+            val roots = privateHelpers.resolveRoots()
+            if (roots.isEmpty()) return _moduleIncludes
+            val merged = linkedMapOf<String, MutableList<String>>()
+            for ((owner, edges) in _moduleIncludes) {
+                val target = if (PrivateHelpers.isPlaceholder(owner)) roots[owner] ?: continue else owner
+                merged.getOrPut(target) { mutableListOf() }.addAll(edges)
+            }
+            return merged
+        }
 
     /**
      * Every `module { }` val seen in this compilation, whether or not it declares definitions or
@@ -122,12 +147,19 @@ class KoinDSLTransformer(
      * verification when the walk actually reaches it.
      */
     private val _modulesWithIncompleteIncludes = linkedSetOf<String>()
-    val modulesWithIncompleteIncludes: Set<String> get() = _modulesWithIncompleteIncludes
+    val modulesWithIncompleteIncludes: Set<String>
+        get() {
+            val roots = privateHelpers.resolveRoots()
+            return _modulesWithIncompleteIncludes.mapNotNullTo(linkedSetOf()) { id ->
+                if (PrivateHelpers.isPlaceholder(id)) roots[id] else id
+            }
+        }
 
     private companion object {
         // SHARED — the module-typed receiver both codegen (which functions to intercept) and
         // safety (module-graph resolution) key off.
         const val KOIN_MODULE_FQNAME = "org.koin.core.module.Module"
+        const val SCOPE_DSL_FQNAME = "org.koin.dsl.ScopeDSL"
 
         // SAFETY — module-graph resolution ([resolveModuleRef]) only. Stable List<Module>
         // constructors: same content every time, no branching — safe to recurse into their
@@ -217,7 +249,9 @@ class KoinDSLTransformer(
         val scopeTypeClass: IrClass? = null,
         val createQualifier: QualifierValue? = null,
         val createReturnClass: IrClass? = null,
-        val modulePropertyId: String? = null
+        val modulePropertyId: String? = null,
+        // The private `fun Module.x()` whose body is being visited (its defs carry a placeholder id).
+        val privateHelper: IrSimpleFunction? = null,
     )
 
     // Stack-based context management (thread-safe for single-threaded compiler)
@@ -248,6 +282,12 @@ class KoinDSLTransformer(
     private fun contextForFunction(declaration: IrFunction): TransformContext {
         val baseContext = transformContext.copy(function = declaration)
         if (!compileSafetyEnabled || declaration !is IrSimpleFunction) return baseContext
+        if (isPrivateModuleHelper(declaration)) {
+            return baseContext.copy(
+                modulePropertyId = privateHelpers.placeholderFor(declaration),
+                privateHelper = declaration,
+            )
+        }
         val functionModuleId = buildModuleFunctionId(declaration) ?: return baseContext
         KoinPluginLogger.debug { "Module-returning function: $functionModuleId" }
         _allModuleIds.add(functionModuleId)
@@ -441,6 +481,27 @@ class KoinDSLTransformer(
      * of contents; see the individual `collect*`/`dispatchDslTargetCall` kdocs for the WHY.
      */
     override fun visitCall(expression: IrCall): IrExpression {
+        // Inside a private helper, a Koin DSL call on another module (`other.apply { single<X>() }`,
+        // `with(other) { … }`) registers there, not on the helper's caller: no helper attribution.
+        if (transformContext.privateHelper != null && isForeignModuleCall(expression)) {
+            return withContext(transformContext.copy(modulePropertyId = null, privateHelper = null)) {
+                visitCallInContext(expression)
+            }
+        }
+        return visitCallInContext(expression)
+    }
+
+    /** A call on a `Module`/`ScopeDSL` receiver other than the helper's own or a Koin builder lambda's. */
+    private fun isForeignModuleCall(expression: IrCall): Boolean {
+        val receiverFqName = expression.symbol.owner.extensionReceiverParam?.type?.classFqName?.asString()
+        if (receiverFqName != KOIN_MODULE_FQNAME && receiverFqName != SCOPE_DSL_FQNAME) return false
+        val receiverOwner = ((expression.extensionReceiverArgument as? IrGetValue)?.symbol?.owner as? IrValueParameter)
+            ?.takeIf { it.kind == IrParameterKind.ExtensionReceiver }
+            ?.parent
+        return receiverOwner != transformContext.privateHelper && receiverOwner !in koinBuilderLambdas
+    }
+
+    private fun visitCallInContext(expression: IrCall): IrExpression {
         val callee = expression.symbol.owner
         val functionName = callee.name
 
@@ -489,6 +550,59 @@ class KoinDSLTransformer(
     private fun collectPreDescentSafetyData(expression: IrCall, callee: IrSimpleFunction) {
         collectCallSiteIfResolutionFunction(expression, callee)
         collectModuleLoadingInfo(expression, callee)
+        collectKoinBuilderLambdas(expression, callee)
+        collectPrivateHelperCall(expression, callee)
+    }
+
+    /**
+     * SAFETY ONLY. A private helper's defs belong to the module calling it, when that call is a plain
+     * `helper()` on the receiver of a Koin builder lambda (or of another private helper). Any other
+     * use (explicit receiver, `with(x) { }`, outside any module) leaves it unattributed: its defs keep
+     * no module id and stay always-reachable, as before.
+     */
+    private fun collectPrivateHelperCall(expression: IrCall, callee: IrSimpleFunction) {
+        if (!isPrivateModuleHelper(callee)) return
+        val helperId = privateHelpers.placeholderFor(callee)
+        val receiverOwner = ((expression.extensionReceiverArgument as? IrGetValue)?.symbol?.owner as? IrValueParameter)
+            ?.takeIf { it.kind == IrParameterKind.ExtensionReceiver }
+            ?.parent
+        val currentHelper = transformContext.privateHelper
+        val caller = when {
+            receiverOwner == null -> null
+            currentHelper != null && receiverOwner == currentHelper -> privateHelpers.placeholderFor(currentHelper)
+            receiverOwner in koinBuilderLambdas -> transformContext.modulePropertyId
+            else -> null
+        }
+        privateHelpers.recordCall(helperId, caller)
+        KoinPluginLogger.debug { "  private module helper ${callee.name}: caller ${caller ?: "unattributed"}" }
+    }
+
+    private fun collectKoinBuilderLambdas(expression: IrCall, callee: IrSimpleFunction) {
+        val calleeFqName = callee.fqNameWhenAvailable?.asString() ?: return
+        if (!calleeFqName.startsWith("org.koin.")) return
+        for (index in 0 until expression.regularArgumentsCount) {
+            val lambda = (expression.getRegularArgument(index) as? IrFunctionExpression)?.function ?: continue
+            val receiverFqName = lambda.extensionReceiverParam?.type?.classFqName?.asString()
+            if (receiverFqName == KOIN_MODULE_FQNAME || receiverFqName == SCOPE_DSL_FQNAME) {
+                koinBuilderLambdas += lambda
+            }
+        }
+    }
+
+    /** A top-level `private fun Module.x()` / `private fun ScopeDSL.x()` in one of this compilation's files. */
+    private fun isPrivateModuleHelper(function: IrSimpleFunction): Boolean {
+        val receiverFqName = function.extensionReceiverParam?.type?.classFqName?.asString()
+        return function.visibility == DescriptorVisibilities.PRIVATE &&
+            function.parent is IrFile &&
+            (receiverFqName == KOIN_MODULE_FQNAME || receiverFqName == SCOPE_DSL_FQNAME)
+    }
+
+    override fun visitFunctionReference(expression: IrFunctionReference): IrExpression {
+        val target = expression.symbol.owner as? IrSimpleFunction
+        if (compileSafetyEnabled && target != null && isPrivateModuleHelper(target)) {
+            privateHelpers.recordCall(privateHelpers.placeholderFor(target), caller = null)
+        }
+        return super.visitFunctionReference(expression)
     }
 
     /**
@@ -1726,3 +1840,40 @@ data class PendingCallSiteValidation(
  *    this compilation is followed to its initializer instead.
  */
 enum class CallSiteReceiver { GRAPH_BOUND, GLOBAL, FOREIGN }
+
+/**
+ * Where each private `fun Module.x()` helper is called from. Its defs and `includes()` are collected
+ * under a placeholder id, resolved once the whole compilation is visited: to the one module that
+ * reaches it through plain calls, or to no id at all (always-reachable) when that isn't certain.
+ * All of a private helper's uses sit in its own file, so an incremental build never splits them.
+ */
+private class PrivateHelpers {
+    private val placeholders = mutableMapOf<IrSimpleFunction, String>()
+    private val callers = mutableMapOf<String, MutableSet<String>>()
+    private val unattributable = mutableSetOf<String>()
+
+    fun placeholderFor(function: IrSimpleFunction): String =
+        placeholders.getOrPut(function) { "$PLACEHOLDER_PREFIX${placeholders.size}:${function.name.asString()}" }
+
+    fun recordCall(helperId: String, caller: String?) {
+        if (caller == null) unattributable += helperId else callers.getOrPut(helperId) { mutableSetOf() } += caller
+    }
+
+    /** Placeholder → its single owning module id, or null when it can't be attributed. */
+    fun resolveRoots(): Map<String, String?> = placeholders.values.associateWith { rootOf(it, emptySet()) }
+
+    // [path]: helpers on the current call chain, so recursion resolves to "unattributable", not a loop.
+    private fun rootOf(helperId: String, path: Set<String>): String? {
+        if (helperId in unattributable || helperId in path) return null
+        val roots = callers[helperId].orEmpty().map { caller ->
+            if (isPlaceholder(caller)) rootOf(caller, path + helperId) else caller
+        }
+        return roots.takeUnless { null in it }?.toSet()?.singleOrNull()
+    }
+
+    companion object {
+        // `<` can't start a Kotlin FqName, so no real module id collides.
+        private const val PLACEHOLDER_PREFIX = "<private-helper>#"
+        fun isPlaceholder(moduleId: String): Boolean = moduleId.startsWith(PLACEHOLDER_PREFIX)
+    }
+}

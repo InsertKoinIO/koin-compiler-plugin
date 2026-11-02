@@ -1,0 +1,42 @@
+Module: lib
+FILE: Helpers.kt
+    package lib
+
+    public final class Store : R|kotlin/Any| {
+        public constructor(): R|lib/Store| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Invoicing : R|kotlin/Any| {
+        public constructor(store: R|lib/Store|): R|lib/Invoicing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|lib/Store| = R|<local>/store|
+            public get(): R|lib/Store|
+
+    }
+    public final fun R|org/koin/core/module/Module|.invoicingBeans(): R|kotlin/Unit| {
+        this@R|lib/invoicingBeans|.R|org/koin/plugin/module/dsl/single|<R|lib/Invoicing|>()
+    }
+Module: app
+FILE: App.kt
+    package app
+
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|app/Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|lib/invoicingBeans|()
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/Other|>()
+            }
+            ))
+        }
+        )
+    }

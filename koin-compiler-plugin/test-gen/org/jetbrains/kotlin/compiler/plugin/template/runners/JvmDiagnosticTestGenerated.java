@@ -321,6 +321,54 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_module_helper_explicit_receiver_d001.kt")
+  public void testDsl_module_helper_explicit_receiver_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_explicit_receiver_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_includes_ok.kt")
+  public void testDsl_module_helper_includes_ok() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_includes_ok.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_inherited_member_d001.kt")
+  public void testDsl_module_helper_inherited_member_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_inherited_member_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_nested_inline_d001.kt")
+  public void testDsl_module_helper_nested_inline_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_nested_inline_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_nested_inline_no_false_d002.kt")
+  public void testDsl_module_helper_nested_inline_no_false_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_nested_inline_no_false_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_nested_inline_startkoin_d001.kt")
+  public void testDsl_module_helper_nested_inline_startkoin_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_nested_inline_startkoin_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_scopedsl_d001.kt")
+  public void testDsl_module_helper_scopedsl_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_scopedsl_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_unloaded_no_false_d001.kt")
+  public void testDsl_module_helper_unloaded_no_false_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_unloaded_no_false_d001.kt");
+  }
+
+  @Test
   @TestMetadata("dsl_module_list_plus_precision_d001.kt")
   public void testDsl_module_list_plus_precision_d001() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_list_plus_precision_d001.kt");
@@ -360,6 +408,54 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @TestMetadata("dsl_new_constructor_valid_graph_ok.kt")
   public void testDsl_new_constructor_valid_graph_ok() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_new_constructor_valid_graph_ok.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_explicit_receiver_d001.kt")
+  public void testDsl_private_helper_explicit_receiver_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_explicit_receiver_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_foreign_receiver_d001.kt")
+  public void testDsl_private_helper_foreign_receiver_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_foreign_receiver_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_function_reference_d001.kt")
+  public void testDsl_private_helper_function_reference_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_function_reference_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_inline_entry_d001.kt")
+  public void testDsl_private_helper_inline_entry_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_inline_entry_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_nested_loaded_d001.kt")
+  public void testDsl_private_helper_nested_loaded_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_nested_loaded_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_recursive_d001.kt")
+  public void testDsl_private_helper_recursive_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_recursive_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_scopedsl.kt")
+  public void testDsl_private_helper_scopedsl() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_scopedsl.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_two_callers_d001.kt")
+  public void testDsl_private_helper_two_callers_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_two_callers_d001.kt");
   }
 
   @Test

@@ -1,0 +1,5 @@
+[Koin][KOIN-D001] Missing dependency: Store
+  required by: dsl:Creator (parameter 'store')
+  in module: rootModule
+[Koin][KOIN-W001] Module 'unloadedModule' is not loaded at startKoin — 1 definitions unreachable: Consumer
+  Add it to modules() or includes() to make these definitions available
