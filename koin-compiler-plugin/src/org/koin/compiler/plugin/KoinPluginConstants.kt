@@ -271,6 +271,12 @@ object KoinPluginConstants {
     const val DSL_INCLUDES_ALTERNATIVE_PREFIX = "alt_"
     const val DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX = "altinline_"
 
+    /**
+     * `relayedby_<sanitized module id>` on every relayed DSL hint: a module ignores hints it relayed
+     * itself, which incremental compilation keeps on its classpath.
+     */
+    const val RELAYED_BY_PREFIX = "relayedby_"
+
     /** `erased<position>_<sanitized ClassId>`: the real type of a relay parameter erased to `Any`. */
     const val ERASED_TYPE_MARKER_PREFIX = "erased"
 

@@ -934,6 +934,66 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_dsl_relay2_incomplete_includes.kt")
+    public void testCross_module_dsl_relay2_incomplete_includes() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay2_incomplete_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay2_runtime_choice.kt")
+    public void testCross_module_dsl_relay2_runtime_choice() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay2_runtime_choice.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay3_incomplete_includes.kt")
+    public void testCross_module_dsl_relay3_incomplete_includes() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay3_incomplete_includes.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay3_internal_type_qualifier_no_false_w001.kt")
+    public void testCross_module_dsl_relay3_internal_type_qualifier_no_false_w001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay3_internal_type_qualifier_no_false_w001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay3_missing_d001.kt")
+    public void testCross_module_dsl_relay3_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay3_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay3_runtime_choice.kt")
+    public void testCross_module_dsl_relay3_runtime_choice() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay3_runtime_choice.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay3_unloaded_w001.kt")
+    public void testCross_module_dsl_relay3_unloaded_w001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay3_unloaded_w001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay4_missing_d001.kt")
+    public void testCross_module_dsl_relay4_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay4_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_cycle_missing_d001.kt")
+    public void testCross_module_dsl_relay_cycle_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_cycle_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_diamond_missing_d001.kt")
+    public void testCross_module_dsl_relay_diamond_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_diamond_missing_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_dsl_relay_internal_binding.kt")
     public void testCross_module_dsl_relay_internal_binding() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_internal_binding.kt");
