@@ -1,18 +1,26 @@
-Compile safety on Kotlin/Native and wasm/JS now sees your whole graph.
+Compile safety on Kotlin/Native and wasm/JS now sees your whole graph, and multi-module projects get far fewer false errors.
+
+## ✨ Added
+
+- **Hidden dependency warning.** Compile safety checks the graph from what the module calling `startKoin` compiles against. When that module reaches another module's definitions only through an `implementation` dependency of a dependency, the build now warns, with the path and the line to add. `koinCompiler { hiddenDependencyCheck = "error" }` fails the build instead, `"none"` turns it off. JVM and Android.
 
 ## 🐛 Fixed
 
-- On Kotlin/Native, wasm and JS, definitions from another Gradle module were invisible to compile safety: `@ComponentScan` classes, DSL definitions, `@InjectedParam` shapes and deferred call sites. You got a false `KOIN-D002` on valid code, or a real missing dependency passed the build. Always the case on Kotlin 2.4.20, and on earlier versions for modules without `@Configuration` (#105, #106, #113). If you turned `compileSafety` off for your Native or wasm targets, turn it back on. JVM and Android were not affected.
-- False `KOIN-D002` on `koin.get<T>()` when that `Koin` was built elsewhere: by a test helper, received as a parameter, or held in a property. It was checked against the graph of an unrelated `koinApplication { }` in the same compilation, which mostly hit test source sets (#58).
-- False `KOIN-D006` on `activityViewModel<T>()` for a ViewModel with `@InjectedParam`: it reuses the instance the activity created with `parametersOf()` (#121). When nothing in the module creates it that way, you get the new `KOIN-W010` warning instead.
+- **Native, wasm and JS:** definitions from another Gradle module were invisible to compile safety. You got a false `KOIN-D002` on valid code, or a real missing dependency passed the build (#105, #106, #113). If you turned `compileSafety` off for these targets, turn it back on.
+- **False `KOIN-D001` / `KOIN-D004` across modules** on DSL parameters that need no provider: default value, nullable, `List<T>`, `Lazy<T>`, `@InjectedParam`, `@Property`, `@Provided`, `@ScopeId` (#115). Also on qualified function providers of the same type (#96), on a `@Single fun` provider two modules away (#114), on two `@Named("x")` providers of different types, and on definitions in a `private fun Module.x()` helper.
+- **`@Single(binds = [X::class])` on a class from another module** lost its binding: false `KOIN-D001`, and `getAll<X>()` empty at runtime (#98).
+- **Modules reported as not loaded:** false `KOIN-W001` after moving a module to another package, and on `includes()` chains of 3 modules or more. A function that returns one of several modules no longer makes them all unloaded (false `KOIN-D002`).
+- **Crashes:** "No classId" on local classes and anonymous objects (#101), invalid IR under `-Xverify-ir`, and the Kotlin daemon running out of memory on multi-module builds (#110).
+- **Configuration cache** was thrown away on every Kotlin edit.
+- False `KOIN-D002` on a `Koin` built elsewhere (#58), false `KOIN-D006` on `activityViewModel<T>()` (#121).
 
 ## 🔧 Changed
 
-- **Real errors now reported on Native and wasm/JS.** Missing dependencies, missing `parametersOf()` and deferred call sites are now checked the same way as on JVM. A build that was green on these targets can now fail on a real problem.
-- **New `KOIN-W008` warning.** When the plugin can't see a module's definitions, it now says so and names the module instead of skipping the check silently. Typical causes: the module was built with an older plugin version, or it is not a direct dependency. A `@ComponentScan` that matches nothing no longer blocks the check. This applies to every target, JVM included, and fails builds that use `allWarningsAsErrors`.
-- **New `KOIN-W009` warning, and one fewer error.** A call on a `Koin` that comes from your own code (a function parameter, a property of your class, a helper's instance) is no longer checked against this compilation's graph. When its type is defined nowhere in the compilation, one warning per compilation counts these calls instead of failing the build. So `fun f(koin: Koin) = koin.get<X>()` in your app module, with `X` undefined, now gives `KOIN-W009` instead of `KOIN-D002`. Calls through `KoinComponent`, `getKoin()`, `koinInject` or `by inject()` are still checked where `startKoin` is called.
-- **New `KOIN-W010` warning** on `activityViewModel<T>()` without `parametersOf()` when nothing in the module creates `T` with `parametersOf()` (see Fixed). Both new warnings fail builds that use `allWarningsAsErrors`.
-- **KMP libraries checking their KLIB ABI** (`apiCheck`) will see new `org.koin.plugin.hints` entries once. Run `apiDump`. These hints were always meant to be published; on JVM they already were.
+- **More of your graph is checked**: Native and wasm/JS, `includes()` chains of 3+ modules, entry points with an empty `@ComponentScan` in a dependency. A green build can now fail on a real missing dependency.
+- **`strictSafety = false` is honored** on the module calling `startKoin`, with a warning (#117, #120). `strictSafetyForceOff` is deprecated.
+- **Explicit `binds` across modules:** the class is bound to exactly its `binds`, as within one module (#98).
+- **New warnings:** `KOIN-W008` (a module's definitions can't be seen, check skipped), `KOIN-W009` (a call on a `Koin` from your own code), `KOIN-W010` (`activityViewModel<T>()` without `parametersOf()`), `KOIN-W011` (a module chosen at runtime). They fail builds that use `allWarningsAsErrors`. A `startKoin` module with no DSL definition of its own now logs that its DSL graph isn't validated.
+- **KMP libraries checking their KLIB ABI** (`apiCheck`): run `apiDump` once for the new `org.koin.plugin.hints` entries.
 
 ## ✅ Compatibility
 
@@ -29,7 +37,7 @@ plugins {
 
 ## Thanks
 
-@PhBogdanov traced the root cause down to the Kotlin KLIB serializer with KLIB dumps across four Kotlin versions (#106). Thanks to @dmitry-stakhov, @GoodSir42 and @sanders9 for the reports and reproducers (#105, #106, #113).
+@PhBogdanov traced the KLIB root cause down to the Kotlin serializer across four Kotlin versions (#106), and found the daemon memory leak (#110). Thanks to @dmitry-stakhov, @GoodSir42, @sanders9, @shreknitin89, @nabiu256, @zjarlin, @smartine-ledger, @stzouvaras, @andrew-turner-control4 and @acmpo6ou for the reports and reproducers.
 
 Your feedback is welcome 🙏
 
