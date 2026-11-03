@@ -1,6 +1,7 @@
 #!/bin/bash
-# Incremental-compilation checks for cross-module hint files. The compiler test harness
-# can't run Kotlin IC, so these build a throwaway two-module Gradle project and edit it between builds.
+# Real-Gradle checks the compiler test harness can't run: cross-module hint files under Kotlin IC
+#, and the hidden Koin dependency task. Each builds a throwaway multi-module
+# Gradle project and edits it between builds.
 #
 # Usage: tools/ic-check/check-hint-ic.sh <plugin-version> [kotlin-version]
 #   The plugin version must be in mavenLocal (./gradlew publishToMavenLocal -PpluginVersion=...).
@@ -136,8 +137,42 @@ scenario_relay_self_read() {
     expect "relay-self-read: dropping dataModule two hops away is reported incrementally" $r
 }
 
+# 4. A module that starts Koin and reaches definitions only through an `implementation` dependency of a
+#    dependency gets warned on every build until it depends on that module directly.
+scenario_hidden_dependency() {
+    local dir; dir=$(new_project hidden-dependency "data feature:data tool:feature app:feature")
+    mkdir -p "$dir/data/src/main/kotlin/data" "$dir/feature/src/main/kotlin/feature" "$dir/tool/src/main/kotlin/tool" "$dir/app/src/main/kotlin/app"
+    printf 'package tool\n\nimport feature.featureModule\n\nval toolModules = listOf(featureModule)\n' > "$dir/tool/src/main/kotlin/tool/Tool.kt"
+    # A file dependency under the configuration cache: the check's dependency filters must be storable.
+    printf 'org.gradle.configuration-cache=true\n' > "$dir/gradle.properties"
+    mkdir -p "$dir/data/libs" && (cd "$dir/data/libs" && printf 'x' > x.txt && zip -q plain.jar x.txt && rm x.txt)
+    printf 'dependencies { implementation(fileTree("libs") { include("*.jar") }) }\n' >> "$dir/data/build.gradle.kts"
+    printf 'package data\n\nimport org.koin.dsl.module\nimport org.koin.plugin.module.dsl.single\n\nclass Repo\n\nval dataModule = module { single<Repo>() }\n' > "$dir/data/src/main/kotlin/data/Data.kt"
+    printf 'package feature\n\nimport data.dataModule\nimport org.koin.dsl.module\n\nval featureModule = module { includes(dataModule) }\n' > "$dir/feature/src/main/kotlin/feature/Feature.kt"
+    printf 'package app\n\nimport feature.featureModule\nimport org.koin.core.context.startKoin\n\nfun main() {\n    startKoin { modules(featureModule) }\n}\n' > "$dir/app/src/main/kotlin/app/App.kt"
+    local warning='starts Koin, but these modules'
+    local out; out=$(build "$dir")
+    echo "$out" | grep -q "$warning" && echo "$out" | grep -q 'project(":data")' && r=ok || r=ko
+    expect "hidden-dependency: :data, two hops from the entry module, is reported" $r
+    echo "$out" | grep -q "BUILD SUCCESSFUL" && r=ok || r=ko
+    expect "hidden-dependency: a file dependency doesn't break the configuration cache" $r
+    build "$dir" | grep -q "$warning" && r=ok || r=ko
+    expect "hidden-dependency: the warning repeats on an unchanged build" $r
+    printf 'koinCompiler { hiddenDependencyCheck = "error" }\n' >> "$dir/app/build.gradle.kts"
+    out=$(build "$dir")
+    echo "$out" | grep -q "BUILD FAILED" && echo "$out" | grep -q "$warning" && r=ok || r=ko
+    expect "hidden-dependency: hiddenDependencyCheck = \"error\" fails the build with the report" $r
+    printf 'dependencies { implementation(project(":data")) }\n' >> "$dir/app/build.gradle.kts"
+    out=$(build "$dir")
+    echo "$out" | grep -q "BUILD SUCCESSFUL" && ! echo "$out" | grep -q "$warning" && r=ok || r=ko
+    expect "hidden-dependency: no report once the entry module depends on :data directly" $r
+    (cd "$dir" && ./gradlew :tool:compileKotlin --console=plain 2>&1) | grep -q "$warning" && r=ko || r=ok
+    expect "hidden-dependency: a module that doesn't start Koin is never reported" $r
+}
+
 echo "Koin compiler plugin $PLUGIN_VERSION, Kotlin $KOTLIN_VERSION — work dir $WORK"
 scenario_unrelated_edit
 scenario_package_move
 scenario_relay_self_read
+scenario_hidden_dependency
 exit $FAILED

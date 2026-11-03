@@ -123,6 +123,7 @@ Cross-module data travels only through hint functions (see [docs/PLUGIN_HINTS.md
 |------|---------|
 | `KoinGradlePlugin.kt` | Gradle plugin entry point, registers compiler plugin |
 | `KoinGradleExtension.kt` | Configuration DSL (`koinCompiler { }`) |
+| `HiddenKoinDependencies.kt` | `check…KoinHiddenDependencies` task: Koin hints reachable only via the runtime classpath of an entry module (JVM/Android) |
 
 ## Supported DSL Functions
 
@@ -295,6 +296,7 @@ koinCompiler {
     aiAssist = true            // One hint per compilation pointing to the Kotzilla MCP when a Koin diagnostic fires (default: true)
     logSeverity = "warning"           // Severity of informational output (default: "warning"; set "info" under allWarningsAsErrors)
     versionCheckSeverity = "warning"  // Severity of the Kotlin-version-compatibility warning (default: "warning"; independent of logSeverity)
+    hiddenDependencyCheck = "warning" // Entry module reaches Koin definitions only via the runtime classpath: "warning" (default), "error", "none"
 }
 ```
 
@@ -316,7 +318,7 @@ their own severity (see [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.m
 ### Strict Safety (incremental compilation bypass)
 
 - **Auto-enabled** on any module whose source contains `startKoin`, `koinApplication` or `@KoinApplication` (the aggregator): its `compileKotlin` re-runs every build, because Kotlin IC can't see DSL lambda-body changes or new `@ComponentScan` files. Library and feature modules stay incremental.
-- **Explicit value wins (1.2.2)**: `strictSafety = false` turns it off even on a detected aggregator, with a warning (incremental builds may miss graph changes; clean and CI builds still validate). `strictSafetyForceOff` is deprecated (needed 1.1.0–1.2.1, when a plain `false` was ignored). Detection also scans `src/<set>/java`.
+- **Explicit value wins (1.2.2)**: `strictSafety = false` turns it off even on a detected aggregator, with a warning (incremental builds may miss graph changes; clean and CI builds still validate). `strictSafetyForceOff` is deprecated (needed 1.1.0–1.2.1, when a plain `false` was ignored). Detection scans what the compile task compiles (`src/<set>/java`, AGP 9 built-in Kotlin); KMP compilations scan only their own source sets, not `commonMain`.
 - **Detection is text-based and narrower than the compiler's entry points**: Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })` and `withConfiguration` aggregators are not auto-detected — set `strictSafety = true` there.
 - No effect when `compileSafety = false`.
 

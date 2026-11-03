@@ -56,20 +56,29 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
             strictSafety = extension.strictSafety,
             strictSafetyForceOff = extension.strictSafetyForceOff,
             compileSafety = extension.compileSafety,
-            // `src/<set>/java` too: Android modules keep Kotlin there, unscanned before (GH #117, #120).
-            sources = project.files(
-                project.provider {
-                    kotlinCompilation.kotlinSourceSets.flatMap { sourceSet ->
-                        listOf(sourceSet.kotlin, project.file("src/${sourceSet.name}/java"))
-                    }
-                },
-            ),
+            sources = strictSafetySources(project, kotlinCompilation),
         )
 
         kotlinCompilation.compileTaskProvider.configure { task ->
             task.outputs.upToDateWhen { !decision.isActive() }
             task.outputs.cacheIf { !decision.isActive() }
         }
+    }
+
+    /**
+     * A plain JVM or Android compilation: what its compile task compiles, `src/<set>/java` and AGP 9's
+     * built-in Kotlin included. A KMP compilation: its own source sets only, not the shared ones it
+     * inherits (an entry point in `commonMain` doesn't make every target an aggregator).
+     */
+    private fun strictSafetySources(project: Project, compilation: KotlinCompilation<*>): FileCollection {
+        val compiled = compiledSources(project, compilation)
+        val ownSourceSets = project.files(project.provider { compilation.kotlinSourceSets.map { it.kotlin } })
+        return project.files(
+            project.provider {
+                val inheritsSourceSets = compilation.allKotlinSourceSets.size > compilation.kotlinSourceSets.size
+                if (inheritsSourceSets) ownSourceSets else compiled
+            },
+        )
     }
 
     override fun apply(target: Project) {
@@ -93,6 +102,7 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         val extension = project.extensions.getByType(KoinGradleExtension::class.java)
 
         configureStrictSafety(kotlinCompilation, extension)
+        registerHiddenDependencyCheck(project, extension, kotlinCompilation)
 
         // Use Gradle project.path (e.g. ":featureA:ui") as a stable, Gradle-module-unique
         // moduleId so synthetic hint files in org.koin.plugin.hints get module-disambiguated
@@ -139,7 +149,7 @@ private val aggregatorMarkerRegex: Regex = Regex(
         "|(?:@KoinApplication(?![A-Za-z0-9_]))",
 )
 
-private fun containsAggregatorMarker(file: File): Boolean =
+internal fun containsAggregatorMarker(file: File): Boolean =
     runCatching { aggregatorMarkerRegex.containsMatchIn(file.readText()) }.getOrDefault(false)
 
 /**
