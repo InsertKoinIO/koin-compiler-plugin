@@ -1,0 +1,68 @@
+Module: feature
+FILE: Feature.kt
+    package example.feature
+
+    public abstract interface Controller : R|kotlin/Any| {
+    }
+    public abstract interface CrudController<E> : R|example/feature/Controller| {
+    }
+    public abstract interface GraphController<E> : R|example/feature/CrudController<E>| {
+    }
+    public final data class Node : R|kotlin/Any| {
+        public constructor(id: R|kotlin/Long|): R|example/feature/Node| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val id: R|kotlin/Long| = R|<local>/id|
+            public get(): R|kotlin/Long|
+
+        public final operator fun component1(): R|kotlin/Long|
+
+        public final fun copy(id: R|kotlin/Long| = this@R|example/feature/Node|.R|example/feature/Node.id|): R|example/feature/Node|
+
+    }
+    @R|org/koin/core/annotation/Single|(binds = <collectionLiteralCall>(<getClass>(Q|example/feature/Controller|))) public final class NodeController : R|example/feature/GraphController<example/feature/Node>| {
+        public constructor(): R|example/feature/NodeController| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: org/koin/plugin/hints/exampleFeatureNodeControllerDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|example/feature/NodeController|, binding0: R|example/feature/GraphController<kotlin/Any?>|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package example.app
+
+    @R|org/koin/core/annotation/Single|() public final class UsesController : R|kotlin/Any| {
+        public constructor(controller: R|example/feature/Controller|): R|example/app/UsesController| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val controller: R|example/feature/Controller| = R|<local>/controller|
+            public get(): R|example/feature/Controller|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(example))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|example/app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|example/app/AppModule|))) public final object AppGraph : R|kotlin/Any| {
+        private constructor(): R|example/app/AppGraph| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|example/app/AppGraph|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: example/app/exampleAppAppModuleModule.kt
+    package example.app
+
+    public final fun R|example/app/AppModule|.module(): R|org/koin/core/module/Module|

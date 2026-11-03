@@ -2242,12 +2242,9 @@ class KoinAnnotationProcessor(
                     .mapNotNull { hintClasses.parameterClass(params, it) }
 
                 // Fallback to local detection if hint has no bindings encoded (older hints / @Inject case)
-                val bindings = if (hintBindings.isNotEmpty()) {
-                    hintBindings
-                } else {
-                    val explBindings = getExplicitBindings(defClass)
-                    if (explBindings != null) explBindings else detectBindings(defClass)
-                }
+                // An explicit `binds` read off the resolved class wins: the hint is built in FIR, before
+                // `binds = [X::class]` resolves, so it only holds the auto-detected supertypes (GH #98).
+                val bindings = getExplicitBindings(defClass) ?: hintBindings.ifEmpty { detectBindings(defClass) }
 
                 // Scope class from hint param, fallback to local class annotation
                 val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
@@ -2801,12 +2798,9 @@ class KoinAnnotationProcessor(
                 val hintBindings = classParams.filter { it.name.asString().startsWith("binding") }
                     .mapNotNull { hintClasses.parameterClass(classParams, it) }
 
-                val bindings = if (hintBindings.isNotEmpty()) {
-                    hintBindings
-                } else {
-                    val explBindings = getExplicitBindings(defClass)
-                    if (explBindings != null) explBindings else detectBindings(defClass)
-                }
+                // An explicit `binds` read off the resolved class wins: the hint is built in FIR, before
+                // `binds = [X::class]` resolves, so it only holds the auto-detected supertypes (GH #98).
+                val bindings = getExplicitBindings(defClass) ?: hintBindings.ifEmpty { detectBindings(defClass) }
 
                 val scopeClass = classParams.firstOrNull { it.name.asString() == "scope" }
                     ?.let { hintClasses.parameterClass(classParams, it) }
