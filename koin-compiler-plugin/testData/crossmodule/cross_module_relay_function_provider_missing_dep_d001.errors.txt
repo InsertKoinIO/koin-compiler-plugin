@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: types.Bar
+  required by: types.Foo (parameter 'bar')
+  in module: App (startKoin)

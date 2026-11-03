@@ -1137,8 +1137,10 @@ class KoinAnnotationProcessor(
 
             when (definition) {
                 is Definition.ClassDef, is Definition.ExternalFunctionDef -> {
-                    scanHintFor(definition, sanitizedModuleId, qualifiedEntriesByDefType)?.let { hintFunctions.add(it) }
-                    KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr)" }
+                    scanHintFor(definition, sanitizedModuleId, qualifiedEntriesByDefType)?.let {
+                        hintFunctions.add(it)
+                        KoinPluginLogger.debug { "    + scan hint ${it.name}: ${targetClass.name} ($defTypeStr)" }
+                    }
                 }
                 is Definition.TopLevelFunctionDef -> collectTopLevelFunctionHint(
                     definition, defTypeStr, targetClass, sanitizedModuleId, moduleClass, hintFunctions, qualifiedEntriesByDefType
@@ -1253,24 +1255,40 @@ class KoinAnnotationProcessor(
         sanitizedModuleId: String,
         qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
     ): IrSimpleFunction? {
-        val qualifier = definition.qualifier
-        val hintName = if (qualifier == null) {
-            KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
-        } else {
-            val discriminator = qualifierDiscriminator(qualifier)
-            qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)
-            // Same (type, qualifier) twice is a Koin-level duplicate: the first entry stands.
-            val entryKey = qualifiedEntryKey(sanitizedModuleId, defTypeStr, definition.returnTypeClass, discriminator)
-            if (!emittedQualifiedEntryKeys.add(entryKey)) return null
-            KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
+        val hintName = functionScanHintName(definition, defTypeStr, sanitizedModuleId, qualifiedEntriesByDefType)
+        val hint = hintName?.let {
+            createHintFunction(
+                it,
+                definition.returnTypeClass,
+                definition.bindings,
+                definition.scopeClass,
+                definition.qualifier,
+            )
         }
-        return createHintFunction(
-            hintName,
-            definition.returnTypeClass,
-            definition.bindings,
-            definition.scopeClass,
-            qualifier,
-        )
+        // Carry the provider's requirements in the entry itself: its own carrier sits in a module
+        // a consumer two hops away can't see (#114). Older consumers ignore these parameters.
+        hint?.let { function ->
+            requirementParams(definition.requirements, function.name.asString()) { name, type ->
+                hintValueParameter(function, name, type)
+            }?.let { function.parameters = function.parameters + it }
+        }
+        return hint
+    }
+
+    /** Shared name when unqualified; per-qualifier entry when qualified; null for a duplicate (type, qualifier). */
+    private fun functionScanHintName(
+        definition: Definition.ExternalFunctionDef,
+        defTypeStr: String,
+        sanitizedModuleId: String,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ): Name? {
+        val qualifier = definition.qualifier
+            ?: return KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
+        val discriminator = qualifierDiscriminator(qualifier)
+        qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)
+        val entryKey = qualifiedEntryKey(sanitizedModuleId, defTypeStr, definition.returnTypeClass, discriminator)
+        return KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
+            .takeIf { emittedQualifiedEntryKeys.add(entryKey) }
     }
 
     /**
@@ -1519,20 +1537,7 @@ class KoinAnnotationProcessor(
         )
 
         fun hintParam(paramName: String, type: org.jetbrains.kotlin.ir.types.IrType) =
-            context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier(paramName),
-                type = type,
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            ).also { it.parent = function }
+            hintValueParameter(function, paramName, type)
 
         // Encoding (cut-2 — see [discoverFuncReqsForExternalDef] for the mirror decode). Each
         // must-validate requirement emits, in order:
@@ -1545,14 +1550,29 @@ class KoinAnnotationProcessor(
         // and, for a Lazy<T> requirement, an adjacent flag companion (GH #115):
         //   lz                      : Unit                   — Lazy edge, skipped by cycle detection
         //                                                       (without it: false KOIN-D004)
+        val params = requirementParams(toCarry, returnFqn, ::hintParam) ?: return null
+        if (params.isEmpty()) return null
+
+        function.parameters = params
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+        function.addDeprecatedHiddenAnnotation(context)
+        return function
+    }
+
+    /**
+     * The `r_` / `qn_` / `qt` / `lz` encoding of [requirements] (see [createFuncReqsHintFunction]),
+     * built with [hintParam]. Null when a required type can't be named here: a partial list would
+     * validate the wrong graph.
+     */
+    private fun requirementParams(
+        requirements: List<Requirement>,
+        logOwner: String,
+        hintParam: (String, org.jetbrains.kotlin.ir.types.IrType) -> IrValueParameter,
+    ): List<IrValueParameter>? {
         val params = mutableListOf<IrValueParameter>()
-        for (req in toCarry) {
-            val classId = req.typeKey.classId ?: run {
-                KoinPluginLogger.debug { "    funcreqs SKIP for $returnFqn: unresolvable type for '${req.paramName}'" }
-                return null
-            }
-            val reqClass = context.referenceClass(classId)?.owner ?: run {
-                KoinPluginLogger.debug { "    funcreqs SKIP for $returnFqn: type ${classId.asFqNameString()} not on classpath" }
+        for (req in requirements) {
+            val reqClass = req.typeKey.classId?.let { context.referenceClass(it)?.owner } ?: run {
+                KoinPluginLogger.debug { "    requirements SKIP for $logOwner: '${req.paramName}' type not nameable" }
                 return null
             }
             params.add(hintParam("r_${KoinPluginConstants.sanitizeQualifierName(req.paramName)}", reqClass.hintParameterType(context)))
@@ -1565,12 +1585,72 @@ class KoinAnnotationProcessor(
                 null -> {}
             }
         }
-        if (params.isEmpty()) return null
+        return params
+    }
 
-        function.parameters = params
-        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
-        function.addDeprecatedHiddenAnnotation(context)
-        return function
+    private fun hintValueParameter(
+        function: IrSimpleFunction,
+        paramName: String,
+        type: org.jetbrains.kotlin.ir.types.IrType,
+    ): IrValueParameter = context.irFactory.createValueParameter(
+        startOffset = UNDEFINED_OFFSET,
+        endOffset = UNDEFINED_OFFSET,
+        origin = IrDeclarationOrigin.DEFINED,
+        name = Name.identifier(paramName),
+        type = type,
+        isAssignable = false,
+        symbol = IrValueParameterSymbolImpl(),
+        kind = IrParameterKind.Regular,
+        varargElementType = null,
+        isCrossinline = false,
+        isNoinline = false,
+        isHidden = false,
+    ).also { it.parent = function }
+
+    /** A function provider's requirements: carried in its own hint when relayed, else from its carrier. */
+    private fun requirementsFromHint(
+        params: List<IrValueParameter>,
+        returnTypeClass: IrClass,
+        qualifier: QualifierValue?,
+    ): List<Requirement> =
+        decodeRequirementParams(params).ifEmpty { discoverFuncReqsForExternalDef(returnTypeClass, qualifier) }
+
+    /** Reverse of [requirementParams]: requirements read from a hint's parameters, in order. */
+    private fun decodeRequirementParams(params: List<IrValueParameter>): List<Requirement> {
+        val reqs = mutableListOf<Requirement>()
+        for (p in params) {
+            val name = p.name.asString()
+            when {
+                name.startsWith("r_") -> reqs.add(
+                    Requirement(
+                        typeKey = ParameterAnalyzer.typeKeyFromType(p.type),
+                        paramName = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("r_")),
+                        isNullable = false,
+                        hasDefault = false,
+                        isInjectedParam = false,
+                        isProvided = false,
+                        isScopeId = false,
+                        scopeIdName = null,
+                        isLazy = false,
+                        isList = false,
+                        isProperty = false,
+                        propertyKey = null,
+                        qualifier = null,
+                    )
+                )
+                // Companions attach to the most recent requirement (positional adjacency).
+                name.startsWith("qn_") && reqs.isNotEmpty() -> {
+                    val v = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("qn_"))
+                    reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.StringQualifier(v))
+                }
+                name == "qt" && reqs.isNotEmpty() -> {
+                    val qClass = (p.type.classifierOrNull as? IrClassSymbol)?.owner
+                    if (qClass != null) reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.TypeQualifier(qClass))
+                }
+                name == "lz" && reqs.isNotEmpty() -> reqs[reqs.lastIndex] = reqs.last().copy(isLazy = true)
+            }
+        }
+        return reqs
     }
 
     /**
@@ -1716,39 +1796,7 @@ class KoinAnnotationProcessor(
             CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
         ).firstOrNull()?.owner ?: return emptyList()
 
-        val reqs = mutableListOf<Requirement>()
-        for (p in hintFunc.regularParameters) {
-            val name = p.name.asString()
-            when {
-                name.startsWith("r_") -> reqs.add(
-                    Requirement(
-                        typeKey = ParameterAnalyzer.typeKeyFromType(p.type),
-                        paramName = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("r_")),
-                        isNullable = false,
-                        hasDefault = false,
-                        isInjectedParam = false,
-                        isProvided = false,
-                        isScopeId = false,
-                        scopeIdName = null,
-                        isLazy = false,
-                        isList = false,
-                        isProperty = false,
-                        propertyKey = null,
-                        qualifier = null,
-                    )
-                )
-                // Qualifier companions attach to the most recent requirement (positional adjacency).
-                name.startsWith("qn_") && reqs.isNotEmpty() -> {
-                    val v = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("qn_"))
-                    reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.StringQualifier(v))
-                }
-                name == "qt" && reqs.isNotEmpty() -> {
-                    val qClass = (p.type.classifierOrNull as? IrClassSymbol)?.owner
-                    if (qClass != null) reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.TypeQualifier(qClass))
-                }
-                name == "lz" && reqs.isNotEmpty() -> reqs[reqs.lastIndex] = reqs.last().copy(isLazy = true)
-            }
-        }
+        val reqs = decodeRequirementParams(hintFunc.regularParameters)
         if (reqs.isNotEmpty()) {
             KoinPluginLogger.debug {
                 "      funcreqs decoded for $returnFqn: ${reqs.size} req(s) [${reqs.joinToString { it.typeKey.render() + (it.qualifier?.let { q -> " " + qualifierDisplayForLog(q) } ?: "") }}]"
@@ -2283,7 +2331,7 @@ class KoinAnnotationProcessor(
                     // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint so the
                     // entry-point verifier can check this provider's transitive deps (empty when the
                     // provider carried nothing — today's provider-only behavior).
-                    it.requirements = discoverFuncReqsForExternalDef(returnTypeClass, qualifier)
+                    it.requirements = requirementsFromHint(params, returnTypeClass, qualifier)
                     it.origin = SourceOrigin.of(returnTypeClass)
                 })
             }
@@ -2568,11 +2616,11 @@ class KoinAnnotationProcessor(
     /**
      * Relay [includedFqName]'s own [Definition.ClassDef]/[Definition.ExternalFunctionDef] definitions
      * under its own hint names, physically compiled into the CURRENT (includer) module's hint file —
-     * see the call sites in [generateModuleScanHints] and [relayConfigurationHints] for why. Doesn't
-     * cover [Definition.FunctionDef] (no relay-able hint form yet) or a qualified/funcreqs-carrying
-     * [Definition.TopLevelFunctionDef] (only the unqualified shape is relayed) — tracked as a
-     * follow-up, not silently claimed. Deduped compilation-wide (two relayers of the same far module
-     * would otherwise double-emit — a KLIB duplicate-signature clash on native/wasm).
+     * see the call sites in [generateModuleScanHints] and [relayConfigurationHints] for why. Function
+     * providers go out as function-scan hints carrying their own requirements (see [scanHintFor]).
+     * Doesn't cover [Definition.FunctionDef] (no relay-able hint form yet). Deduped compilation-wide
+     * (two relayers of the same far module would otherwise double-emit — a KLIB duplicate-signature
+     * clash on native/wasm).
      */
     private fun relayIncludedModuleHints(includedFqName: String, into: MutableList<IrSimpleFunction>) {
         if (!relayedIncludedModuleFqNames.add(includedFqName)) return
@@ -2882,7 +2930,7 @@ class KoinAnnotationProcessor(
         ).also {
             // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint (empty when
             // the provider carried nothing — today's provider-only behavior).
-            it.requirements = discoverFuncReqsForExternalDef(returnTypeClass, qualifier)
+            it.requirements = requirementsFromHint(params, returnTypeClass, qualifier)
             it.origin = SourceOrigin.of(returnTypeClass)
         }
         val key = definitionDedupeKey(candidate)

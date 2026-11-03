@@ -1,0 +1,77 @@
+Module: types
+FILE: Types.kt
+    package types
+
+    public abstract interface Dispatcher : R|kotlin/Any| {
+    }
+    public abstract interface Scope : R|kotlin/Any| {
+    }
+    public final class DispatcherImpl : R|types/Dispatcher| {
+        public constructor(): R|types/DispatcherImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ScopeImpl : R|types/Scope| {
+        public constructor(): R|types/ScopeImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+Module: common
+FILE: Common.kt
+    package shared
+
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(io)) public final fun ioScope(): R|types/Scope| {
+        ^ioScope R|types/ScopeImpl.ScopeImpl|()
+    }
+FILE: org/koin/plugin/hints/shared_ioScope_FunctionDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_function_single(contributed: R|types/Scope|, qualifier_io: R|kotlin/Unit|, funcpkg_shared: R|kotlin/Unit|): R|kotlin/Unit|
+Module: mid
+FILE: Mid.kt
+    package shared
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(shared))) public final class MidModule : R|kotlin/Any| {
+        public constructor(): R|shared/MidModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(io)) public final fun ioDispatcher(): R|types/Dispatcher| {
+        ^ioDispatcher R|types/DispatcherImpl.DispatcherImpl|()
+    }
+    @R|org/koin/core/annotation/Single|() public final class Repo : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(io)) d: R|types/Dispatcher|, @R|org/koin/core/annotation/Named|(value = String(io)) s: R|types/Scope|): R|shared/Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val d: R|types/Dispatcher| = R|<local>/d|
+            public get(): R|types/Dispatcher|
+
+        public final val s: R|types/Scope| = R|<local>/s|
+            public get(): R|types/Scope|
+
+    }
+FILE: shared/sharedMidModuleModule.kt
+    package shared
+
+    public final fun R|shared/MidModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/sharedMidModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|shared/MidModule|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|() public final class App : R|kotlin/Any| {
+        public constructor(): R|app/App| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/App|>()
+    }

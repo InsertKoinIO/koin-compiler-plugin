@@ -1,0 +1,101 @@
+Module: types
+FILE: Types.kt
+    package types
+
+    public abstract interface Dispatcher : R|kotlin/Any| {
+    }
+    public abstract interface Scope : R|kotlin/Any| {
+    }
+    public final class DispatcherImpl : R|types/Dispatcher| {
+        public constructor(): R|types/DispatcherImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ScopeImpl : R|types/Scope| {
+        public constructor(): R|types/ScopeImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+Module: q
+FILE: Q.kt
+    package q
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(q))) public final class QModule : R|kotlin/Any| {
+        public constructor(): R|q/QModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(io)) public final fun ioScope(): R|types/Scope| {
+        ^ioScope R|types/ScopeImpl.ScopeImpl|()
+    }
+FILE: q/qQModuleModule.kt
+    package q
+
+    public final fun R|q/QModule|.module(): R|org/koin/core/module/Module|
+Module: p
+FILE: P.kt
+    package p
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|q/QModule|))) @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(p))) public final class PModule : R|kotlin/Any| {
+        public constructor(): R|p/PModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() @R|org/koin/core/annotation/Named|(value = String(io)) public final fun ioDispatcher(): R|types/Dispatcher| {
+        ^ioDispatcher R|types/DispatcherImpl.DispatcherImpl|()
+    }
+FILE: p/pPModuleModule.kt
+    package p
+
+    public final fun R|p/PModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/pPModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|p/PModule|): R|kotlin/Unit|
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|p/PModule|))) @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class Repo : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(io)) d: R|types/Dispatcher|, @R|org/koin/core/annotation/Named|(value = String(io)) s: R|types/Scope|): R|feature/Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val d: R|types/Dispatcher| = R|<local>/d|
+            public get(): R|types/Dispatcher|
+
+        public final val s: R|types/Scope| = R|<local>/s|
+            public get(): R|types/Scope|
+
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/featureFeatureModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|feature/FeatureModule|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|() public final class App : R|kotlin/Any| {
+        public constructor(): R|app/App| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/App|>()
+    }
