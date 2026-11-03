@@ -500,6 +500,7 @@ class DslHintGenerator(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
+                if (hintFunc.isOwnRelay()) continue
                 val params = hintFunc.regularParameters
                 for (param in params) {
                     val paramClass = hintClasses.parameterClass(params, param) ?: continue
@@ -544,7 +545,8 @@ class DslHintGenerator(
             val hintName = Name.identifier(KoinPluginConstants.dslIncludesHintFunctionName(ownerModuleId))
             val callableId = CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
             val prefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
-            val params = context.referenceFunctions(callableId).flatMap { it.owner.regularParameters }
+            val params = context.referenceFunctions(callableId).map { it.owner }.filterNot { it.isOwnRelay() }
+                .flatMap { it.regularParameters }
                 .map { it.name.asString() }
             val edges = params.filter { it.startsWith(prefix) }
                 .map { it.removePrefix(prefix).replace('$', '.') }
@@ -597,6 +599,7 @@ class DslHintGenerator(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
+                if (hintFunc.isOwnRelay()) continue
                 val params = hintFunc.regularParameters
                 if (params.isEmpty()) continue
 
@@ -732,17 +735,32 @@ class DslHintGenerator(
     /** Compilation-wide dedupe for [relayDslDefinitionHints] — see its kdoc. */
     private val relayedDslModuleIds = mutableSetOf<String>()
 
+    /** Decoded once per compilation: the relay walk reads it once per far module. */
+    private val dependencyDslDefinitions: List<Definition.DslDef> by lazy { discoverDslDefinitionsFromHints() }
+
+    /** Null without a Gradle module id (tests, bare CLI): no incremental output to read back there. */
+    private val ownRelayMarkerName: Name? by lazy {
+        KoinPluginLogger.moduleId?.let {
+            Name.identifier(KoinPluginConstants.RELAYED_BY_PREFIX + KoinPluginConstants.sanitizeQualifierName(it))
+        }
+    }
+
+    /** A hint this module relayed in an earlier incremental round: stale input, never a source. */
+    private fun IrSimpleFunction.isOwnRelay(): Boolean =
+        ownRelayMarkerName?.let { marker -> regularParameters.any { it.name == marker } } ?: false
+
     /**
-     * Relay a DEPENDENCY module's own `dsl_single`/`dsl_factory`/etc. hints — visible only via THIS
-     * compilation's OWN classpath — under [includedModuleId], so a reader one hop further away (whose
-     * classpath doesn't reach [includedModuleId] directly) can still discover them.
+     * Relay a DEPENDENCY module's own hints — its `dsl_single`/`dsl_factory`/etc. definitions and its
+     * `dslincludes_*` edges, visible only via THIS compilation's OWN classpath — under
+     * [includedModuleId], so a reader one hop further away (whose classpath doesn't reach
+     * [includedModuleId] directly) can still discover them.
      *
-     * `module { includes(a) }` crosses the implementation-hop boundary via the `dslincludes_*`
-     * topology carrier (see [discoverModuleIncludesFromHints]) — that carrier only needs to know the
-     * EDGE, so it survives even when `a` itself is classpath-invisible. But `a`'s own DSL definition
-     * hints are ordinary declarations compiled into `a`'s OWN output: a reader 2+ implementation hops
-     * from `a` never has it on its classpath, so [discoverDslDefinitionsFromHints] finds nothing there
-     * regardless of how many `includes()` edges the walk crosses. Same root cause and fix shape as
+     * Both kinds are ordinary declarations compiled into `a`'s OWN output: a reader 2+ implementation
+     * hops from `a` never has it on its classpath. Without the definitions it finds nothing there;
+     * without the edges it sees the definitions of modules `a` includes but can't reach them, and
+     * reports them unloaded. Every relayed hint is marked `relayedby_<module>`, so this
+     * module ignores its own earlier relays that incremental compilation keeps on its classpath. Same
+     * root cause and fix shape as
      * `KoinAnnotationProcessor.relayIncludedModuleHints` / `relayConfigurationHints`: an intermediate
      * module that CAN see `a` directly (it's on ITS classpath) re-publishes `a`'s hints under its own
      * compiled output.
@@ -753,11 +771,25 @@ class DslHintGenerator(
      */
     private fun relayDslDefinitionHints(includedModuleId: String): List<IrSimpleFunction> {
         if (!relayedDslModuleIds.add(includedModuleId)) return emptyList()
-        val defs = discoverDslDefinitionsFromHints().filter { it.modulePropertyId == includedModuleId }
+        val defs = dependencyDslDefinitions.filter { it.modulePropertyId == includedModuleId }
         val hints = defs.mapNotNull { buildDslHintFunction(it)?.eraseTypesThisModuleCannotName(context) }
+            .toMutableList()
+        // Its includes() edges too: without them a reader 2+ hops away sees the definitions of the
+        // modules it includes but can't reach them, and reports them unloaded.
+        val topology = discoverModuleIncludesFromHints(includedModuleId)
+        buildDslIncludesHintFunction(
+            includedModuleId,
+            topology.edges,
+            incomplete = topology.incomplete,
+            alternatives = topology.alternatives,
+        )?.let { hints += it }
+        ownRelayMarkerName?.let { marker ->
+            for (hint in hints) hint.parameters += newValueParameter(hint, marker, context.irBuiltIns.unitType)
+        }
         if (hints.isNotEmpty()) {
             KoinPluginLogger.debug {
-                "  + relayed ${hints.size} DSL definition hint(s) from classpath-invisible include $includedModuleId"
+                "  + relayed ${hints.size} DSL hint(s) (definitions + includes edges) from classpath-invisible " +
+                    "include $includedModuleId"
             }
         }
         return hints

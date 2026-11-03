@@ -11,22 +11,19 @@ REPO=$(cd "$(dirname "$0")/../.." && pwd)
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/kcp-ic-check.XXXXXX")
 FAILED=0
 
+# new_project <name> [modules]: modules as "name:dep1,dep2 …" (default "lib app:lib"), in order.
 new_project() {
-    local dir=$WORK/$1
-    mkdir -p "$dir/lib/src/main/kotlin/feat" "$dir/app/src/main/kotlin"
+    local name=$1 modules=${2:-"lib app:lib"} dir=$WORK/$1 includes=""
+    mkdir -p "$dir"
     cp -R "$REPO/gradle" "$REPO/gradlew" "$dir/"
-    cat > "$dir/settings.gradle.kts" <<EOF
-pluginManagement {
-    plugins { kotlin("jvm") version "$KOTLIN_VERSION" }
-    repositories { mavenLocal(); mavenCentral(); gradlePluginPortal() }
-}
-dependencyResolutionManagement { repositories { mavenLocal(); mavenCentral() } }
-rootProject.name = "$1"
-include(":lib", ":app")
-EOF
-    for module in lib app; do
-        local extra=""
-        [ "$module" = app ] && extra='    implementation(project(":lib"))'
+    for spec in $modules; do
+        local module=${spec%%:*} deps=""
+        [ "$spec" != "$module" ] && deps=${spec#*:}
+        includes="$includes, \":$module\""
+        mkdir -p "$dir/$module/src/main/kotlin"
+        local depLines=""
+        for dep in ${deps//,/ }; do depLines="$depLines    implementation(project(\":$dep\"))
+"; done
         cat > "$dir/$module/build.gradle.kts" <<EOF
 plugins {
     kotlin("jvm")
@@ -36,10 +33,18 @@ kotlin { jvmToolchain(17) }
 dependencies {
     implementation("io.insert-koin:koin-core:4.2.2")
     implementation("io.insert-koin:koin-annotations:4.2.2")
-$extra
-}
+$depLines}
 EOF
     done
+    cat > "$dir/settings.gradle.kts" <<EOF
+pluginManagement {
+    plugins { kotlin("jvm") version "$KOTLIN_VERSION" }
+    repositories { mavenLocal(); mavenCentral(); gradlePluginPortal() }
+}
+dependencyResolutionManagement { repositories { mavenLocal(); mavenCentral() } }
+rootProject.name = "$name"
+include(${includes#, })
+EOF
     echo "$dir"
 }
 
@@ -55,6 +60,7 @@ expect() {
 scenario_unrelated_edit() {
     local dir; dir=$(new_project unrelated-edit)
     local src=$dir/lib/src/main/kotlin/feat
+    mkdir -p "$src"
     printf 'package feat\n\nclass Alpha { fun v() = 1 }\n' > "$src/Alpha.kt"
     printf 'package feat\n\nimport org.koin.dsl.module\n\nval midModule = module { includes(zedModule) }\n' > "$src/Mid.kt"
     printf 'package feat\n\nimport org.koin.dsl.module\nimport org.koin.plugin.module.dsl.single\n\nclass Zed\nclass Yan\nval zedModule = module { single<Yan>() }\n' > "$src/Zed.kt"
@@ -86,6 +92,7 @@ EOF
 scenario_package_move() {
     local dir; dir=$(new_project package-move)
     local src=$dir/lib/src/main/kotlin
+    mkdir -p "$src/feat"
     printf 'package feat\n\nimport org.koin.dsl.module\nimport org.koin.plugin.module.dsl.single\n\nclass Zed\nclass Yan\nval zedModule = module { single<Zed>() }\n' > "$src/feat/Zed.kt"
     printf 'package feat\n\nimport org.koin.dsl.module\nimport org.koin.plugin.module.dsl.single\n\nval otherModule = module { single<Yan>() }\n' > "$src/feat/Other.kt"
     cat > "$dir/app/src/main/kotlin/App.kt" <<'EOF'
@@ -113,7 +120,24 @@ EOF
     expect "package-move: hint class for the new package exists" $r
 }
 
+# 3. A relaying module must not read back its own previous relay: an includes() edge removed two
+#    hops away would otherwise live on, and a now-missing dependency go unreported.
+scenario_relay_self_read() {
+    local dir; dir=$(new_project relay-self-read "data feature:data mid:feature,data app:mid")
+    mkdir -p "$dir/data/src/main/kotlin/data" "$dir/feature/src/main/kotlin/feature" "$dir/mid/src/main/kotlin/mid" "$dir/app/src/main/kotlin/app"
+    printf 'package data\n\nimport org.koin.dsl.module\nimport org.koin.plugin.module.dsl.single\n\nclass Repo\n\nval dataModule = module { single<Repo>() }\n' > "$dir/data/src/main/kotlin/data/Data.kt"
+    printf 'package feature\n\nimport data.dataModule\nimport org.koin.dsl.module\n\nval otherModule = module { }\n\nval featureModule = module { includes(dataModule) }\n' > "$dir/feature/src/main/kotlin/feature/Feature.kt"
+    printf 'package mid\n\nimport data.Repo\nimport feature.featureModule\nimport org.koin.dsl.module\nimport org.koin.plugin.module.dsl.single\n\nclass MidThing(val repo: Repo)\n\nval midModule = module {\n    includes(featureModule)\n    single<MidThing>()\n}\n' > "$dir/mid/src/main/kotlin/mid/Mid.kt"
+    printf 'package app\n\nimport mid.midModule\nimport org.koin.core.context.startKoin\nimport org.koin.dsl.module\nimport org.koin.plugin.module.dsl.single\n\nclass AppThing\n\nfun main() {\n    startKoin { modules(module { single<AppThing>() }, midModule) }\n}\n' > "$dir/app/src/main/kotlin/app/App.kt"
+    build "$dir" | grep -q "KOIN-" && r=ko || r=ok
+    expect "relay-self-read: the complete graph is clean" $r
+    sed -i.bak 's/includes(dataModule)/includes(otherModule)/' "$dir/feature/src/main/kotlin/feature/Feature.kt" && rm "$dir/feature/src/main/kotlin/feature/Feature.kt.bak"
+    build "$dir" | grep -q "KOIN-D001.*data.Repo" && r=ok || r=ko
+    expect "relay-self-read: dropping dataModule two hops away is reported incrementally" $r
+}
+
 echo "Koin compiler plugin $PLUGIN_VERSION, Kotlin $KOTLIN_VERSION — work dir $WORK"
 scenario_unrelated_edit
 scenario_package_move
+scenario_relay_self_read
 exit $FAILED
