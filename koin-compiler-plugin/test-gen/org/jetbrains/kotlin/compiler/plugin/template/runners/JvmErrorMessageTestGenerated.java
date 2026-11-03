@@ -730,6 +730,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_class_binds_array_literal_no_false_d001.kt")
+    public void testCross_module_class_binds_array_literal_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_class_binds_array_literal_no_false_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_configuration_empty_scan_two_hops_missing_d001.kt")
     public void testCross_module_configuration_empty_scan_two_hops_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_empty_scan_two_hops_missing_d001.kt");
