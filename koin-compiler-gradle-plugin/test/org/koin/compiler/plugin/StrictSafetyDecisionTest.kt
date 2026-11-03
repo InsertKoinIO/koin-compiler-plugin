@@ -66,8 +66,8 @@ class StrictSafetyDecisionTest {
     }
 
     @Test
-    fun `explicit false is ignored when an entry point is detected`() =
-        assertTrue(decision(strictSafety = false).isActive())
+    fun `explicit false is honored when an entry point is detected`() =
+        assertFalse(decision(strictSafety = false).isActive())
 
     @Test
     fun `explicit false with forceOff disables it`() =

@@ -460,11 +460,17 @@ suppress the line; it never changes which diagnostics fire.
 
 ### Strict safety (incremental compilation bypass)
 
-**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication`. The Gradle plugin scans the compilation's source files when the compile task checks whether it is up to date (never at configuration time, so the configuration cache survives source edits), detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
+**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication` (Kotlin sources, including `src/<set>/java` folders). The Gradle plugin scans the compilation's source files when the compile task checks whether it is up to date (never at configuration time, so the configuration cache survives source edits), detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
 
-**Mandatory once detected (1.1.0+).** `strictSafety = false` no longer silently wins on a module where detection fires — the plugin ignores it, forces the safety pass on anyway, and logs a lifecycle message explaining why. Full-graph validation has no per-module safety net since A2 stopped verifying, so an aggregator silently skipping re-validation on an incremental rebuild is a correctness gap, not a preference. `strictSafety = true` still works everywhere (forces it on regardless of detection).
+**An explicit value wins (1.2.2).** `strictSafety = true` forces it on everywhere. `strictSafety = false` turns it off, even on a detected aggregator, with a warning: incremental builds may then miss graph changes, while clean and CI builds still validate. A common setup keeps local builds incremental and enforces it on CI:
 
-**Escape hatch for a genuine detector misfire**: if the `startKoin`/`koinApplication`/`@KoinApplication` marker only appears in a comment or string literal (not a real entry point), set `strictSafetyForceOff = true` **together with** `strictSafety = false` — a separate, explicit acknowledgement from a plain `strictSafety = false`, since the two cases ("this isn't really an aggregator" vs. "I just don't want the cost") are otherwise indistinguishable from the Gradle side.
+```kotlin
+koinCompiler {
+    strictSafety = providers.environmentVariable("CI").isPresent
+}
+```
+
+`strictSafetyForceOff` is deprecated: from 1.1.0 to 1.2.1, a plain `strictSafety = false` was ignored once an entry point was detected, and this flag was needed to really turn it off.
 
 **Why**: full-graph safety only runs in the aggregator's `compileKotlin`, and Kotlin's IC — today, in K2 with the Build Tools API path that AGP uses — doesn't give the aggregator a reason to re-run when the graph actually changed. Two places where IC's tracking is too coarse for a DI graph:
 
@@ -474,7 +480,7 @@ suppress the line; it never changes which diagnostics fire.
 
 We already record file-pair links via `ExpectActualTracker` to plug some of this (same primitive Metro uses for its `@BindingContainer` case), but those links only fire when both files participate in a build, and they don't cover newly-introduced files that nothing pointed to before. Forcing the aggregator to re-run is the smallest correct behavior we can produce on top of what K2 IC tells us today — a workaround framed against IC limitations, not a permanent design statement. If K2's IC tracking later grows package-scope edges or surfaces lambda-body changes through a different signal, this auto-enable becomes redundant and we can revisit.
 
-**Cost** is bounded: only the aggregator's `compileKotlin` task runs every build. Library and feature modules stay fully incremental.
+**Cost**: the aggregator's `compileKotlin` task runs every build, which in practice recompiles that whole module every build. On a thin app shell that's seconds; on a large app module it's significant (GH #120). Library and feature modules stay fully incremental. It is also not a full guarantee: when the module list lives in a file other than the entry point, Kotlin IC may still skip the check (GH #117). A dedicated validation task that re-checks the graph without recompiling is planned for 1.3.
 
 | Aggregator style | Detected via |
 |---|---|

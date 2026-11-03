@@ -39,26 +39,31 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
         // every build (DSL lambda bodies inside transitive module dependencies are not part of
         // any declaration's ABI, so Kotlin's incremental compilation can't see changes to them).
         //
-        // MANDATORY once detected (Gate 3 / 1.1.0): a plain `strictSafety = false` no longer
-        // silently wins here — the whole point of the freshness net is that A2 no longer
-        // provides a redundant per-module safety check, so an aggregator silently skipping
-        // re-validation on an incremental rebuild is a real correctness gap, not a preference.
-        // The escape hatch for a genuine detector misfire (the regex matches inside a comment or
-        // string literal, not a real entry point) is [KoinGradleExtension.strictSafetyForceOff] —
-        // a SEPARATE, explicit acknowledgement, not the same flag `strictSafety` already used for
-        // "off by default" semantics elsewhere.
+        // An explicit `strictSafety = false` wins (1.2.2, #120), with a warning when an entry
+        // point is detected: forcing a full recompile of the aggregator every build cost a lot on
+        // large app modules (GH #120) and still didn't guarantee the check under IC (GH #117).
+        // Clean and CI builds always validate.
         //
         // Decided when Gradle evaluates the specs, at execution time, once per build: the source
         // read is then never a configuration-cache input. A Lazy captured here was forced when the
         // configuration cache serialized the specs, so editing any Kotlin source invalidated the
         // entry. Explicit `strictSafety = true` and `compileSafety = false` skip the scan.
         val project = kotlinCompilation.target.project
+
+        @Suppress("DEPRECATION") // strictSafetyForceOff is read only to warn that it's no longer needed
         val decision = StrictSafetyDecision(
             projectPath = project.path,
             strictSafety = extension.strictSafety,
             strictSafetyForceOff = extension.strictSafetyForceOff,
             compileSafety = extension.compileSafety,
-            sources = project.files(project.provider { kotlinCompilation.kotlinSourceSets.map { it.kotlin } }),
+            // `src/<set>/java` too: Android modules keep Kotlin there, unscanned before (GH #117, #120).
+            sources = project.files(
+                project.provider {
+                    kotlinCompilation.kotlinSourceSets.flatMap { sourceSet ->
+                        listOf(sourceSet.kotlin, project.file("src/${sourceSet.name}/java"))
+                    }
+                },
+            ),
         )
 
         kotlinCompilation.compileTaskProvider.configure { task ->
@@ -126,9 +131,7 @@ class KoinGradlePlugin : KotlinCompilerPluginSupportPlugin {
  *
  * We still match identifiers that appear in comments and string literals — stripping
  * those would need a real lexer. In practice this remains a heuristic; the
- * lifecycle log makes the decision visible, and `strictSafetyForceOff = true` together with
- * `strictSafety = false` (a plain `strictSafety = false` is ignored once this detects a hit — see
- * [KoinGradlePlugin.configureStrictSafety]) is the escape for a confirmed misfire.
+ * lifecycle log makes the decision visible, and `strictSafety = false` turns it off.
  */
 private val aggregatorMarkerRegex: Regex = Regex(
     "(?:(?<![A-Za-z0-9_])startKoin(?![A-Za-z0-9_]))" +
@@ -143,8 +146,8 @@ private fun containsAggregatorMarker(file: File): Boolean =
  * Whether strictSafety is on for one compilation. Evaluated lazily by the compile task's
  * up-to-date and cache specs, once per build, so the source scan never runs at configuration time.
  *
- * Policy: explicit `true` wins; detection forces it on even over an explicit `false`, unless
- * `strictSafetyForceOff` confirms a misfire. Off, with no scan and no log, when compileSafety is.
+ * Policy: an explicit value wins (`false` warns when an entry point is detected); unset, detection
+ * decides. Off, with no scan and no log, when compileSafety is.
  */
 internal class StrictSafetyDecision(
     private val projectPath: String,
@@ -164,23 +167,18 @@ internal class StrictSafetyDecision(
             !compileSafety.getOrElse(true) -> false
             explicit == true -> true
             sources.asFileTree.files.none(::containsAggregatorMarker) -> false
-            explicit == false && strictSafetyForceOff.getOrElse(false) -> {
-                logger.lifecycle(
-                    "[Koin] strictSafety left OFF on $projectPath despite detecting startKoin / " +
-                        "@KoinApplication / koinApplication — strictSafetyForceOff = true acknowledges " +
-                        "this is a detector misfire, not a real entry point in this compilation.",
+            explicit == false -> {
+                if (strictSafetyForceOff.getOrElse(false)) {
+                    logger.warn(
+                        "[Koin] strictSafetyForceOff is deprecated on $projectPath: strictSafety = false " +
+                            "is honored on its own now. Remove strictSafetyForceOff.",
+                    )
+                }
+                logger.warn(
+                    "[Koin] strictSafety = false on $projectPath, which has a Koin entry point: incremental " +
+                        "builds may miss graph changes. Clean and CI builds still validate.",
                 )
                 false
-            }
-            explicit == false -> {
-                logger.lifecycle(
-                    "[Koin] strictSafety = false is being ignored on $projectPath: this compilation " +
-                        "contains a real Koin entry point (startKoin / @KoinApplication / koinApplication), " +
-                        "so full-graph compile safety must run on every build. If this detection is wrong " +
-                        "(e.g. the marker only appears in a comment or string literal), set " +
-                        "`strictSafetyForceOff = true` in koinCompiler { } to confirm that and disable it.",
-                )
-                true
             }
             else -> {
                 logger.lifecycle(
