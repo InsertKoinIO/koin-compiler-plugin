@@ -1012,7 +1012,8 @@ class KoinAnnotationProcessor(
         for (moduleClass in modulesWithScan) {
             // A relay-only module has no moduleDefinitions entry but still needs its includes hint.
             val definitions = moduleDefinitions[moduleClass].orEmpty()
-            if (definitions.isEmpty() && moduleClass.includedModules.isEmpty()) continue
+            val nothingToPublish = definitions.isEmpty() && moduleClass.includedModules.isEmpty()
+            if (nothingToPublish && !moduleClass.hasComponentScan) continue
 
             val moduleClassId = moduleClass.irClass.classIdOrFail
             val sanitizedModuleId = KoinModuleFirGenerator.sanitizeModuleIdForHint(moduleClassId)
@@ -1038,6 +1039,15 @@ class KoinAnnotationProcessor(
                 val rosterFunc = createRosterHintFunction(rosterName, discriminators.sorted())
                 hintFunctions.add(rosterFunc)
                 KoinPluginLogger.debug { "    + componentscanfunc roster: $defTypeStr lists ${discriminators.size} qualifier(s) -> $rosterName" }
+            }
+
+            // Without a marker, a consumer can't tell an empty scan from missing hints and withholds
+            // validation for the whole entry point (KOIN-W008).
+            // Only when the scan found nothing at all: a found definition whose hint couldn't be built
+            // must keep the module incomplete, never pass as empty.
+            val scanFoundNothing = definitions.all { it is Definition.FunctionDef || it is Definition.DslDef }
+            if (moduleClass.hasComponentScan && scanFoundNothing && KoinPluginLogger.scanCompletionMarkersEnabled) {
+                hintFunctions.add(emptyScanMarker(sanitizedModuleId))
             }
 
             // Topology carrier: this module's own `includes=[...]` edges, re-published as a hint so a
@@ -1420,6 +1430,20 @@ class KoinAnnotationProcessor(
         is QualifierValue.TypeQualifier -> KoinPluginConstants.sanitizeQualifierName(
             qualifier.irClass.fqNameWhenAvailable?.asString() ?: qualifier.irClass.name.asString()
         )
+    }
+
+    /**
+     * Completion marker. From the module itself: its @ComponentScan found nothing. From a
+     * relay: the whole module resolved complete and empty. Either way, no scan entry is missing.
+     */
+    private fun emptyScanMarker(sanitizedModuleId: String): IrSimpleFunction =
+        createRosterHintFunction(KoinModuleFirGenerator.moduleScanEmptyHintName(sanitizedModuleId), emptyList())
+
+    /** A completion marker for [moduleFqName] is visible (see [emptyScanMarker]). */
+    private fun scanDeclaredEmpty(moduleFqName: String): Boolean {
+        val sanitizedId = KoinModuleFirGenerator.sanitizeModuleIdForHint(ClassId.topLevel(FqName(moduleFqName)))
+        val markerName = KoinModuleFirGenerator.moduleScanEmptyHintName(sanitizedId)
+        return cachedReferenceFunctions(CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, markerName)).isNotEmpty()
     }
 
     /**
@@ -2435,7 +2459,7 @@ class KoinAnnotationProcessor(
         // whole thing look whole. When hint functions are unavailable, discoverModuleScanDefinitions
         // returns empty; in that case we can't fully resolve the module's scanned definitions and
         // must mark it incomplete to skip safety validation.
-        val scanUnresolved = hasComponentScan && !scanDefinitionsFound
+        val scanUnresolved = hasComponentScan && !scanDefinitionsFound && !scanDeclaredEmpty(moduleFqName)
         if (scanUnresolved) {
             KoinPluginLogger.debug { "    -> WARNING: $moduleFqName has @ComponentScan but no scan hints found (hint functions unavailable)" }
         }
@@ -2475,7 +2499,7 @@ class KoinAnnotationProcessor(
         val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
         val hintIncludesUnresolved = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }, visited)
 
-        val selfUnresolved = definitions.isEmpty() && hintIncludes.isEmpty()
+        val selfUnresolved = definitions.isEmpty() && hintIncludes.isEmpty() && !scanDeclaredEmpty(moduleFqName)
         return DependencyModuleResult(definitions, (if (selfUnresolved) listOf(moduleFqName) else emptyList()) + hintIncludesUnresolved)
     }
 
@@ -2636,8 +2660,14 @@ class KoinAnnotationProcessor(
     private fun relayIncludedModuleHints(includedFqName: String, into: MutableList<IrSimpleFunction>) {
         if (!relayedIncludedModuleFqNames.add(includedFqName)) return
         val result = collectDefinitionsFromDependencyModule(includedFqName)
-        if (result.definitions.isEmpty()) return
         val sanitizedIncludedId = KoinModuleFirGenerator.sanitizeModuleIdForHint(ClassId.topLevel(FqName(includedFqName)))
+        if (result.definitions.isEmpty()) {
+            // Resolved complete with nothing in it (scan and includes alike): stays complete one hop further.
+            if (result.isComplete && KoinPluginLogger.scanCompletionMarkersEnabled) {
+                into.add(emptyScanMarker(sanitizedIncludedId))
+            }
+            return
+        }
         val qualifiedEntriesByDefType = mutableMapOf<String, LinkedHashSet<String>>()
         val relayedDefinitions = result.definitions.mapNotNull {
             scanHintFor(it, sanitizedIncludedId, qualifiedEntriesByDefType)

@@ -96,6 +96,7 @@ object KoinPluginLogger {
         val lookupTracker: LookupTracker? = null,
         val logSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
         val versionCheckSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
+        val scanCompletionMarkers: Boolean = true,
     )
 
     private val threadFlags: InheritableThreadLocal<Flags?> = InheritableThreadLocal()
@@ -112,6 +113,14 @@ object KoinPluginLogger {
     val skipDefaultValuesEnabled: Boolean get() = effectiveFlags.skipDefaultValues
     val compileSafetyEnabled: Boolean get() = effectiveFlags.compileSafety
     val aiAssistEnabled: Boolean get() = effectiveFlags.aiAssist
+    val scanCompletionMarkersEnabled: Boolean get() = effectiveFlags.scanCompletionMarkers
+
+    /** Test seam: emit hints as a plugin from before the empty-scan marker did. Call after [init]. */
+    fun simulateProducerWithoutScanCompletionMarkers() {
+        val flags = effectiveFlags.copy(scanCompletionMarkers = false)
+        threadFlags.set(flags)
+        fallbackFlags = flags
+    }
 
     /**
      * Compiler severity to use for [user]/[debug]/[userFir]/[debugFir]/[warn] — the plugin's

@@ -12,4 +12,9 @@ object KoinTestDirectives : SimpleDirectivesContainer() {
     val DISABLE_COMPILE_SAFETY by directive(
         description = "Disable compile-safety hint generation/validation for this test module"
     )
+
+    /** Builds this test module like a plugin from before the empty-scan marker. */
+    val OMIT_SCAN_COMPLETION_MARKERS by directive(
+        description = "Emit no empty-scan completion marker, as an older plugin version would",
+    )
 }

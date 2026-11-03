@@ -706,6 +706,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_configuration_empty_scan_two_hops_missing_d001.kt")
+    public void testCross_module_configuration_empty_scan_two_hops_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_empty_scan_two_hops_missing_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_configuration_transitive_missing_d001.kt")
     public void testCross_module_configuration_transitive_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_transitive_missing_d001.kt");
@@ -907,6 +913,48 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_dsl_unreachable_module_w001.kt")
     public void testCross_module_dsl_unreachable_module_w001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_unreachable_module_w001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_empty_component_scan_aggregator_missing_d001.kt")
+    public void testCross_module_empty_component_scan_aggregator_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_empty_component_scan_aggregator_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_empty_component_scan_aggregator_no_false_w008.kt")
+    public void testCross_module_empty_component_scan_aggregator_no_false_w008() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_empty_component_scan_aggregator_no_false_w008.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_empty_component_scan_noscan_wrapper_missing_d001.kt")
+    public void testCross_module_empty_component_scan_noscan_wrapper_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_empty_component_scan_noscan_wrapper_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_empty_component_scan_older_producer_keeps_w008.kt")
+    public void testCross_module_empty_component_scan_older_producer_keeps_w008() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_empty_component_scan_older_producer_keeps_w008.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_empty_component_scan_relay_keeps_unrelayable_module_incomplete.kt")
+    public void testCross_module_empty_component_scan_relay_keeps_unrelayable_module_incomplete() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_empty_component_scan_relay_keeps_unrelayable_module_incomplete.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_empty_component_scan_two_hops_missing_d001.kt")
+    public void testCross_module_empty_component_scan_two_hops_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_empty_component_scan_two_hops_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_empty_component_scan_two_hops_no_false_w008.kt")
+    public void testCross_module_empty_component_scan_two_hops_no_false_w008() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_empty_component_scan_two_hops_no_false_w008.kt");
     }
 
     @Test

@@ -127,11 +127,11 @@ When a module's definitions can't be seen from the entry point's compilation, th
 
 ```
 [Koin][KOIN-W008] Graph not verified at compile time for MyApp (startKoin): the definitions of
-com.example.data.DataModule are not visible on this classpath (missing hints, an empty @ComponentScan,
-or a module class off the classpath). Compile-time dependency checks are skipped for this entry point.
+com.example.data.DataModule are not visible on this classpath (missing hints, or a module class off
+the classpath). Compile-time dependency checks are skipped for this entry point.
 ```
 
-Usual causes: the dependency was built by an older plugin version, its `@ComponentScan` matches nothing, or the module sits more than one `implementation` hop away. Rebuild it with the same plugin version, or add it as a direct dependency.
+Usual causes: the dependency was built by an older plugin version, or the module sits more than one `implementation` hop away. A `@ComponentScan` that matches nothing is fine: the module publishes that it scanned and found nothing, so validation still runs. A dependency built with an older plugin version can't say so, and still gets this warning. Rebuild the dependency with the same plugin version, or add it as a direct dependency.
 
 ### Which call sites are judged
 

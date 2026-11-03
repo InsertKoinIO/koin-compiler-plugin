@@ -146,6 +146,12 @@ object KoinPluginConstants {
     /** Prefix for module-scoped component scan function hint functions (e.g., componentscanfunc_comExampleCoreModule_single). */
     const val COMPONENT_SCAN_FUNCTION_HINT_PREFIX = "componentscanfunc_"
 
+    /**
+     * Completion marker: the module's own scan found nothing, or (relayed) the whole module
+     * resolved complete and empty. Either way, an absent scan entry doesn't mean "incomplete".
+     */
+    const val COMPONENT_SCAN_EMPTY_HINT_PREFIX = "componentscanempty_"
+
     /** Prefix for roster-hint parameter names that enumerate per-qualifier entries (e.g., q_initFlagsAndLogging). */
     const val COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX = "q_"
 

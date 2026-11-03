@@ -316,6 +316,10 @@ class KoinModuleFirGenerator(session: FirSession) : FirDeclarationGenerationExte
         fun moduleScanFunctionRosterHintName(moduleId: String, defType: String): Name =
             Name.identifier("$COMPONENT_SCAN_FUNCTION_HINT_PREFIX${moduleId}_${defType}__roster")
 
+        /** Example: "com_example_AppModule" -> "componentscanempty_com_example_AppModule". */
+        fun moduleScanEmptyHintName(moduleId: String): Name =
+            Name.identifier("${KoinPluginConstants.COMPONENT_SCAN_EMPTY_HINT_PREFIX}$moduleId")
+
         /**
          * Build hint function name for a per-function definition inside a @Module class.
          * Uses "__" (double underscore) as separator between moduleId and functionName to avoid
