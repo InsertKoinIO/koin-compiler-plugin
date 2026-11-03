@@ -1,0 +1,33 @@
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    public final class Api : R|kotlin/Any| {
+        public constructor(): R|feature/Api| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    internal final class DetailPresenter : R|kotlin/Any| {
+        public constructor(api: R|feature/Api|): R|feature/DetailPresenter| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val api: R|feature/Api| = R|<local>/api|
+            public get(): R|feature/Api|
+
+    }
+    public final val featureModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|feature/DetailPresenter|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: mid
+FILE: Mid.kt
+    package mid
+
+    public final val midModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|feature/featureModule|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|

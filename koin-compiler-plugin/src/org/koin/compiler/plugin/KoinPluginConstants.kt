@@ -1,5 +1,8 @@
 package org.koin.compiler.plugin
 
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
+
 /**
  * Shared constants for the Koin compiler plugin.
  *
@@ -262,6 +265,9 @@ object KoinPluginConstants {
     const val DSL_INCLUDES_ALTERNATIVE_PREFIX = "alt_"
     const val DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX = "altinline_"
 
+    /** `erased<position>_<sanitized ClassId>`: the real type of a relay parameter erased to `Any`. */
+    const val ERASED_TYPE_MARKER_PREFIX = "erased"
+
     /** Hint function name carrying the `includes()` edges declared by [ownerModuleId]'s `module { }`. */
     fun dslIncludesHintFunctionName(ownerModuleId: String): String =
         "$DSL_INCLUDES_HINT_PREFIX${flattenFqNameForHint(ownerModuleId)}"
@@ -366,4 +372,11 @@ object KoinPluginConstants {
             }
         }
     }
+}
+
+/** The ClassId an `erased<position>_` marker carries for the hint parameter at [position], if erased. */
+fun erasedHintClassId(parameterNames: List<Name>, position: Int): ClassId? {
+    val markerPrefix = "${KoinPluginConstants.ERASED_TYPE_MARKER_PREFIX}${position}_"
+    val marker = parameterNames.firstOrNull { it.asString().startsWith(markerPrefix) } ?: return null
+    return ClassId.fromString(KoinPluginConstants.unsanitizeQualifierName(marker.asString().removePrefix(markerPrefix)))
 }

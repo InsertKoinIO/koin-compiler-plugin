@@ -1,0 +1,49 @@
+Module: lib
+FILE: Data.kt
+    package shared.data
+
+    internal final class Cache : R|kotlin/Any| {
+        public constructor(): R|shared/data/Cache| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() internal final fun provideCache(): R|shared/data/Cache| {
+        ^provideCache R|shared/data/Cache.Cache|()
+    }
+FILE: org/koin/plugin/hints/shared_data_provideCache_FunctionDefinition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_function_single(contributed: R|shared/data/Cache|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package shared.app
+
+    @R|org/koin/core/annotation/Single|() public final class Screen : R|kotlin/Any| {
+        public constructor(): R|shared/app/Screen| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(shared))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|shared/app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|shared/app/AppModule|))) public final object MainApplication : R|kotlin/Any| {
+        private constructor(): R|shared/app/MainApplication| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|shared/app/MainApplication|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: shared/app/sharedAppAppModuleModule.kt
+    package shared.app
+
+    public final fun R|shared/app/AppModule|.module(): R|org/koin/core/module/Module|

@@ -1,0 +1,89 @@
+Module: contracts
+FILE: Repo.kt
+    package contracts
+
+    public abstract interface Repo : R|kotlin/Any| {
+    }
+Module: data
+FILE: Data.kt
+    package data
+
+    @R|org/koin/core/annotation/Single|() internal final class RepoImpl : R|contracts/Repo| {
+        public constructor(): R|data/RepoImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(data))) public final class DataModule : R|kotlin/Any| {
+        public constructor(): R|data/DataModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: data/dataDataModuleModule.kt
+    package data
+
+    public final fun R|data/DataModule|.module(): R|org/koin/core/module/Module|
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|data/DataModule|))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|
+Module: mid
+FILE: Mid.kt
+    package mid
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|feature/FeatureModule|))) public final class MidModule : R|kotlin/Any| {
+        public constructor(): R|mid/MidModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: mid/midMidModuleModule.kt
+    package mid
+
+    public final fun R|mid/MidModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/Single|() public final class Screen : R|kotlin/Any| {
+        public constructor(repo: R|contracts/Repo|): R|app/Screen| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|contracts/Repo| = R|<local>/repo|
+            public get(): R|contracts/Repo|
+
+    }
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|mid/MidModule|))) @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(app))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|app/AppModule|))) public final object MainApplication : R|kotlin/Any| {
+        private constructor(): R|app/MainApplication| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MainApplication|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|

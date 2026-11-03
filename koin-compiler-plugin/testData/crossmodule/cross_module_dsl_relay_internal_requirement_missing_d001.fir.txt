@@ -1,0 +1,52 @@
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    internal final class Cache : R|kotlin/Any| {
+        public constructor(): R|feature/Cache| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Presenter : R|kotlin/Any| {
+        internal constructor(cache: R|feature/Cache|): R|feature/Presenter| {
+            super<R|kotlin/Any|>()
+        }
+
+        internal final val cache: R|feature/Cache| = R|<local>/cache|
+            internal get(): R|feature/Cache|
+
+    }
+    public final val featureModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|feature/Presenter|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: mid
+FILE: Mid.kt
+    package mid
+
+    public final val midModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|feature/featureModule|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    public final class AppThing : R|kotlin/Any| {
+        public constructor(): R|app/AppThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/AppThing|>()
+            }
+            ), R|mid/midModule|))
+        }
+        )
+    }
