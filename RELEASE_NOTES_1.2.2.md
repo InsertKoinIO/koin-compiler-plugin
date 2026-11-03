@@ -17,11 +17,12 @@ Compile safety on Kotlin/Native and wasm/JS now sees your whole graph, and multi
 ## 🔧 Changed
 
 - **More of your graph is checked**: Native and wasm/JS, `includes()` chains of 3+ modules, entry points with an empty `@ComponentScan` in a dependency. A green build can now fail on a real missing dependency.
-- **`strictSafety = false` is honored** on the module calling `startKoin`, with a warning (#117, #120). `strictSafetyForceOff` is deprecated.
+- **`strictSafety = false` is honored** on the module calling `startKoin`, with a warning (#120). `strictSafetyForceOff` is deprecated. With `compileSafety = false`, strictSafety no longer scans or logs (#88).
 - **strictSafety now detects AGP 9 modules.** With AGP 9's built-in Kotlin, the module calling `startKoin` was never detected. It now is, so it recompiles on every build like on other setups. `strictSafety = false` turns that off.
 - **Explicit `binds` across modules:** the class is bound to exactly its `binds`, as within one module (#98).
 - **New warnings:** `KOIN-W008` (a module's definitions can't be seen, check skipped), `KOIN-W009` (a call on a `Koin` from your own code), `KOIN-W010` (`activityViewModel<T>()` without `parametersOf()`), `KOIN-W011` (a module chosen at runtime). They fail builds that use `allWarningsAsErrors`. A `startKoin` module with no DSL definition of its own now logs that its DSL graph isn't validated.
 - **KMP libraries checking their KLIB ABI** (`apiCheck`): run `apiDump` once for the new `org.koin.plugin.hints` entries.
+- **Libraries built with 1.1.0 to 1.2.1:** rebuild them with 1.2.2 to get the #96 fix for their function providers.
 
 ## ✅ Compatibility
 
@@ -38,7 +39,9 @@ plugins {
 
 ## Thanks
 
-@PhBogdanov traced the KLIB root cause down to the Kotlin serializer across four Kotlin versions (#106), and found the daemon memory leak (#110). Thanks to @dmitry-stakhov, @GoodSir42, @sanders9, @shreknitin89, @nabiu256, @zjarlin, @smartine-ledger, @stzouvaras, @andrew-turner-control4 and @acmpo6ou for the reports and reproducers.
+@PhBogdanov traced the KLIB root cause down to the Kotlin serializer across four Kotlin versions (#106), and found and fixed the daemon memory leak (#111). @shreknitin89 (#116) and @cpaleop (#90) sent fixes this release builds on.
+
+Thanks to everyone who reported, reproduced and retested: @acmpo6ou, @ahmedhappa, @alexandru-calinoiu, @andrew-turner-control4, @aoreshkov, @axiel7, @brueggenthies-adesso, @dmitry-stakhov, @emartynov, @Faltenreich, @GoodSir42, @hmy65, @ikurek, @imcmib, @jamesarich, @Komdosh, @MattSkala, @nabiu256, @nagatsuka-shuuya, @sanders9, @smartine-ledger, @stzouvaras, @tylerwilson, @VladimirPupavaESET, @xephosbot, @yaroslav-v and @zjarlin.
 
 Your feedback is welcome 🙏
 
