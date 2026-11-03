@@ -28,6 +28,7 @@ koin-compiler-plugin/
 │   └── sample-feature-module/      # Multi-module test
 ├── playground-apps/                # Compile-safety stress-test apps (PR Guard #3)
 ├── tools/abi-check/                # check-kotlin-abi.sh — gates a new Kotlin version
+├── tools/ic-check/                 # check-hint-ic.sh — hint files under real Kotlin IC (harness can't)
 └── docs/                           # Documentation
 ```
 

@@ -113,6 +113,7 @@ class KoinIrExtension(
                     allModuleIds = koinTransformer.allModuleIds,
                     modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
                     moduleAlternatives = koinTransformer.moduleAlternatives,
+                    moduleDeclarationFiles = koinTransformer.moduleDeclarationFiles,
                 ),
             )
             // Relay classpath-invisible includes() targets' own DSL definition hints through THIS

@@ -291,7 +291,16 @@ class InjectedParamHintGenerator(
             ?: targetClassFile
             ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
             ?: "/synthetic"
-        addHintFunctions(context, moduleFragment, listOf(function), firModuleData, basePath, fileName)
+        // Not source-backed: one target can be registered from several files.
+        addHintFunctions(
+            context,
+            moduleFragment,
+            listOf(function),
+            firModuleData,
+            basePath,
+            fileName,
+            sourceBacked = false,
+        )
 
         KoinPluginLogger.debug {
             "  Generated @InjectedParam hint: ${hintName.asString()} -> $targetFqName (${slots.size} slot(s))"

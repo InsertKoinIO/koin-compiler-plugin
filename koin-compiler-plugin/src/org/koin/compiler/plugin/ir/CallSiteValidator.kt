@@ -312,13 +312,20 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 "callsite_", KoinPluginLogger.moduleId, firModuleData.name.asString(), callSite.targetFqName,
             )
 
-            // Anchor the synthetic hint file on the call site's source file so the path stays
-            // stable across incremental rebuilds (see issue #32). Fall back to the
-            // alphabetically-first source file in the module — also stable, just less local.
+            // Stable path next to the call site (issue #32). Not source-backed: one target's call
+            // sites can span several files, so no single file produces this hint.
             val basePath = callSite.filePath
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
-            addHintFunctions(context, moduleFragment, listOf(function), firModuleData, basePath, fileName)
+            addHintFunctions(
+                context,
+                moduleFragment,
+                listOf(function),
+                firModuleData,
+                basePath,
+                fileName,
+                sourceBacked = false,
+            )
 
             KoinPluginLogger.debug { "  Generated call-site hint: callsite(${callSite.targetFqName})" }
         }
