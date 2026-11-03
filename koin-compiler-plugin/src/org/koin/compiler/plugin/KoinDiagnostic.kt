@@ -407,8 +407,9 @@ sealed class KoinDiagnostic(
     /**
      * KOIN-W008 — Full-graph validation skipped: the definitions of some module in the graph are
      * not visible on this classpath. Its hints are missing (built by an older plugin, or KLIB hints
-     * dropped on Kotlin 2.4.20 before 1.2.2), its `@ComponentScan` matched nothing, or its class is
-     * not on the classpath; these look the same from here. Skipping must never be silent.
+     * dropped on Kotlin 2.4.20 before 1.2.2), or its class is not on the classpath; these look the
+     * same from here. An empty `@ComponentScan` counts as missing hints only when built before 1.2.2,
+     * which had no way to say "scanned, found nothing". Skipping must never be silent.
      */
     class UnverifiableModuleHints(
         entry: String,
@@ -417,8 +418,8 @@ sealed class KoinDiagnostic(
         code = "KOIN-W008",
         severity = Severity.WARNING,
         message = "Graph not verified at compile time for $entry: the definitions of " +
-            "${modules.joinToString()} are not visible on this classpath (missing hints, an empty " +
-            "@ComponentScan, or a module class off the classpath). Compile-time dependency checks are " +
+            "${modules.joinToString()} are not visible on this classpath (missing hints, or a module " +
+            "class off the classpath). Compile-time dependency checks are " +
             "skipped for this entry point. Rebuild that module with this Koin compiler plugin version, " +
             "or add it as a direct dependency.",
     )

@@ -1,11 +1,11 @@
 // RUN_PIPELINE_TILL: BACKEND
-// A3 — falsify-first guard for isComplete propagation through the hint-only/classpath includes fold
-// (KoinAnnotationProcessor.collectDefinitionsFromDependencyModule -> foldHintOnlyIncludes and the
-// classpath includedModules loop).
+// A3 — falsify-first guard for isComplete propagation through the includes fold
+// (KoinAnnotationProcessor.collectDefinitionsFromDependencyModule, classpath includedModules loop;
+// the hint-only foldHintOnlyIncludes path is not reached by this shape).
 //
-// `mid` includes `data`, which is genuinely incomplete (its @ComponentScan targets an EMPTY package
-// — no scan hints resolve to anything, so `data`'s own DependencyModuleResult.isComplete is
-// correctly false). `mid` has no @ComponentScan of its own, so BEFORE the fix its own isComplete
+// `mid` includes `data`, which is genuinely incomplete: its @ComponentScan targets an EMPTY package
+// and `data` is built like a plugin from before the completion marker, so the empty scan
+// is unproven and `data`'s own DependencyModuleResult.isComplete is correctly false. `mid` has no @ComponentScan of its own, so BEFORE the fix its own isComplete
 // computation (`!hasComponentScan || scanDefinitionsFound`) ignored `data`'s incompleteness entirely
 // and came back true — `feature`'s definitely-missing `SomeMissing` dependency (nothing anywhere
 // provides it) then had a real KOIN-D001 raised against it, because validateFullGraph believed the
@@ -24,6 +24,7 @@
 // isComplete propagation through the includes fold has regressed; if it goes silent, the disclosure has.
 
 // MODULE: data
+// OMIT_SCAN_COMPLETION_MARKERS
 // FILE: data/Data.kt
 package data
 

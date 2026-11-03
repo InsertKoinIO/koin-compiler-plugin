@@ -73,6 +73,9 @@ private class ExtensionRegistrarConfigurator(testServices: TestServices) : Envir
         // not the trailing CTA banner — the CTA has its own coverage in KoinDiagnosticTest.
         val compileSafety = KoinTestDirectives.DISABLE_COMPILE_SAFETY !in module.directives
         KoinPluginLogger.init(messageCollector, userLogs = true, debugLogs = true, compileSafety = compileSafety, aiAssist = false)
+        if (KoinTestDirectives.OMIT_SCAN_COMPLETION_MARKERS in module.directives) {
+            KoinPluginLogger.simulateProducerWithoutScanCompletionMarkers()
+        }
         FirExtensionRegistrarAdapter.registerExtension(KoinPluginRegistrar())
         IrGenerationExtension.registerExtension(KoinIrExtension(lookupTracker = null, expectActualTracker = org.jetbrains.kotlin.incremental.components.ExpectActualTracker.DoNothing, messageCollector = messageCollector, flagsHandle = KoinPluginLogger.captureFlags()))
     }
