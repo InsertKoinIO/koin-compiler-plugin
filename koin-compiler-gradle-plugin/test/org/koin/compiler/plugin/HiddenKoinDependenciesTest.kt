@@ -1,6 +1,7 @@
 package org.koin.compiler.plugin
 
 import org.gradle.api.GradleException
+import org.gradle.testfixtures.ProjectBuilder
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.zip.ZipEntry
@@ -32,6 +33,14 @@ class HiddenKoinDependenciesTest {
 
     private val hintClass = "org/koin/plugin/hints/Koin_dsl_hints_dataKt.class" to ByteArray(1)
     private val plainClass = "com/example/Repo.class" to ByteArray(1)
+
+    @Test
+    fun `the check is opt-in`() {
+        val project = ProjectBuilder.builder().build()
+        val extension = project.extensions.create("koinCompiler", KoinGradleExtension::class.java)
+        val severity = HiddenDependencySeverity.parse(extension.hiddenDependencyCheck.get())
+        assertEquals(HiddenDependencySeverity.NONE, severity)
+    }
 
     @Test
     fun `severity ignores case and surrounding spaces`() {

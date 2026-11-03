@@ -122,10 +122,10 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
     /**
      * What to do when a module that starts Koin reaches modules contributing Koin definitions only at
      * runtime (an `implementation` dependency of one of its dependencies): compile safety sees them
-     * only indirectly and can miss problems. `"warning"` (default) names each one and the dependency
-     * to declare, `"error"` fails the build, `"none"` turns the check off; case is ignored, any other
+     * only indirectly and can miss problems. `"none"` (default) leaves the check off, `"warning"` names
+     * each one and the dependency to declare, `"error"` fails the build; case is ignored, any other
      * value fails the build. JVM and Android only: Kotlin/Native, JS and Wasm compilations already
-     * see transitive dependencies.
+     * see transitive dependencies. Opt-in: it resolves runtime classpaths while Gradle plans the build.
      */
-    val hiddenDependencyCheck: Property<String> = objectFactory.property(String::class.java).convention("warning")
+    val hiddenDependencyCheck: Property<String> = objectFactory.property(String::class.java).convention("none")
 }

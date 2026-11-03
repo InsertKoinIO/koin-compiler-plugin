@@ -2,7 +2,7 @@ Compile safety on Kotlin/Native and wasm/JS now sees your whole graph, and multi
 
 ## ✨ Added
 
-- **Hidden dependency warning.** Compile safety checks the graph from what the module calling `startKoin` compiles against. When that module reaches another module's definitions only through an `implementation` dependency of a dependency, the build now warns, with the path and the line to add. `koinCompiler { hiddenDependencyCheck = "error" }` fails the build instead, `"none"` turns it off. JVM and Android.
+- **Hidden dependency check (opt-in).** Compile safety checks the graph from what the module calling `startKoin` compiles against. A module reached only through an `implementation` dependency of a dependency isn't fully checked. With `koinCompiler { hiddenDependencyCheck = "warning" }` (or `"error"`), the build lists those modules with their path and how to declare them. JVM and Android. Off by default for now: with AGP and no configuration cache, it adds configuration-time resolution warnings.
 
 ## 🐛 Fixed
 

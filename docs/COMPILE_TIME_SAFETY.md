@@ -495,7 +495,7 @@ Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO
 
 **The rule: the module that starts Koin depends directly on every module that contributes definitions.** Compile safety validates the graph from what the entry module's compilation can see, which is its compile classpath. A module reached only through an `implementation` dependency of a dependency is on the runtime classpath, not the compile one: its definitions are known only indirectly, through the modules in between, and problems in them can go unreported. Metro sets the same rule for its graphs.
 
-After each JVM and Android Kotlin compile, a `check<Target><Compilation>KoinHiddenDependencies` task compares the compile and runtime dependency graphs and looks for Koin hints in the modules that are only on the runtime classpath (projects, jars and AARs). It reports when the compilation starts Koin: its sources, shared KMP source sets included, contain `startKoin`, `koinApplication` or `@KoinApplication`. Test compilations are checked too.
+The check is opt-in in 1.2.2. Once enabled, after each JVM and Android Kotlin compile, a `check<Target><Compilation>KoinHiddenDependencies` task compares the compile and runtime dependency graphs and looks for Koin hints in the modules that are only on the runtime classpath (projects, jars and AARs). It reports when the compilation starts Koin: its sources, shared KMP source sets included, contain `startKoin`, `koinApplication` or `@KoinApplication`. Test compilations are checked too.
 
 ```
 [Koin] :app (debug) starts Koin, but these modules contribute to its Koin graph without being on its compile classpath, so compile safety can't fully check them.
@@ -506,7 +506,7 @@ After each JVM and Android Kotlin compile, a `check<Target><Compilation>KoinHidd
 
 ```kotlin
 koinCompiler {
-    hiddenDependencyCheck = "warning" // default; "error" fails the build, "none" turns the check off
+    hiddenDependencyCheck = "warning" // opt-in; "error" fails the build, "none" (default) leaves it off
 }
 ```
 
@@ -514,7 +514,13 @@ The warning repeats on every build until the dependency is declared. The report 
 
 Not detected, so not checked: an entry point the source scan doesn't see, such as Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })`, or a helper in another module that calls `startKoin` for you.
 
-The check costs little but runs everywhere: one task per JVM/Android compilation, and a bare `compileKotlin` also builds the runtime jars of runtime-only modules (an `assemble` or test run builds them anyway). On a 15-module Android app, a build with no change takes 0.2 to 0.8 s longer.
+Why opt-in: the check resolves each compilation's compile and runtime classpaths while Gradle plans the build. Without the configuration cache, AGP reports that as "Configuration '…' was resolved during configuration time", and `android.dependencyResolutionAtConfigurationTime.disallow=true` fails the build. A bare `compileKotlin` also needs every module's runtime classpath to resolve, and builds the runtime jars of runtime-only modules (an `assemble` or test run builds them anyway). On a 15-module Android app, a build with no change takes 0.2 to 0.8 s longer. A later version is meant to remove the configuration-time resolution and turn the check on by default. Enable it on the module that starts Koin, or on CI:
+
+```kotlin
+koinCompiler {
+    hiddenDependencyCheck = providers.environmentVariable("CI").map { "error" }.orElse("none")
+}
+```
 
 The mechanism is adapted from Metro's hidden-dependency check (Apache 2.0).
 

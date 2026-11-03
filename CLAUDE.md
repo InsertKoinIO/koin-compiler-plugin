@@ -296,7 +296,7 @@ koinCompiler {
     aiAssist = true            // One hint per compilation pointing to the Kotzilla MCP when a Koin diagnostic fires (default: true)
     logSeverity = "warning"           // Severity of informational output (default: "warning"; set "info" under allWarningsAsErrors)
     versionCheckSeverity = "warning"  // Severity of the Kotlin-version-compatibility warning (default: "warning"; independent of logSeverity)
-    hiddenDependencyCheck = "warning" // Entry module reaches Koin definitions only via the runtime classpath: "warning" (default), "error", "none"
+    hiddenDependencyCheck = "none"    // Opt-in: entry module reaches Koin definitions only via the runtime classpath: "warning", "error", "none" (default)
 }
 ```
 

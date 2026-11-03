@@ -137,8 +137,8 @@ scenario_relay_self_read() {
     expect "relay-self-read: dropping dataModule two hops away is reported incrementally" $r
 }
 
-# 4. A module that starts Koin and reaches definitions only through an `implementation` dependency of a
-#    dependency gets warned on every build until it depends on that module directly.
+# 4. Opted in, a module that starts Koin and reaches definitions only through an `implementation`
+#    dependency of a dependency gets warned on every build until it depends on that module directly.
 scenario_hidden_dependency() {
     local dir; dir=$(new_project hidden-dependency "data feature:data tool:feature app:feature")
     mkdir -p "$dir/data/src/main/kotlin/data" "$dir/feature/src/main/kotlin/feature" "$dir/tool/src/main/kotlin/tool" "$dir/app/src/main/kotlin/app"
@@ -152,6 +152,12 @@ scenario_hidden_dependency() {
     printf 'package app\n\nimport feature.featureModule\nimport org.koin.core.context.startKoin\n\nfun main() {\n    startKoin { modules(featureModule) }\n}\n' > "$dir/app/src/main/kotlin/app/App.kt"
     local warning='starts Koin, but these modules'
     local out; out=$(build "$dir")
+    echo "$out" | grep -q "BUILD SUCCESSFUL" && ! echo "$out" | grep -qE "$warning|KoinHiddenDependencies" && r=ok || r=ko
+    expect "hidden-dependency: off by default, the check doesn't run" $r
+    for module in app tool; do
+        printf 'koinCompiler { hiddenDependencyCheck = "warning" }\n' >> "$dir/$module/build.gradle.kts"
+    done
+    out=$(build "$dir")
     echo "$out" | grep -q "$warning" && echo "$out" | grep -q 'project(":data")' && r=ok || r=ko
     expect "hidden-dependency: :data, two hops from the entry module, is reported" $r
     echo "$out" | grep -q "BUILD SUCCESSFUL" && r=ok || r=ko
