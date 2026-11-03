@@ -1758,7 +1758,16 @@ class KoinAnnotationProcessor(
 
         val basePath = moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name ?: "/synthetic"
         val fileName = HintFileNaming.fileName("koin_hints_configrelay_", KoinPluginLogger.moduleId, label)
-        batchHintFile(moduleFragment, hints, firModuleData, basePath, fileName)
+        // Relayed from dependencies, not from basePath's source: not source-backed (see addHintFunctions).
+        addHintFunctions(
+            context,
+            moduleFragment,
+            disambiguateDuplicateSignatures(hints),
+            firModuleData,
+            basePath,
+            fileName,
+            sourceBacked = false,
+        )
         KoinPluginLogger.debug {
             "    + relayed ${hints.size} @Configuration($label) hint(s): ${toRelay.mapNotNull { it.fqNameWhenAvailable?.asString() }}"
         }

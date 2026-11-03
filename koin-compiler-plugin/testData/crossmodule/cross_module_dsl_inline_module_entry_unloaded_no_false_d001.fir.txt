@@ -66,16 +66,24 @@ Module: app
 FILE: Scripts.kt
     package app
 
-    public final fun main(): R|kotlin/Unit| {
-        lval database: R|feat/Database| = R|feat/Database.Database|()
-        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
-            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
-                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|feat/Database|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|feat/Database| <inline=NoInline>  {
-                    ^ R|<local>/database|
-                }
-                )
+    internal final fun toolkitModules(database: R|feat/Database|): R|kotlin/collections/List<org/koin/core/module/Module>| {
+        ^toolkitModules R|kotlin/collections/listOf|<R|org/koin/core/module/Module|>(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|feat/Database|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|feat/Database| <inline=NoInline>  {
+                ^ R|<local>/database|
             }
-            ), R|feat/reportModule|(), R|feat/alertModule|()))
+            )
+        }
+        ), R|feat/reportModule|(), R|feat/alertModule|()))
+    }
+    public final fun command(build: R|(feat/Database) -> org/koin/core/Koin|): R|org/koin/core/Koin| {
+        ^command R|<local>/build|.R|SubstitutionOverride<kotlin/Function1.invoke: R|org/koin/core/Koin|>|(R|feat/Database.Database|())
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|app/command|(<L> = command@fun <anonymous>(database: R|feat/Database|): R|org/koin/core/Koin| <inline=NoInline>  {
+            ^ R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/toolkitModules|(R|<local>/database|))
+            }
+            ).R|org/koin/core/KoinApplication.koin|
         }
         )
     }

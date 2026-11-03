@@ -1,22 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_AppModule_16f6e1b7fad089ec.kt
-  FUN name:componentscanfunc_testpkg_AppModule_single__q_initFlagsAndLogging visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:qualifier_initFlagsAndLogging index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:componentscanfunc_testpkg_AppModule_single__q_initNotifier visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:qualifier_initNotifier index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:componentscanfunc_testpkg_AppModule_single__roster visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:q_initFlagsAndLogging index:0 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:q_initNotifier index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:testpkg fileName:/test.kt
   CLASS CLASS name:AppModule modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
@@ -78,6 +59,27 @@ FILE fqName:testpkg fileName:/test.kt
     annotations:
       Named(value = "initNotifier", type = <null>)
       Singleton(binds = <null>, createdAtStart = true)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_hints_testpkg_AppModule_16f6e1b7fad089ecKt")
+  FUN name:componentscanfunc_testpkg_AppModule_single__q_initFlagsAndLogging visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:qualifier_initFlagsAndLogging index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_testpkg_AppModule_single__q_initNotifier visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:qualifier_initNotifier index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_testpkg_AppModule_single__roster visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_initFlagsAndLogging index:0 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_initNotifier index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
 FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/testpkgAppModuleModule.kt
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit

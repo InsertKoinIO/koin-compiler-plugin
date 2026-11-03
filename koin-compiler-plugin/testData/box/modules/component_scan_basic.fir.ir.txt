@@ -1,14 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_ScanModule_78a826c2d4b5c908.kt
-  FUN name:componentscan_testpkg_ScanModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.ServiceB
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:componentscan_testpkg_ScanModule_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.ServiceA
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:testpkg fileName:/test.kt
   CLASS CLASS name:ScanModule modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
@@ -155,6 +144,19 @@ FILE fqName:testpkg fileName:/test.kt
                 GET_VAR 'val factoryWorks: kotlin.Boolean declared in testpkg.box' type=kotlin.Boolean origin=null
                 CONST String type=kotlin.String value=", dependency="
                 GET_VAR 'val dependencyWorks: kotlin.Boolean declared in testpkg.box' type=kotlin.Boolean origin=null
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_hints_testpkg_ScanModule_78a826c2d4b5c908Kt")
+  FUN name:componentscan_testpkg_ScanModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.ServiceB
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_testpkg_ScanModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.ServiceA
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:testpkg fileName:testpkg/testpkgScanModuleModule.kt
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
     VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:testpkg.ScanModule

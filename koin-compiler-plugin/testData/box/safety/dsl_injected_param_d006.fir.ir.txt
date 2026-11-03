@@ -1,19 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/injectedparams_main__Greeter_541c60e361b1e40e.kt
-  FUN name:injectedparams_Greeter visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:name index:0 type:kotlin.String
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__myModule_eed866a891d9f542.kt
-  FUN name:dsl_factory visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Greeter
-    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:req0_name index:2 type:kotlin.String
-    VALUE_PARAMETER kind:Regular name:req0f_injected index:3 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:module_myModule index:4 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   PROPERTY name:myModule visibility:public modality:FINAL [val]
     FIELD PROPERTY_BACKING_FIELD name:myModule type:org.koin.core.module.Module visibility:private [final,static]
@@ -112,3 +96,23 @@ FILE fqName:<root> fileName:/test.kt
           BRANCH
             if: CONST Boolean type=kotlin.Boolean value=true
             then: CONST String type=kotlin.String value="FAIL"
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_main__myModule_eed866a891d9f542Kt")
+  FUN name:dsl_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Greeter
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:req0_name index:2 type:kotlin.String
+    VALUE_PARAMETER kind:Regular name:req0f_injected index:3 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:module_myModule index:4 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Injectedparams_main__Greeter_541c60e361b1e40eKt")
+  FUN name:injectedparams_Greeter visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:name index:0 type:kotlin.String
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY

@@ -1,18 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__test_kt_06549e611b62f6c5.kt
-  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Consumer
-    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:req0_lazyDep index:2 type:<root>.HeavyDep
-    VALUE_PARAMETER kind:Regular name:req0f_lazy index:3 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.HeavyDep
-    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:Consumer modality:FINAL visibility:public superTypes:[kotlin.Any]
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Consumer
@@ -206,3 +191,20 @@ FILE fqName:<root> fileName:/test.kt
                 CONST String type=kotlin.String value=", after="
                 GET_VAR 'val afterAccess: kotlin.Boolean declared in <root>.box' type=kotlin.Boolean origin=null
                 CONST String type=kotlin.String value=")"
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_main__test_kt_06549e611b62f6c5Kt")
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Consumer
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:req0_lazyDep index:2 type:<root>.HeavyDep
+    VALUE_PARAMETER kind:Regular name:req0f_lazy index:3 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.HeavyDep
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY

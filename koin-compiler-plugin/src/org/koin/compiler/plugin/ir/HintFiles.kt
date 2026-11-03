@@ -7,15 +7,28 @@ import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.builder.buildPackageDirective
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.builder.buildFile
+import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
+import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
+import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
+import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
+import org.jetbrains.kotlin.ir.expressions.impl.fromSymbolOwner
+import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.NaiveSourceBasedFileEntryImpl
 import org.jetbrains.kotlin.ir.util.addChild
 import org.jetbrains.kotlin.ir.util.addFile
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
+import org.jetbrains.kotlin.name.Name
+import org.jetbrains.kotlin.platform.jvm.isJvm
+import org.koin.compiler.adapter.KotlinAdapterLoader
 import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
+import java.io.File
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
@@ -30,7 +43,11 @@ import kotlin.io.path.absolutePathString
  * parented to the anchor's file instead.
  *
  * JVM has no anchor: each batch keeps its own synthetic file, which compiles to its own class
- * (regenerated wholesale, so a removed hint leaves no orphan class for IC to miss).
+ * (regenerated wholesale, so a removed hint leaves no orphan class for IC to miss). When
+ * [sourceBacked], the file's entry is the real source the hints come from ([basePath]), so Kotlin IC
+ * maps the class to it and deletes it with that source: a moved or deleted declaration leaves no
+ * stale hint class. The class keeps the hint file's own name via `@file:JvmName`.
+ * Relays (content from dependencies, not from [basePath]) pass `sourceBacked = false`.
  */
 internal fun addHintFunctions(
     context: IrPluginContext,
@@ -39,9 +56,16 @@ internal fun addHintFunctions(
     firModuleData: FirModuleData,
     basePath: String,
     fileName: String,
+    sourceBacked: Boolean = true,
 ) {
     val hintFile = moduleFragment.findHintAnchorFile()
-        ?: createSyntheticHintFile(moduleFragment, firModuleData, basePath, fileName)
+        ?: createSyntheticHintFile(
+            context,
+            moduleFragment,
+            firModuleData,
+            // JVM only: KLIB keys files by path, a second file at a source's path must not exist there.
+            HintFileLocation(basePath, fileName, sourceBacked && firModuleData.platform.isJvm()),
+        )
     for (function in functions) {
         hintFile.addChild(function)
         function.parent = hintFile
@@ -54,26 +78,50 @@ private fun IrModuleFragment.findHintAnchorFile(): IrFile? = files.firstOrNull {
         file.declarations.any { it is IrSimpleFunction && it.name.asString() == KoinPluginConstants.HINT_ANCHOR_NAME }
 }
 
+/** Where a synthetic hint file lives: next to [basePath], named [fileName]; [sourceBacked] see [addHintFunctions]. */
+private class HintFileLocation(val basePath: String, val fileName: String, sourceBacked: Boolean) {
+    val fakePath: java.nio.file.Path = Path(basePath).parent.resolve(fileName)
+    val isSourceBacked: Boolean = sourceBacked && File(basePath).isFile
+    val entryPath: java.nio.file.Path = if (isSourceBacked) Path(basePath) else fakePath
+}
+
 private fun createSyntheticHintFile(
+    context: IrPluginContext,
     moduleFragment: IrModuleFragment,
     firModuleData: FirModuleData,
-    basePath: String,
-    fileName: String,
+    location: HintFileLocation,
 ): IrFile {
-    val fakeNewPath = Path(basePath).parent.resolve(fileName)
     val firFile = buildFile {
         moduleData = firModuleData
         origin = FirDeclarationOrigin.Synthetic.PluginFile
         packageDirective = buildPackageDirective { packageFqName = KoinModuleFirGenerator.HINTS_PACKAGE }
-        name = fileName
+        name = location.fileName
         // KLIB serialization needs a resolvable io File per file; a null sourceFile fails wasm/js (KT-82395).
-        sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
+        sourceFile = syntheticHintSourceFile(location.fakePath.absolutePathString())
     }
     val hintFile = IrFileImpl(
-        fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
+        fileEntry = NaiveSourceBasedFileEntryImpl(location.entryPath.absolutePathString()),
         packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, KoinModuleFirGenerator.HINTS_PACKAGE),
         module = moduleFragment,
     ).also { it.metadata = FirMetadataSource.File(firFile) }
+    // The facade class would otherwise be named after the real source (two hint files of one source
+    // would then share one class); keep the hint file's own name.
+    if (location.isSourceBacked) {
+        jvmNameAnnotation(context, facadeClassName(location.fileName))
+            ?.let { KotlinAdapterLoader.current.setAnnotations(hintFile, listOf(it)) }
+    }
     moduleFragment.addFile(hintFile)
     return hintFile
+}
+
+private fun facadeClassName(fileName: String): String =
+    fileName.removeSuffix(".kt").replaceFirstChar { it.uppercaseChar() } + "Kt"
+
+private fun jvmNameAnnotation(context: IrPluginContext, name: String): IrConstructorCall? {
+    val jvmName = context.referenceClass(ClassId(FqName("kotlin.jvm"), Name.identifier("JvmName")))
+    val constructor = jvmName?.owner?.declarations?.filterIsInstance<IrConstructor>()?.firstOrNull { it.isPrimary }
+    if (jvmName == null || constructor == null) return null
+    val nameArgument = IrConstImpl.string(UNDEFINED_OFFSET, UNDEFINED_OFFSET, context.irBuiltIns.stringType, name)
+    return IrAnnotationImpl.fromSymbolOwner(UNDEFINED_OFFSET, UNDEFINED_OFFSET, jvmName.defaultType, constructor.symbol)
+        .apply { putRegularArgument(0, nameArgument) }
 }

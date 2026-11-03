@@ -103,7 +103,9 @@ FILE fqName:com.example.blobstore fileName:/blobstore.kt
                                   TYPE_ARG T: com.example.blobstore.DiskBlobStore
                                   ARG <this>: GET_VAR '$this$single: org.koin.core.scope.Scope declared in com.example.blobstore.blobStoreModule.<anonymous>.<anonymous>' type=org.koin.core.scope.Scope origin=IMPLICIT_ARGUMENT
                     ARG clazz: CLASS_REFERENCE 'CLASS INTERFACE name:BlobStore modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<com.example.blobstore.BlobStore>
-FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_core__com_example_blobstore_blobStoreModule_107370be858c7c1f.kt
+FILE fqName:org.koin.plugin.hints fileName:/blobstore.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_core__com_example_blobstore_blobStoreModule_107370be858c7c1fKt")
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:com.example.blobstore.DiskBlobStore
     VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
@@ -121,13 +123,6 @@ FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_core__com_example_blo
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
 Module: app
-FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_app__test_kt_d905ef3b9c989e81.kt
-  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Marker
-    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:Marker modality:FINAL visibility:public superTypes:[kotlin.Any]
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Marker
@@ -190,3 +185,12 @@ FILE fqName:<root> fileName:/test.kt
           ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
       RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
         CONST String type=kotlin.String value="OK"
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_app__test_kt_d905ef3b9c989e81Kt")
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Marker
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY

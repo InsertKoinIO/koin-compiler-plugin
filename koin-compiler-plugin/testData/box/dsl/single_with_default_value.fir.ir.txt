@@ -1,12 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__test_kt_06549e611b62f6c5.kt
-  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ServiceWithDefault
-    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:req0_name index:2 type:kotlin.String
-    VALUE_PARAMETER kind:Regular name:req0f_default index:3 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:ServiceWithDefault modality:FINAL visibility:public superTypes:[kotlin.Any]
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.ServiceWithDefault
@@ -92,3 +83,14 @@ FILE fqName:<root> fileName:/test.kt
               CALL 'public final fun <get-name> (): kotlin.String declared in <root>.ServiceWithDefault' type=kotlin.String origin=GET_PROPERTY
                 ARG <this>: GET_VAR 'val service: <root>.ServiceWithDefault declared in <root>.box' type=<root>.ServiceWithDefault origin=null
               CONST String type=kotlin.String value="'"
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_main__test_kt_06549e611b62f6c5Kt")
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ServiceWithDefault
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:req0_name index:2 type:kotlin.String
+    VALUE_PARAMETER kind:Regular name:req0f_default index:3 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY

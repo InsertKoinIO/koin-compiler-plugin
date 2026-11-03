@@ -793,7 +793,8 @@ class DslHintGenerator(
         }
         val basePath = moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name ?: "/synthetic"
         val fileName = HintFileNaming.fileName("koin_dsl_hints_relay_", KoinPluginLogger.moduleId)
-        addHintFunctions(context, moduleFragment, hints, firModuleData, basePath, fileName)
+        // Relayed from dependencies, not from basePath's source: not source-backed (see addHintFunctions).
+        addHintFunctions(context, moduleFragment, hints, firModuleData, basePath, fileName, sourceBacked = false)
         KoinPluginLogger.debug {
             "  Relayed ${hints.size} DSL definition hint(s) from classpath-invisible includes: $farIncludedIds"
         }

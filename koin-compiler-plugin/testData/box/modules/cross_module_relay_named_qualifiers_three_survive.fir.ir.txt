@@ -78,7 +78,9 @@ FILE fqName:leaf fileName:/leaf/Providers.kt
       RETURN type=kotlin.Nothing from='public final fun provideCdnUrl (): leaf.Url declared in leaf'
         CONSTRUCTOR_CALL 'public constructor <init> (value: kotlin.String) declared in leaf.Url' type=leaf.Url origin=null
           ARG value: CONST String type=kotlin.String value="https://cdn.example"
-FILE fqName:org.koin.plugin.hints fileName:/leaf/koin_hints_leaf_LeafModule_5687880253b3add1.kt
+FILE fqName:org.koin.plugin.hints fileName:/leaf/Providers.kt
+  annotations:
+    JvmName(name = "Koin_hints_leaf_LeafModule_5687880253b3add1Kt")
   FUN name:componentscanfunc_leaf_LeafModule_single__q_authUrl visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
     VALUE_PARAMETER kind:Regular name:qualifier_authUrl index:1 type:kotlin.Unit
@@ -265,13 +267,9 @@ FILE fqName:mid fileName:/mid/MidModule.kt
             CALL 'public final fun <get-value> (): kotlin.String declared in leaf.Url' type=kotlin.String origin=GET_PROPERTY
               ARG <this>: CALL 'private final fun <get-cdn> (): leaf.Url declared in mid.UrlTriple' type=leaf.Url origin=GET_PROPERTY
                 ARG <this>: GET_VAR '<this>: mid.UrlTriple declared in mid.UrlTriple.summary' type=mid.UrlTriple origin=IMPLICIT_ARGUMENT
-FILE fqName:org.koin.plugin.hints fileName:/mid/koin_hints_configrelay_default_ebada5168620c5fe.kt
-  FUN name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.LeafModule
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/mid/koin_hints_mid_MidModule_1535be699acacda1.kt
+FILE fqName:org.koin.plugin.hints fileName:/mid/MidModule.kt
+  annotations:
+    JvmName(name = "Koin_hints_mid_MidModule_1535be699acacda1Kt")
   FUN name:annotationincludes_mid_MidModule visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:module_leaf$LeafModule index:0 type:kotlin.Unit
     annotations:
@@ -304,6 +302,12 @@ FILE fqName:org.koin.plugin.hints fileName:/mid/koin_hints_mid_MidModule_1535be6
     VALUE_PARAMETER kind:Regular name:q_authUrl index:0 type:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:q_baseUrl index:1 type:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:q_cdnUrl index:2 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/mid/koin_hints_configrelay_default_ebada5168620c5fe.kt
+  FUN name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.LeafModule
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
