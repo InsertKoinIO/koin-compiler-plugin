@@ -131,7 +131,7 @@ com.example.data.DataModule are not visible on this classpath (missing hints, or
 the classpath). Compile-time dependency checks are skipped for this entry point.
 ```
 
-Usual causes: the dependency was built by an older plugin version, or the module sits more than one `implementation` hop away. A `@ComponentScan` that matches nothing is fine: the module publishes that it scanned and found nothing, so validation still runs. A dependency built with an older plugin version can't say so, and still gets this warning. Rebuild the dependency with the same plugin version, or add it as a direct dependency.
+Usual causes: the dependency was built by an older plugin version, or the module sits more than one `implementation` hop away. A `@ComponentScan` that matches nothing is fine: the module publishes that it scanned and found nothing, so validation still runs. A dependency built with an older plugin version can't say so, and still gets this warning. Rebuild the dependency with the same plugin version, or add it as a direct dependency ([hidden Koin dependencies](#hidden-koin-dependencies-122)).
 
 ### Which call sites are judged
 
@@ -460,7 +460,7 @@ suppress the line; it never changes which diagnostics fire.
 
 ### Strict safety (incremental compilation bypass)
 
-**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication` (Kotlin sources, including `src/<set>/java` folders). The Gradle plugin scans the compilation's source files when the compile task checks whether it is up to date (never at configuration time, so the configuration cache survives source edits), detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
+**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication` (the sources the module's compile task compiles, `src/<set>/java` and AGP 9's built-in Kotlin included; in KMP, the target's own source sets, not `commonMain`). The Gradle plugin scans the compilation's source files when the compile task checks whether it is up to date (never at configuration time, so the configuration cache survives source edits), detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
 
 **An explicit value wins (1.2.2).** `strictSafety = true` forces it on everywhere. `strictSafety = false` turns it off, even on a detected aggregator, with a warning: incremental builds may then miss graph changes, while clean and CI builds still validate. A common setup keeps local builds incremental and enforces it on CI:
 
@@ -490,6 +490,32 @@ We already record file-pair links via `ExpectActualTracker` to plug some of this
 Not detected: Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })` and `withConfiguration` entry points, which the compiler does treat as authoritative. Set `strictSafety = true` explicitly on those modules.
 
 Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
+
+### Hidden Koin dependencies (1.2.2)
+
+**The rule: the module that starts Koin depends directly on every module that contributes definitions.** Compile safety validates the graph from what the entry module's compilation can see, which is its compile classpath. A module reached only through an `implementation` dependency of a dependency is on the runtime classpath, not the compile one: its definitions are known only indirectly, through the modules in between, and problems in them can go unreported. Metro sets the same rule for its graphs.
+
+After each JVM and Android Kotlin compile, a `check<Target><Compilation>KoinHiddenDependencies` task compares the compile and runtime dependency graphs and looks for Koin hints in the modules that are only on the runtime classpath (projects, jars and AARs). It reports when the compilation starts Koin: its sources, shared KMP source sets included, contain `startKoin`, `koinApplication` or `@KoinApplication`. Test compilations are checked too.
+
+```
+[Koin] :app (debug) starts Koin, but these modules contribute to its Koin graph without being on its compile classpath: compile safety checks them only indirectly and can miss problems.
+  - project(":core:database")  (via project :app -> project :core:data -> project :core:database)
+  Declare each as a direct dependency of this compilation (or expose it with api(...) on the way).
+```
+
+```kotlin
+koinCompiler {
+    hiddenDependencyCheck = "warning" // default; "error" fails the build, "none" turns the check off
+}
+```
+
+The warning repeats on every build until the dependency is declared. The report is also written to `build/reports/koin/<compilation>/hidden-dependencies.txt` (`<target>/<compilation>` in KMP projects), empty when the check passes. Native, JS and wasm compilations are not checked: KLIB compilations already see their transitive dependencies. Off when `compileSafety = false`; any other value than `warning`, `error` or `none` fails the build.
+
+Not detected, so not checked: an entry point the source scan doesn't see, such as Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })`, or a helper in another module that calls `startKoin` for you.
+
+The check costs little but runs everywhere: one task per JVM/Android compilation, and a bare `compileKotlin` also builds the runtime jars of runtime-only modules (an `assemble` or test run builds them anyway). On a 15-module Android app, a build with no change takes 0.2 to 0.8 s longer.
+
+The mechanism is adapted from Metro's hidden-dependency check (Apache 2.0).
 
 ---
 

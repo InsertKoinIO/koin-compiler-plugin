@@ -118,4 +118,14 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      * blocking an `allWarningsAsErrors` build and you've already assessed the compatibility risk.
      */
     val versionCheckSeverity: Property<String> = objectFactory.property(String::class.java).convention("warning")
+
+    /**
+     * What to do when a module that starts Koin reaches modules contributing Koin definitions only at
+     * runtime (an `implementation` dependency of one of its dependencies): compile safety sees them
+     * only indirectly and can miss problems. `"warning"` (default) names each one and the dependency
+     * to declare, `"error"` fails the build, `"none"` turns the check off; case is ignored, any other
+     * value fails the build. JVM and Android only: Kotlin/Native, JS and Wasm compilations already
+     * see transitive dependencies.
+     */
+    val hiddenDependencyCheck: Property<String> = objectFactory.property(String::class.java).convention("warning")
 }
