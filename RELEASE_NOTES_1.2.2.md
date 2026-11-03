@@ -18,6 +18,7 @@ Compile safety on Kotlin/Native and wasm/JS now sees your whole graph, and multi
 
 - **More of your graph is checked**: Native and wasm/JS, `includes()` chains of 3+ modules, entry points with an empty `@ComponentScan` in a dependency. A green build can now fail on a real missing dependency.
 - **`strictSafety = false` is honored** on the module calling `startKoin`, with a warning (#117, #120). `strictSafetyForceOff` is deprecated.
+- **strictSafety now detects AGP 9 modules.** With AGP 9's built-in Kotlin, the module calling `startKoin` was never detected. It now is, so it recompiles on every build like on other setups. `strictSafety = false` turns that off.
 - **Explicit `binds` across modules:** the class is bound to exactly its `binds`, as within one module (#98).
 - **New warnings:** `KOIN-W008` (a module's definitions can't be seen, check skipped), `KOIN-W009` (a call on a `Koin` from your own code), `KOIN-W010` (`activityViewModel<T>()` without `parametersOf()`), `KOIN-W011` (a module chosen at runtime). They fail builds that use `allWarningsAsErrors`. A `startKoin` module with no DSL definition of its own now logs that its DSL graph isn't validated.
 - **KMP libraries checking their KLIB ABI** (`apiCheck`): run `apiDump` once for the new `org.koin.plugin.hints` entries.

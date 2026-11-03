@@ -246,14 +246,15 @@ internal abstract class CheckHiddenKoinDependenciesTask : DefaultTask() {
         return buildString {
             appendLine(
                 "[Koin] ${consumer.get()} starts Koin, but these modules contribute to its Koin graph without " +
-                    "being on its compile classpath: compile safety checks them only indirectly and can miss problems.",
+                    "being on its compile classpath, so compile safety can't fully check them.",
             )
             for (componentId in hidden) {
                 val via = paths[componentId]?.let { "  (via $it)" }.orEmpty()
                 appendLine("  - ${notations[componentId] ?: componentId}$via")
             }
             appendLine(
-                "  Declare each as a direct dependency of this compilation (or expose it with api(...) on the way).",
+                "  Put each on this compilation's compile classpath: a direct implementation dependency " +
+                    "(not runtimeOnly), or api(...) on the way.",
             )
             append(
                 if (failsBuild) {
@@ -268,7 +269,7 @@ internal abstract class CheckHiddenKoinDependenciesTask : DefaultTask() {
     }
 }
 
-private fun containsKoinHints(file: File): Boolean = runCatching {
+internal fun containsKoinHints(file: File): Boolean = runCatching {
     when {
         file.isDirectory -> File(file, HINTS_PATH).listFiles()?.any { it.name.endsWith(".class") } == true
         file.isFile && file.extension == "jar" -> ZipFile(file).use { jar ->

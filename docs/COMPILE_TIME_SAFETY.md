@@ -498,9 +498,10 @@ Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO
 After each JVM and Android Kotlin compile, a `check<Target><Compilation>KoinHiddenDependencies` task compares the compile and runtime dependency graphs and looks for Koin hints in the modules that are only on the runtime classpath (projects, jars and AARs). It reports when the compilation starts Koin: its sources, shared KMP source sets included, contain `startKoin`, `koinApplication` or `@KoinApplication`. Test compilations are checked too.
 
 ```
-[Koin] :app (debug) starts Koin, but these modules contribute to its Koin graph without being on its compile classpath: compile safety checks them only indirectly and can miss problems.
+[Koin] :app (debug) starts Koin, but these modules contribute to its Koin graph without being on its compile classpath, so compile safety can't fully check them.
   - project(":core:database")  (via project :app -> project :core:data -> project :core:database)
-  Declare each as a direct dependency of this compilation (or expose it with api(...) on the way).
+  Put each on this compilation's compile classpath: a direct implementation dependency (not runtimeOnly), or api(...) on the way.
+  hiddenDependencyCheck = "error" in koinCompiler { } fails the build instead; "none" turns this off.
 ```
 
 ```kotlin
@@ -509,7 +510,7 @@ koinCompiler {
 }
 ```
 
-The warning repeats on every build until the dependency is declared. The report is also written to `build/reports/koin/<compilation>/hidden-dependencies.txt` (`<target>/<compilation>` in KMP projects), empty when the check passes. Native, JS and wasm compilations are not checked: KLIB compilations already see their transitive dependencies. Off when `compileSafety = false`; any other value than `warning`, `error` or `none` fails the build.
+The warning repeats on every build until the dependency is declared. The report is also written to `build/reports/koin/<compilation>/hidden-dependencies.txt` (`<target>/<compilation>` in KMP projects), empty when the check passes. Native, JS and wasm compilations are not checked: KLIB compilations already see their transitive dependencies. Local jars added with `files(...)` or `fileTree(...)` are not checked either: they have no module identity to compare. Off when `compileSafety = false`; any other value than `warning`, `error` or `none` fails the build.
 
 Not detected, so not checked: an entry point the source scan doesn't see, such as Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })`, or a helper in another module that calls `startKoin` for you.
 
