@@ -635,6 +635,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("scan_hint_keeps_same_module_internal_types.kt")
+    public void testScan_hint_keeps_same_module_internal_types() {
+      runTest("koin-compiler-plugin/testData/box/safety/scan_hint_keeps_same_module_internal_types.kt");
+    }
+
+    @Test
     @TestMetadata("scope_id_ok.kt")
     public void testScope_id_ok() {
       runTest("koin-compiler-plugin/testData/box/safety/scope_id_ok.kt");

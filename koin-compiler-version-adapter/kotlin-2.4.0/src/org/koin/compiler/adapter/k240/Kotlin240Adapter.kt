@@ -7,8 +7,12 @@ import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.declarations.getDeprecationsProvider
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrarAdapter
+import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrMutableAnnotationContainer
+import org.jetbrains.kotlin.ir.declarations.impl.IrExternalPackageFragmentImpl
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.ir.symbols.impl.IrExternalPackageFragmentSymbolImpl
+import org.jetbrains.kotlin.name.FqName
 import org.koin.compiler.adapter.KotlinVersionAdapter
 
 /**
@@ -43,6 +47,9 @@ class Kotlin240Adapter : KotlinVersionAdapter {
         // NOTE: conversion shape is finalized against the real 2.4.0 API at compile time.
         target.annotations = annotations.map { it.asIrAnnotation() }
     }
+
+    override fun createExternalPackageFragment(packageFqName: FqName): IrExternalPackageFragment =
+        IrExternalPackageFragmentImpl(IrExternalPackageFragmentSymbolImpl(), packageFqName)
 
     override fun refreshDeprecations(
         declaration: FirCallableDeclaration,

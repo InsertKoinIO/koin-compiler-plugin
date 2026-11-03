@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: feature.Api
+  required by: dsl:feature.DetailPresenter (parameter 'api')
+  in module: feature.featureModule

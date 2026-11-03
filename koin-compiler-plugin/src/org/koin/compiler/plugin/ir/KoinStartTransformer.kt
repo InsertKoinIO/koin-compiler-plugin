@@ -109,6 +109,7 @@ class KoinStartTransformer(
     private val expectActualTracker: ExpectActualTracker? = null,
     private val dslDefinitions: List<Definition> = emptyList()
 ) : IrElementTransformerVoid() {
+    private val hintClasses = annotationProcessor?.hintClasses ?: HintClassResolver(context)
 
     private var currentFile: IrFile? = null
 
@@ -747,8 +748,8 @@ class KoinStartTransformer(
 
                 for (hintFuncSymbol in hintFunctions) {
                     val hintFunc = hintFuncSymbol.owner
-                    val paramType = hintFunc.regularParameters.firstOrNull()?.type
-                    val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                    val params = hintFunc.regularParameters
+                    val moduleClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
                     val fqName = moduleClass.fqNameWhenAvailable?.asString()
                         ?: "<anon>@${System.identityHashCode(moduleClass)}"
                     if (seenFqNames.add(fqName)) {

@@ -1,0 +1,36 @@
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    public abstract interface Repo : R|kotlin/Any| {
+    }
+    internal final class Cache : R|kotlin/Any| {
+        public constructor(): R|feature/Cache| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    internal final class RepoImpl : R|feature/Repo| {
+        public constructor(cache: R|feature/Cache|): R|feature/RepoImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val cache: R|feature/Cache| = R|<local>/cache|
+            public get(): R|feature/Cache|
+
+    }
+    public final val featureModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|feature/Cache|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|feature/RepoImpl|>().R|org/koin/dsl/bind|<R|feature/Repo|>(<getClass>(Q|feature/Repo|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: mid
+FILE: Mid.kt
+    package mid
+
+    public final val midModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|feature/featureModule|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|

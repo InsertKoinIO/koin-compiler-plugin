@@ -60,6 +60,8 @@ class KoinAnnotationProcessor(
     private val lookupTracker: LookupTracker? = null,
     private val expectActualTracker: ExpectActualTracker? = null
 ) {
+    /** Shared with the other phases of this compilation, so one off-classpath class has one stand-in. */
+    val hintClasses = HintClassResolver(context)
 
     // Parameter analyzer — used to attach requirements to definitions at collection time (A3
     // durable model, PR1). Same config (shared qualifierExtractor) as the validation-time analyzer,
@@ -1246,7 +1248,7 @@ class KoinAnnotationProcessor(
             is Definition.ExternalFunctionDef ->
                 functionScanHintFor(definition, defTypeStr, sanitizedModuleId, qualifiedEntriesByDefType)
             else -> null
-        }
+        }?.eraseTypesThisModuleCannotName(context) // relays and scans reaching into a dependency
     }
 
     private fun functionScanHintFor(
@@ -1556,7 +1558,7 @@ class KoinAnnotationProcessor(
         function.parameters = params
         function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
         function.addDeprecatedHiddenAnnotation(context)
-        return function
+        return function.eraseTypesThisModuleCannotName(context)
     }
 
     /**
@@ -1571,7 +1573,8 @@ class KoinAnnotationProcessor(
     ): List<IrValueParameter>? {
         val params = mutableListOf<IrValueParameter>()
         for (req in requirements) {
-            val reqClass = req.typeKey.classId?.let { context.referenceClass(it)?.owner } ?: run {
+            // A class off this classpath (re-relayed from 2+ hops) still has its id: keep it.
+            val reqClass = req.typeKey.classId?.let { hintClasses.classOrStub(it) } ?: run {
                 KoinPluginLogger.debug { "    requirements SKIP for $logOwner: '${req.paramName}' type not nameable" }
                 return null
             }
@@ -1623,7 +1626,9 @@ class KoinAnnotationProcessor(
             when {
                 name.startsWith("r_") -> reqs.add(
                     Requirement(
-                        typeKey = ParameterAnalyzer.typeKeyFromType(p.type),
+                        typeKey = hintClasses.parameterClass(params, p)
+                            ?.let { TypeKey(ParameterAnalyzer.classIdFromIrClass(it), it.fqNameWhenAvailable) }
+                            ?: ParameterAnalyzer.typeKeyFromType(p.type),
                         paramName = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("r_")),
                         isNullable = false,
                         hasDefault = false,
@@ -1636,7 +1641,7 @@ class KoinAnnotationProcessor(
                         isProperty = false,
                         propertyKey = null,
                         qualifier = null,
-                    )
+                    ),
                 )
                 // Companions attach to the most recent requirement (positional adjacency).
                 name.startsWith("qn_") && reqs.isNotEmpty() -> {
@@ -1644,7 +1649,7 @@ class KoinAnnotationProcessor(
                     reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.StringQualifier(v))
                 }
                 name == "qt" && reqs.isNotEmpty() -> {
-                    val qClass = (p.type.classifierOrNull as? IrClassSymbol)?.owner
+                    val qClass = hintClasses.parameterClass(params, p)
                     if (qClass != null) reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.TypeQualifier(qClass))
                 }
                 name == "lz" && reqs.isNotEmpty() -> reqs[reqs.lastIndex] = reqs.last().copy(isLazy = true)
@@ -1724,8 +1729,8 @@ class KoinAnnotationProcessor(
         val localFqNames = moduleClasses.mapNotNullTo(mutableSetOf()) { it.irClass.fqNameWhenAvailable?.asString() }
         val toRelay = mutableListOf<IrClass>()
         for (hintFuncSymbol in visible) {
-            val paramType = hintFuncSymbol.owner.regularParameters.firstOrNull()?.type ?: continue
-            val moduleClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+            val params = hintFuncSymbol.owner.regularParameters
+            val moduleClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
             val fqName = moduleClass.fqNameWhenAvailable?.asString() ?: continue
             if (fqName in localFqNames) continue // FIR already emitted its own hint
             if (!relayedConfigurationModuleFqNames.add(fqName)) continue
@@ -1733,7 +1738,9 @@ class KoinAnnotationProcessor(
         }
         if (toRelay.isEmpty()) return
 
-        val hints = toRelay.mapNotNullTo(mutableListOf()) { createHintFunction(hintName, it) }
+        val hints = toRelay.mapNotNullTo(mutableListOf()) {
+            createHintFunction(hintName, it)?.eraseTypesThisModuleCannotName(context)
+        }
         // The module hint alone only makes the module discoverable — without also relaying its own
         // definitions, it resolves as an empty external stub, DependencyModuleResult.isComplete comes
         // back false, and validateFullGraph's fail-open policy withholds validation for the WHOLE
@@ -2187,8 +2194,7 @@ class KoinAnnotationProcessor(
                 val hintFunc = hintFuncSymbol.owner
                 val params = hintFunc.regularParameters
                 // The first parameter type is the definition class
-                val paramType = params.firstOrNull()?.type ?: continue
-                val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val defClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
 
                 // Check if the class's package matches scan packages
                 val defPackage = defClass.packageFqName?.asString() ?: continue
@@ -2207,7 +2213,7 @@ class KoinAnnotationProcessor(
                 // This is critical for cross-module discovery — reading the IR class's supertypes
                 // directly is unreliable for `internal` classes loaded from JARs/klibs.
                 val hintBindings = params.filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    .mapNotNull { hintClasses.parameterClass(params, it) }
 
                 // Fallback to local detection if hint has no bindings encoded (older hints / @Inject case)
                 val bindings = if (hintBindings.isNotEmpty()) {
@@ -2219,7 +2225,7 @@ class KoinAnnotationProcessor(
 
                 // Scope class from hint param, fallback to local class annotation
                 val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
-                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    ?.let { hintClasses.parameterClass(params, it) }
                     ?: getScopeClass(defClass)
 
                 // Qualifier from hint params (cross-module), fallback to direct extraction.
@@ -2231,7 +2237,7 @@ class KoinAnnotationProcessor(
                     } else {
                         val qTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qTypeParam != null) {
-                            val qClass = (qTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            val qClass = hintClasses.parameterClass(params, qTypeParam)
                             if (qClass != null) QualifierValue.TypeQualifier(qClass) else null
                         } else null
                     }
@@ -2283,8 +2289,7 @@ class KoinAnnotationProcessor(
                 val hintFunc = hintFuncSymbol.owner
                 val params = hintFunc.regularParameters
                 // The first parameter type is the return type of the original function (what it provides)
-                val paramType = params.firstOrNull()?.type ?: continue
-                val returnTypeClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val returnTypeClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
 
                 // Extract function's own package from funcpkg_<package> parameter (encoded when it differs from return type)
                 val funcPkgParam = params.firstOrNull { it.name.asString().startsWith("funcpkg_") }
@@ -2306,10 +2311,10 @@ class KoinAnnotationProcessor(
 
                 // Extract enriched metadata from hint parameters (C2: cross-module function hint metadata)
                 val bindings = params.filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    .mapNotNull { hintClasses.parameterClass(params, it) }
 
                 val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
-                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    ?.let { hintClasses.parameterClass(params, it) }
 
                 val qualifier: QualifierValue? = run {
                     val qualifierParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
@@ -2319,7 +2324,7 @@ class KoinAnnotationProcessor(
                     } else {
                         val qualTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qualTypeParam != null) {
-                            val qualClass = (qualTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            val qualClass = hintClasses.parameterClass(params, qualTypeParam)
                             if (qualClass != null) QualifierValue.TypeQualifier(qualClass) else null
                         } else null
                     }
@@ -2753,15 +2758,16 @@ class KoinAnnotationProcessor(
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
                 val classParams = hintFunc.regularParameters
-                val paramType = classParams.firstOrNull()?.type ?: continue
-                val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val defClass = classParams.firstOrNull()
+                    ?.let { hintClasses.parameterClass(classParams, it) }
+                    ?: continue
 
                 val definitionType = parseDefinitionType(defType) ?: continue
 
                 // Extract bindings from hint parameters first (binding0, binding1, ...)
                 // critical for `internal` cross-module classes whose IR supertypes may not be reliably accessible.
                 val hintBindings = classParams.filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    .mapNotNull { hintClasses.parameterClass(classParams, it) }
 
                 val bindings = if (hintBindings.isNotEmpty()) {
                     hintBindings
@@ -2771,7 +2777,7 @@ class KoinAnnotationProcessor(
                 }
 
                 val scopeClass = classParams.firstOrNull { it.name.asString() == "scope" }
-                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    ?.let { hintClasses.parameterClass(classParams, it) }
                     ?: getScopeClass(defClass)
 
                 // Qualifier from hint params (cross-module), fallback to direct extraction
@@ -2782,7 +2788,7 @@ class KoinAnnotationProcessor(
                     } else {
                         val qTypeParam = classParams.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qTypeParam != null) {
-                            val qClass = (qTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            val qClass = hintClasses.parameterClass(classParams, qTypeParam)
                             if (qClass != null) QualifierValue.TypeQualifier(qClass) else null
                         } else null
                     }
@@ -2911,13 +2917,12 @@ class KoinAnnotationProcessor(
         seenKeys: MutableSet<String>,
     ) {
         val params = hintFunc.regularParameters
-        val contributedType = params.firstOrNull()?.type ?: return
-        val returnTypeClass = (contributedType.classifierOrNull as? IrClassSymbol)?.owner ?: return
+        val returnTypeClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: return
 
         val bindings = params.filter { it.name.asString().startsWith("binding") }
-            .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+            .mapNotNull { hintClasses.parameterClass(params, it) }
         val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
-            ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+            ?.let { hintClasses.parameterClass(params, it) }
         val qualifier: QualifierValue? = run {
             val qStringParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
             if (qStringParam != null) {
@@ -2925,7 +2930,7 @@ class KoinAnnotationProcessor(
                 QualifierValue.StringQualifier(raw)
             } else {
                 val qTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
-                val qClass = (qTypeParam?.type?.classifierOrNull as? IrClassSymbol)?.owner
+                val qClass = qTypeParam?.let { hintClasses.parameterClass(params, it) }
                 if (qClass != null) QualifierValue.TypeQualifier(qClass) else null
             }
         }

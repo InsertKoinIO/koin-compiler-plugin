@@ -5,10 +5,8 @@ import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
-import org.jetbrains.kotlin.ir.types.classifierOrNull
 import org.jetbrains.kotlin.ir.util.*
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -26,6 +24,7 @@ class DslHintGenerator(
     // don't need requirement carrying can still construct the generator; when null, cross-module
     // DslDefs keep empty requirements (pre-fix behavior).
     private val parameterAnalyzer: ParameterAnalyzer? = null,
+    private val hintClasses: HintClassResolver = HintClassResolver(context),
 ) {
 
     // Requirement hint param names — see [buildRequirementParams].
@@ -113,7 +112,9 @@ class DslHintGenerator(
         for (groupKey in groupKeys) {
             if (groupKey in collidingGroupKeys) continue
             val groupDefs = byModule[groupKey].orEmpty()
-            val functions = groupDefs.mapNotNull { buildDslHintFunction(it) }.toMutableList()
+            // Requirement types off this classpath come back as stand-ins: never name those here.
+            val functions = groupDefs.mapNotNull { buildDslHintFunction(it)?.eraseTypesThisModuleCannotName(context) }
+                .toMutableList()
             disambiguateDuplicateSignatures(functions)
             // Topology carrier: this module's own `includes()` edges, in the same per-module file so
             // they are regenerated wholesale and can never orphan (same reason as the defs above).
@@ -311,7 +312,8 @@ class DslHintGenerator(
         val resolved = mutableListOf<Pair<Requirement, IrClass>>()
         for (req in requirements) {
             val reqClassId = req.typeKey.classId ?: return emptyList()
-            val reqClass = context.referenceClass(reqClassId)?.owner ?: return emptyList()
+            // A class off this classpath (re-relayed from 2+ hops) still has its id: keep it.
+            val reqClass = hintClasses.classOrStub(reqClassId)
             resolved += req to reqClass
         }
         val unit = context.irBuiltIns.unitType
@@ -487,8 +489,9 @@ class DslHintGenerator(
 
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
-                for (param in hintFunc.regularParameters) {
-                    val paramClass = (param.type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val params = hintFunc.regularParameters
+                for (param in params) {
+                    val paramClass = hintClasses.parameterClass(params, param) ?: continue
                     paramClass.fqNameWhenAvailable?.asString()?.let { types.add(it) }
                 }
             }
@@ -593,14 +596,12 @@ class DslHintGenerator(
                 // consumer on a plugin older than the req$i requirement params (below) had no reason
                 // to exclude them, so it silently misread each dependency as an extra binding —
                 // definitions appeared to PROVIDE their own dependencies, masking a real missing one.
-                val targetClass = (params[0].type.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val targetClass = hintClasses.parameterClass(params, params[0]) ?: continue
                 val modulePrefix = KoinPluginConstants.DSL_MODULE_PARAM_PREFIX
                 val qualifierPrefix = "qualifier_"
                 val bindings = params.drop(1)
                     .filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { param ->
-                        (param.type.classifierOrNull as? IrClassSymbol)?.owner
-                    }
+                    .mapNotNull { param -> hintClasses.parameterClass(params, param) }
                 val modulePropertyId = params
                     .firstOrNull { it.name.asString().startsWith(modulePrefix) }
                     ?.name?.asString()
@@ -615,7 +616,7 @@ class DslHintGenerator(
                         KoinPluginConstants.unsanitizeQualifierName(stringQualifierParam.name.asString().removePrefix(qualifierPrefix))
                     )
                     typeQualifierParam != null -> {
-                        val qualifierClass = (typeQualifierParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                        val qualifierClass = hintClasses.parameterClass(params, typeQualifierParam)
                         qualifierClass?.let { QualifierValue.TypeQualifier(it) }
                     }
                     else -> null
@@ -635,7 +636,7 @@ class DslHintGenerator(
                     }.toMap()
                     val typeReqQualifiers: Map<Int, QualifierValue> = params.mapNotNull { param ->
                         val m = REQ_TYPE_QUALIFIER.matchEntire(param.name.asString()) ?: return@mapNotNull null
-                        val qClass = (param.type.classifierOrNull as? IrClassSymbol)?.owner ?: return@mapNotNull null
+                        val qClass = hintClasses.parameterClass(params, param) ?: return@mapNotNull null
                         m.groupValues[1].toInt() to QualifierValue.TypeQualifier(qClass)
                     }.toMap()
                     val reqQualifiers = stringReqQualifiers + typeReqQualifiers
@@ -653,7 +654,7 @@ class DslHintGenerator(
                         val m = REQ_PARAM_NAME.matchEntire(param.name.asString()) ?: return@mapNotNull null
                         val index = m.groupValues[1].toInt()
                         val paramName = m.groupValues[2]
-                        val reqClass = (param.type.classifierOrNull as? IrClassSymbol)?.owner ?: return@mapNotNull null
+                        val reqClass = hintClasses.parameterClass(params, param) ?: return@mapNotNull null
                         val flags = reqFlags[index].orEmpty()
                         Requirement(
                             typeKey = TypeKey(ParameterAnalyzer.classIdFromIrClass(reqClass), reqClass.fqNameWhenAvailable),
@@ -741,7 +742,7 @@ class DslHintGenerator(
     private fun relayDslDefinitionHints(includedModuleId: String): List<IrSimpleFunction> {
         if (!relayedDslModuleIds.add(includedModuleId)) return emptyList()
         val defs = discoverDslDefinitionsFromHints().filter { it.modulePropertyId == includedModuleId }
-        val hints = defs.mapNotNull { buildDslHintFunction(it) }
+        val hints = defs.mapNotNull { buildDslHintFunction(it)?.eraseTypesThisModuleCannotName(context) }
         if (hints.isNotEmpty()) {
             KoinPluginLogger.debug {
                 "  + relayed ${hints.size} DSL definition hint(s) from classpath-invisible include $includedModuleId"
@@ -783,8 +784,9 @@ class DslHintGenerator(
             for (edge in edges) if (edge !in farIncludedIds) queue.add(edge)
         }
         if (farIncludedIds.isEmpty()) return
-        val hints = farIncludedIds.flatMap { relayDslDefinitionHints(it) }
+        val hints = farIncludedIds.flatMap { relayDslDefinitionHints(it) }.toMutableList()
         if (hints.isEmpty()) return
+        disambiguateDuplicateSignatures(hints)
 
         val firModuleData = extractFirModuleDataFromModule(moduleFragment)
         if (firModuleData == null) {

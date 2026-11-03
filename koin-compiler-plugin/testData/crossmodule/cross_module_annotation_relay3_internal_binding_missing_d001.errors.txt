@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: contracts.Repo
+  required by: app.Screen (parameter 'repo')
+  in module: app

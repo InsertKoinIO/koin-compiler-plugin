@@ -694,6 +694,30 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_annotation_relay3_internal_binding.kt")
+    public void testCross_module_annotation_relay3_internal_binding() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_relay3_internal_binding.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_annotation_relay3_internal_binding_missing_d001.kt")
+    public void testCross_module_annotation_relay3_internal_binding_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_relay3_internal_binding_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_annotation_relay_internal_class.kt")
+    public void testCross_module_annotation_relay_internal_class() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_relay_internal_class.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_annotation_relay_internal_same_shape.kt")
+    public void testCross_module_annotation_relay_internal_same_shape() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_relay_internal_same_shape.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_annotation_transitive_includes_missing_d001.kt")
     public void testCross_module_annotation_transitive_includes_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_transitive_includes_missing_d001.kt");
@@ -703,6 +727,24 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_annotation_transitive_includes_ok.kt")
     public void testCross_module_annotation_transitive_includes_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_annotation_transitive_includes_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_configuration_relay3_function_provider_missing_d001.kt")
+    public void testCross_module_configuration_relay3_function_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_relay3_function_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_configuration_relay_internal_scope.kt")
+    public void testCross_module_configuration_relay_internal_scope() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_relay_internal_scope.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_configuration_relay_internal_type_qualifier.kt")
+    public void testCross_module_configuration_relay_internal_type_qualifier() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_configuration_relay_internal_type_qualifier.kt");
     }
 
     @Test
@@ -862,6 +904,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_dsl_own_hint_offclasspath_requirement.kt")
+    public void testCross_module_dsl_own_hint_offclasspath_requirement() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_own_hint_offclasspath_requirement.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_dsl_property_no_false_d001.kt")
     public void testCross_module_dsl_property_no_false_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_property_no_false_d001.kt");
@@ -877,6 +925,42 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_dsl_provider_missing_d001.kt")
     public void testCross_module_dsl_provider_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_internal_binding.kt")
+    public void testCross_module_dsl_relay_internal_binding() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_internal_binding.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_internal_class.kt")
+    public void testCross_module_dsl_relay_internal_class() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_internal_class.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_internal_class_missing_d001.kt")
+    public void testCross_module_dsl_relay_internal_class_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_internal_class_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_internal_interface_binding.kt")
+    public void testCross_module_dsl_relay_internal_interface_binding() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_internal_interface_binding.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_internal_interface_binding_missing_d001.kt")
+    public void testCross_module_dsl_relay_internal_interface_binding_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_internal_interface_binding_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_dsl_relay_internal_requirement_missing_d001.kt")
+    public void testCross_module_dsl_relay_internal_requirement_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_relay_internal_requirement_missing_d001.kt");
     }
 
     @Test
@@ -1069,6 +1153,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_same_qualifier_two_types_no_false_d001.kt")
     public void testCross_module_same_qualifier_two_types_no_false_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_same_qualifier_two_types_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_internal_function_provider.kt")
+    public void testCross_module_scan_internal_function_provider() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_internal_function_provider.kt");
     }
 
     @Test

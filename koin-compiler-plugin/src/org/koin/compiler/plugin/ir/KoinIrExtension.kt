@@ -85,7 +85,11 @@ class KoinIrExtension(
         KoinPluginLogger.debug { "Phase 2: Collected ${dslDefinitions.size} DSL definitions, ${pendingCallSites.size} pending call sites" }
 
         // Instantiate extracted helper classes
-        val dslHintGenerator = DslHintGenerator(pluginContext, ParameterAnalyzer(qualifierExtractor))
+        val dslHintGenerator = DslHintGenerator(
+            pluginContext,
+            ParameterAnalyzer(qualifierExtractor),
+            annotationProcessor.hintClasses,
+        )
         val callSiteValidator = CallSiteValidator(pluginContext)
         val injectedParamHints = InjectedParamHintGenerator(pluginContext, qualifierExtractor)
 

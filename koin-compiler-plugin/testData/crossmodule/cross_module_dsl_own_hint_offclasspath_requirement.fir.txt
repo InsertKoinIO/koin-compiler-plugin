@@ -1,0 +1,32 @@
+Module: aprime
+FILE: Config.kt
+    package aprime
+
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|aprime/Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+Module: a
+FILE: Foo.kt
+    package a
+
+    public final class Foo : R|kotlin/Any| {
+        public constructor(config: R|aprime/Config|): R|a/Foo| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val config: R|aprime/Config| = R|<local>/config|
+            public get(): R|aprime/Config|
+
+    }
+Module: b
+FILE: B.kt
+    package b
+
+    public final val bModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|a/Foo|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|

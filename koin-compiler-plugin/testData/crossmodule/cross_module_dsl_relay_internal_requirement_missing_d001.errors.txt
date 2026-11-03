@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: feature.Cache
+  required by: dsl:feature.Presenter (parameter 'cache')
+  in module: feature.featureModule
