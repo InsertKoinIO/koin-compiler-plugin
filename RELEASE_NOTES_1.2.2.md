@@ -10,7 +10,7 @@ Compile safety on Kotlin/Native and wasm/JS now sees your whole graph, and multi
 - **False `KOIN-D001` / `KOIN-D004` across modules** on DSL parameters that need no provider: default value, nullable, `List<T>`, `Lazy<T>`, `@InjectedParam`, `@Property`, `@Provided`, `@ScopeId` (#115). Also on qualified function providers of the same type (#96), on a `@Single fun` provider two modules away (#114), on two `@Named("x")` providers of different types, and on definitions in a `private fun Module.x()` helper.
 - **`@Single(binds = [X::class])` on a class from another module** lost its binding: false `KOIN-D001`, and `getAll<X>()` empty at runtime (#98).
 - **Modules reported as not loaded:** false `KOIN-W001` after moving a module to another package, and on `includes()` chains of 3 modules or more. A function that returns one of several modules no longer makes them all unloaded (false `KOIN-D002`).
-- **Crashes:** "No classId" on local classes and anonymous objects (#101), invalid IR under `-Xverify-ir`, and the Kotlin daemon running out of memory on multi-module builds (#110).
+- **Crashes:** "No classId" on local classes and anonymous objects (#101), invalid IR (fatal under `-Xverify-ir`) when a definition in another module targets an `internal` class (#74), and the Kotlin daemon running out of memory on multi-module builds (#110).
 - **Configuration cache** was thrown away on every Kotlin edit.
 - False `KOIN-D002` on a `Koin` built elsewhere (#58), false `KOIN-D006` on `activityViewModel<T>()` (#121).
 
