@@ -1,3 +1,10 @@
+FILE fqName:org.koin.plugin.hints fileName:/injectedparams_main__ServiceWithParam_202ba0f6034acc0c.kt
+  FUN name:injectedparams_ServiceWithParam visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:id index:0 type:kotlin.Int
+    VALUE_PARAMETER kind:Regular name:name index:1 type:kotlin.String
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:ServiceWithParam modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
@@ -168,15 +175,6 @@ FILE fqName:org.koin.plugin.hints fileName:/test.kt
     JvmName(name = "Koin_hints_TestModule_8cd674464db476ddKt")
   FUN name:componentscan_testModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.ServiceWithParam
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/test.kt
-  annotations:
-    JvmName(name = "Injectedparams_main__ServiceWithParam_202ba0f6034acc0cKt")
-  FUN name:injectedparams_ServiceWithParam visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:id index:0 type:kotlin.Int
-    VALUE_PARAMETER kind:Regular name:name index:1 type:kotlin.String
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY

@@ -911,23 +911,6 @@ class KoinAnnotationProcessor(
     }
 
     /**
-     * Batch [functions] into one hint file (see [addHintFunctions]: the FIR anchor's file on KLIB
-     * platforms, else a synthetic file named [fileName] under [basePath]'s directory) and register
-     * them for metadata serialization. Shared by every site that batches hint functions into one file — batching (vs.
-     * one file per declaration) is what lets a removed hint disappear on the next compile instead of
-     * orphaning a stale `.class` that IC never deletes.
-     */
-    private fun batchHintFile(
-        moduleFragment: IrModuleFragment,
-        functions: List<IrSimpleFunction>,
-        firModuleData: FirModuleData,
-        basePath: String,
-        fileName: String,
-    ) {
-        addHintFunctions(context, moduleFragment, disambiguateDuplicateSignatures(functions), firModuleData, basePath, fileName)
-    }
-
-    /**
      * Make hint functions that would serialize to an identical signature distinct.
      *
      * Two hint functions sharing (name, erased parameter types) in one file are an invalid
@@ -1112,7 +1095,16 @@ class KoinAnnotationProcessor(
             val batchFileName = HintFileNaming.fileName(
                 "koin_hints_", KoinPluginLogger.moduleId, moduleClassId.asSingleFqName().asString(),
             )
-            batchHintFile(moduleFragment, hintFunctions, firModuleData, sourceFileEntry.name, batchFileName)
+            // One file per module, regenerated wholesale: a removed hint can't orphan a stale class.
+            addHintFunctions(
+                context,
+                moduleFragment,
+                disambiguateDuplicateSignatures(hintFunctions),
+                firModuleData,
+                sourceFileEntry.name,
+                batchFileName,
+                sourceBacked = true,
+            )
             KoinPluginLogger.debug { "    Batched ${hintFunctions.size} hints into single file: $batchFileName" }
         }
     }
@@ -1687,12 +1679,14 @@ class KoinAnnotationProcessor(
                     continue
                 }
 
+            val producerFile = fn.irFunction.fileOrNull?.fileEntry?.name
             val sourceFileEntry = try {
-                fn.irFunction.fileOrNull?.fileEntry ?: fn.returnTypeClass.fileEntry
+                fn.returnTypeClass.fileEntry
             } catch (_: NotImplementedError) {
                 null
             }
-            val basePath = sourceFileEntry?.name
+            val basePath = producerFile
+                ?: sourceFileEntry?.name
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
             // File name must carry the qualifier for the same reason the function name does: two
@@ -1701,7 +1695,15 @@ class KoinAnnotationProcessor(
             // allowing only one carrier per return type. No moduleId in the hash — funcreqs carriers
             // are deliberately unscoped by Gradle module (see the dedup comment above this loop).
             val fileName = HintFileNaming.fileName("koin_funcreqs_", returnFqn, carrierQualifier)
-            batchHintFile(moduleFragment, listOf(hint), firModuleData, basePath, fileName)
+            addHintFunctions(
+                context,
+                moduleFragment,
+                listOf(hint),
+                firModuleData,
+                basePath,
+                fileName,
+                sourceBacked = producerFile != null,
+            )
             KoinPluginLogger.debug { "    + funcreqs carrier (orphan): $returnFqn (${hint.parameters.size} requirement(s))" }
         }
     }

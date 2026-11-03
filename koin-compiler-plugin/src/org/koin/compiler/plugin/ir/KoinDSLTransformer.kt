@@ -122,6 +122,15 @@ class KoinDSLTransformer(
     private val _allModuleIds = linkedSetOf<String>()
     val allModuleIds: Set<String> get() = _allModuleIds
 
+    /** File declaring each module val/function: the one source that produces its DSL hint. */
+    private val _moduleDeclarationFiles = mutableMapOf<String, String>()
+    val moduleDeclarationFiles: Map<String, String> get() = _moduleDeclarationFiles
+
+    private fun recordModuleId(moduleId: String) {
+        _allModuleIds.add(moduleId)
+        currentFile?.fileEntry?.name?.let { _moduleDeclarationFiles.putIfAbsent(moduleId, it) }
+    }
+
     private val _startKoinModules = mutableListOf<String>()
     val startKoinModules: List<String> get() = _startKoinModules
 
@@ -300,7 +309,7 @@ class KoinDSLTransformer(
             ?: moduleGetterPropertyId(declaration)
             ?: return baseContext
         KoinPluginLogger.debug { "Module-returning function: $functionModuleId" }
-        _allModuleIds.add(functionModuleId)
+        recordModuleId(functionModuleId)
         collectReturnedModuleEdges(declaration, functionModuleId)
         return baseContext.copy(modulePropertyId = functionModuleId)
     }
@@ -417,7 +426,7 @@ class KoinDSLTransformer(
         if (!isModuleType) return null
         val propertyId = buildModulePropertyId(declaration) ?: return null
         KoinPluginLogger.debug { "Module property: $propertyId" }
-        _allModuleIds.add(propertyId)
+        recordModuleId(propertyId)
         return propertyId
     }
 

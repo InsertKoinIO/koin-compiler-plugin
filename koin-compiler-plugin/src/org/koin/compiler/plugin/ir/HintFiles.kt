@@ -47,7 +47,9 @@ import kotlin.io.path.absolutePathString
  * [sourceBacked], the file's entry is the real source the hints come from ([basePath]), so Kotlin IC
  * maps the class to it and deletes it with that source: a moved or deleted declaration leaves no
  * stale hint class. The class keeps the hint file's own name via `@file:JvmName`.
- * Relays (content from dependencies, not from [basePath]) pass `sourceBacked = false`.
+ * Only a hint that [basePath] recompiles whenever it must change may be [sourceBacked]: under any
+ * other file, editing that file deletes the hint and nothing regenerates it. Aggregates of several
+ * files, relays and fallback paths pass `false`.
  */
 internal fun addHintFunctions(
     context: IrPluginContext,
@@ -56,7 +58,7 @@ internal fun addHintFunctions(
     firModuleData: FirModuleData,
     basePath: String,
     fileName: String,
-    sourceBacked: Boolean = true,
+    sourceBacked: Boolean,
 ) {
     val hintFile = moduleFragment.findHintAnchorFile()
         ?: createSyntheticHintFile(
@@ -82,7 +84,6 @@ private fun IrModuleFragment.findHintAnchorFile(): IrFile? = files.firstOrNull {
 private class HintFileLocation(val basePath: String, val fileName: String, sourceBacked: Boolean) {
     val fakePath: java.nio.file.Path = Path(basePath).parent.resolve(fileName)
     val isSourceBacked: Boolean = sourceBacked && File(basePath).isFile
-    val entryPath: java.nio.file.Path = if (isSourceBacked) Path(basePath) else fakePath
 }
 
 private fun createSyntheticHintFile(
@@ -99,17 +100,16 @@ private fun createSyntheticHintFile(
         // KLIB serialization needs a resolvable io File per file; a null sourceFile fails wasm/js (KT-82395).
         sourceFile = syntheticHintSourceFile(location.fakePath.absolutePathString())
     }
+    // The facade class would otherwise be named after the real source (two hint files of one source
+    // would then share one class); keep the hint file's own name, or stay on the hint's own path.
+    val jvmName = if (location.isSourceBacked) jvmNameAnnotation(context, facadeClassName(location.fileName)) else null
+    val entryPath = if (jvmName != null) Path(location.basePath) else location.fakePath
     val hintFile = IrFileImpl(
-        fileEntry = NaiveSourceBasedFileEntryImpl(location.entryPath.absolutePathString()),
+        fileEntry = NaiveSourceBasedFileEntryImpl(entryPath.absolutePathString()),
         packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, KoinModuleFirGenerator.HINTS_PACKAGE),
         module = moduleFragment,
     ).also { it.metadata = FirMetadataSource.File(firFile) }
-    // The facade class would otherwise be named after the real source (two hint files of one source
-    // would then share one class); keep the hint file's own name.
-    if (location.isSourceBacked) {
-        jvmNameAnnotation(context, facadeClassName(location.fileName))
-            ?.let { KotlinAdapterLoader.current.setAnnotations(hintFile, listOf(it)) }
-    }
+    jvmName?.let { KotlinAdapterLoader.current.setAnnotations(hintFile, listOf(it)) }
     moduleFragment.addFile(hintFile)
     return hintFile
 }

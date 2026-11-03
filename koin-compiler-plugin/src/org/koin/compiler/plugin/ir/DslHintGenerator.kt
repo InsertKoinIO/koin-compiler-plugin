@@ -148,16 +148,19 @@ class DslHintGenerator(
                 continue
             }
 
-            // Anchor on a stable source path (issue #32): the module val's registration file dirties
-            // whenever any of its definitions change, so the batched file is regenerated then.
-            val anchorDef = groupDefs.firstOrNull { it.registrationSourceFile != null }
+            // Anchor on the one source that produces this group (issue #32): the module's
+            // declaring file, which recompiles whenever its definitions or includes() change. Any other
+            // file only gives a stable path, never the hint's IC identity: editing it would delete the
+            // hint without regenerating it.
+            val producerFile = topology.moduleDeclarationFiles[groupKey]
+                ?: groupDefs.firstNotNullOfOrNull { it.registrationSourceFile?.fileEntry?.name }
             val targetClassFile = groupDefs.firstNotNullOfOrNull { def ->
                 try {
                     val entry = def.returnTypeClass.fileEntry
                     if (entry.name.contains("/") || entry.name.contains("\\")) entry.name else null
                 } catch (_: NotImplementedError) { null }
             }
-            val basePath = anchorDef?.registrationSourceFile?.fileEntry?.name
+            val basePath = producerFile
                 ?: targetClassFile
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
@@ -165,7 +168,15 @@ class DslHintGenerator(
             val fileName = HintFileNaming.fileName(
                 "koin_dsl_hints_", KoinPluginLogger.moduleId, firModuleData.name.asString(), groupKey,
             )
-            addHintFunctions(context, moduleFragment, functions, firModuleData, basePath, fileName)
+            addHintFunctions(
+                context,
+                moduleFragment,
+                functions,
+                firModuleData,
+                basePath,
+                fileName,
+                sourceBacked = producerFile != null,
+            )
             val includeCount = moduleIncludes[groupKey].orEmpty().size
             KoinPluginLogger.debug {
                 "  Generated DSL module hints: $fileName (${groupDefs.size} definition(s)" +
@@ -507,6 +518,7 @@ class DslHintGenerator(
         val allModuleIds: Set<String> = emptySet(),
         val modulesWithIncompleteIncludes: Set<String> = emptySet(),
         val moduleAlternatives: Map<String, ModuleChoice> = emptyMap(),
+        val moduleDeclarationFiles: Map<String, String> = emptyMap(),
     )
 
     /**
