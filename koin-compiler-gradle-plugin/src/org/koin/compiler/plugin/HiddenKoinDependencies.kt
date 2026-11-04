@@ -1,3 +1,10 @@
+// Copyright (C) 2026 Zac Sweers
+// SPDX-License-Identifier: Apache-2.0
+//
+// Modified for the Koin Gradle plugin from Metro's hidden-dependency check
+// (MetroHiddenDependencies.kt, CheckHiddenMetroDependenciesTask.kt — https://github.com/ZacSweers/metro):
+// compare the compile and runtime resolution graphs by component identity, and scan only the
+// runtime-only components for hints.
 package org.koin.compiler.plugin
 
 import org.gradle.api.DefaultTask
@@ -43,11 +50,8 @@ import java.util.zip.ZipInputStream
  * that contributes definitions only at runtime (an `implementation` dependency of a dependency) is
  * invisible there, so its definitions go unchecked. Rather than re-describing such modules through
  * the ones in between, the rule is the one Metro uses: the module that starts Koin depends directly
- * on every module contributing definitions. This check finds the ones it doesn't.
- *
- * Mechanism adapted from Metro's hidden-dependency check (https://github.com/ZacSweers/metro,
- * Apache 2.0): compare the compile and runtime resolution graphs by component identity, and scan
- * only the runtime-only components for hints. On by default here, as a warning.
+ * on every module contributing definitions. This check finds the ones it doesn't. Opt-in here
+ * (`hiddenDependencyCheck`, default "none").
  */
 
 private const val HINTS_PATH = "org/koin/plugin/hints/"

@@ -1,9 +1,9 @@
-/*
- * Adapted from Metro's ic.kt (https://github.com/ZacSweers/metro), Apache 2.0 licensed,
- * Copyright (C) Zac Sweers. In particular, the `LookupTracker`/`ExpectActualTracker`
- * wiring and the use of `ExpectActualTracker` as a cross-file structural-change signal
- * for Kotlin incremental compilation originate there.
- */
+// Copyright (C) 2025 Zac Sweers
+// SPDX-License-Identifier: Apache-2.0
+//
+// Modified for the Koin compiler plugin from Metro's ic.kt (https://github.com/ZacSweers/metro).
+// The `LookupTracker`/`ExpectActualTracker` wiring and the use of `ExpectActualTracker` as a
+// cross-file structural-change signal for Kotlin incremental compilation originate there.
 package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
