@@ -162,10 +162,11 @@ object KoinPluginLogger {
     private val highestDiagnosticSeverity: AtomicInteger = AtomicInteger(0)
 
     /**
-     * Location of the last located diagnostic reported via [report]. Attached to the
-     * trailing AI-assist CTA so it shares a per-file output bucket with the error,
+     * Location of the last located diagnostic at the highest severity reported via [report].
+     * Attached to the trailing AI-assist CTA so it shares a per-file output bucket with the error,
      * preventing renderers (Gradle's K2 collector) from sorting the location-less CTA
-     * ahead of file-anchored messages.
+     * ahead of file-anchored messages. A warning never anchors an error's CTA: the CTA is
+     * emitted at the error's severity, and a warning's file sends the reader to the wrong place.
      *
      * Per-thread (InheritableThreadLocal) for the same daemon-parallel reason as
      * [threadCollector] — two compilations would otherwise stomp each other's anchor.
@@ -336,11 +337,14 @@ object KoinPluginLogger {
             KoinDiagnostic.Severity.WARNING -> CompilerMessageSeverity.WARNING
         }
         val severityRank = if (diagnostic.severity == KoinDiagnostic.Severity.ERROR) 2 else 1
-        highestDiagnosticSeverity.updateAndGet { current -> if (severityRank > current) severityRank else current }
+        val previousRank = highestDiagnosticSeverity.getAndUpdate { maxOf(it, severityRank) }
         val location = if (filePath != null && line >= 0) {
             CompilerMessageLocation.create(filePath, line, column.coerceAtLeast(0), null)
         } else null
-        if (location != null) lastDiagnosticLocation.set(location)
+        when {
+            severityRank > previousRank -> lastDiagnosticLocation.set(location)
+            severityRank == previousRank && location != null -> lastDiagnosticLocation.set(location)
+        }
         effectiveCollector.report(severity, body, location)
     }
 
