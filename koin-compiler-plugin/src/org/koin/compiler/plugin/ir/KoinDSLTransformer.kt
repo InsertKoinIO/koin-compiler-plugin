@@ -926,7 +926,7 @@ class KoinDSLTransformer(
             callee.fqNameWhenAvailable?.asString() == "org.koin.core.module.dsl.new"
         ) {
             val functionRef = transformedCall.getRegularArgument(0) as? IrFunctionReference ?: return
-            collectScopeNewDef(functionRef.symbol.owner)
+            collectScopeNewDef(functionRef.symbol.owner, transformedCall)
             return
         }
 
@@ -952,9 +952,10 @@ class KoinDSLTransformer(
                 val qualifier = extractQualifierArgument(transformedCall, callee) ?: qualifierExtractor.extractFromClass(providedClass)
                 trackClassLookup(lookupTracker, currentFile, providedClass)
                 linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
-                _dslDefinitions.add(buildDslDef(providedClass, defType, qualifier, providerOnly = true) {
+                val dslDef = transformedCall.buildDslDef(providedClass, defType, qualifier, providerOnly = true) {
                     parameterAnalyzer.requirementsForDslDefinition(providedClass, providerOnly = true)
-                })
+                }
+                _dslDefinitions.add(dslDef)
                 KoinPluginLogger.user { "Intercepting $functionName<${providedClass.name}> { ... } (provider-only)" }
             }
         }
@@ -1505,7 +1506,9 @@ class KoinDSLTransformer(
         // dedicated collect* function (see this function's kdoc for why).
         val defType = definitionTypeMap[functionName]
         if (defType != null && compileSafetyEnabled) {
-            _dslDefinitions.add(buildDslDef(targetClass, defType, qualifier) { parameterAnalyzer.requirementsForClass(targetClass) })
+            _dslDefinitions.add(call.buildDslDef(targetClass, defType, qualifier) {
+                parameterAnalyzer.requirementsForClass(targetClass)
+            })
         }
 
         // ── back to CODEGEN ──
@@ -1595,7 +1598,7 @@ class KoinDSLTransformer(
             is IrConstructor -> qualifierExtractor.extractFromClass(targetClass)
             is IrSimpleFunction -> qualifierExtractor.extractFromDeclaration(referencedFunction, "function ${referencedFunction.name}")
         }
-        _dslDefinitions.add(buildDslDef(targetClass, defType, qualifier) {
+        _dslDefinitions.add(expression.buildDslDef(targetClass, defType, qualifier) {
             requirementsFor(referencedFunction)
         })
         KoinPluginLogger.user { "Intercepting ${expression.symbol.owner.name}(::${targetClass.name}) (constructor-shorthand DSL)" }
@@ -1614,12 +1617,12 @@ class KoinDSLTransformer(
     }
 
     /**
-     * SAFETY helper. Build a DslDef for [providedClass] under the current [transformContext]
-     * (scope/module id), with A3 metadata attached. Shared shape for every DSL definition
+     * SAFETY helper. Build the DslDef this DSL call registers for [providedClass] under the current
+     * [transformContext] (scope/module id), with A3 metadata attached. Shared shape for every DSL definition
      * collection site in this file — called both from dedicated `collect*` functions and inline
      * from the `handle*` codegen functions that resolve the same data on their way past.
      */
-    private fun buildDslDef(
+    private fun IrExpression.buildDslDef(
         providedClass: IrClass,
         defType: DefinitionType,
         qualifier: QualifierValue?,
@@ -1634,7 +1637,10 @@ class KoinDSLTransformer(
         providerOnly = providerOnly,
         qualifier = qualifier,
         registrationSourceFile = currentFile
-    ).attachA3Metadata(providedClass, requirements)
+    ).attachA3Metadata(providedClass, requirements).apply {
+        // A class from another module has no file here: the registration call is this definition's own source line.
+        if (origin?.filePath == null) origin = originOf(this@buildDslDef)
+    }
 
     /** SHARED helper (CODEGEN reads it for the rewritten call's qualifier arg; SAFETY reads it for
      *  the collected DslDef's qualifier). Resolve the `qualifier` value argument (by parameter
@@ -1667,7 +1673,7 @@ class KoinDSLTransformer(
      * only surfaced as a runtime NoDefinitionFoundException. Worst failure class per this project's
      * doctrine (silent > broken).
      */
-    private fun collectScopeNewDef(referencedFunction: IrFunction) {
+    private fun collectScopeNewDef(referencedFunction: IrFunction, newCall: IrCall) {
         val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] } ?: return
         if (!compileSafetyEnabled) return
         when (referencedFunction) {
@@ -1679,7 +1685,9 @@ class KoinDSLTransformer(
                 // Same typed-enclosing rule as create(::T): `single<Interface> { new(::Impl) }`
                 // registers Interface, not Impl — runtime Koin registers the outer type.
                 val providedClass = transformContext.definitionCallTypeArg ?: targetClass
-                _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, qualifier) { requirementsFor(referencedFunction) })
+                _dslDefinitions.add(newCall.buildDslDef(providedClass, enclosingDefType, qualifier) {
+                    requirementsFor(referencedFunction)
+                })
                 KoinPluginLogger.user { "Intercepting ${currentDefinitionCall?.asString()} { new(::${targetClass.name}) } -> ${providedClass.name}" }
             }
             is IrSimpleFunction -> {
@@ -1689,7 +1697,9 @@ class KoinDSLTransformer(
                 val qualifier = transformContext.definitionQualifier
                     ?: qualifierExtractor.extractFromDeclaration(referencedFunction, "function ${referencedFunction.name}")
                 val providedClass = transformContext.definitionCallTypeArg ?: returnTypeClass
-                _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, qualifier) { requirementsFor(referencedFunction) })
+                _dslDefinitions.add(newCall.buildDslDef(providedClass, enclosingDefType, qualifier) {
+                    requirementsFor(referencedFunction)
+                })
                 KoinPluginLogger.user { "Intercepting ${currentDefinitionCall?.asString()} { new(::${referencedFunction.name}) } -> ${providedClass.name}" }
             }
         }
@@ -1738,7 +1748,9 @@ class KoinDSLTransformer(
                 val enclosingDefType = currentDefinitionCall?.let { definitionTypeMap[it] }
                 val providedClass = transformContext.definitionCallTypeArg ?: targetClass
                 if (enclosingDefType != null && compileSafetyEnabled) {
-                    _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, classQualifier) { requirementsFor(referencedFunction) })
+                    _dslDefinitions.add(call.buildDslDef(providedClass, enclosingDefType, classQualifier) {
+                        requirementsFor(referencedFunction)
+                    })
                 }
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"
                 KoinPluginLogger.user { "Intercepting $enclosingDef { create(::${targetClass.name}) } -> ${providedClass.name}" }
@@ -1773,7 +1785,9 @@ class KoinDSLTransformer(
                 if (enclosingDefType != null && compileSafetyEnabled && providedClass != null) {
                     trackClassLookup(lookupTracker, currentFile, providedClass)
                     linkDeclarationsForIC(expectActualTracker, currentFile, providedClass)
-                    _dslDefinitions.add(buildDslDef(providedClass, enclosingDefType, funcQualifier) { requirementsFor(referencedFunction) })
+                    _dslDefinitions.add(call.buildDslDef(providedClass, enclosingDefType, funcQualifier) {
+                        requirementsFor(referencedFunction)
+                    })
                 }
                 val returnTypeName = referencedFunction.returnType.classFqName?.shortName() ?: referencedFunction.returnType.toString()
                 val enclosingDef = currentDefinitionCall?.asString() ?: "unknown"

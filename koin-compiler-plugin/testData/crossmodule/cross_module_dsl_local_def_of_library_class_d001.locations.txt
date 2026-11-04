@@ -1,0 +1,6 @@
+App.kt:57 [Koin][KOIN-D001] Missing dependency: lib.Clock
+App.kt:58 [Koin][KOIN-D001] Missing dependency: lib.Dep1
+App.kt:59 [Koin][KOIN-D001] Missing dependency: lib.Dep2
+App.kt:60 [Koin][KOIN-D001] Missing dependency: lib.Dep3
+App.kt:61 [Koin][KOIN-D001] Missing dependency: lib.Dep4
+App.kt:62 [Koin][KOIN-D001] Missing dependency: lib.Dep5

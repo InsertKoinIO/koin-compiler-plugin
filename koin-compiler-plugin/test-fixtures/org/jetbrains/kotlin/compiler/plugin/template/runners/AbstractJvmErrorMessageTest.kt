@@ -57,8 +57,13 @@ open class AbstractJvmErrorMessageTest : AbstractJvmDiagnosticTest() {
         val errorsFile = File(filePath.removeSuffix(".kt") + ".errors.txt")
         val updateTestData = System.getProperty("update.testdata")?.toBoolean() == true
 
+        // Opt-in: only a test that ships a .locations.txt asserts where each Koin diagnostic is anchored.
+        val locationsFile = File(filePath.removeSuffix(".kt") + ".locations.txt")
+        val actualLocations = CapturedErrors.locations.sorted().joinToString("\n")
+
         if (updateTestData) {
             errorsFile.writeText(actualErrors + "\n")
+            if (locationsFile.exists()) locationsFile.writeText(actualLocations + "\n")
             return
         }
 
@@ -81,6 +86,14 @@ open class AbstractJvmErrorMessageTest : AbstractJvmDiagnosticTest() {
                 "Expected:\n$expectedErrors\n\n" +
                 "Actual:\n$actualErrors\n\n" +
                 "Run with -Pupdate.testdata=true to update golden files."
+            )
+        }
+
+        if (locationsFile.exists() && actualLocations != locationsFile.readText().trim()) {
+            error(
+                "Diagnostic locations mismatch for ${File(filePath).name}.\n\n" +
+                "Expected:\n${locationsFile.readText().trim()}\n\n" +
+                "Actual:\n$actualLocations",
             )
         }
     }

@@ -1,0 +1,18 @@
+[Koin][KOIN-D001] Missing dependency: lib.Clock
+  required by: dsl:lib.ServiceImpl (parameter 'clock')
+  in module: app.appModule
+[Koin][KOIN-D001] Missing dependency: lib.Dep1
+  required by: dsl:lib.S1 (parameter 'dep')
+  in module: app.appModule
+[Koin][KOIN-D001] Missing dependency: lib.Dep2
+  required by: dsl:lib.S2 (parameter 'dep')
+  in module: app.appModule
+[Koin][KOIN-D001] Missing dependency: lib.Dep3
+  required by: dsl:lib.S3 (parameter 'dep')
+  in module: app.appModule
+[Koin][KOIN-D001] Missing dependency: lib.Dep4
+  required by: dsl:lib.Api4 (parameter 'dep')
+  in module: app.appModule
+[Koin][KOIN-D001] Missing dependency: lib.Dep5
+  required by: dsl:lib.S5 (parameter 'dep')
+  in module: app.appModule

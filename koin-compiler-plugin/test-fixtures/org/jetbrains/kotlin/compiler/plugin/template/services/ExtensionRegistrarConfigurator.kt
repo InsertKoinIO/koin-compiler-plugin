@@ -23,10 +23,17 @@ import org.jetbrains.kotlin.test.services.TestServices
  */
 object CapturedErrors {
     private val threadLocalErrors = ThreadLocal.withInitial { mutableListOf<String>() }
+    private val threadLocalLocations = ThreadLocal.withInitial { mutableListOf<String>() }
 
     val errors: MutableList<String> get() = threadLocalErrors.get()
 
-    fun clear() { threadLocalErrors.get().clear() }
+    /** `File.kt:line` (or `-` when unlocated) + first message line, per typed Koin diagnostic. */
+    val locations: MutableList<String> get() = threadLocalLocations.get()
+
+    fun clear() {
+        threadLocalErrors.get().clear()
+        threadLocalLocations.get().clear()
+    }
 }
 
 /**
@@ -50,6 +57,10 @@ class CapturingMessageCollector(private val delegate: MessageCollector) : Messag
             (severity == CompilerMessageSeverity.WARNING && isTypedKoinDiagnostic)
         ) {
             CapturedErrors.errors.add(message)
+        }
+        if (isTypedKoinDiagnostic) {
+            val at = location?.let { "${it.path.substringAfterLast('/')}:${it.line}" } ?: "-"
+            CapturedErrors.locations.add("$at ${message.lineSequence().first()}")
         }
         delegate.report(severity, message, location)
     }

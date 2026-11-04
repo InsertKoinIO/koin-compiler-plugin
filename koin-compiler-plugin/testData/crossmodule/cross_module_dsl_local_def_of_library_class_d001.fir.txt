@@ -1,0 +1,131 @@
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|lib/Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class ServiceImpl : R|kotlin/Any| {
+        public constructor(clock: R|lib/Clock|): R|lib/ServiceImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val clock: R|lib/Clock| = R|<local>/clock|
+            public get(): R|lib/Clock|
+
+    }
+    public final class Dep1 : R|kotlin/Any| {
+        public constructor(): R|lib/Dep1| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class S1 : R|kotlin/Any| {
+        public constructor(dep: R|lib/Dep1|): R|lib/S1| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|lib/Dep1| = R|<local>/dep|
+            public get(): R|lib/Dep1|
+
+    }
+    public final class Dep2 : R|kotlin/Any| {
+        public constructor(): R|lib/Dep2| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class S2 : R|kotlin/Any| {
+        public constructor(dep: R|lib/Dep2|): R|lib/S2| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|lib/Dep2| = R|<local>/dep|
+            public get(): R|lib/Dep2|
+
+    }
+    public final class Dep3 : R|kotlin/Any| {
+        public constructor(): R|lib/Dep3| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class S3 : R|kotlin/Any| {
+        public constructor(dep: R|lib/Dep3|): R|lib/S3| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|lib/Dep3| = R|<local>/dep|
+            public get(): R|lib/Dep3|
+
+    }
+    public abstract interface Api4 : R|kotlin/Any| {
+    }
+    public final class Dep4 : R|kotlin/Any| {
+        public constructor(): R|lib/Dep4| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class S4 : R|lib/Api4| {
+        public constructor(dep: R|lib/Dep4|): R|lib/S4| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|lib/Dep4| = R|<local>/dep|
+            public get(): R|lib/Dep4|
+
+    }
+    public final class Dep5 : R|kotlin/Any| {
+        public constructor(): R|lib/Dep5| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class S5 : R|kotlin/Any| {
+        public constructor(): R|lib/S5| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun buildS5(dep: R|lib/Dep5|): R|lib/S5| {
+        ^buildS5 R|lib/S5.S5|()
+    }
+Module: app
+FILE: App.kt
+    package app
+
+    public final val appModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|lib/ServiceImpl|>()
+        this@R|special/anonymous|.R|org/koin/core/module/dsl/singleOf|<R|lib/S1|, R|@R|kotlin/ParameterName|(name = String(dep))  lib/Dep1|>(::R|lib/S1.S1|)
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|lib/S2|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|lib/S2| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|lib/S2|, R|@R|kotlin/ParameterName|(name = String(dep))  lib/Dep2|>(::R|lib/S2.S2|)
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|lib/S3|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|lib/S3| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/core/module/dsl/new|<R|lib/S3|, R|@R|kotlin/ParameterName|(name = String(dep))  lib/Dep3|>(::R|lib/S3.S3|)
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|lib/Api4|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|lib/Api4| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|lib/S4|, R|@R|kotlin/ParameterName|(name = String(dep))  lib/Dep4|>(::R|lib/S4.S4|)
+        }
+        )
+        this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|lib/S5|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|lib/S5| <inline=NoInline>  {
+            ^ this@R|special/anonymous|.R|org/koin/plugin/module/dsl/create|<R|lib/S5|, R|@R|kotlin/ParameterName|(name = String(dep))  lib/Dep5|>(::R|lib/buildS5|)
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+FILE: Start.kt
+    package app
+
+    public final fun start(): R|org/koin/core/KoinApplication| {
+        ^start R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|app/appModule|)
+        }
+        )
+    }

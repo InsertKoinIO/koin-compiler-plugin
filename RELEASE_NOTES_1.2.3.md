@@ -11,11 +11,13 @@ A `KOIN-D001` on a definition from another Gradle module now tells you where to 
     loaded by: modules() at ToolsTest.kt:60 → toolsModule → useCasesModule → notificationsKernelModule
   ```
 
+- **`KOIN-D001` on a definition whose class lives in another Gradle module had no location.** For `module { single<ServiceImpl>() }`, with `ServiceImpl` from a library, the error now points at the `single<ServiceImpl>()` line.
+
 - **The "Fix with AI" line could point at the wrong file.** It took the location of the last located diagnostic, even a warning in another file. It now follows the error.
 
 ## 🔧 Changed
 
-- **`KOIN-D001` gains a `loaded by:` line** for a definition from another Gradle module. A definition of the compiling module keeps its message and location. No diagnostic is added or removed, and no severity changes.
+- **`KOIN-D001` gains a `loaded by:` line** for a definition from another Gradle module. A definition of the compiling module keeps its message. No diagnostic is added or removed, and no severity changes.
 
 ## ✅ Compatibility
 
