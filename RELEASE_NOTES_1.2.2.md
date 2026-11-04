@@ -42,7 +42,7 @@ plugins {
 
 @PhBogdanov traced the KLIB root cause down to the Kotlin serializer across four Kotlin versions (#106), and found and fixed the daemon memory leak (#111). @shreknitin89 (#116), @cpaleop (#90) and @paulnunezm (#128) sent fixes this release builds on.
 
-Thanks to everyone who reported, reproduced and retested: @acmpo6ou, @ahmedhappa, @alexandru-calinoiu, @andrew-turner-control4, @aoreshkov, @axiel7, @brueggenthies-adesso, @dmitry-stakhov, @emartynov, @Faltenreich, @GoodSir42, @hmy65, @ikurek, @imcmib, @JajaComp, @jamesarich, @Komdosh, @MattSkala, @nabiu256, @nagatsuka-shuuya, @sanders9, @smartine-ledger, @stzouvaras, @tylerwilson, @VladimirPupavaESET, @xephosbot, @yaroslav-v and @zjarlin.
+Thanks to everyone who reported, reproduced and retested: @acmpo6ou, @af-jul, @ahmedhappa, @alexandru-calinoiu, @andrew-turner-control4, @aoreshkov, @axiel7, @brueggenthies-adesso, @dakatso, @dmitry-stakhov, @emartynov, @exoego, @Faltenreich, @GoodSir42, @hmy65, @ikurek, @imcmib, @JajaComp, @jamesarich, @kfaraj, @Komdosh, @MattSkala, @nabiu256, @nagatsuka-shuuya, @oscardavison, @PhilippNowak96, @renaudmathieu, @sanders9, @smartine-ledger, @stzouvaras, @tylerwilson, @VladimirPupavaESET, @xephosbot, @yaroslav-v and @zjarlin.
 
 Your feedback is welcome 🙏
 
