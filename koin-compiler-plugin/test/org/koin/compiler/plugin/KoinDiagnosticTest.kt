@@ -278,6 +278,45 @@ class KoinDiagnosticTest {
     }
 
     @Test
+    fun `flush does not anchor an error's CTA on a warning's location`() {
+        // An unlocated error after a located warning: the CTA belongs to the error, so it must not
+        // send the reader to the warning's file.
+        val rec = Recorder()
+        KoinPluginLogger.init(rec, userLogs = false, debugLogs = false, aiAssist = true)
+        KoinPluginLogger.report(
+            KoinDiagnostic.MissingPropertyValue("k", "D", "M"),
+            filePath = "/src/W.kt",
+            line = 31,
+            column = 32,
+        )
+        KoinPluginLogger.report(KoinDiagnostic.MissingBinding("T", null, "D", "p", "M", null))
+        KoinPluginLogger.flushAiAssistCta()
+
+        assertNull(rec.reports.last().location)
+    }
+
+    @Test
+    fun `flush keeps the CTA on the error when a warning is reported after it`() {
+        val rec = Recorder()
+        KoinPluginLogger.init(rec, userLogs = false, debugLogs = false, aiAssist = true)
+        KoinPluginLogger.report(
+            KoinDiagnostic.MissingCallSite("T", "get"),
+            filePath = "/src/E.kt",
+            line = 10,
+            column = 5,
+        )
+        KoinPluginLogger.report(
+            KoinDiagnostic.MissingPropertyValue("k", "D", "M"),
+            filePath = "/src/W.kt",
+            line = 31,
+            column = 32,
+        )
+        KoinPluginLogger.flushAiAssistCta()
+
+        assertEquals("/src/E.kt", rec.reports.last().location?.path)
+    }
+
+    @Test
     fun `flush leaves CTA unlocated when no diagnostic has a location`() {
         // If diagnostics fired but none had a file:line, the CTA falls back to no location.
         val rec = Recorder()

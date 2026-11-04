@@ -25,6 +25,25 @@ data class TypeKey(
     fun render(): String = fqName?.asString() ?: classId?.asFqNameString() ?: "<unknown>"
 }
 
+/** The `modules(...)` call that loads a module, and the includes() chain from that call's module down to it. */
+data class LoadTrace(val entry: SourceOrigin, val modules: List<String>) {
+    fun render(): String =
+        "modules() at ${entry.filePath?.substringAfterLast('/') ?: "?"}:${entry.line ?: "?"} → " +
+            modules.joinToString(" → ") { it.substringAfterLast('.') }
+
+    companion object {
+        fun of(
+            moduleId: String,
+            includedBy: Map<String, String>,
+            entryModuleOrigins: Map<String, SourceOrigin>,
+        ): LoadTrace? {
+            val chain = generateSequence(moduleId) { includedBy[it] }.toList().asReversed()
+            val entry = entryModuleOrigins[chain.first()] ?: return null
+            return LoadTrace(entry, chain)
+        }
+    }
+}
+
 /**
  * A dependency requirement from a constructor/function parameter.
  */
@@ -301,6 +320,8 @@ class BindingRegistry {
         // Set when [definitions] is a known-incomplete provider set (KOIN-W003 already reported) —
         // withholds KOIN-D001 instead of hard-failing. Cycle/@Property checks stay live.
         topologyUnknown: Boolean = false,
+        // How the entry point loads a module, for a KOIN-D001 on a definition with no source location.
+        loadTrace: (moduleId: String) -> LoadTrace? = { null },
     ): Int {
         // Build the set of provided types from ALL definitions
         val providedTypes = mutableSetOf<ProviderKey>()
@@ -420,7 +441,7 @@ class BindingRegistry {
                     // root is still one underlying miss, not one report per root.
                     val dedupKey = "$defName|${req.paramName}|${req.typeKey.render()}|${qualifierDisplay(req.qualifier)}"
                     if (reportedMissingDeps == null || reportedMissingDeps.add(dedupKey)) {
-                        reportMissingDependency(req, defName, owningModule, providedTypes, def.origin?.filePath, def.origin?.line)
+                        reportMissingDependency(req, defName, owningModule, providedTypes, def.origin, loadTrace)
                         errorCount++
                     }
                 }
@@ -617,9 +638,12 @@ class BindingRegistry {
         defName: String,
         moduleName: String,
         providedTypes: Set<ProviderKey>,
-        originFilePath: String? = null,
-        originLine: Int? = null,
+        origin: SourceOrigin?,
+        loadTrace: (moduleId: String) -> LoadTrace?,
     ) {
+        // A definition from another Gradle module has no file here: anchor at the modules() call loading it.
+        val trace = if (origin?.filePath == null) loadTrace(moduleName) else null
+        val anchor = trace?.entry ?: origin
         val typeName = req.typeKey.render()
         val qualifierStr = qualifierDisplay(req.qualifier)
 
@@ -644,11 +668,11 @@ class BindingRegistry {
                 qualifier = qualifierStr,
                 def = defName,
                 param = req.paramName,
-                module = moduleName,
+                module = trace?.let { "$moduleName\n  loaded by: ${it.render()}" } ?: moduleName,
                 hint = hint,
             ),
-            filePath = originFilePath,
-            line = originLine ?: -1,
+            filePath = anchor?.filePath,
+            line = anchor?.line ?: -1,
         )
     }
 

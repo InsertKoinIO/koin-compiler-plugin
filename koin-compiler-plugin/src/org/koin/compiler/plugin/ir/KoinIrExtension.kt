@@ -193,6 +193,7 @@ class KoinIrExtension(
                 entryModulesIncompleteOrigin = koinTransformer.entryModulesIncompleteOrigin,
                 modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
                 ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph,
+                entryModuleOrigins = koinTransformer.entryModuleOrigins,
             )
         } else if (safetyValidator != null && dslDefinitions.isEmpty()
             && safetyValidator.assembledGraphTypes.isEmpty()

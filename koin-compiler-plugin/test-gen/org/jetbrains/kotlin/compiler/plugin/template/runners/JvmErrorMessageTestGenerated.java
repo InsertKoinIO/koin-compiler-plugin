@@ -868,6 +868,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_dsl_missing_d001_names_entry_point.kt")
+    public void testCross_module_dsl_missing_d001_names_entry_point() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_missing_d001_names_entry_point.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_dsl_module_function_branch_gap_callsite_w011.kt")
     public void testCross_module_dsl_module_function_branch_gap_callsite_w011() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_dsl_module_function_branch_gap_callsite_w011.kt");

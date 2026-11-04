@@ -1,3 +1,4 @@
 [Koin][KOIN-D001] Missing dependency: base.Repository
   required by: dsl:lib.Service (parameter 'repo')
   in module: lib.libModule
+  loaded by: modules() at App.kt:69 → appModule → libModule
