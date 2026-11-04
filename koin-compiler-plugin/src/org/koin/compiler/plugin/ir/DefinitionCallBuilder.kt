@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.types.*
 import org.jetbrains.kotlin.ir.util.defaultType
 import org.jetbrains.kotlin.ir.util.fqNameWhenAvailable
+import org.jetbrains.kotlin.ir.util.isObject
 import org.jetbrains.kotlin.ir.util.primaryConstructor
 import org.jetbrains.kotlin.name.CallableId
 import org.jetbrains.kotlin.name.ClassId
@@ -581,7 +582,12 @@ class DefinitionCallBuilder(
     }
 
     /**
-     * Create a lambda expression for constructor: { Constructor(get(), get(), ...) }
+     * Create a lambda expression for the definition body.
+     * For a class: { Constructor(get(), get(), ...) }.
+     * For an `object`: { ObjectName } — references the singleton INSTANCE via irGetObject.
+     * An object has no public constructor, so emitting irCallConstructor would produce IR
+     * that fails lowering/validation (see issue #77). Mirrors the module-instance handling
+     * in ModuleFunctionResolver.buildModuleGetCall.
      */
     private fun createDefinitionLambda(
         constructor: IrConstructor,
@@ -590,13 +596,17 @@ class DefinitionCallBuilder(
         parentFunction: IrFunction
     ): IrExpression {
         return lambdaBuilder.create(returnTypeClass, builder, parentFunction) { irBuilder, scopeParam, paramsParam ->
-            irBuilder.irCallConstructor(constructor.symbol, emptyList()).apply {
-                constructor.regularParameters.forEachIndexed { index, param ->
-                    val scopeGet = irBuilder.irGet(scopeParam)
-                    val paramsGet = irBuilder.irGet(paramsParam)
-                    val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, irBuilder)
-                    if (argument != null) {
-                        putRegularArgument(index, argument)
+            if (returnTypeClass.isObject) {
+                irBuilder.irGetObject(returnTypeClass.symbol)
+            } else {
+                irBuilder.irCallConstructor(constructor.symbol, emptyList()).apply {
+                    constructor.regularParameters.forEachIndexed { index, param ->
+                        val scopeGet = irBuilder.irGet(scopeParam)
+                        val paramsGet = irBuilder.irGet(paramsParam)
+                        val argument = argumentGenerator.generateKoinArgumentForParameter(param, scopeGet, paramsGet, irBuilder)
+                        if (argument != null) {
+                            putRegularArgument(index, argument)
+                        }
                     }
                 }
             }

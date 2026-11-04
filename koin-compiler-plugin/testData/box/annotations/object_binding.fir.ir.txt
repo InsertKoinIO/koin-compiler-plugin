@@ -1,0 +1,247 @@
+FILE fqName:<root> fileName:/appModuleModule.kt
+  FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
+    VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:<root>.AppModule
+    BLOCK_BODY
+      RETURN type=kotlin.Nothing from='public final fun module (<this>: <root>.AppModule): org.koin.core.module.Module declared in <root>'
+        CALL 'public final fun module (createdAtStart: kotlin.Boolean, moduleDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.module.Module, kotlin.Unit>): org.koin.core.module.Module declared in org.koin.dsl' type=org.koin.core.module.Module origin=null
+          ARG moduleDeclaration: FUN_EXPR type=kotlin.Function1<org.koin.core.module.Module, kotlin.Unit> origin=LAMBDA
+            FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+              VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.module.Module
+              BLOCK_BODY
+                CALL 'public final fun bind <S> (<this>: org.koin.core.definition.KoinDefinition<*>, clazz: kotlin.reflect.KClass<S of org.koin.plugin.module.dsl.bind>): org.koin.core.definition.KoinDefinition<*> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<*> origin=null
+                  TYPE_ARG S: <root>.Loader<K of <root>.Loader, V of <root>.Loader>
+                  ARG <this>: CALL 'public final fun buildSingle <T> (<this>: org.koin.core.module.Module, kclass: kotlin.reflect.KClass<T of org.koin.plugin.module.dsl.buildSingle>, qualifier: org.koin.core.qualifier.Qualifier?, definition: @[ExtensionFunctionType] kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, T of org.koin.plugin.module.dsl.buildSingle>, createdAtStart: kotlin.Boolean): org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> declared in org.koin.plugin.module.dsl' type=org.koin.core.definition.KoinDefinition<T of org.koin.plugin.module.dsl.buildSingle> origin=null
+                    TYPE_ARG T: <root>.LengthLoader
+                    ARG <this>: GET_VAR '<this>: org.koin.core.module.Module declared in <root>.module.<anonymous>' type=org.koin.core.module.Module origin=null
+                    ARG kclass: CLASS_REFERENCE 'CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=kotlin.reflect.KClass<<root>.LengthLoader>
+                    ARG qualifier: CONST Null type=kotlin.Nothing? value=null
+                    ARG definition: FUN_EXPR type=kotlin.Function2<org.koin.core.scope.Scope, org.koin.core.parameter.ParametersHolder, <root>.LengthLoader> origin=LAMBDA
+                      FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:<root>.LengthLoader
+                        VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:org.koin.core.scope.Scope
+                        VALUE_PARAMETER kind:Regular name:params index:1 type:org.koin.core.parameter.ParametersHolder
+                        BLOCK_BODY
+                          RETURN type=kotlin.Nothing from='local final fun <anonymous> (<this>: org.koin.core.scope.Scope, params: org.koin.core.parameter.ParametersHolder): <root>.LengthLoader declared in <root>.module.<anonymous>'
+                            GET_OBJECT 'CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=<root>.LengthLoader
+                  ARG clazz: CLASS_REFERENCE 'CLASS INTERFACE name:Loader modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.Loader<K of <root>.Loader, V of <root>.Loader>>
+FILE fqName:org.koin.plugin.hints fileName:/koin_hints_AppModule_9b690110ed8c2a44.kt
+  FUN name:componentscan_appModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.LengthLoader
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:<root>.Loader<kotlin.Any?, kotlin.Any?>
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:<root> fileName:/test.kt
+  CLASS CLASS name:AppModule modality:FINAL visibility:public superTypes:[kotlin.Any]
+    annotations:
+      Module(includes = <null>, createdAtStart = <null>)
+      ComponentScan(value = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.AppModule
+    CONSTRUCTOR visibility:public returnType:<root>.AppModule [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:AppModule modality:FINAL visibility:public superTypes:[kotlin.Any]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+  CLASS CLASS name:BaseLoader modality:ABSTRACT visibility:public superTypes:[<root>.Loader<K of <root>.BaseLoader, V of <root>.BaseLoader>]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader>
+    TYPE_PARAMETER name:K index:0 variance: superTypes:[kotlin.Any] reified:false
+    TYPE_PARAMETER name:V index:1 variance: superTypes:[kotlin.Any] reified:false
+    PROPERTY name:loaderName visibility:public modality:OPEN [val]
+      overridden:
+        public abstract loaderName: kotlin.String declared in <root>.Loader
+      FIELD PROPERTY_BACKING_FIELD name:loaderName type:kotlin.String visibility:private [final]
+        EXPRESSION_BODY
+          CALL 'public final fun CHECK_NOT_NULL <T0> (arg0: T0 of kotlin.internal.ir.CHECK_NOT_NULL?): {T0 of kotlin.internal.ir.CHECK_NOT_NULL & Any} declared in kotlin.internal.ir' type=kotlin.String origin=EXCLEXCL
+            TYPE_ARG T0: kotlin.String
+            ARG arg0: CALL 'public abstract fun <get-qualifiedName> (): kotlin.String? declared in kotlin.reflect.KClass' type=kotlin.String? origin=GET_PROPERTY
+              ARG <this>: GET_CLASS type=kotlin.reflect.KClass<out <root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader>>
+                GET_VAR '<this>: <root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader> declared in <root>.BaseLoader' type=<root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader> origin=null
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-loaderName> visibility:public modality:OPEN returnType:kotlin.String
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader>
+        correspondingProperty: PROPERTY name:loaderName visibility:public modality:OPEN [val]
+        overridden:
+          public abstract fun <get-loaderName> (): kotlin.String declared in <root>.Loader
+        BLOCK_BODY
+          RETURN type=kotlin.Nothing from='public open fun <get-loaderName> (): kotlin.String declared in <root>.BaseLoader'
+            GET_FIELD 'FIELD PROPERTY_BACKING_FIELD name:loaderName type:kotlin.String visibility:private [final]' type=kotlin.String origin=null
+              receiver: GET_VAR '<this>: <root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader> declared in <root>.BaseLoader.<get-loaderName>' type=<root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader> origin=null
+    CONSTRUCTOR visibility:public returnType:<root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader> [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in kotlin.Any'
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS CLASS name:BaseLoader modality:ABSTRACT visibility:public superTypes:[<root>.Loader<K of <root>.BaseLoader, V of <root>.BaseLoader>]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in <root>.Loader
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in <root>.Loader
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in <root>.Loader
+    FUN name:batchLoad visibility:public modality:ABSTRACT returnType:kotlin.collections.Map<K of <root>.BaseLoader, V of <root>.BaseLoader> [suspend]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.BaseLoader<K of <root>.BaseLoader, V of <root>.BaseLoader>
+      VALUE_PARAMETER kind:Regular name:keys index:1 type:kotlin.collections.Set<K of <root>.BaseLoader>
+  CLASS INTERFACE name:Loader modality:ABSTRACT visibility:public superTypes:[kotlin.Any]
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Loader<K of <root>.Loader, V of <root>.Loader>
+    TYPE_PARAMETER name:K index:0 variance: superTypes:[kotlin.Any] reified:false
+    TYPE_PARAMETER name:V index:1 variance: superTypes:[kotlin.Any] reified:false
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in kotlin.Any
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in kotlin.Any
+    PROPERTY name:loaderName visibility:public modality:ABSTRACT [val]
+      FUN DEFAULT_PROPERTY_ACCESSOR name:<get-loaderName> visibility:public modality:ABSTRACT returnType:kotlin.String
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.Loader<K of <root>.Loader, V of <root>.Loader>
+        correspondingProperty: PROPERTY name:loaderName visibility:public modality:ABSTRACT [val]
+  CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]
+    annotations:
+      Single(binds = [CLASS_REFERENCE 'CLASS INTERFACE name:Loader modality:ABSTRACT visibility:public superTypes:[kotlin.Any]' type=kotlin.reflect.KClass<<root>.Loader<*, *>>] type=kotlin.Array<kotlin.reflect.KClass<*>> varargElementType=kotlin.reflect.KClass<*>, createdAtStart = <null>)
+    thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.LengthLoader
+    CONSTRUCTOR visibility:private returnType:<root>.LengthLoader [primary]
+      BLOCK_BODY
+        DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.BaseLoader'
+          TYPE_ARG K: kotlin.String
+          TYPE_ARG V: kotlin.Int
+        INSTANCE_INITIALIZER_CALL classDescriptor='CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=kotlin.Unit
+    FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN returnType:kotlin.Boolean [fake_override,operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      VALUE_PARAMETER kind:Regular name:other index:1 type:kotlin.Any?
+      overridden:
+        public open fun equals (other: kotlin.Any?): kotlin.Boolean declared in <root>.BaseLoader
+    FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN returnType:kotlin.Int [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun hashCode (): kotlin.Int declared in <root>.BaseLoader
+    FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:kotlin.Any
+      overridden:
+        public open fun toString (): kotlin.String declared in <root>.BaseLoader
+    FUN name:batchLoad visibility:public modality:OPEN returnType:kotlin.collections.Map<kotlin.String, kotlin.Int> [suspend]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.LengthLoader
+      VALUE_PARAMETER kind:Regular name:keys index:1 type:kotlin.collections.Set<kotlin.String>
+      overridden:
+        public abstract fun batchLoad (keys: kotlin.collections.Set<K of <root>.BaseLoader>): kotlin.collections.Map<K of <root>.BaseLoader, V of <root>.BaseLoader> declared in <root>.BaseLoader
+      BLOCK_BODY
+        RETURN type=kotlin.Nothing from='public open fun batchLoad (keys: kotlin.collections.Set<kotlin.String>): kotlin.collections.Map<kotlin.String, kotlin.Int> declared in <root>.LengthLoader'
+          CALL 'public final fun associateWith <K, V> (<this>: kotlin.collections.Iterable<K of kotlin.collections.associateWith>, valueSelector: kotlin.Function1<K of kotlin.collections.associateWith, V of kotlin.collections.associateWith>): kotlin.collections.Map<K of kotlin.collections.associateWith, V of kotlin.collections.associateWith> declared in kotlin.collections' type=kotlin.collections.Map<kotlin.String, kotlin.Int> origin=null
+            TYPE_ARG K: kotlin.String
+            TYPE_ARG V: kotlin.Int
+            ARG <this>: GET_VAR 'keys: kotlin.collections.Set<kotlin.String> declared in <root>.LengthLoader.batchLoad' type=kotlin.collections.Set<kotlin.String> origin=null
+            ARG valueSelector: FUN_EXPR type=kotlin.Function1<kotlin.String, kotlin.Int> origin=LAMBDA
+              FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Int
+                VALUE_PARAMETER kind:Regular name:it index:0 type:kotlin.String
+                BLOCK_BODY
+                  RETURN type=kotlin.Nothing from='local final fun <anonymous> (it: kotlin.String): kotlin.Int declared in <root>.LengthLoader.batchLoad'
+                    CALL 'public open fun <get-length> (): kotlin.Int declared in kotlin.String' type=kotlin.Int origin=GET_PROPERTY
+                      ARG <this>: GET_VAR 'it: kotlin.String declared in <root>.LengthLoader.batchLoad.<anonymous>' type=kotlin.String origin=null
+    FUN name:invoke visibility:public modality:FINAL returnType:<root>.LengthLoader [operator]
+      VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.LengthLoader
+      BLOCK_BODY
+        RETURN type=kotlin.Nothing from='public final fun invoke (): <root>.LengthLoader declared in <root>.LengthLoader'
+          GET_VAR '<this>: <root>.LengthLoader declared in <root>.LengthLoader.invoke' type=<root>.LengthLoader origin=null
+    PROPERTY FAKE_OVERRIDE name:loaderName visibility:public modality:OPEN [fake_override,val]
+      overridden:
+        public open loaderName: kotlin.String declared in <root>.BaseLoader
+      FUN FAKE_OVERRIDE name:<get-loaderName> visibility:public modality:OPEN returnType:kotlin.String [fake_override]
+        VALUE_PARAMETER kind:DispatchReceiver name:<this> index:0 type:<root>.BaseLoader<kotlin.String, kotlin.Int>
+        correspondingProperty: PROPERTY FAKE_OVERRIDE name:loaderName visibility:public modality:OPEN [fake_override,val]
+        overridden:
+          public open fun <get-loaderName> (): kotlin.String declared in <root>.BaseLoader
+  FUN name:box visibility:public modality:FINAL returnType:kotlin.String
+    BLOCK_BODY
+      VAR name:koin type:org.koin.core.Koin [val]
+        CALL 'public final fun <get-koin> (): org.koin.core.Koin declared in org.koin.core.KoinApplication' type=org.koin.core.Koin origin=GET_PROPERTY
+          ARG <this>: CALL 'public final fun koinApplication (appDeclaration: @[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit>?): org.koin.core.KoinApplication declared in org.koin.dsl' type=org.koin.core.KoinApplication origin=null
+            ARG appDeclaration: FUN_EXPR type=@[ExtensionFunctionType] kotlin.Function1<org.koin.core.KoinApplication, kotlin.Unit> origin=LAMBDA
+              FUN LOCAL_FUNCTION_FOR_LAMBDA name:<anonymous> visibility:local modality:FINAL returnType:kotlin.Unit
+                VALUE_PARAMETER kind:ExtensionReceiver name:$this$koinApplication index:0 type:org.koin.core.KoinApplication
+                BLOCK_BODY
+                  TYPE_OP type=kotlin.Unit origin=IMPLICIT_COERCION_TO_UNIT typeOperand=kotlin.Unit
+                    CALL 'public final fun modules (modules: org.koin.core.module.Module): org.koin.core.KoinApplication declared in org.koin.core.KoinApplication' type=org.koin.core.KoinApplication origin=null
+                      ARG <this>: GET_VAR '$this$koinApplication: org.koin.core.KoinApplication declared in <root>.box.<anonymous>' type=org.koin.core.KoinApplication origin=IMPLICIT_ARGUMENT
+                      ARG modules: CALL 'public final fun module (<this>: <root>.AppModule): org.koin.core.module.Module declared in <root>' type=org.koin.core.module.Module origin=null
+                        ARG <this>: CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.AppModule' type=<root>.AppModule origin=null
+      VAR name:loaders type:kotlin.collections.List<<root>.Loader<*, *>> [val]
+        CALL 'public final fun getAll <T> (): kotlin.collections.List<T of org.koin.core.Koin.getAll> declared in org.koin.core.Koin' type=kotlin.collections.List<<root>.Loader<*, *>> origin=null
+          TYPE_ARG T: <root>.Loader<*, *>
+          ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public abstract fun <get-size> (): kotlin.Int declared in kotlin.collections.List' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_VAR 'val loaders: kotlin.collections.List<<root>.Loader<*, *>> declared in <root>.box' type=kotlin.collections.List<<root>.Loader<*, *>> origin=null
+              ARG arg1: CONST Int type=kotlin.Int value=1
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: expected 1 loader, got "
+              CALL 'public abstract fun <get-size> (): kotlin.Int declared in kotlin.collections.List' type=kotlin.Int origin=GET_PROPERTY
+                ARG <this>: GET_VAR 'val loaders: kotlin.collections.List<<root>.Loader<*, *>> declared in <root>.box' type=kotlin.collections.List<<root>.Loader<*, *>> origin=null
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQEQ
+            ARG <this>: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQEQ
+              ARG arg0: CALL 'public final fun first <T> (<this>: kotlin.collections.List<T of kotlin.collections.first>): T of kotlin.collections.first declared in kotlin.collections' type=<root>.Loader<*, *> origin=null
+                TYPE_ARG T: <root>.Loader<*, *>
+                ARG <this>: GET_VAR 'val loaders: kotlin.collections.List<<root>.Loader<*, *>> declared in <root>.box' type=kotlin.collections.List<<root>.Loader<*, *>> origin=null
+              ARG arg1: GET_OBJECT 'CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=<root>.LengthLoader
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            CONST String type=kotlin.String value="FAIL: bound loader is not the object INSTANCE"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQEQ
+            ARG <this>: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQEQ
+              ARG arg0: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.Loader<kotlin.String, kotlin.Int> origin=null
+                TYPE_ARG T: <root>.Loader<kotlin.String, kotlin.Int>
+                ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+              ARG arg1: GET_OBJECT 'CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=<root>.LengthLoader
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            CONST String type=kotlin.String value="FAIL: get<Loader>() is not the INSTANCE"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQEQ
+            ARG <this>: CALL 'public final fun EQEQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQEQ
+              ARG arg0: CALL 'public final fun get <T> (qualifier: org.koin.core.qualifier.Qualifier?, parameters: kotlin.Function0<org.koin.core.parameter.ParametersHolder>?): T of org.koin.core.Koin.get declared in org.koin.core.Koin' type=<root>.LengthLoader origin=null
+                TYPE_ARG T: <root>.LengthLoader
+                ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in <root>.box' type=org.koin.core.Koin origin=null
+              ARG arg1: GET_OBJECT 'CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=<root>.LengthLoader
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            CONST String type=kotlin.String value="FAIL: get<LengthLoader>() is not the INSTANCE"
+      WHEN type=kotlin.Unit origin=IF
+        BRANCH
+          if: CALL 'public final fun not (): kotlin.Boolean declared in kotlin.Boolean' type=kotlin.Boolean origin=EXCLEQ
+            ARG <this>: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=EXCLEQ
+              ARG arg0: CALL 'public open fun <get-loaderName> (): kotlin.String declared in <root>.LengthLoader' type=kotlin.String origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=<root>.LengthLoader
+              ARG arg1: CONST String type=kotlin.String value="LengthLoader"
+          then: RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+            STRING_CONCATENATION type=kotlin.String
+              CONST String type=kotlin.String value="FAIL: wrong loaderName "
+              CALL 'public open fun <get-loaderName> (): kotlin.String declared in <root>.LengthLoader' type=kotlin.String origin=GET_PROPERTY
+                ARG <this>: GET_OBJECT 'CLASS OBJECT name:LengthLoader modality:FINAL visibility:public superTypes:[<root>.BaseLoader<kotlin.String, kotlin.Int>]' type=<root>.LengthLoader
+      RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in <root>'
+        CONST String type=kotlin.String value="OK"

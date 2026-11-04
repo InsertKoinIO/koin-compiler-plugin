@@ -147,7 +147,7 @@ Cross-module data travels only through hint functions (see [docs/PLUGIN_HINTS.md
 
 ### Definition Annotations
 
-These annotations can be applied to **classes**, **functions inside @Module classes**, or **top-level functions**.
+These annotations can be applied to **classes**, **objects**, **functions inside @Module classes**, or **top-level functions**. An annotated `object` resolves to its singleton `INSTANCE` (no constructor call).
 
 | Annotation | Effect |
 |------------|--------|

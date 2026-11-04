@@ -54,6 +54,17 @@ fun authApiClient(dep: AuthDep): ApiClient = ApiClient("auth")
 @Named("plain")
 fun plainApiClient(dep: PlainDep): ApiClient = ApiClient("plain")
 
+// @Single on an `object` bound to an interface (compiler#77). Must reference the
+// singleton INSTANCE and still emit the .bind() chain.
+interface Settings {
+    val label: String
+}
+
+@Single([Settings::class])
+object SettingsHolder : Settings {
+    override val label: String = "settings"
+}
+
 class EagerService
 
 @Module
