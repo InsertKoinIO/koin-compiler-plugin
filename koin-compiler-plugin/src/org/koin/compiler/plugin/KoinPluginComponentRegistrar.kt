@@ -11,7 +11,6 @@ import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.koin.compiler.adapter.KotlinAdapterLoader
 import org.koin.compiler.plugin.ir.KoinIrExtension
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Centralized logger for the Koin compiler plugin.
@@ -75,7 +74,7 @@ object KoinPluginLogger {
         get() = threadCollector.get() ?: fallbackCollector
 
     /**
-     * Per-compilation config flags.
+     * Per-compilation config flags, plus the compilation's [DiagnosticTally].
      *
      * Same daemon-parallel hazard as [threadCollector]: multiple compilations share a daemon JVM
      * and each `init()` writes these. When they were plain global `@Volatile var`s, one
@@ -97,7 +96,35 @@ object KoinPluginLogger {
         val logSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
         val versionCheckSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
         val scanCompletionMarkers: Boolean = true,
+        val diagnostics: DiagnosticTally = DiagnosticTally(),
     )
+
+    /**
+     * Highest diagnostic severity of one compilation, and the anchor of its "Fix with AI" line: the last
+     * located diagnostic at that severity, so a warning never anchors an error's line. Held in [Flags]
+     * so it is rebound with them on the IR thread and a parallel compilation's [init] cannot reset it.
+     */
+    private class DiagnosticTally {
+        private var highestRank = 0
+        private var anchor: CompilerMessageLocation? = null
+
+        @Synchronized
+        fun record(rank: Int, location: CompilerMessageLocation?) {
+            when {
+                rank > highestRank -> {
+                    highestRank = rank
+                    anchor = location
+                }
+                rank == highestRank && location != null -> anchor = location
+            }
+        }
+
+        @Synchronized
+        fun drain(): Pair<Int, CompilerMessageLocation?> = (highestRank to anchor).also {
+            highestRank = 0
+            anchor = null
+        }
+    }
 
     private val threadFlags: InheritableThreadLocal<Flags?> = InheritableThreadLocal()
 
@@ -149,30 +176,6 @@ object KoinPluginLogger {
 
     /** LookupTracker from compiler configuration, for direct IC lookup recording. */
     val lookupTracker: LookupTracker? get() = effectiveFlags.lookupTracker
-
-    /**
-     * Highest severity of any diagnostic reported via [report] during this compilation.
-     * Used by [flushAiAssistCta] to decide whether to emit a trailing CTA and at what severity.
-     * 0 = none, 1 = warning, 2 = error.
-     *
-     * AtomicInteger (not @Volatile Int) so concurrent `report()` calls cannot lose a
-     * higher-severity update via read-then-write — `updateAndGet` is the only correct
-     * primitive for a monotonic max accumulator.
-     */
-    private val highestDiagnosticSeverity: AtomicInteger = AtomicInteger(0)
-
-    /**
-     * Location of the last located diagnostic at the highest severity reported via [report].
-     * Attached to the trailing AI-assist CTA so it shares a per-file output bucket with the error,
-     * preventing renderers (Gradle's K2 collector) from sorting the location-less CTA
-     * ahead of file-anchored messages. A warning never anchors an error's CTA: the CTA is
-     * emitted at the error's severity, and a warning's file sends the reader to the wrong place.
-     *
-     * Per-thread (InheritableThreadLocal) for the same daemon-parallel reason as
-     * [threadCollector] — two compilations would otherwise stomp each other's anchor.
-     */
-    private val lastDiagnosticLocation: InheritableThreadLocal<CompilerMessageLocation?> =
-        InheritableThreadLocal()
 
     /**
      * Bind [collector] to the current thread's slot for the duration of one compilation phase
@@ -235,8 +238,6 @@ object KoinPluginLogger {
         )
         threadFlags.set(flags)
         fallbackFlags = flags
-        highestDiagnosticSeverity.set(0)
-        lastDiagnosticLocation.remove()
     }
 
     /**
@@ -337,14 +338,10 @@ object KoinPluginLogger {
             KoinDiagnostic.Severity.WARNING -> CompilerMessageSeverity.WARNING
         }
         val severityRank = if (diagnostic.severity == KoinDiagnostic.Severity.ERROR) 2 else 1
-        val previousRank = highestDiagnosticSeverity.getAndUpdate { maxOf(it, severityRank) }
         val location = if (filePath != null && line >= 0) {
             CompilerMessageLocation.create(filePath, line, column.coerceAtLeast(0), null)
         } else null
-        when {
-            severityRank > previousRank -> lastDiagnosticLocation.set(location)
-            severityRank == previousRank && location != null -> lastDiagnosticLocation.set(location)
-        }
+        effectiveFlags.diagnostics.record(severityRank, location)
         effectiveCollector.report(severity, body, location)
     }
 
@@ -356,24 +353,22 @@ object KoinPluginLogger {
      *
      * Caller passes its own captured [collector] to avoid a daemon-parallel race where
      * another compilation's [init] swaps the singleton's collector mid-flight and the CTA
-     * lands in the wrong task's output stream. The location of the last located diagnostic
-     * is attached so the CTA shares a per-file bucket with the error in Gradle's K2
-     * renderer, preventing it from sorting ahead of file-anchored messages.
+     * lands in the wrong task's output stream. Anchored per [DiagnosticTally] so the CTA
+     * shares a per-file bucket with the error in Gradle's K2 renderer, preventing it from
+     * sorting ahead of file-anchored messages.
      *
      * Called once per compilation by [org.koin.compiler.plugin.ir.KoinIrExtension] at
      * the tail of IR processing.
      */
     fun flushAiAssistCta(collector: MessageCollector = effectiveCollector) {
-        val rank = highestDiagnosticSeverity.get()
+        val (rank, anchor) = effectiveFlags.diagnostics.drain()
         if (!aiAssistEnabled || rank == 0) return
         val severity = if (rank >= 2) CompilerMessageSeverity.ERROR else CompilerMessageSeverity.WARNING
         collector.report(
             severity,
             "[Koin] → Fix with AI: set up Kotzilla MCP at ${KoinPluginConstants.AI_ASSIST_CTA_URL}",
-            lastDiagnosticLocation.get(),
+            anchor,
         )
-        highestDiagnosticSeverity.set(0)
-        lastDiagnosticLocation.remove()
     }
 }
 

@@ -6,6 +6,7 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.parallel.Isolated
+import java.util.concurrent.Executors
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
@@ -314,6 +315,45 @@ class KoinDiagnosticTest {
         KoinPluginLogger.flushAiAssistCta()
 
         assertEquals("/src/E.kt", rec.reports.last().location?.path)
+    }
+
+    @Test
+    fun `a parallel compilation's init does not move another compilation's CTA off its error`() {
+        // Two compilations share the daemon JVM, each on its own thread: B starting mid-way through A
+        // must not reset A's severity, or A's next warning takes over the error's CTA.
+        val compilationA = Executors.newSingleThreadExecutor()
+        val compilationB = Executors.newSingleThreadExecutor()
+        val recA = Recorder()
+        try {
+            compilationA.submit {
+                KoinPluginLogger.init(recA, userLogs = false, debugLogs = false, aiAssist = true)
+                KoinPluginLogger.report(
+                    KoinDiagnostic.MissingCallSite("T", "get"),
+                    filePath = "/src/E.kt",
+                    line = 10,
+                    column = 5,
+                )
+            }.get()
+            compilationB.submit {
+                KoinPluginLogger.init(Recorder(), userLogs = false, debugLogs = false, aiAssist = true)
+            }.get()
+            compilationA.submit {
+                KoinPluginLogger.report(
+                    KoinDiagnostic.MissingPropertyValue("k", "D", "M"),
+                    filePath = "/src/W.kt",
+                    line = 31,
+                    column = 32,
+                )
+                KoinPluginLogger.flushAiAssistCta(recA)
+            }.get()
+        } finally {
+            compilationA.shutdownNow()
+            compilationB.shutdownNow()
+        }
+
+        val cta = recA.reports.last()
+        assertEquals(CompilerMessageSeverity.ERROR, cta.severity)
+        assertEquals("/src/E.kt", cta.location?.path)
     }
 
     @Test
