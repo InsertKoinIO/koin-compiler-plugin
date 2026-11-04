@@ -56,6 +56,12 @@ class KoinHintTransformer(
         // Note: componentscan_* / componentscanfunc_* hints are generated in IR (KoinAnnotationProcessor)
         // with non-null bodies, so they don't need processing here.
 
+        // Already in metadata through its FIR-generated file; only needs a body.
+        if (parentPackage == hintsPackage && functionName == KoinPluginConstants.HINT_ANCHOR_NAME && declaration.body == null) {
+            declaration.body = generateHintFunctionBody(declaration)
+            return declaration
+        }
+
         if ((isConfigurationHint || isDefinitionHint || isFunctionDefinitionHint || isModuleDefinitionHint || isQualifierHint) && declaration.body == null) {
             // Generate body for hint function: error("Stub!")
             declaration.body = generateHintFunctionBody(declaration)

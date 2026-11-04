@@ -1,11 +1,11 @@
 // RUN_PIPELINE_TILL: BACKEND
-// A3 — falsify-first guard for isComplete propagation through the hint-only/classpath includes fold
-// (KoinAnnotationProcessor.collectDefinitionsFromDependencyModule -> foldHintOnlyIncludes and the
-// classpath includedModules loop).
+// A3 — falsify-first guard for isComplete propagation through the includes fold
+// (KoinAnnotationProcessor.collectDefinitionsFromDependencyModule, classpath includedModules loop;
+// the hint-only foldHintOnlyIncludes path is not reached by this shape).
 //
-// `mid` includes `data`, which is genuinely incomplete (its @ComponentScan targets an EMPTY package
-// — no scan hints resolve to anything, so `data`'s own DependencyModuleResult.isComplete is
-// correctly false). `mid` has no @ComponentScan of its own, so BEFORE the fix its own isComplete
+// `mid` includes `data`, which is genuinely incomplete: its @ComponentScan targets an EMPTY package
+// and `data` is built like a plugin from before the completion marker, so the empty scan
+// is unproven and `data`'s own DependencyModuleResult.isComplete is correctly false. `mid` has no @ComponentScan of its own, so BEFORE the fix its own isComplete
 // computation (`!hasComponentScan || scanDefinitionsFound`) ignored `data`'s incompleteness entirely
 // and came back true — `feature`'s definitely-missing `SomeMissing` dependency (nothing anywhere
 // provides it) then had a real KOIN-D001 raised against it, because validateFullGraph believed the
@@ -17,12 +17,14 @@
 // module is incomplete), an entry point reachable through a genuinely-incomplete module must defer
 // validation entirely instead of reporting spurious diagnostics against a graph it never fully saw.
 //
-// EXPECTED (after the fix): SILENT — `mid`'s isComplete correctly inherits `data`'s incompleteness,
-// so validateFullGraph's fail-open path takes over for the whole entry point and no diagnostic (false
-// or otherwise) is reported. If this test ever reports KOIN-D001 again, the isComplete propagation
-// through the includes fold has regressed.
+// EXPECTED: no KOIN-D001 — `mid`'s isComplete correctly inherits the incompleteness below it, so
+// validateFullGraph's fail-open path takes over for the whole entry point. But never silently: the
+// skip is disclosed as KOIN-W008 naming the unresolved module, since `SomeMissing` really is missing
+// and a bare green build would imply it was checked. If this test ever reports KOIN-D001 again, the
+// isComplete propagation through the includes fold has regressed; if it goes silent, the disclosure has.
 
 // MODULE: data
+// OMIT_SCAN_COMPLETION_MARKERS
 // FILE: data/Data.kt
 package data
 

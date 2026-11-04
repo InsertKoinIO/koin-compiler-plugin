@@ -10,8 +10,9 @@
 // current shape appends a `dupN` marker instead, so both stay on the wire.
 //
 // WHAT THIS TEST GUARDS, precisely: the golden IR dump for `:mid` must contain BOTH relayed
-// `componentscan_leaf_LeafModule_single` hints, the second carrying the `dupN` marker. Reverting
-// the emission to a drop removes one hint from that golden, which is the RED signal.
+// providers. Since #114 they are function providers, relayed as per-qualifier entries
+// (`componentscanfunc_leaf_LeafModule_single__q_<qualifier>`) plus a roster, so no `dupN` marker is
+// needed. Dropping either entry removes it from that golden, which is the RED signal.
 //
 // ALSO GUARDED: the READ-BACK side. `discoverModuleScanDefinitions` dedupes decoded hints on
 // (type, qualifier) since 1.2.1 (#94); before that it was type-only and `:app` resolved only one

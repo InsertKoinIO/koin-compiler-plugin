@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: feature.Store
+  required by: dsl:feature.Presenter (parameter 'store')
+  in module: feature.featureModule

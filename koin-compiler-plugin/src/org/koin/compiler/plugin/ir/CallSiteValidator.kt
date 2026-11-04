@@ -2,14 +2,9 @@ package org.koin.compiler.plugin.ir
 
 import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
-import org.jetbrains.kotlin.fir.builder.buildPackageDirective
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
-import org.jetbrains.kotlin.fir.declarations.builder.buildFile
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.symbols.IrClassSymbol
 import org.jetbrains.kotlin.ir.symbols.impl.IrValueParameterSymbolImpl
 import org.jetbrains.kotlin.ir.types.IrType
@@ -23,8 +18,6 @@ import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.ProvidedTypeRegistry
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 /** FqNames a definition provides — its own type plus every explicit binding. */
 private fun Definition.providedTypeNames(): List<String> = buildList {
@@ -33,6 +26,9 @@ private fun Definition.providedTypeNames(): List<String> = buildList {
         binding.fqNameWhenAvailable?.asString()?.let { add(it) }
     }
 }
+
+// DSL hints carry no scope: only types that can't be declared in a `scope { }` block are root providers.
+private val ROOT_SCOPE_ONLY_TYPES = setOf(DefinitionType.SINGLE, DefinitionType.WORKER)
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 class CallSiteValidator(private val context: IrPluginContext) {
@@ -50,6 +46,9 @@ class CallSiteValidator(private val context: IrPluginContext) {
      * point), keeping those compiles exactly as permissive as before.
      */
     private var unreachableOnlyTypes: Set<String> = emptySet()
+
+    /** The module whose partial edge set made the loaded set unknown, for KOIN-W003's label. */
+    private var incompleteModuleReached: String? = null
 
     /** Set by [validateDslDefinitionGraph] on KOIN-W003; makes [validatePendingCallSites] defer instead of hard KOIN-D002. */
     private var topologyUnverifiable: Boolean = false
@@ -92,8 +91,21 @@ class CallSiteValidator(private val context: IrPluginContext) {
         // CompileSafetyValidator's class doc). Defaults to true so existing callers/tests that
         // don't pass it keep today's behavior.
         hasKoinEntryPoint: Boolean = true,
+        globalContextBuiltHere: Boolean = true,
     ) {
         val hasFullGraph = assembledGraphTypes.isNotEmpty()
+
+        // #58: a call site whose Koin doesn't come from a graph this compilation builds is never
+        // judged here. Those that would have been KOIN-D002 are disclosed by one KOIN-W009 instead.
+        // Known limit: a judged call site is still checked against every graph of the compilation.
+        fun judgedHere(callSite: PendingCallSiteValidation) = !hasKoinEntryPoint || when (callSite.receiver) {
+            CallSiteReceiver.GRAPH_BOUND -> true
+            CallSiteReceiver.GLOBAL -> globalContextBuiltHere
+            CallSiteReceiver.FOREIGN -> false
+        }
+        val notValidatedHere = mutableListOf<PendingCallSiteValidation>()
+        // #121: an activity-scoped ViewModel is only reused if some call site created it with parametersOf.
+        val createdWithParameters = callSites.filter { it.hasParametersLambda }.mapTo(mutableSetOf()) { it.targetFqName }
 
         // Discover DSL definitions from dependency hints (cross-module DSL discovery).
         // Always merge: A3's assembled graph only contains @Module classes' definitions, not
@@ -143,10 +155,12 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 continue
             }
 
+            val judged = judgedHere(callSite)
+
             // Check assembled graph + DSL definitions + DSL hints
             if (callSite.targetFqName in allKnownTypes) {
                 KoinPluginLogger.debug { "A4: OK ${callSite.callFunctionName}<${callSite.targetFqName}>() — found in graph" }
-                if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
                 continue
             }
 
@@ -158,24 +172,35 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 }
                 if (hasAnnotation) {
                     KoinPluginLogger.debug { "A4: OK ${callSite.callFunctionName}<${callSite.targetFqName}>() — has definition annotation" }
-                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
                     continue
                 }
             }
 
             // Not resolved locally
-            if (!hasFullGraph || topologyUnverifiable) {
+            if (!hasFullGraph || topologyUnverifiable || !judged) {
                 // Defer external types (from dependency JARs) — they may be defined in a downstream
                 // module. Also defer when this compilation has no Koin entry point at all: a leaf
                 // has no assembled graph to judge a local type against either, so treat it the same
                 // as external (generation only — see CompileSafetyValidator's class doc). Only a
                 // local type in a compilation that DOES own an entry point (dynamic modules, an
                 // incomplete graph, etc.) still errors immediately below.
+                // A local class / anonymous object is never deferred: no other module can provide it,
+                // and it can't be written into a hint (#101) — KOIN-D002 right here instead.
                 val isExternalType = callSite.targetClass.origin == IrDeclarationOrigin.IR_EXTERNAL_DECLARATION_STUB
-                if (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint || topologyUnverifiable) {
+                val isNameable = callSite.targetClass.isNameableCrossModule()
+                val isDeferrable = isNameable && (!hasFullGraph || topologyUnverifiable) &&
+                    (isExternalType || dslDefinitions.isEmpty() || !hasKoinEntryPoint || topologyUnverifiable)
+                if (isDeferrable) {
                     unresolvedCallSites.add(callSite)
-                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints)
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
                     KoinPluginLogger.debug { "A4: Deferred ${callSite.callFunctionName}<${callSite.targetFqName}>() — will generate call-site hint (external=$isExternalType, hasEntryPoint=$hasKoinEntryPoint, topologyUnverifiable=$topologyUnverifiable)" }
+                    continue
+                }
+                if (isNameable && !judged) {
+                    notValidatedHere.add(callSite)
+                    if (injectedParamHints != null) validateInjectedParamShapeAtCallSite(callSite, injectedParamHints, createdWithParameters)
+                    KoinPluginLogger.debug { "A4: Not validated ${callSite.callFunctionName}<${callSite.targetFqName}>() — receiver ${callSite.receiver}, graph not visible here" }
                     continue
                 }
             }
@@ -189,6 +214,17 @@ class CallSiteValidator(private val context: IrPluginContext) {
                     callFn = callSite.callFunctionName,
                 ),
                 callSite.filePath, callSite.line, callSite.column
+            )
+        }
+
+        val untraced = notValidatedHere.distinctBy { Triple(it.filePath, it.line, it.column) }
+        untraced.firstOrNull()?.let { first ->
+            KoinPluginLogger.report(
+                KoinDiagnostic.UntracedCallSites(
+                    count = untraced.size,
+                    first = "${first.callFunctionName}<${first.targetFqName.substringAfterLast('.')}>()",
+                ),
+                first.filePath, first.line, first.column
             )
         }
 
@@ -208,7 +244,6 @@ class CallSiteValidator(private val context: IrPluginContext) {
         moduleFragment: IrModuleFragment,
         unresolvedCallSites: List<PendingCallSiteValidation>
     ) {
-        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
         val hintName = Name.identifier(KoinPluginConstants.CALLSITE_HINT_NAME)
 
         // Get FIR module data from current module (not from target class which may be external)
@@ -280,38 +315,20 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 "callsite_", KoinPluginLogger.moduleId, firModuleData.name.asString(), callSite.targetFqName,
             )
 
-            // Anchor the synthetic hint file on the call site's source file so the path stays
-            // stable across incremental rebuilds (see issue #32). Fall back to the
-            // alphabetically-first source file in the module — also stable, just less local.
+            // Stable path next to the call site (issue #32). Not source-backed: one target's call
+            // sites can span several files, so no single file produces this hint.
             val basePath = callSite.filePath
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
-            val fakeNewPath = Path(basePath).parent.resolve(fileName)
-
-            val firFile = buildFile {
-                moduleData = firModuleData
-                origin = FirDeclarationOrigin.Synthetic.PluginFile
-                packageDirective = buildPackageDirective { packageFqName = hintsPackage }
-                name = fileName
-                // KLIB metadata serialization (Native/JS/Wasm) requires a resolvable io
-                // File per file; a null sourceFile fails the wasm/js serializer (KT-82395).
-                sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-            }
-
-            val hintFile = IrFileImpl(
-                fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-                packageFragmentDescriptor = EmptyPackageFragmentDescriptor(
-                    moduleFragment.descriptor,
-                    hintsPackage
-                ),
-                module = moduleFragment
-            ).also { it.metadata = FirMetadataSource.File(firFile) }
-
-            moduleFragment.addFile(hintFile)
-            hintFile.addChild(function)
-
-            // Register for downstream visibility
-            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
+            addHintFunctions(
+                context,
+                moduleFragment,
+                listOf(function),
+                firModuleData,
+                basePath,
+                fileName,
+                sourceBacked = false,
+            )
 
             KoinPluginLogger.debug { "  Generated call-site hint: callsite(${callSite.targetFqName})" }
         }
@@ -428,7 +445,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
         entryModulesIncomplete: Boolean = false,
         entryModulesIncompleteOrigin: SourceOrigin? = null,
         modulesWithIncompleteIncludes: Set<String> = emptySet(),
-        ownsAuthoritativeGraph: Boolean = true
+        ownsAuthoritativeGraph: Boolean = true,
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -455,10 +472,11 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 ?.let { "${it.substringAfterLast('/')}:${entryModulesIncompleteOrigin.line ?: "?"}" }
             KoinPluginLogger.report(
                 KoinDiagnostic.UnverifiableDynamicGraph(
-                    entry = startKoinModules.firstOrNull()?.substringAfterLast('.')
+                    entry = (incompleteModuleReached ?: startKoinModules.firstOrNull { it != INLINE_MODULE_ID })
+                        ?.substringAfterLast('.')
                         ?.let { "the entry point loading $it" } ?: "this entry point",
                     origin = originStr,
-                )
+                ),
             )
         }
         val reachableModuleIds = resolvedReachable ?: emptySet()
@@ -529,6 +547,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             for (def in unreachableDefs) addAll(def.providedTypeNames())
             for (def in providerDefinitions) removeAll(def.providedTypeNames())
         }
+
         if (unreachableOnlyTypes.isNotEmpty()) {
             KoinPluginLogger.debug { "  unreachable-only types (withheld from call sites): $unreachableOnlyTypes" }
         }
@@ -576,14 +595,20 @@ class CallSiteValidator(private val context: IrPluginContext) {
             // Reaching a module whose own includes() were only partly readable means everything
             // below it is unknown. Scoped this way, an unresolvable includes() in a module the entry
             // point never loads costs nothing.
-            if (moduleId in modulesWithIncompleteIncludes) return null
+            if (moduleId in modulesWithIncompleteIncludes) {
+                incompleteModuleReached = moduleId
+                return null
+            }
             if (reachable.add(moduleId)) {
                 val localEdges = moduleIncludes[moduleId].orEmpty()
                 val crossModule = dslHintGenerator?.discoverModuleIncludesFromHints(moduleId)
                 // A dependency that could not read all of its own includes() carries a marker saying
                 // so. Its edge list is partial, so anything below it is unknown — same conclusion as
                 // for a local module with unreadable includes.
-                if (crossModule?.incomplete == true) return null
+                if (crossModule?.incomplete == true) {
+                    incompleteModuleReached = moduleId
+                    return null
+                }
                 for (included in localEdges + crossModule?.edges.orEmpty()) {
                     if (included !in reachable) queue.add(included)
                 }
@@ -591,6 +616,25 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
         KoinPluginLogger.debug { "  Reachable modules: $reachable (from entry: $startKoinModules)" }
         return reachable
+    }
+
+    /** Dependency DSL definitions that this compilation's `modules(...)` loads, as providers only (GH #124). */
+    fun loadedDependencyDslProviders(
+        dslHintGenerator: DslHintGenerator,
+        startKoinModules: List<String>,
+        moduleIncludes: Map<String, List<String>>,
+        entryModulesIncomplete: Boolean,
+        modulesWithIncompleteIncludes: Set<String>,
+    ): List<Definition.DslDef> {
+        val loadedModuleIds = computeReachableModules(
+            startKoinModules, moduleIncludes, dslHintGenerator, entryModulesIncomplete, modulesWithIncompleteIncludes
+        )
+        // Unknown or empty loaded set: add nothing, as before.
+        if (loadedModuleIds.isNullOrEmpty()) return emptyList()
+        return dslHintGenerator.discoverDslDefinitionsFromHints()
+            .filter { it.modulePropertyId in loadedModuleIds && it.definitionType in ROOT_SCOPE_ONLY_TYPES }
+            // No requirements: no consumer check, no cycle edge.
+            .map { definition -> definition.copy().also { it.requirements = emptyList() } }
     }
 
     private fun partitionByReachability(
@@ -609,6 +653,35 @@ class CallSiteValidator(private val context: IrPluginContext) {
             }
         }
         return reachable to unreachable
+    }
+
+    /**
+     * KOIN-W011, once per module function loaded from [entryModules] whose returned module is chosen at
+     * runtime. Independent of which validation path the entry point takes: the choice is
+     * disclosed wherever compile safety counted every branch as loaded.
+     */
+    fun discloseRuntimeModuleChoices(
+        entryModules: List<String>,
+        moduleIncludes: Map<String, List<String>>,
+        localModuleAlternatives: Map<String, ModuleChoice>,
+        dslHintGenerator: DslHintGenerator,
+    ) {
+        val loaded = linkedSetOf<String>()
+        val queue = ArrayDeque(entryModules)
+        while (queue.isNotEmpty()) {
+            val moduleId = queue.removeFirst()
+            if (!loaded.add(moduleId)) continue
+            queue.addAll(moduleIncludes[moduleId].orEmpty())
+            queue.addAll(dslHintGenerator.discoverModuleIncludesFromHints(moduleId).edges)
+        }
+        for (owner in loaded) {
+            val choice = localModuleAlternatives[owner]
+                ?: dslHintGenerator.discoverModuleIncludesFromHints(owner).alternatives
+                ?: continue
+            val labels = choice.moduleIds.map { it.substringAfterLast('.') } +
+                List(choice.inlineModules) { "an inline module { }" }
+            KoinPluginLogger.report(KoinDiagnostic.RuntimeModuleChoice("${owner.substringAfterLast('.')}()", labels))
+        }
     }
 
     private fun reportUnreachableModules(
@@ -636,16 +709,28 @@ class CallSiteValidator(private val context: IrPluginContext) {
      * Decision matrix:
      *   slots == null              → def doesn't need params (or unknown) → no report
      *   !hasParametersLambda       → user forgot `parametersOf` entirely → KOIN-D006
+     *                                 (`activityViewModel` reuses an instance, #121: nothing if a call
+     *                                 site creates it with parametersOf, else KOIN-W010)
      *   parametersOfArgs == null   → trailing lambda was non-trivial → ambiguous, no report
      *   shape != Ok                → KOIN-D005 with reason ARITY or TYPE
      */
     private fun validateInjectedParamShapeAtCallSite(
         callSite: PendingCallSiteValidation,
         hints: InjectedParamHintGenerator,
+        createdWithParameters: Set<String>,
     ) {
         val slots = hints.getSlots(callSite.targetFqName) ?: return
 
         if (!callSite.hasParametersLambda) {
+            if (callSite.reusesInstance) {
+                if (callSite.targetFqName !in createdWithParameters) {
+                    KoinPluginLogger.report(
+                        KoinDiagnostic.UnverifiedReusedInstanceParams(callSite.targetFqName, callSite.callFunctionName),
+                        callSite.filePath, callSite.line, callSite.column,
+                    )
+                }
+                return
+            }
             KoinPluginLogger.report(
                 KoinDiagnostic.MissingInjectedParams(
                     target = callSite.targetFqName,
@@ -690,3 +775,5 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
     }
 }
+
+private const val INLINE_MODULE_ID = "org.koin.dsl.module"

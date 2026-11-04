@@ -21,9 +21,69 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("call_site_activity_viewmodel_missing_type_d002.kt")
+  public void testCall_site_activity_viewmodel_missing_type_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_activity_viewmodel_missing_type_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_activity_viewmodel_no_creator_w010.kt")
+  public void testCall_site_activity_viewmodel_no_creator_w010() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_activity_viewmodel_no_creator_w010.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_activity_viewmodel_no_false_d006.kt")
+  public void testCall_site_activity_viewmodel_no_false_d006() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_activity_viewmodel_no_false_d006.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_android_get_koin_global_d002.kt")
+  public void testCall_site_android_get_koin_global_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_android_get_koin_global_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_component_get_koin_d002.kt")
+  public void testCall_site_component_get_koin_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_component_get_koin_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_definition_get_koin_d002.kt")
+  public void testCall_site_definition_get_koin_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_definition_get_koin_d002.kt");
+  }
+
+  @Test
   @TestMetadata("call_site_dsl_dynamic_missing_softened_w003.kt")
   public void testCall_site_dsl_dynamic_missing_softened_w003() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_dsl_dynamic_missing_softened_w003.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_koin_configuration_global_d002.kt")
+  public void testCall_site_koin_configuration_global_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_koin_configuration_global_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_koin_parameter_receiver_no_false_d002.kt")
+  public void testCall_site_koin_parameter_receiver_no_false_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_koin_parameter_receiver_no_false_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_local_class_no_entry_point_d002.kt")
+  public void testCall_site_local_class_no_entry_point_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_local_class_no_entry_point_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_overridden_get_koin_no_false_d002.kt")
+  public void testCall_site_overridden_get_koin_no_false_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_overridden_get_koin_no_false_d002.kt");
   }
 
   @Test
@@ -42,6 +102,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @TestMetadata("call_site_param_indirect_helper.kt")
   public void testCall_site_param_indirect_helper() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_indirect_helper.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_param_local_class_d005.kt")
+  public void testCall_site_param_local_class_d005() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_param_local_class_d005.kt");
   }
 
   @Test
@@ -81,9 +147,45 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("call_site_property_initialized_koin_d002.kt")
+  public void testCall_site_property_initialized_koin_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_property_initialized_koin_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_stored_koin_no_false_d002.kt")
+  public void testCall_site_stored_koin_no_false_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_stored_koin_no_false_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_traced_koin_application_receiver_d002.kt")
+  public void testCall_site_traced_koin_application_receiver_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_traced_koin_application_receiver_d002.kt");
+  }
+
+  @Test
   @TestMetadata("call_site_unreachable_module_d002.kt")
   public void testCall_site_unreachable_module_d002() {
     runTest("koin-compiler-plugin/testData/diagnostics/call_site_unreachable_module_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_untraced_resolved_no_w009.kt")
+  public void testCall_site_untraced_resolved_no_w009() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_untraced_resolved_no_w009.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_untraced_scope_no_false_d002.kt")
+  public void testCall_site_untraced_scope_no_false_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_untraced_scope_no_false_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("call_site_untraced_scope_not_null_no_false_d002.kt")
+  public void testCall_site_untraced_scope_not_null_no_false_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/call_site_untraced_scope_not_null_no_false_d002.kt");
   }
 
   @Test
@@ -213,9 +315,93 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_module_function_branch_gap_w011.kt")
+  public void testDsl_module_function_branch_gap_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_branch_gap_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_exhaustive_branches_w011.kt")
+  public void testDsl_module_function_exhaustive_branches_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_exhaustive_branches_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_inline_branches_w011.kt")
+  public void testDsl_module_function_inline_branches_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_inline_branches_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_override_param_w003.kt")
+  public void testDsl_module_function_override_param_w003() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_override_param_w003.kt");
+  }
+
+  @Test
   @TestMetadata("dsl_module_function_returns_list_precision_d001.kt")
   public void testDsl_module_function_returns_list_precision_d001() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_returns_list_precision_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_typed_entry_w011.kt")
+  public void testDsl_module_function_typed_entry_w011() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_typed_entry_w011.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_function_unreadable_branch_w003.kt")
+  public void testDsl_module_function_unreadable_branch_w003() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_function_unreadable_branch_w003.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_explicit_receiver_d001.kt")
+  public void testDsl_module_helper_explicit_receiver_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_explicit_receiver_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_includes_ok.kt")
+  public void testDsl_module_helper_includes_ok() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_includes_ok.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_inherited_member_d001.kt")
+  public void testDsl_module_helper_inherited_member_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_inherited_member_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_nested_inline_d001.kt")
+  public void testDsl_module_helper_nested_inline_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_nested_inline_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_nested_inline_no_false_d002.kt")
+  public void testDsl_module_helper_nested_inline_no_false_d002() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_nested_inline_no_false_d002.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_nested_inline_startkoin_d001.kt")
+  public void testDsl_module_helper_nested_inline_startkoin_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_nested_inline_startkoin_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_scopedsl_d001.kt")
+  public void testDsl_module_helper_scopedsl_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_scopedsl_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_module_helper_unloaded_no_false_d001.kt")
+  public void testDsl_module_helper_unloaded_no_false_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_module_helper_unloaded_no_false_d001.kt");
   }
 
   @Test
@@ -258,6 +444,54 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @TestMetadata("dsl_new_constructor_valid_graph_ok.kt")
   public void testDsl_new_constructor_valid_graph_ok() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_new_constructor_valid_graph_ok.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_explicit_receiver_d001.kt")
+  public void testDsl_private_helper_explicit_receiver_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_explicit_receiver_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_foreign_receiver_d001.kt")
+  public void testDsl_private_helper_foreign_receiver_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_foreign_receiver_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_function_reference_d001.kt")
+  public void testDsl_private_helper_function_reference_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_function_reference_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_inline_entry_d001.kt")
+  public void testDsl_private_helper_inline_entry_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_inline_entry_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_nested_loaded_d001.kt")
+  public void testDsl_private_helper_nested_loaded_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_nested_loaded_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_recursive_d001.kt")
+  public void testDsl_private_helper_recursive_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_recursive_d001.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_scopedsl.kt")
+  public void testDsl_private_helper_scopedsl() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_scopedsl.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_private_helper_two_callers_d001.kt")
+  public void testDsl_private_helper_two_callers_d001() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_two_callers_d001.kt");
   }
 
   @Test

@@ -1,0 +1,69 @@
+Module: feat
+FILE: Capabilities.kt
+    package feat
+
+    public final class TicketStore : R|kotlin/Any| {
+        public constructor(): R|feat/TicketStore| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Invoicing : R|kotlin/Any| {
+        public constructor(store: R|feat/TicketStore|): R|feat/Invoicing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|feat/TicketStore| = R|<local>/store|
+            public get(): R|feat/TicketStore|
+
+    }
+    public final class CreatorStore : R|kotlin/Any| {
+        public constructor(): R|feat/CreatorStore| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Creator : R|kotlin/Any| {
+        public constructor(store: R|feat/CreatorStore|): R|feat/Creator| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|feat/CreatorStore| = R|<local>/store|
+            public get(): R|feat/CreatorStore|
+
+    }
+    public final fun invoicingModule(): R|org/koin/core/module/Module| {
+        ^invoicingModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|feat/connectionBeans|()
+        }
+        )
+    }
+    private final fun R|org/koin/core/module/Module|.connectionBeans(): R|kotlin/Unit| {
+        this@R|feat/connectionBeans|.R|org/koin/plugin/module/dsl/single|<R|feat/Invoicing|>()
+        this@R|feat/connectionBeans|.R|feat/creationBeans|()
+    }
+    private final fun R|org/koin/core/module/Module|.creationBeans(): R|kotlin/Unit| {
+        this@R|feat/creationBeans|.R|org/koin/plugin/module/dsl/single|<R|feat/Creator|>()
+    }
+Module: app
+FILE: Scripts.kt
+    package app
+
+    public final class Database : R|kotlin/Any| {
+        public constructor(): R|app/Database| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|app/Database|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|app/Database| <inline=NoInline>  {
+                    ^ R|app/Database.Database|()
+                }
+                )
+            }
+            ), R|feat/invoicingModule|()))
+        }
+        )
+    }

@@ -1,0 +1,45 @@
+FILE: test.kt
+    public abstract interface Api : R|kotlin/Any| {
+    }
+    @R|org/koin/core/annotation/Single|() internal final class InternalImpl : R|Api| {
+        public constructor(): R|InternalImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    internal final class Holder : R|kotlin/Any| {
+        public constructor(): R|Holder| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Single|() public final class NestedInInternal : R|kotlin/Any| {
+            public constructor(): R|Holder.NestedInInternal| {
+                super<R|kotlin/Any|>()
+            }
+
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class TestModule : R|kotlin/Any| {
+        public constructor(): R|TestModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun box(): R|kotlin/String| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/TestModule.TestModule|().R|/module|())
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        ^box when () {
+            (R|<local>/koin|.R|org/koin/core/Koin.get|<R|Api|>() is R|InternalImpl|) ->  {
+                String(OK)
+            }
+            else ->  {
+                String(FAIL)
+            }
+        }
+
+    }
+FILE: /testModuleModule.kt
+    public final fun R|TestModule|.module(): R|org/koin/core/module/Module|

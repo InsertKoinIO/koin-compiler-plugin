@@ -1,0 +1,68 @@
+Module: liba
+FILE: A.kt
+    package liba
+
+    public final class Client : R|kotlin/Any| {
+        public constructor(): R|liba/Client| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(liba))) public final class ModuleA : R|kotlin/Any| {
+        public constructor(): R|liba/ModuleA| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() @R|org/koin/core/annotation/Named|(value = String(bare)) public final fun provideBareClient(): R|liba/Client| {
+        ^provideBareClient R|liba/Client.Client|()
+    }
+    @R|org/koin/core/annotation/Single|() public final class AuthApi : R|kotlin/Any| {
+        public constructor(@R|org/koin/core/annotation/Named|(value = String(bare)) client: R|liba/Client|): R|liba/AuthApi| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val client: R|liba/Client| = R|<local>/client|
+            public get(): R|liba/Client|
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class SessionManager : R|kotlin/Any| {
+        public constructor(authApi: R|liba/AuthApi|): R|liba/SessionManager| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val authApi: R|liba/AuthApi| = R|<local>/authApi|
+            public get(): R|liba/AuthApi|
+
+    }
+FILE: liba/libaModuleAModule.kt
+    package liba
+
+    public final fun R|liba/ModuleA|.module(): R|org/koin/core/module/Module|
+Module: libb
+FILE: B.kt
+    package libb
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(libb))) public final class ModuleB : R|kotlin/Any| {
+        public constructor(): R|libb/ModuleB| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Factory|() @R|org/koin/core/annotation/Named|(value = String(sync)) public final fun provideSyncClient(sessionManager: R|liba/SessionManager|): R|liba/Client| {
+        ^provideSyncClient R|liba/Client.Client|()
+    }
+FILE: libb/libbModuleBModule.kt
+    package libb
+
+    public final fun R|libb/ModuleB|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/modules|(vararg(<getClass>(Q|liba/ModuleA|), <getClass>(Q|libb/ModuleB|)))
+        }
+        )
+    }

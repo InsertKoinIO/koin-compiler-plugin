@@ -2,7 +2,7 @@
 // A3 — falsify-first guard for the DSL definition-hint relay's transitive walk (companion/contrast to
 // cross_module_dsl_deep_includes_ok, which covers a plain val-chain 2-hop case).
 //
-// Real-world shape that motivated this (Kotzilla server): a THREE-Gradle-module chain where the
+// Real-world shape that motivated this: a THREE-Gradle-module chain where the
 // MIDDLE module is a bare aggregator with ZERO definitions of its own —
 //   batchKoinModule() [app]  ->  repositoryModule() [shared/repositories, 0 defs, includes 2 more]
 //   -> sharedRepositoriesModule() [shared/repositories, the REAL provider]

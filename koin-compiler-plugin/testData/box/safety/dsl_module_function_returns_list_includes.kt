@@ -1,6 +1,6 @@
 // FILE: test.kt
 // includes(testDataModules()) where the function's whole body is `= listOf(...)` — follows the
-// single-statement body, matching the real shape/production shape in shared/test-app/TestDataModule.kt.
+// single-statement body, matching a real production shape.
 import org.koin.dsl.module
 import org.koin.dsl.koinApplication
 import org.koin.plugin.module.dsl.single

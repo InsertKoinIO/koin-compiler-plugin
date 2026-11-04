@@ -1,5 +1,5 @@
 // FILE: test.kt
-// Regression test for KTZ-4039 / GH koin-compiler-plugin#34.
+// Regression test for koin-compiler-plugin#34.
 //
 // `@Scope(name = "session") @Scoped` (string-named scope) silently produced no bean
 // definition before the fix — partition logic at `KoinAnnotationProcessor.buildModuleBody`

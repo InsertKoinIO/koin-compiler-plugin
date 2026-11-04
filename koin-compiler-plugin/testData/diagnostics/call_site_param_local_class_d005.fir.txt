@@ -1,0 +1,26 @@
+FILE: test.kt
+    package testpkg
+
+    public final fun useIt(): R|kotlin/Unit| {
+        local final class LocalSvc : R|kotlin/Any| {
+            public constructor(@R|org/koin/core/annotation/InjectedParam|() id: R|kotlin/String|): R|<local>/LocalSvc| {
+                super<R|kotlin/Any|>()
+            }
+
+            public final val id: R|kotlin/String| = R|<local>/id|
+                public get(): R|kotlin/String|
+
+        }
+
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/factory|<R|<local>/LocalSvc|>()
+            }
+            ))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|<local>/LocalSvc|>(<L> = get@fun <anonymous>(): R|org/koin/core/parameter/ParametersHolder| <inline=NoInline>  {
+            ^ R|org/koin/core/parameter/parametersOf|(vararg(String(a), String(b)))
+        }
+        )
+    }

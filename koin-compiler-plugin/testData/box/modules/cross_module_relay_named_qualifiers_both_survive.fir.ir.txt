@@ -70,7 +70,9 @@ FILE fqName:leaf fileName:/leaf/Providers.kt
       RETURN type=kotlin.Nothing from='public final fun provideBaseUrl (): leaf.Url declared in leaf'
         CONSTRUCTOR_CALL 'public constructor <init> (value: kotlin.String) declared in leaf.Url' type=leaf.Url origin=null
           ARG value: CONST String type=kotlin.String value="https://base.example"
-FILE fqName:org.koin.plugin.hints fileName:/leaf/koin_hints_leaf_LeafModule_5687880253b3add1.kt
+FILE fqName:org.koin.plugin.hints fileName:/leaf/Providers.kt
+  annotations:
+    JvmName(name = "Koin_hints_leaf_LeafModule_5687880253b3add1Kt")
   FUN name:componentscanfunc_leaf_LeafModule_single__q_authUrl visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
     VALUE_PARAMETER kind:Regular name:qualifier_authUrl index:1 type:kotlin.Unit
@@ -219,33 +221,40 @@ FILE fqName:mid fileName:/mid/MidModule.kt
             CALL 'public final fun <get-value> (): kotlin.String declared in leaf.Url' type=kotlin.String origin=GET_PROPERTY
               ARG <this>: CALL 'private final fun <get-auth> (): leaf.Url declared in mid.UrlPair' type=leaf.Url origin=GET_PROPERTY
                 ARG <this>: GET_VAR '<this>: mid.UrlPair declared in mid.UrlPair.summary' type=mid.UrlPair origin=IMPLICIT_ARGUMENT
-FILE fqName:org.koin.plugin.hints fileName:/mid/koin_hints_configrelay_default_ebada5168620c5fe.kt
-  FUN name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.LeafModule
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-FILE fqName:org.koin.plugin.hints fileName:/mid/koin_hints_mid_MidModule_1535be699acacda1.kt
+FILE fqName:org.koin.plugin.hints fileName:/mid/MidModule.kt
+  annotations:
+    JvmName(name = "Koin_hints_mid_MidModule_1535be699acacda1Kt")
   FUN name:annotationincludes_mid_MidModule visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:module_leaf$LeafModule index:0 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-  FUN name:componentscan_leaf_LeafModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+  FUN name:componentscan_mid_MidModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:mid.UrlPair
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_leaf_LeafModule_single__q_authUrl visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
     VALUE_PARAMETER kind:Regular name:qualifier_authUrl index:1 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-  FUN name:componentscan_leaf_LeafModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+  FUN name:componentscanfunc_leaf_LeafModule_single__q_baseUrl visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
     VALUE_PARAMETER kind:Regular name:qualifier_baseUrl index:1 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:dup1 index:2 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
-  FUN name:componentscan_mid_MidModule_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:mid.UrlPair
+  FUN name:componentscanfunc_leaf_LeafModule_single__roster visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_authUrl index:0 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_baseUrl index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+FILE fqName:org.koin.plugin.hints fileName:/mid/koin_hints_configrelay_default_ebada5168620c5fe.kt
+  FUN name:configuration_default visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.LeafModule
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY
@@ -297,34 +306,44 @@ FILE fqName:org.koin.plugin.hints fileName:org/koin/plugin/hints/midMidModuleMod
         ARG message: CONST String type=kotlin.String value="Stub!"
 Module: app
 FILE fqName:org.koin.plugin.hints fileName:/koin_hints_configrelay_default_ebada5168620c5fe.kt
-  FUN name:componentscan_leaf_LeafModule_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
-    VALUE_PARAMETER kind:Regular name:qualifier_authUrl index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:componentscan_leaf_LeafModule_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
-    VALUE_PARAMETER kind:Regular name:qualifier_baseUrl index:1 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:dup1 index:2 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:componentscan_mid_MidModule_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
-    VALUE_PARAMETER kind:Regular name:qualifier_authUrl index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:componentscan_mid_MidModule_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
-    VALUE_PARAMETER kind:Regular name:qualifier_baseUrl index:1 type:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:dup1 index:2 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
   FUN name:componentscan_mid_MidModule_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:mid.UrlPair
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_leaf_LeafModule_single__q_authUrl visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
+    VALUE_PARAMETER kind:Regular name:qualifier_authUrl index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_leaf_LeafModule_single__q_baseUrl visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
+    VALUE_PARAMETER kind:Regular name:qualifier_baseUrl index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_leaf_LeafModule_single__roster visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_authUrl index:0 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_baseUrl index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_mid_MidModule_single__q_authUrl visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
+    VALUE_PARAMETER kind:Regular name:qualifier_authUrl index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_mid_MidModule_single__q_baseUrl visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:leaf.Url
+    VALUE_PARAMETER kind:Regular name:qualifier_baseUrl index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscanfunc_mid_MidModule_single__roster visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_authUrl index:0 type:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:q_baseUrl index:1 type:kotlin.Unit
     annotations:
       Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
     BLOCK_BODY

@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: Store
+  required by: dsl:Creator (parameter 'store')
+  in module: rootModule

@@ -1,0 +1,4 @@
+[Koin][KOIN-D002] Missing definition: testpkg.useIt.LocalOnly
+  resolved by: get<LocalOnly>()
+  No matching definition found in any loaded module.
+  Check your declaration with Annotation or DSL.

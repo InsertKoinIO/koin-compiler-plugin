@@ -2,7 +2,7 @@ import org.gradle.kotlin.dsl.koinCompiler
 
 plugins {
     kotlin("multiplatform")
-    alias(libs.plugins.koin.plugin)
+    id("io.insert-koin.compiler.plugin")
 }
 
 kotlin {
@@ -23,6 +23,9 @@ kotlin {
         browser()
         nodejs()
     }
+
+    // Native KLIB: duplicate-signature and hint-visibility errors don't show on JVM
+    iosArm64()
 
     sourceSets {
         commonMain.dependencies {

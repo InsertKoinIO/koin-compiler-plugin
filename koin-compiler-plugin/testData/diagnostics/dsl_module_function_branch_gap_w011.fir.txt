@@ -1,0 +1,52 @@
+FILE: dsl_module_function_branch_gap_w011.kt
+    public final class DebugTools : R|kotlin/Any| {
+        public constructor(): R|DebugTools| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Shared : R|kotlin/Any| {
+        public constructor(): R|Shared| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val debugModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Shared|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|DebugTools|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val prodModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Shared|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun dispatchModule(debug: R|kotlin/Boolean|): R|org/koin/core/module/Module| {
+        ^dispatchModule when () {
+            R|<local>/debug| ->  {
+                R|/debugModule|
+            }
+            else ->  {
+                R|/prodModule|
+            }
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Config|>()
+            }
+            ), R|/dispatchModule|(Boolean(false))))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|Shared|>()
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|DebugTools|>()
+    }

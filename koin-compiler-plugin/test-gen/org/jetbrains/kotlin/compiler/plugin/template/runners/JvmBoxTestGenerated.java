@@ -545,6 +545,24 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     }
 
     @Test
+    @TestMetadata("local_class_dsl_no_crash.kt")
+    public void testLocal_class_dsl_no_crash() {
+      runTest("koin-compiler-plugin/testData/box/safety/local_class_dsl_no_crash.kt");
+    }
+
+    @Test
+    @TestMetadata("local_class_injected_param_no_crash.kt")
+    public void testLocal_class_injected_param_no_crash() {
+      runTest("koin-compiler-plugin/testData/box/safety/local_class_injected_param_no_crash.kt");
+    }
+
+    @Test
+    @TestMetadata("local_class_safety_off_no_crash.kt")
+    public void testLocal_class_safety_off_no_crash() {
+      runTest("koin-compiler-plugin/testData/box/safety/local_class_safety_off_no_crash.kt");
+    }
+
+    @Test
     @TestMetadata("module_includes_chain.kt")
     public void testModule_includes_chain() {
       runTest("koin-compiler-plugin/testData/box/safety/module_includes_chain.kt");
@@ -614,6 +632,12 @@ public class JvmBoxTestGenerated extends AbstractJvmBoxTest {
     @TestMetadata("qualifier_match.kt")
     public void testQualifier_match() {
       runTest("koin-compiler-plugin/testData/box/safety/qualifier_match.kt");
+    }
+
+    @Test
+    @TestMetadata("scan_hint_keeps_same_module_internal_types.kt")
+    public void testScan_hint_keeps_same_module_internal_types() {
+      runTest("koin-compiler-plugin/testData/box/safety/scan_hint_keeps_same_module_internal_types.kt");
     }
 
     @Test

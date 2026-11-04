@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.build.config)
     alias(libs.plugins.binary.compatibility.validator) apply false
     alias(libs.plugins.nmcp)
+    alias(libs.plugins.detekt) apply false
 }
 
 val pluginVersion: String by project
@@ -40,4 +41,40 @@ afterEvaluate {
 allprojects {
     group = "io.insert-koin"
     version = pluginVersion
+}
+
+// Not `--auto-correct`: that option lands on the aggregate task, which analyses nothing.
+val detektAutoCorrect = providers.gradleProperty("detektAutoCorrect").isPresent
+val detektConfigDir = layout.projectDirectory.dir("config/detekt")
+
+subprojects {
+    plugins.withId("org.jetbrains.kotlin.jvm") {
+        apply(plugin = "dev.detekt")
+
+        extensions.configure<dev.detekt.gradle.extensions.DetektExtension> {
+            buildUponDefaultConfig = true
+            parallel = false
+            autoCorrect = detektAutoCorrect
+            config.from(detektConfigDir.file("detekt.yml"))
+            baseline = detektConfigDir.file("baseline/${path.removePrefix(":").replace(':', '-')}.xml").asFile
+        }
+
+        dependencies {
+            "detektPlugins"(rootProject.libs.detekt.ktlint)
+        }
+
+        tasks.withType<dev.detekt.gradle.Detekt>().configureEach {
+            exclude { it.file.invariantSeparatorsPath.contains("/testData/") }
+        }
+
+        // Only the type-resolving tasks get a compile classpath; the rest skip type-aware rules silently.
+        val typeResolvingDetekt = tasks.withType<dev.detekt.gradle.Detekt>().matching {
+            it.name != "detekt" && !it.name.endsWith("SourceSet")
+        }
+        tasks.named("detekt") {
+            enabled = false
+            dependsOn(typeResolvingDetekt)
+        }
+        tasks.named("check") { dependsOn("detekt") }
+    }
 }

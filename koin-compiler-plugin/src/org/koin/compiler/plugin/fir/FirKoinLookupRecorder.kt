@@ -20,6 +20,7 @@ import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.plugin.erasedHintClassId
 
 /**
  * FIR checker that records lookup dependencies for @KoinApplication classes.
@@ -78,9 +79,10 @@ class FirKoinLookupRecorder(session: FirSession) : FirAdditionalCheckersExtensio
 
                 for (hintFunc in hintFunctions) {
                     // Extract the module class from the hint function parameter
-                    val paramType = hintFunc.valueParameterSymbols.firstOrNull()
-                        ?.resolvedReturnType ?: continue
-                    val moduleClassId = paramType.classId ?: continue
+                    val params = hintFunc.valueParameterSymbols
+                    val moduleClassId = erasedHintClassId(params.map { it.name }, position = 0)
+                        ?: params.firstOrNull()?.resolvedReturnType?.classId
+                        ?: continue
 
                     // Record lookup: this file depends on the module class
                     lookupTracker.record(

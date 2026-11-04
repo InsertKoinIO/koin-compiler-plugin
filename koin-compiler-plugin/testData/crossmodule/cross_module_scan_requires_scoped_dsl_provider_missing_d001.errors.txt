@@ -1,0 +1,3 @@
+[Koin][KOIN-D001] Missing dependency: lib.CV11
+  required by: lib.CV1 (parameter 'cv11')
+  in module: MyApp (startKoin)

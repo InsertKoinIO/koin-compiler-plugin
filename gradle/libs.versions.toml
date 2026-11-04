@@ -7,6 +7,7 @@ bcv = "0.16.3"
 junit = "4.13.2"
 nmcp = "1.0.1"
 ktor = "3.4.0"
+detekt = "2.0.0-alpha.6"
 
 [libraries]
 junit = { module = "junit:junit", version.ref = "junit" }
@@ -15,9 +16,11 @@ koin-core = { module = "io.insert-koin:koin-core-jvm", version.ref = "koin" }
 koin-ktor = { module = "io.insert-koin:koin-ktor-jvm", version.ref = "koin" }
 kotzilla-core = { module = "io.kotzilla:kotzilla-core-jvm", version.ref = "kotzilla-sdk" }
 ktor-server-core = { module = "io.ktor:ktor-server-core-jvm", version.ref = "ktor" }
+detekt-ktlint = { module = "dev.detekt:detekt-rules-ktlint-wrapper", version.ref = "detekt" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 build-config = { id = "com.github.gmazzo.buildconfig", version.ref = "build-config" }
 binary-compatibility-validator = { id = "org.jetbrains.kotlinx.binary-compatibility-validator", version.ref = "bcv" }
 nmcp = { id = "com.gradleup.nmcp.aggregation", version.ref = "nmcp" }
+detekt = { id = "dev.detekt", version.ref = "detekt" }

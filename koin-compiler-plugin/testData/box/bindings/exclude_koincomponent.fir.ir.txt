@@ -1,10 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_testpkg_AppModule_16f6e1b7fad089ec.kt
-  FUN name:componentscan_testpkg_AppModule_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.MyRepo
-    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:testpkg.Repository
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:testpkg fileName:/test.kt
   CLASS CLASS name:AppModule modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
@@ -110,6 +103,15 @@ FILE fqName:testpkg fileName:/test.kt
           BRANCH
             if: CONST Boolean type=kotlin.Boolean value=true
             then: CONST String type=kotlin.String value="FAIL: KoinComponent over-bound"
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_hints_testpkg_AppModule_16f6e1b7fad089ecKt")
+  FUN name:componentscan_testpkg_AppModule_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:testpkg.MyRepo
+    VALUE_PARAMETER kind:Regular name:binding0 index:1 type:testpkg.Repository
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:testpkg fileName:testpkg/testpkgAppModuleModule.kt
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
     VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:testpkg.AppModule

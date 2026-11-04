@@ -270,12 +270,12 @@ internal fun <T : Definition> T.retainA3Metadata(source: T): T = apply {
  * Result of resolving definitions from a dependency JAR module.
  *
  * @param definitions The discovered definitions
- * @param isComplete Whether we could fully resolve all the module's definitions.
- *   - true: Module class resolved and definitions collected (including module-scan hints
- *     for @ComponentScan definitions).
- *   - false: Module class not on classpath (can't resolve ClassId at all).
+ * @param unresolvedModules Modules (this one or any it includes) whose definitions could not be
+ *   fully resolved on this classpath: no visible @ComponentScan hints, or an unresolvable class.
  */
 data class DependencyModuleResult(
     val definitions: List<Definition>,
-    val isComplete: Boolean
-)
+    val unresolvedModules: List<String> = emptyList(),
+) {
+    val isComplete: Boolean get() = unresolvedModules.isEmpty()
+}

@@ -404,6 +404,78 @@ sealed class KoinDiagnostic(
     // than warned on every opaque-lambda definition regardless of whether one exists. See
     // docs/COMPILE_TIME_SAFETY.md.
 
+    /**
+     * KOIN-W008 — Full-graph validation skipped: the definitions of some module in the graph are
+     * not visible on this classpath. Its hints are missing (built by an older plugin, or KLIB hints
+     * dropped on Kotlin 2.4.20 before 1.2.2), or its class is not on the classpath; these look the
+     * same from here. An empty `@ComponentScan` counts as missing hints only when built before 1.2.2,
+     * which had no way to say "scanned, found nothing". Skipping must never be silent.
+     */
+    class UnverifiableModuleHints(
+        entry: String,
+        modules: List<String>,
+    ) : KoinDiagnostic(
+        code = "KOIN-W008",
+        severity = Severity.WARNING,
+        message = "Graph not verified at compile time for $entry: the definitions of " +
+            "${modules.joinToString()} are not visible on this classpath (missing hints, or a module " +
+            "class off the classpath). Compile-time dependency checks are " +
+            "skipped for this entry point. Rebuild that module with this Koin compiler plugin version, " +
+            "or add it as a direct dependency.",
+    )
+
+    /**
+     * KOIN-W009 — Call sites this compilation can't judge (#58): a `Koin` it can't trace to its
+     * entry point (a parameter, a property, a helper's instance), or the global context while only
+     * an isolated `koinApplication { }` / `koinConfiguration { }` is declared here. Only those that
+     * would otherwise be KOIN-D002 are counted: judging them against this compilation's graph gave
+     * false errors, and skipping them must never be silent. One per compilation, at the first one.
+     */
+    class UntracedCallSites(
+        count: Int,
+        first: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W009",
+        severity = Severity.WARNING,
+        message = "$count call site(s) not validated at compile time (first: $first): their type is " +
+            "not defined in this compilation, and they resolve on a Koin instance whose modules it " +
+            "can't see. They are only checked at runtime.",
+    )
+
+    /**
+     * KOIN-W010 — `activityViewModel<T>()` without `parametersOf`, for a T with `@InjectedParam`, and
+     * no call site in this compilation creates T with `parametersOf` (#121). Reuse of the activity's
+     * instance is fine; creating T here would crash. The creator may sit in another module, so this
+     * can't be KOIN-D006.
+     */
+    class UnverifiedReusedInstanceParams(
+        target: String,
+        callFn: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W010",
+        severity = Severity.WARNING,
+        message = "$callFn<${target.substringAfterLast('.')}>() has no parametersOf(...) and no call site " +
+            "in this module creates $target with parametersOf(...). Fine if the activity creates it first; " +
+            "otherwise it is created here without its @InjectedParam values and fails at runtime.",
+    )
+
+    /**
+     * KOIN-W011 — a loaded module function returns one of several modules, chosen at runtime
+     * (`fun f(c) = if (c) a else b`). Compile safety sees the whole tree, not the runtime
+     * choice: it checks them as if all were loaded. A definition none of them provide is still an
+     * error; one that not all of them provide is not guaranteed at runtime, hence this warning.
+     */
+    class RuntimeModuleChoice(
+        moduleFunction: String,
+        modules: List<String>,
+    ) : KoinDiagnostic(
+        code = "KOIN-W011",
+        severity = Severity.WARNING,
+        message = "$moduleFunction loads one of ${modules.joinToString(" / ")} at runtime (if/when). " +
+            "Compile safety checked them as if all were loaded: a definition not provided by all of them " +
+            "is not guaranteed at runtime.",
+    )
+
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(
         def: String,

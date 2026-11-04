@@ -220,6 +220,9 @@ object KoinAnnotationFqNames {
     // the gap) — found via the app-dsl playground's own AnalyticsModule.kt.
     val SCOPE_GET = FqName("org.koin.core.scope.Scope.get")
 
+    // Receiver type of `koin.getScope(..)` — a scope opened on a foreign Koin is foreign (#58).
+    val KOIN_CLASS = FqName("org.koin.core.Koin")
+
     // --- android ---
     val ANDROID_COMPONENT_GET = FqName("org.koin.android.ext.android.get")
     val ANDROID_COMPONENT_INJECT = FqName("org.koin.android.ext.android.inject")
@@ -233,6 +236,11 @@ object KoinAnnotationFqNames {
     // --- ktor ---
     val KTOR_GET = FqName("org.koin.ktor.ext.get")
     val KTOR_INJECT = FqName("org.koin.ktor.ext.inject")
+
+    /** Return a ViewModel the activity already created with its own parameters (#121). */
+    val REUSED_INSTANCE_RESOLUTION_FUNCTIONS = setOf(
+        ANDROID_ACTIVITY_VIEW_MODEL, ANDROID_GET_ACTIVITY_VIEW_MODEL, KOIN_ACTIVITY_VIEW_MODEL_COMPOSE,
+    )
 
     /** All call-site resolution functions for A4 validation. */
     val CALL_SITE_RESOLUTION_FUNCTIONS = listOf(

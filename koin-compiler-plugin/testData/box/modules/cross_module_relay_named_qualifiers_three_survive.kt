@@ -7,8 +7,8 @@
 // handling exists to prevent. Marker parameters are per-occurrence in count, not just in name:
 // parameter NAMES do not participate in a JVM or KLIB signature, only types do.
 //
-// The `:mid` golden must show three relayed `componentscan_leaf_LeafModule_single` hints with
-// 0, 1 and 2 trailing `Unit` markers respectively.
+// Since #114 these function providers are relayed as three per-qualifier entries
+// (`componentscanfunc_leaf_LeafModule_single__q_<qualifier>`) plus a roster in the `:mid` golden.
 
 // MODULE: leaf
 // FILE: leaf/Providers.kt

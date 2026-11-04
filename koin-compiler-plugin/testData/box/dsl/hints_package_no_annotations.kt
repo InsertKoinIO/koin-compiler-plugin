@@ -1,5 +1,5 @@
 // FILE: test.kt
-// Regression test for KTZ-4036 / GH koin-compiler-plugin#35:
+// Regression test for koin-compiler-plugin#35:
 // "Module doesn't contain package org.koin.plugin.hints" Fir2Ir crash on Kotlin 2.3.20.
 //
 // Trigger: a module that uses ONLY the Koin DSL — no @Module, no @ComponentScan,

@@ -1,10 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_dsl_hints_main__test_kt_06549e611b62f6c5.kt
-  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Service
-    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:Boxed modality:FINAL visibility:public superTypes:[kotlin.Any]
     thisReceiver: VALUE_PARAMETER INSTANCE_RECEIVER kind:DispatchReceiver name:<this> type:<root>.Boxed<T of <root>.Boxed>
@@ -154,3 +147,12 @@ FILE fqName:<root> fileName:/test.kt
         CALL 'public abstract fun invoke (p1: P1 of kotlin.Function1): R of kotlin.Function1 declared in kotlin.Function1' type=T of <root>.runRaise origin=INVOKE
           ARG <this>: GET_VAR 'block: @[ExtensionFunctionType] kotlin.Function1<<root>.Raise, T of <root>.runRaise> declared in <root>.runRaise' type=@[ExtensionFunctionType] kotlin.Function1<<root>.Raise, T of <root>.runRaise> origin=VARIABLE_AS_FUNCTION
           ARG p1: CONSTRUCTOR_CALL 'public constructor <init> () declared in <root>.Raise' type=<root>.Raise origin=null
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_main__test_kt_06549e611b62f6c5Kt")
+  FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Service
+    VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY

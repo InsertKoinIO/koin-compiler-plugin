@@ -18,3 +18,9 @@ yarn.lock
 
 # Claude Code worktrees / scratch
 .claude/
+
+# Internal planning/triage lives in the private koin-issues-triage repo
+TRIAGE_*.md
+ROADMAP_*.md
+ISSUES_*.md
+SESSION_*.md

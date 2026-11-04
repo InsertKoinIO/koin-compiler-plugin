@@ -1,0 +1,30 @@
+FILE: dsl_module_helper_nested_inline_no_false_d002.kt
+    public final class Creator : R|kotlin/Any| {
+        public constructor(): R|Creator| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun R|org/koin/core/module/Module|.outerBeans(): R|kotlin/Unit| {
+        this@R|/outerBeans|.R|/innerBeans|()
+    }
+    public final fun R|org/koin/core/module/Module|.innerBeans(): R|kotlin/Unit| {
+        this@R|/innerBeans|.R|org/koin/plugin/module/dsl/single|<R|Creator|>()
+    }
+    public final fun main(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|/outerBeans|()
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Other|>()
+            }
+            ))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|Creator|>()
+    }

@@ -1,9 +1,9 @@
 // FILE: test.kt
-// Regression test for KTZ-4152 / GH koin#2425 (and guards the sibling paths):
+// Regression test for koin#2425 (and guards the sibling paths):
 // per-definition `createdAtStart = true` must be honored independently of the
 // module-level flag.
 //
-// `@Module(createdAtStart)` and `@Singleton class` were addressed by KTZ-4048, but
+// `@Module(createdAtStart)` and `@Singleton class` were addressed by koin#2415, but
 // `buildFunctionDefinitionCall` — `@Single`/`@Singleton` definition FUNCTIONS inside a
 // @Module — never propagated the per-definition flag, so the generated `buildSingle(...)`
 // fell back to the default (false) and the eager side effect was silently lost.

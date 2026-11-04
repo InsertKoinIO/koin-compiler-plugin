@@ -6,7 +6,10 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
+import org.koin.compiler.plugin.GeneratedResolutionCallRegistry
 import org.koin.compiler.plugin.KoinPluginLogger
+import org.koin.compiler.plugin.PropertyValueRegistry
+import org.koin.compiler.plugin.ProvidedTypeRegistry
 
 class KoinIrExtension(
     private val lookupTracker: LookupTracker?,
@@ -18,7 +21,7 @@ class KoinIrExtension(
     // Captured at construction (same reason as messageCollector): the compilation's config
     // flags, re-bound onto the IR-phase thread below. Without this, IR-phase reads of
     // compileSafety / skipDefaultValues fell through to the shared global on pool workers
-    // (KTZ-4414 flakiness).
+    // (parallel-daemon flakiness).
     private val flagsHandle: Any,
 ) : IrGenerationExtension {
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
@@ -33,6 +36,14 @@ class KoinIrExtension(
         try {
             generateInternal(moduleFragment, pluginContext)
         } finally {
+            // Per-compilation registries hold IR (IrCall / IrProperty). collectAnnotations() clears
+            // them only for the next compilation that shares these plugin classes on this thread.
+            // In the Kotlin daemon the compilation runs on an RMI connection thread that outlives
+            // it, and later compilations may use another plugin class loader, so without releasing
+            // here the thread keeps module IR, FIR sessions and deserialized libraries reachable.
+            GeneratedResolutionCallRegistry.release()
+            PropertyValueRegistry.release()
+            ProvidedTypeRegistry.release()
             KoinPluginLogger.unbindThreadFlags()
             KoinPluginLogger.unbindThreadCollector()
         }
@@ -74,7 +85,11 @@ class KoinIrExtension(
         KoinPluginLogger.debug { "Phase 2: Collected ${dslDefinitions.size} DSL definitions, ${pendingCallSites.size} pending call sites" }
 
         // Instantiate extracted helper classes
-        val dslHintGenerator = DslHintGenerator(pluginContext, ParameterAnalyzer(qualifierExtractor))
+        val dslHintGenerator = DslHintGenerator(
+            pluginContext,
+            ParameterAnalyzer(qualifierExtractor),
+            annotationProcessor.hintClasses,
+        )
         val callSiteValidator = CallSiteValidator(pluginContext)
         val injectedParamHints = InjectedParamHintGenerator(pluginContext, qualifierExtractor)
 
@@ -95,8 +110,15 @@ class KoinIrExtension(
                     " + ${koinTransformer.moduleIncludes.size} includes-edge hint(s)"
             }
             dslHintGenerator.generateDslDefinitionHints(
-                moduleFragment, dslDefinitions, koinTransformer.moduleIncludes, koinTransformer.allModuleIds,
-                koinTransformer.modulesWithIncompleteIncludes
+                moduleFragment,
+                dslDefinitions,
+                DslHintGenerator.ModuleTopology(
+                    moduleIncludes = koinTransformer.moduleIncludes,
+                    allModuleIds = koinTransformer.allModuleIds,
+                    modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
+                    moduleAlternatives = koinTransformer.moduleAlternatives,
+                    moduleDeclarationFiles = koinTransformer.moduleDeclarationFiles,
+                ),
             )
             // Relay classpath-invisible includes() targets' own DSL definition hints through THIS
             // module's output — otherwise a provider 2+ implementation hops away is never on a
@@ -127,7 +149,27 @@ class KoinIrExtension(
         // Into: startKoin { printLogger(); modules(listOf(Module1().module, ...)) }
         // A3 full-graph validation includes DSL definitions as providers + consumers
         KoinPluginLogger.debug { "Phase 3: Transforming startKoin calls" }
-        val startKoinTransformer = KoinStartTransformer(pluginContext, moduleFragment, annotationProcessor, safetyValidator, lookupTracker, expectActualTracker, dslDefinitions)
+        val loadedDependencyDslProviders = if (safetyValidator == null) {
+            emptyList()
+        } else {
+            callSiteValidator.loadedDependencyDslProviders(
+                dslHintGenerator,
+                koinTransformer.startKoinModules,
+                koinTransformer.moduleIncludes,
+                koinTransformer.entryModulesIncomplete,
+                koinTransformer.modulesWithIncompleteIncludes,
+            )
+        }
+        val startKoinTransformer = KoinStartTransformer(
+            pluginContext,
+            moduleFragment,
+            annotationProcessor,
+            safetyValidator,
+            lookupTracker,
+            expectActualTracker,
+            dslDefinitions,
+            loadedDependencyDslProviders,
+        )
         moduleFragment.transform(startKoinTransformer, null)
 
         // A3 §4: single graph-verification pass over the reified entry points. Must run before
@@ -150,7 +192,24 @@ class KoinIrExtension(
                 entryModulesIncomplete = koinTransformer.entryModulesIncomplete,
                 entryModulesIncompleteOrigin = koinTransformer.entryModulesIncompleteOrigin,
                 modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
-                ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph
+                ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph,
+            )
+        } else if (safetyValidator != null && dslDefinitions.isEmpty()
+            && safetyValidator.assembledGraphTypes.isEmpty()
+            && startKoinTransformer.hasKoinEntryPoint) {
+            // Disclosure, same stance as the no-entry-point one below: Phase 3.1 needs at least one
+            // local DSL definition, so an entry point that only loads other modules' DSL definitions
+            // validates nothing. Not changing that here — just not doing it silently.
+            KoinPluginLogger.warn("compile-safety: DSL graph not validated — no DSL definition in this entry-point module.")
+        }
+
+        // Phase 3.2: disclose runtime-chosen modules loaded by any entry point (KOIN-W011).
+        if (safetyValidator != null && startKoinTransformer.hasKoinEntryPoint) {
+            callSiteValidator.discloseRuntimeModuleChoices(
+                koinTransformer.startKoinModules,
+                koinTransformer.moduleIncludes,
+                koinTransformer.moduleAlternatives,
+                dslHintGenerator,
             )
         }
 
@@ -167,6 +226,7 @@ class KoinIrExtension(
             callSiteValidator.validatePendingCallSites(
                 moduleFragment, pendingCallSites, safetyValidator.assembledGraphTypes, dslDefinitions,
                 annotationProcessor, dslHintGenerator, injectedParamHints, startKoinTransformer.hasKoinEntryPoint,
+                globalContextBuiltHere = !startKoinTransformer.onlyIsolatedEntryPoints,
             )
         }
 

@@ -1,15 +1,3 @@
-FILE fqName:org.koin.plugin.hints fileName:/koin_hints_TestModule_8cd674464db476dd.kt
-  FUN name:componentscan_testModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Lex
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
-  FUN name:componentscan_testModule_scoped visibility:public modality:FINAL returnType:kotlin.Unit
-    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Tnt
-    VALUE_PARAMETER kind:Regular name:scope index:1 type:<root>.MyType
-    annotations:
-      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
-    BLOCK_BODY
 FILE fqName:<root> fileName:/test.kt
   CLASS CLASS name:Lex modality:FINAL visibility:public superTypes:[kotlin.Any]
     annotations:
@@ -156,6 +144,20 @@ FILE fqName:<root> fileName:/test.kt
               CALL 'public final fun <get-signature> (): kotlin.String declared in <root>.Tnt' type=kotlin.String origin=GET_PROPERTY
                 ARG <this>: CALL 'public final fun <get-t> (): <root>.Tnt declared in <root>.Lex' type=<root>.Tnt origin=GET_PROPERTY
                   ARG <this>: GET_VAR 'val lex: <root>.Lex declared in <root>.box' type=<root>.Lex origin=null
+FILE fqName:org.koin.plugin.hints fileName:/test.kt
+  annotations:
+    JvmName(name = "Koin_hints_TestModule_8cd674464db476ddKt")
+  FUN name:componentscan_testModule_factory visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Lex
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
+  FUN name:componentscan_testModule_scoped visibility:public modality:FINAL returnType:kotlin.Unit
+    VALUE_PARAMETER kind:Regular name:contributed index:0 type:<root>.Tnt
+    VALUE_PARAMETER kind:Regular name:scope index:1 type:<root>.MyType
+    annotations:
+      Deprecated(message = "Koin compiler plugin internal hint function", replaceWith = <null>, level = GET_ENUM 'ENUM_ENTRY IR_EXTERNAL_DECLARATION_STUB name:HIDDEN' type=kotlin.DeprecationLevel)
+    BLOCK_BODY
 FILE fqName:<root> fileName:/testModuleModule.kt
   FUN GENERATED[org.koin.compiler.plugin.fir.KoinModuleFirGenerator.Key] name:module visibility:public modality:FINAL returnType:org.koin.core.module.Module
     VALUE_PARAMETER kind:ExtensionReceiver name:<this> index:0 type:<root>.TestModule

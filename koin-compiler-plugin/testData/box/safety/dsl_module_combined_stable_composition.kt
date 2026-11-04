@@ -1,7 +1,7 @@
 // FILE: test.kt
-// Combined shape mirroring the real production pattern (shared/test-app/TestDataModule.kt +
-// TestApp.kt): a function returning a listOf(...), concatenated with a local val, converted from an
-// array — every piece stable (no branching). appModule is a top-level function (real id), not
+// Combined shape mirroring a real production pattern: a function returning a listOf(...),
+// concatenated with a local val, converted from an array — every piece stable (no branching).
+// appModule is a top-level function (real id), not
 // declared inside box() itself, so the composition is actually attributed and exercised.
 import org.koin.core.module.Module
 import org.koin.dsl.module

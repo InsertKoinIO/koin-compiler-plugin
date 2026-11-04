@@ -28,8 +28,8 @@ object PropertyValueRegistry {
     // in the IR phase (KoinAnnotationProcessor + KoinArgumentGenerator), so a parallel or
     // interleaved compilation's `clear()` could wipe another's registration between its register
     // and its read — dropping the @PropertyValue default (`getProperty(key, default)` degrades to
-    // `getProperty(key)`). In the shared-JVM test suite that made `property_value_ok` order-flaky
-    // (KTZ-4414). Held per-thread (InheritableThreadLocal — IR fan-out threads inherit the same
+    // `getProperty(key)`). In the shared-JVM test suite that made `property_value_ok` order-flaky.
+    // Held per-thread (InheritableThreadLocal — IR fan-out threads inherit the same
     // map reference, so one compilation's threads share one map; distinct compilations are
     // isolated). Mirrors the per-thread treatment of the collector/config in KoinPluginLogger.
     private val propertyDefaults: InheritableThreadLocal<ConcurrentHashMap<String, IrProperty>> =
@@ -67,5 +67,15 @@ object PropertyValueRegistry {
      */
     fun clear() {
         defaults.clear()
+    }
+
+    /**
+     * Release this compilation's registry at the end of the IR phase (`KoinIrExtension.generate`).
+     * Same reason and shape as [GeneratedResolutionCallRegistry.release]: the map holds
+     * [IrProperty] nodes, which must not outlive the compilation on a long-lived daemon thread.
+     */
+    fun release() {
+        defaults.clear()
+        propertyDefaults.remove()
     }
 }

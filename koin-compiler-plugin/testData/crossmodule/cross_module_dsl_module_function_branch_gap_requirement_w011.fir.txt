@@ -1,0 +1,77 @@
+Module: kernel
+FILE: Data.kt
+    package kernel
+
+    public final class Api : R|kotlin/Any| {
+        public constructor(): R|kernel/Api| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Repo : R|kotlin/Any| {
+        public constructor(api: R|kernel/Api|): R|kernel/Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val api: R|kernel/Api| = R|<local>/api|
+            public get(): R|kernel/Api|
+
+    }
+    public final class FakeClock : R|kotlin/Any| {
+        public constructor(): R|kernel/FakeClock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Inspector : R|kotlin/Any| {
+        public constructor(clock: R|kernel/FakeClock|): R|kernel/Inspector| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val clock: R|kernel/FakeClock| = R|<local>/clock|
+            public get(): R|kernel/FakeClock|
+
+    }
+    private final val fakeModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/Api|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/Repo|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/FakeClock|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/Inspector|>()
+    }
+    )
+        private get(): R|org/koin/core/module/Module|
+    private final val prodModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/Repo|>()
+    }
+    )
+        private get(): R|org/koin/core/module/Module|
+    public final fun dataModule(fake: R|kotlin/Boolean|): R|org/koin/core/module/Module| {
+        ^dataModule when () {
+            R|<local>/fake| ->  {
+                R|kernel/fakeModule|
+            }
+            else ->  {
+                R|kernel/prodModule|
+            }
+        }
+
+    }
+Module: app
+FILE: Main.kt
+    package app
+
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|app/Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|app/Config|>()
+            }
+            ), R|kernel/dataModule|(Boolean(false))))
+        }
+        )
+    }

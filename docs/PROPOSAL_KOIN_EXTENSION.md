@@ -1,8 +1,7 @@
 # Proposal — `@KoinExtension` annotation for compile-safety-visible helper functions
 
 > **Status**: design — targeted for 1.0.1
-> **Linear**: [KTZ-4064](https://linear.app/kotzilla/issue/KTZ-4064)
-> **Related**: KTZ-4051 (the original "inline reified `Module` extension invisible to compileSafety" issue this proposal solves)
+> **Related**: the original "inline reified `Module` extension invisible to compileSafety" issue this proposal solves
 
 ## Why this exists
 
@@ -18,7 +17,7 @@ val sampleModule = module {
 // Helper extensions — even more invisible:
 fun Module.createA() = single { ClassicA() }                                   // non-inline
 inline fun <reified T> Module.registerProvider() = single<T>()                 // inline reified
-inline fun <reified T> Module.registerStore(name: String) {                    // KTZ-4051 reporter
+inline fun <reified T> Module.registerStore(name: String) {                    // original reporter
     single(named(name)) { Store<T>() }
 }
 
@@ -105,11 +104,11 @@ The dispatch goes into `KoinDSLTransformer.visitCall`, alongside the existing sa
 // NEW: KoinExtension expansion    (callee has @KoinExtension, hint resolvable)
 ```
 
-If KTZ-4064 also lands the classic-DSL-in-`module { }` portion at the same time, it would be a separate FQN-keyed branch (the FQN map approach explored in the trial was sound; only the helper-detection part was problematic).
+If this proposal also lands the classic-DSL-in-`module { }` portion at the same time, it would be a separate FQN-keyed branch (the FQN map approach explored in the trial was sound; only the helper-detection part was problematic).
 
 ## Scope for v1
 
-In addition to the helper-expansion described above, KTZ-4064 v1 should also re-introduce the **classic-DSL inside `module { }`** branch that the pre-1.0.0 trial explored (and reverted). That branch is well-understood and uncontroversial; it was reverted only because the trial wasn't fully clean (the helper-extension cascade described above was unresolved). With `@KoinExtension` covering helpers, the direct-classic-DSL detection no longer has an "escape hatch" gap and can ship safely.
+In addition to the helper-expansion described above, v1 of this proposal should also re-introduce the **classic-DSL inside `module { }`** branch that the pre-1.0.0 trial explored (and reverted). That branch is well-understood and uncontroversial; it was reverted only because the trial wasn't fully clean (the helper-extension cascade described above was unresolved). With `@KoinExtension` covering helpers, the direct-classic-DSL detection no longer has an "escape hatch" gap and can ship safely.
 
 ## Out of scope for v1
 

@@ -1,0 +1,1 @@
+[Koin][KOIN-W009] 1 call site(s) not validated at compile time (first: get<Clock>()): their type is not defined in this compilation, and they resolve on a Koin instance whose modules it can't see. They are only checked at runtime.

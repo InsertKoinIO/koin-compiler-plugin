@@ -123,6 +123,63 @@ For A3 validation, the application name is used:
   in module: MyApp (startKoin)
 ```
 
+When a module's definitions can't be seen from the entry point's compilation, the full-graph check can't prove anything, so it is skipped. It is never skipped silently: `KOIN-W008` names the module.
+
+```
+[Koin][KOIN-W008] Graph not verified at compile time for MyApp (startKoin): the definitions of
+com.example.data.DataModule are not visible on this classpath (missing hints, or a module class off
+the classpath). Compile-time dependency checks are skipped for this entry point.
+```
+
+Usual causes: the dependency was built by an older plugin version, or the module sits more than one `implementation` hop away. A `@ComponentScan` that matches nothing is fine: the module publishes that it scanned and found nothing, so validation still runs. A dependency built with an older plugin version can't say so, and still gets this warning. Rebuild the dependency with the same plugin version, or add it as a direct dependency ([hidden Koin dependencies](#hidden-koin-dependencies-122)).
+
+### Which call sites are judged
+
+Every call site is judged against this compilation's graph, except two cases:
+
+| Call site | Judged here when |
+|---|---|
+| `koin.get()` / `koin.getScope(..).get()` on a `Koin` that comes from outside Koin's API: a function parameter, a `lateinit var`, a property with a custom getter or `by lazy`, a function of your own (`TestFixture().koin`, an overridden `getKoin()`) | never — the same shape holds your app's Koin or a test helper's, so its graph is unknown here |
+| `KoinComponent.get()` / `by inject()`, `koinInject()`, `koinViewModel()`, Android `viewModel()`, Ktor | unless every entry point here is a plain `koinApplication { }` (a test fixture, a preview) |
+
+Everything else is judged as before, including `get()` in a definition lambda, `koinApplication { }.koin`, a `val` initialized with `startKoin { }.koin`, `getKoin()` and `with(koin) { }`.
+
+A call site that isn't judged here and whose type nothing in this compilation defines is not an error. It is never dropped silently: one `KOIN-W009` per compilation counts them.
+
+```
+[Koin][KOIN-W009] 3 call site(s) not validated at compile time (first: get<Clock>()): their type is
+not defined in this compilation, and they resolve on a Koin instance whose modules it can't see.
+They are only checked at runtime.
+```
+
+Known limit: a judged call site is checked against every graph the compilation builds, merged. With two `koinApplication { }` blocks in one compilation, `a.koin.get<T>()` passes when only the other one provides `T`.
+
+### `activityViewModel()` and `parametersOf`
+
+`activityViewModel<T>()` returns the instance the activity created. When `T` has `@InjectedParam` and the call passes no `parametersOf(...)`:
+
+- a call site in the same module creates `T` with `parametersOf(...)` → nothing reported;
+- none does → `KOIN-W010`. The creator may be in another module; if nothing creates `T` first, this call creates it without parameters and fails at runtime.
+
+### Module functions that choose a module at runtime
+
+A module function can return one of several modules:
+
+```kotlin
+fun dispatchModule(local: Boolean) = if (local) loggedModule else topicModule
+startKoin { modules(dispatchModule(isLocal)) }
+```
+
+Compile safety sees the whole tree, not the runtime choice, so every branch counts as loaded. A definition no branch provides is still `KOIN-D001`/`KOIN-D002`. The choice itself is disclosed once per function an entry point loads:
+
+```
+[Koin][KOIN-W011] dispatchModule() loads one of loggedModule / topicModule at runtime (if/when).
+Compile safety checked them as if all were loaded: a definition not provided by all of them is not
+guaranteed at runtime.
+```
+
+Known limit: a binding only some branches provide passes. Branches that throw or return `null` (including the compiler's `else` of an exhaustive `when`) don't count. A function that returns a caller-supplied module (`overrides ?: module { }`), or has a branch the compiler can't read (a member call on an object, for example), makes the loaded set unknown: `KOIN-W003`, as for `modules(if (c) a else b)` written inline.
+
 ## External Types: `@Provided` and Whitelist
 
 Some types are provided by the platform or framework at runtime (e.g., Android's `Context`, `SavedStateHandle`) and are never declared as Koin definitions. Without special handling, these would trigger false "missing dependency" errors.
@@ -389,10 +446,83 @@ Runtime Koin matches on (raw class + qualifier), and the compile-safety validato
 ```kotlin
 koinCompiler {
     compileSafety = true   // Enable/disable compile-time safety checks (default: true)
+    aiAssist = true        // One hint per compilation pointing to the Kotzilla MCP when a Koin diagnostic fires (default: true)
 }
 ```
 
 Safety checks are gated by `KoinPluginLogger.compileSafetyEnabled`, controlled by the `compileSafety` Gradle option.
+
+`aiAssist` appends a single line (once per Kotlin compilation, not per error — a multi-module or
+multi-target build can show it more than once) when any `KOIN-…` diagnostic fires,
+pointing to the [Kotzilla MCP Server](https://doc.kotzilla.io/docs/fixIssues/koinMcp), which
+classifies Koin errors and walks an AI coding assistant through the fix. Set it to `false` to
+suppress the line; it never changes which diagnostics fire.
+
+### Strict safety (incremental compilation bypass)
+
+**Auto-enabled by default** on modules that contain `startKoin`, `koinApplication`, or `@KoinApplication` (the sources the module's compile task compiles, `src/<set>/java` and AGP 9's built-in Kotlin included; in KMP, the target's own source sets, not `commonMain`). The Gradle plugin scans the compilation's source files when the compile task checks whether it is up to date (never at configuration time, so the configuration cache survives source edits), detects the aggregator, and emits a one-line lifecycle log so the decision is visible.
+
+**An explicit value wins (1.2.2).** `strictSafety = true` forces it on everywhere. `strictSafety = false` turns it off, even on a detected aggregator, with a warning: incremental builds may then miss graph changes, while clean and CI builds still validate. A common setup keeps local builds incremental and enforces it on CI:
+
+```kotlin
+koinCompiler {
+    strictSafety = providers.environmentVariable("CI").isPresent
+}
+```
+
+`strictSafetyForceOff` is deprecated: from 1.1.0 to 1.2.1, a plain `strictSafety = false` was ignored once an entry point was detected, and this flag was needed to really turn it off.
+
+**Why**: full-graph safety only runs in the aggregator's `compileKotlin`, and Kotlin's IC — today, in K2 with the Build Tools API path that AGP uses — doesn't give the aggregator a reason to re-run when the graph actually changed. Two places where IC's tracking is too coarse for a DI graph:
+
+- **DSL definitions sit inside `module { … }` lambda bodies.** Lambda bodies aren't part of any declaration's ABI, and IC tracks per-declaration changes. So `single<X>() bind I::class` going away produces no signal the aggregator can see — its references to the module class are still valid, IC marks the task UP-TO-DATE, the removed binding goes unverified.
+
+- **`@ComponentScan` works by package, not by source reference.** Adding `@Singleton class NewService` to a scanned package creates a file nothing in the aggregator's source mentions. IC needs a source-level edge to invalidate downstream consumers, and there isn't one — the aggregator never re-scans, never sees the new class.
+
+We already record file-pair links via `ExpectActualTracker` to plug some of this (same primitive Metro uses for its `@BindingContainer` case), but those links only fire when both files participate in a build, and they don't cover newly-introduced files that nothing pointed to before. Forcing the aggregator to re-run is the smallest correct behavior we can produce on top of what K2 IC tells us today — a workaround framed against IC limitations, not a permanent design statement. If K2's IC tracking later grows package-scope edges or surfaces lambda-body changes through a different signal, this auto-enable becomes redundant and we can revisit.
+
+**Cost**: the aggregator's `compileKotlin` task runs every build, which in practice recompiles that whole module every build. On a thin app shell that's seconds; on a large app module it's significant (GH #120). Library and feature modules stay fully incremental. It is also not a full guarantee: when the module list lives in a file other than the entry point, Kotlin IC may still skip the check (GH #117). A dedicated validation task that re-checks the graph without recompiling is planned for 1.3.
+
+| Aggregator style | Detected via |
+|---|---|
+| DSL (`startKoin { modules(...) }`, `koinApplication { … }`) | `startKoin` / `koinApplication` string in source |
+| Annotation (`@KoinApplication`) | `@KoinApplication` string in source |
+
+Not detected: Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })` and `withConfiguration` entry points, which the compiler does treat as authoritative. Set `strictSafety = true` explicitly on those modules.
+
+Has no effect when `compileSafety = false`. See: https://github.com/InsertKoinIO/koin-compiler-plugin/issues/32
+
+### Hidden Koin dependencies (1.2.2)
+
+**The rule: the module that starts Koin depends directly on every module that contributes definitions.** Compile safety validates the graph from what the entry module's compilation can see, which is its compile classpath. A module reached only through an `implementation` dependency of a dependency is on the runtime classpath, not the compile one: its definitions are known only indirectly, through the modules in between, and problems in them can go unreported. Metro sets the same rule for its graphs.
+
+The check is opt-in in 1.2.2. Once enabled, after each JVM and Android Kotlin compile, a `check<Target><Compilation>KoinHiddenDependencies` task compares the compile and runtime dependency graphs and looks for Koin hints in the modules that are only on the runtime classpath (projects, jars and AARs). It reports when the compilation starts Koin: its sources, shared KMP source sets included, contain `startKoin`, `koinApplication` or `@KoinApplication`. Test compilations are checked too.
+
+```
+[Koin] :app (debug) starts Koin, but these modules contribute to its Koin graph without being on its compile classpath, so compile safety can't fully check them.
+  - project(":core:database")  (via project :app -> project :core:data -> project :core:database)
+  Put each on this compilation's compile classpath: a direct implementation dependency (not runtimeOnly), or api(...) on the way.
+  hiddenDependencyCheck = "error" in koinCompiler { } fails the build instead; "none" turns this off.
+```
+
+```kotlin
+koinCompiler {
+    hiddenDependencyCheck = "warning" // opt-in; "error" fails the build, "none" (default) leaves it off
+}
+```
+
+The warning repeats on every build until the dependency is declared. The report is also written to `build/reports/koin/<compilation>/hidden-dependencies.txt` (`<target>/<compilation>` in KMP projects), empty when the check passes. Native, JS and wasm compilations are not checked: KLIB compilations already see their transitive dependencies. Local jars added with `files(...)` or `fileTree(...)` are not checked either: they have no module identity to compare. Off when `compileSafety = false`; any other value than `warning`, `error` or `none` fails the build.
+
+Not detected, so not checked: an entry point the source scan doesn't see, such as Ktor `install(Koin) { }`, Compose `KoinApplication(configuration = koinConfiguration { })`, or a helper in another module that calls `startKoin` for you.
+
+Why opt-in: the check resolves each compilation's compile and runtime classpaths while Gradle plans the build. Without the configuration cache, AGP reports that as "Configuration '…' was resolved during configuration time", and `android.dependencyResolutionAtConfigurationTime.disallow=true` fails the build. A bare `compileKotlin` also needs every module's runtime classpath to resolve, and builds the runtime jars of runtime-only modules (an `assemble` or test run builds them anyway). On a 15-module Android app, a build with no change takes 0.2 to 0.8 s longer. A later version is meant to remove the configuration-time resolution and turn the check on by default. Enable it on the module that starts Koin, or on CI:
+
+```kotlin
+koinCompiler {
+    hiddenDependencyCheck = providers.environmentVariable("CI").map { "error" }.orElse("none")
+}
+```
+
+The mechanism is adapted from Metro's hidden-dependency check (Apache 2.0).
 
 ---
 
@@ -595,6 +725,14 @@ if (KoinPluginLogger.compileSafetyEnabled && moduleClasses.isNotEmpty() && annot
 `validateFullGraph()` collects ALL definitions from ALL modules via `annotationProcessor.getDefinitionsForModule()`, includes DSL definitions (`DslDef`) passed from Phase 2, and runs `BindingRegistry.validateModule()` on the union.
 
 The `annotationProcessor` reference is passed from `KoinIrExtension` (Phase 1 → Phase 3).
+
+## Hints on KLIB targets (Native, wasm, JS)
+
+Most hints (`componentscan_*`, `dsl_*`, `injectedparams_*`, `callsite`, `funcreqs_*`) are built in IR and registered with `registerFunctionAsMetadataVisible`. KLIB metadata only carries such a declaration for the `FirFile` that contains it, and only files of the FIR output are serialized (KT-79565, Kotlin 2.4.20; before that, only when another FIR-output file shared the hints package). A synthetic hint file is never in the FIR output, so those hints were silently dropped from KLIBs (#105, #106, #113).
+
+On non-JVM platforms, `KoinModuleFirGenerator` declares a private `org.koin.plugin.hints.koin_hints_anchor()` in a generated file (`KoinHintsAnchor.kt`), in the compilation's root session only. `addHintFunctions` (`ir/HintFiles.kt`) attaches every IR-built hint to that file. On JVM there is no anchor: each batch keeps its own synthetic file, compiled to its own class and regenerated wholesale, so incremental compilation never leaves a removed hint behind.
+
+Regression check: `playground-apps/app-kmp-klib-hints` (`./verify.sh <plugin version> <kotlin versions…>`).
 
 ## Cross-module DSL hint discovery
 

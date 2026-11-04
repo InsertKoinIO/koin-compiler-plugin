@@ -1,0 +1,40 @@
+FILE: dsl_module_function_override_param_w003.kt
+    public final class Default : R|kotlin/Any| {
+        public constructor(): R|Default| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Override : R|kotlin/Any| {
+        public constructor(): R|Override| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val overridesModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Override|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun appModule(overrides: R|org/koin/core/module/Module?| = Null(null)): R|org/koin/core/module/Module| {
+        ^appModule R|<local>/overrides| ?: R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Default|>()
+        }
+        )
+    }
+    public final fun main(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Config|>()
+            }
+            ), R|/appModule|(R|/overridesModule|)))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|Override|>()
+    }

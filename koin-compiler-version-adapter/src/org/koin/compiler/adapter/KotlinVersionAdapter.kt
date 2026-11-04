@@ -5,8 +5,10 @@ import org.jetbrains.kotlin.compiler.plugin.CompilerPluginRegistrar
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.declarations.FirCallableDeclaration
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
+import org.jetbrains.kotlin.ir.declarations.IrExternalPackageFragment
 import org.jetbrains.kotlin.ir.declarations.IrMutableAnnotationContainer
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
+import org.jetbrains.kotlin.name.FqName
 
 /**
  * Version-split compiler operations.
@@ -68,4 +70,15 @@ interface KotlinVersionAdapter {
         declaration: FirCallableDeclaration,
         session: FirSession,
     )
+
+    /**
+     * A detached external package fragment for [packageFqName], parent of a stand-in class for a type
+     * off the classpath.
+     */
+    @KotlinApiChange(
+        inVersion = "2.5.0",
+        kind = KotlinApiChange.Kind.SIGNATURE,
+        note = "IrExternalPackageFragmentImpl's constructor gained an IrModuleFragment parameter (2.5.0-Beta2)",
+    )
+    fun createExternalPackageFragment(packageFqName: FqName): IrExternalPackageFragment
 }

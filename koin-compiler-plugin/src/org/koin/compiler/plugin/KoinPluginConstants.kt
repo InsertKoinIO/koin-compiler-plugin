@@ -1,5 +1,8 @@
 package org.koin.compiler.plugin
 
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.Name
+
 /**
  * Shared constants for the Koin compiler plugin.
  *
@@ -146,6 +149,12 @@ object KoinPluginConstants {
     /** Prefix for module-scoped component scan function hint functions (e.g., componentscanfunc_comExampleCoreModule_single). */
     const val COMPONENT_SCAN_FUNCTION_HINT_PREFIX = "componentscanfunc_"
 
+    /**
+     * Completion marker: the module's own scan found nothing, or (relayed) the whole module
+     * resolved complete and empty. Either way, an absent scan entry doesn't mean "incomplete".
+     */
+    const val COMPONENT_SCAN_EMPTY_HINT_PREFIX = "componentscanempty_"
+
     /** Prefix for roster-hint parameter names that enumerate per-qualifier entries (e.g., q_initFlagsAndLogging). */
     const val COMPONENT_SCAN_FUNCTION_ROSTER_PARAM_PREFIX = "q_"
 
@@ -211,6 +220,12 @@ object KoinPluginConstants {
     /** Function name for qualifier annotation hint functions (e.g., qualifier). */
     const val QUALIFIER_HINT_NAME = "qualifier"
 
+    /**
+     * Private FIR-declared function whose generated file carries every IR-built hint on KLIB
+     * platforms (see `addHintFunctions`). Never declared on JVM.
+     */
+    const val HINT_ANCHOR_NAME = "koin_hints_anchor"
+
     /** Function name for call-site hints (deferred validation across modules). */
     const val CALLSITE_HINT_NAME = "callsite"
 
@@ -245,6 +260,25 @@ object KoinPluginConstants {
      * graph that resolves fine at runtime, one module away from where the ambiguity actually is.
      */
     const val DSL_INCLUDES_INCOMPLETE_MARKER = "incomplete_topology"
+
+    /**
+     * Marks an includes-edge hint whose owner is a module function returning one of several modules
+     * chosen at runtime, listed as [DSL_INCLUDES_ALTERNATIVE_PREFIX]`<id>` and, for its own
+     * `module { }` blocks, [DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX]`<n>`. Consumers that predate it
+     * ignore all three and read the edges as a plain union.
+     */
+    const val DSL_INCLUDES_ALTERNATIVES_MARKER = "alternatives"
+    const val DSL_INCLUDES_ALTERNATIVE_PREFIX = "alt_"
+    const val DSL_INCLUDES_INLINE_ALTERNATIVE_PREFIX = "altinline_"
+
+    /**
+     * `relayedby_<sanitized module id>` on every relayed DSL hint: a module ignores hints it relayed
+     * itself, which incremental compilation keeps on its classpath.
+     */
+    const val RELAYED_BY_PREFIX = "relayedby_"
+
+    /** `erased<position>_<sanitized ClassId>`: the real type of a relay parameter erased to `Any`. */
+    const val ERASED_TYPE_MARKER_PREFIX = "erased"
 
     /** Hint function name carrying the `includes()` edges declared by [ownerModuleId]'s `module { }`. */
     fun dslIncludesHintFunctionName(ownerModuleId: String): String =
@@ -283,15 +317,25 @@ object KoinPluginConstants {
      * Sanitize a qualifier name for use in a Kotlin identifier (hint parameter name).
      *
      * Characters not valid in Kotlin identifiers are escaped as `$XX` where XX is
-     * the lowercase 2-digit hex code of the character. Literal `$` is escaped as `$$`.
+     * the lowercase 2-digit hex code of the character, or as `$uXXXX` above U+00FF
+     * (fixed width, so decoding knows where it ends). Literal `$` is escaped as `$$`.
      *
      * Example: `"my.service-1"` → `"my$2eservice$2d1"`
      */
+    private const val MAX_NARROW_ESCAPE_CODE = 0xFF
+    private const val WIDE_ESCAPE_MARKER = "\$u"
+    private const val WIDE_ESCAPE_DIGITS = 4
+    private const val HEX_RADIX = 16
+
     fun sanitizeQualifierName(name: String): String = buildString(name.length) {
         for (ch in name) {
             when {
                 ch == '$' -> append("$$")
                 ch.isLetterOrDigit() || ch == '_' -> append(ch)
+                ch.code > MAX_NARROW_ESCAPE_CODE -> {
+                    append(WIDE_ESCAPE_MARKER)
+                    append(ch.code.toString(HEX_RADIX).padStart(WIDE_ESCAPE_DIGITS, '0'))
+                }
                 else -> {
                     append('$')
                     append(ch.code.toString(16).padStart(2, '0'))
@@ -311,9 +355,15 @@ object KoinPluginConstants {
         while (i < encoded.length) {
             val ch = encoded[i]
             if (ch == '$' && i + 1 < encoded.length) {
+                val wideEnd = i + WIDE_ESCAPE_MARKER.length + WIDE_ESCAPE_DIGITS
+                val wideCode = encoded.takeIf { encoded.startsWith(WIDE_ESCAPE_MARKER, i) && wideEnd <= it.length }
+                    ?.substring(i + WIDE_ESCAPE_MARKER.length, wideEnd)?.toIntOrNull(HEX_RADIX)
                 if (encoded[i + 1] == '$') {
                     append('$')
                     i += 2
+                } else if (wideCode != null) {
+                    append(wideCode.toChar())
+                    i = wideEnd
                 } else if (i + 2 < encoded.length) {
                     val hex = encoded.substring(i + 1, i + 3)
                     val code = hex.toIntOrNull(16)
@@ -334,4 +384,11 @@ object KoinPluginConstants {
             }
         }
     }
+}
+
+/** The ClassId an `erased<position>_` marker carries for the hint parameter at [position], if erased. */
+fun erasedHintClassId(parameterNames: List<Name>, position: Int): ClassId? {
+    val markerPrefix = "${KoinPluginConstants.ERASED_TYPE_MARKER_PREFIX}${position}_"
+    val marker = parameterNames.firstOrNull { it.asString().startsWith(markerPrefix) } ?: return null
+    return ClassId.fromString(KoinPluginConstants.unsanitizeQualifierName(marker.asString().removePrefix(markerPrefix)))
 }

@@ -1,0 +1,73 @@
+Module: types
+FILE: Types.kt
+    package types
+
+    public final class Bar : R|kotlin/Any| {
+        public constructor(): R|types/Bar| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Foo : R|kotlin/Any| {
+        public constructor(bar: R|types/Bar|): R|types/Foo| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val bar: R|types/Bar| = R|<local>/bar|
+            public get(): R|types/Bar|
+
+    }
+Module: network
+FILE: Network.kt
+    package network
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(network))) public final class NetworkModule : R|kotlin/Any| {
+        public constructor(): R|network/NetworkModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final fun provideFoo(bar: R|types/Bar|): R|types/Foo| {
+        ^provideFoo R|types/Foo.Foo|(R|<local>/bar|)
+    }
+FILE: network/networkNetworkModuleModule.kt
+    package network
+
+    public final fun R|network/NetworkModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/networkNetworkModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|network/NetworkModule|): R|kotlin/Unit|
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    public final class FeatureThing : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+Module: mid
+FILE: Mid.kt
+    package mid
+
+    public final class MidThing : R|kotlin/Any| {
+        public constructor(): R|mid/MidThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/KoinApplication|() public final class App : R|kotlin/Any| {
+        public constructor(): R|app/App| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/App|>()
+    }

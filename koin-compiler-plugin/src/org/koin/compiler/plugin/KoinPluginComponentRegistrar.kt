@@ -81,7 +81,7 @@ object KoinPluginLogger {
      * and each `init()` writes these. When they were plain global `@Volatile var`s, one
      * compilation's flags could leak into another (wrong-build behavior) — and, because the test
      * suite runs many compilations in one JVM with IR fan-out threads, it made the suite
-     * order-dependent / flaky (KTZ-4414). Held per-thread (InheritableThreadLocal, inherited by
+     * order-dependent / flaky. Held per-thread (InheritableThreadLocal, inherited by
      * spawned IR threads) with a volatile fallback for callers reached without a per-thread
      * context (bare CLI, unit tests). Read order: thread-local first, fallback second.
      */
@@ -96,6 +96,7 @@ object KoinPluginLogger {
         val lookupTracker: LookupTracker? = null,
         val logSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
         val versionCheckSeverity: KoinLogSeverity = KoinLogSeverity.WARNING,
+        val scanCompletionMarkers: Boolean = true,
     )
 
     private val threadFlags: InheritableThreadLocal<Flags?> = InheritableThreadLocal()
@@ -112,6 +113,14 @@ object KoinPluginLogger {
     val skipDefaultValuesEnabled: Boolean get() = effectiveFlags.skipDefaultValues
     val compileSafetyEnabled: Boolean get() = effectiveFlags.compileSafety
     val aiAssistEnabled: Boolean get() = effectiveFlags.aiAssist
+    val scanCompletionMarkersEnabled: Boolean get() = effectiveFlags.scanCompletionMarkers
+
+    /** Test seam: emit hints as a plugin from before the empty-scan marker did. Call after [init]. */
+    fun simulateProducerWithoutScanCompletionMarkers() {
+        val flags = effectiveFlags.copy(scanCompletionMarkers = false)
+        threadFlags.set(flags)
+        fallbackFlags = flags
+    }
 
     /**
      * Compiler severity to use for [user]/[debug]/[userFir]/[debugFir]/[warn] — the plugin's
@@ -189,7 +198,7 @@ object KoinPluginLogger {
      * [bindThreadCollector]): `InheritableThreadLocal` only inherits at thread creation, so a pool
      * worker running IR generation later would otherwise fall through to the shared [fallbackFlags]
      * that a parallel compilation may have overwritten. This is what left `compileSafety` /
-     * `skipDefaultValues` reads racy during IR codegen (KTZ-4414).
+     * `skipDefaultValues` reads racy during IR codegen.
      */
     fun captureFlags(): Any = effectiveFlags
 

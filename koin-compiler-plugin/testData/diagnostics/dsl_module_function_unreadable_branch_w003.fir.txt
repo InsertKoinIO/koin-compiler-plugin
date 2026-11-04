@@ -1,0 +1,93 @@
+FILE: dsl_module_function_unreadable_branch_w003.kt
+    public final class LocalOnly : R|kotlin/Any| {
+        public constructor(): R|LocalOnly| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class RemoteOnly : R|kotlin/Any| {
+        public constructor(): R|RemoteOnly| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class DebugTools : R|kotlin/Any| {
+        public constructor(): R|DebugTools| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Common : R|kotlin/Any| {
+        public constructor(): R|Common| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class X : R|kotlin/Any| {
+        public constructor(c: R|Common|): R|X| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val c: R|Common| = R|<local>/c|
+            public get(): R|Common|
+
+    }
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val localModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|LocalOnly|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val remoteModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|RemoteOnly|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final object Remote : R|kotlin/Any| {
+        private constructor(): R|Remote| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final fun module(): R|org/koin/core/module/Module| {
+            ^module R|/remoteModule|
+        }
+
+    }
+    public final fun storage(local: R|kotlin/Boolean|): R|org/koin/core/module/Module| {
+        ^storage when () {
+            R|<local>/local| ->  {
+                R|/localModule|
+            }
+            else ->  {
+                Q|Remote|.R|/Remote.module|()
+            }
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Config|>()
+            }
+            ), R|/storage|(Boolean(false))))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|RemoteOnly|>()
+    }

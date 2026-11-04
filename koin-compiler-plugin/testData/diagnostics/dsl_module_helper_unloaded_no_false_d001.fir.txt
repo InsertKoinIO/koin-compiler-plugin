@@ -1,0 +1,41 @@
+FILE: dsl_module_helper_unloaded_no_false_d001.kt
+    public final class Links : R|kotlin/Any| {
+        public constructor(): R|Links| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class TicketStore : R|kotlin/Any| {
+        public constructor(): R|TicketStore| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Invoicing : R|kotlin/Any| {
+        public constructor(store: R|TicketStore|): R|Invoicing| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|TicketStore| = R|<local>/store|
+            public get(): R|TicketStore|
+
+    }
+    public final val alertModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Links|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val invoicingModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|/connectionBeans|()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    private final fun R|org/koin/core/module/Module|.connectionBeans(): R|kotlin/Unit| {
+        this@R|/connectionBeans|.R|org/koin/plugin/module/dsl/single|<R|Invoicing|>()
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/alertModule|)
+        }
+        )
+    }

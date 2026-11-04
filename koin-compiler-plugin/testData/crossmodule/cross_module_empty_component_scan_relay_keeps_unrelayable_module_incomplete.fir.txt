@@ -1,0 +1,106 @@
+Module: lib0
+FILE: Lib0.kt
+    package lib0
+
+    public final class Missing0 : R|kotlin/Any| {
+        public constructor(): R|lib0/Missing0| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Repo : R|kotlin/Any| {
+        public constructor(dep: R|lib0/Missing0|): R|lib0/Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val dep: R|lib0/Missing0| = R|<local>/dep|
+            public get(): R|lib0/Missing0|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib0.none))) public final class YModule : R|kotlin/Any| {
+        public constructor(): R|lib0/YModule| {
+            super<R|kotlin/Any|>()
+        }
+
+        @R|org/koin/core/annotation/Single|() public final fun repo(dep: R|lib0/Missing0|): R|lib0/Repo| {
+            ^repo R|lib0/Repo.Repo|(R|<local>/dep|)
+        }
+
+    }
+FILE: lib0/lib0YModuleModule.kt
+    package lib0
+
+    public final fun R|lib0/YModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/lib0YModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun moduledef_lib0_YModule__repo(contributed: R|lib0/Repo|): R|kotlin/Unit|
+Module: lib1
+FILE: Lib1.kt
+    package lib1
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|lib0/YModule|))) @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib1.none))) public final class XModule : R|kotlin/Any| {
+        public constructor(): R|lib1/XModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: lib1/lib1XModuleModule.kt
+    package lib1
+
+    public final fun R|lib1/XModule|.module(): R|org/koin/core/module/Module|
+Module: lib2
+FILE: Lib2.kt
+    package lib2
+
+    @R|org/koin/core/annotation/Single|() public final class Lib2Thing : R|kotlin/Any| {
+        public constructor(): R|lib2/Lib2Thing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|lib1/XModule|))) @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib2))) public final class Lib2Module : R|kotlin/Any| {
+        public constructor(): R|lib2/Lib2Module| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: lib2/lib2Lib2ModuleModule.kt
+    package lib2
+
+    public final fun R|lib2/Lib2Module|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/Single|() public final class Screen : R|kotlin/Any| {
+        public constructor(thing: R|lib2/Lib2Thing|): R|app/Screen| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val thing: R|lib2/Lib2Thing| = R|<local>/thing|
+            public get(): R|lib2/Lib2Thing|
+
+    }
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|lib2/Lib2Module|))) @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(app))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|app/AppModule|))) public final object MainApplication : R|kotlin/Any| {
+        private constructor(): R|app/MainApplication| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MainApplication|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|

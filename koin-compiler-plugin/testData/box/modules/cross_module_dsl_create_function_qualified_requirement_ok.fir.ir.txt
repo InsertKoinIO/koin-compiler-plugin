@@ -106,7 +106,9 @@ FILE fqName:lib fileName:/lib/Lib.kt
     BLOCK_BODY
       RETURN type=kotlin.Nothing from='public final fun provideQualifiedDep (): lib.Dep declared in lib'
         CONSTRUCTOR_CALL 'public constructor <init> () declared in lib.Dep' type=lib.Dep origin=null
-FILE fqName:org.koin.plugin.hints fileName:/lib/koin_dsl_hints_lib__lib_libModule_86747c2b5e8eade2.kt
+FILE fqName:org.koin.plugin.hints fileName:/lib/Lib.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_lib__lib_libModule_86747c2b5e8eade2Kt")
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:lib.Client
     VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit
@@ -187,7 +189,9 @@ FILE fqName:app fileName:/app/App.kt
           ARG <this>: GET_VAR 'val koin: org.koin.core.Koin declared in app.box' type=org.koin.core.Koin origin=null
       RETURN type=kotlin.Nothing from='public final fun box (): kotlin.String declared in app'
         CONST String type=kotlin.String value="OK"
-FILE fqName:org.koin.plugin.hints fileName:/app/koin_dsl_hints_app__App_kt_ec216731445f8978.kt
+FILE fqName:org.koin.plugin.hints fileName:/app/App.kt
+  annotations:
+    JvmName(name = "Koin_dsl_hints_app__App_kt_ec216731445f8978Kt")
   FUN name:dsl_single visibility:public modality:FINAL returnType:kotlin.Unit
     VALUE_PARAMETER kind:Regular name:contributed index:0 type:app.Marker
     VALUE_PARAMETER kind:Regular name:reqsEncoded index:1 type:kotlin.Unit

@@ -1,0 +1,98 @@
+FILE: dsl_module_function_exhaustive_branches_w011.kt
+    public abstract interface Publisher : R|kotlin/Any| {
+    }
+    public final class LoggedPublisher : R|Publisher| {
+        public constructor(): R|LoggedPublisher| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class TopicPublisher : R|Publisher| {
+        public constructor(): R|TopicPublisher| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Config : R|kotlin/Any| {
+        public constructor(): R|Config| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final enum class Env : R|kotlin/Enum<Env>| {
+        private constructor(): R|Env| {
+            super<R|kotlin/Enum<Env>|>()
+        }
+
+        public final static enum entry LOCAL: R|Env|
+        public final static enum entry CLOUD: R|Env|
+        public final static fun values(): R|kotlin/Array<Env>| {
+        }
+
+        public final static fun valueOf(value: R|kotlin/String|): R|Env| {
+        }
+
+        public final static val entries: R|kotlin/enums/EnumEntries<Env>|
+            public get(): R|kotlin/enums/EnumEntries<Env>|
+
+    }
+    public final val loggedModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|LoggedPublisher|>().R|org/koin/dsl/bind|<R|Publisher|>(<getClass>(Q|Publisher|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val topicModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|TopicPublisher|>().R|org/koin/dsl/bind|<R|Publisher|>(<getClass>(Q|Publisher|))
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun byEnv(env: R|Env|): R|org/koin/core/module/Module| {
+        ^byEnv when (lval <when-subject>: R|Env| = R|<local>/env|) {
+            ==($subj$, Q|Env|.R|/Env.LOCAL|) ->  {
+                R|/loggedModule|
+            }
+            ==($subj$, Q|Env|.R|/Env.CLOUD|) ->  {
+                R|/topicModule|
+            }
+        }
+
+    }
+    public final fun byName(name: R|kotlin/String|): R|org/koin/core/module/Module| {
+        ^byName when (lval <when-subject>: R|kotlin/String| = R|<local>/name|) {
+            ==($subj$, String(local)) ->  {
+                R|/loggedModule|
+            }
+            ==($subj$, String(cloud)) ->  {
+                R|/topicModule|
+            }
+            else ->  {
+                R|kotlin/error|(<strcat>(String(unknown ), R|<local>/name|))
+            }
+        }
+
+    }
+    public final var isLocal: R|kotlin/Boolean| = Boolean(true)
+        public get(): R|kotlin/Boolean|
+        public set(value: R|kotlin/Boolean|): R|kotlin/Unit|
+    public final val dispatchGetter: R|org/koin/core/module/Module|
+        public get(): R|org/koin/core/module/Module| {
+            ^ when () {
+                R|/isLocal| ->  {
+                    R|/loggedModule|
+                }
+                else ->  {
+                    R|/topicModule|
+                }
+            }
+
+        }
+    public final fun main(): R|kotlin/Unit| {
+        lval koin: R|org/koin/core/Koin| = R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Config|>()
+            }
+            ), R|/byEnv|(Q|Env|.R|/Env.LOCAL|), R|/byName|(String(cloud)), R|/dispatchGetter|))
+        }
+        ).R|org/koin/core/KoinApplication.koin|
+        R|<local>/koin|.R|org/koin/core/Koin.get|<R|Publisher|>()
+    }

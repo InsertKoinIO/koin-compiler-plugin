@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>Indentation:BuildConfig.kt:BuildConfig$ </ID>
+    <ID>PackageName:BuildConfig.kt:package io.insert_koin.compiler.plugin</ID>
+    <ID>PackageNaming:BuildConfig.kt:package io.insert_koin.compiler.plugin</ID>
+    <ID>TrailingCommaOnCallSite:KoinGradlePlugin.kt:KoinGradlePlugin$( SubpluginOption(OPTION_USER_LOGS, extension.userLogs.get().toString()), SubpluginOption(OPTION_DEBUG_LOGS, extension.debugLogs.get().toString()), SubpluginOption(OPTION_UNSAFE_DSL_CHECKS, extension.unsafeDslChecks.get().toString()), SubpluginOption(OPTION_SKIP_DEFAULT_VALUES, extension.skipDefaultValues.get().toString()), SubpluginOption(OPTION_COMPILE_SAFETY, extension.compileSafety.get().toString()), SubpluginOption(OPTION_AI_ASSIST, extension.aiAssist.get().toString()), SubpluginOption(OPTION_MODULE_ID, moduleId), SubpluginOption(OPTION_LOG_SEVERITY, extension.logSeverity.get()), SubpluginOption(OPTION_VERSION_CHECK_SEVERITY, extension.versionCheckSeverity.get()) )</ID>
+    <ID>TrailingCommaOnDeclarationSite:KoinGradlePlugin.kt:KoinGradlePlugin$( kotlinCompilation: KotlinCompilation&lt;*&gt; )</ID>
+  </CurrentIssues>
+</SmellBaseline>

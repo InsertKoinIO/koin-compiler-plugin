@@ -4,8 +4,8 @@
 // counterpart of `bind` (single interface). KoinDSLTransformer only ever recognized `bind` (singular);
 // `binds` was never wired up at all, so a definition bound ONLY via `binds(...)` silently carried ZERO
 // bindings — every consumer of every one of its bound interfaces got a false KOIN-D001, no matter how
-// many hops away it lived. Real-world shape (Kotzilla server): `single<AppRepository>() binds
-// arrayOf(AppPersistencePort::class, AppRepository::class)`.
+// many hops away it lived. Real-world shape: `single<Repo>() binds
+// arrayOf(PersistencePort::class, Repo::class)`.
 //
 // EXPECTED: completely silent. Consumer resolves BOTH PortA and PortB, which nothing provides except
 // via `binds`. Any diagnostic here is a false positive.

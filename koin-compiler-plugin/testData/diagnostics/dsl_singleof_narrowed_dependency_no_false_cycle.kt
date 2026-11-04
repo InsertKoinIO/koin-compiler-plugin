@@ -5,14 +5,14 @@
 // same bug class already fixed once for create(::function) (cdbba09) and for hand-written lambda
 // bodies (e71f159, see dsl_bind_narrowed_dependency_no_false_cycle). Now that singleOf's
 // requirements are derived again (see KoinDSLTransformer.collectConstructorShorthandDef /
-// requirementsFor), this exact shape needs its own falsify-first coverage: InstrumentedStoreService's
-// constructor parameter is statically typed StoreService — the SAME interface this definition also
-// binds — but the function actually referenced (buildInstrumented) depends on the NARROWER
-// ObjectStoreService. A wrongly-derived requirement (from the constructor/bind target instead of
-// buildInstrumented's own parameter) would resolve back onto this definition's own bind-aliased
+// requirementsFor), this exact shape needs its own falsify-first coverage: MeteredBlobStore's
+// constructor parameter is statically typed BlobStore — the SAME interface this definition also
+// binds — but the function actually referenced (buildMetered) depends on the NARROWER
+// DiskBlobStore. A wrongly-derived requirement (from the constructor/bind target instead of
+// buildMetered's own parameter) would resolve back onto this definition's own bind-aliased
 // graph node — a false KOIN-D004 self-cycle.
 //
-// EXPECTED: no diagnostics. InstrumentedStoreService depends on ObjectStoreService, a distinct
+// EXPECTED: no diagnostics. MeteredBlobStore depends on DiskBlobStore, a distinct
 // definition — there is no cycle.
 package testpkg
 
@@ -22,15 +22,15 @@ import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.single
 
-interface StoreService
-class ObjectStoreService : StoreService
-class InstrumentedStoreService(private val delegate: StoreService) : StoreService
+interface BlobStore
+class DiskBlobStore : BlobStore
+class MeteredBlobStore(private val delegate: BlobStore) : BlobStore
 
-fun buildInstrumented(os: ObjectStoreService): InstrumentedStoreService = InstrumentedStoreService(os)
+fun buildMetered(os: DiskBlobStore): MeteredBlobStore = MeteredBlobStore(os)
 
 val appModule = module {
-    single<ObjectStoreService>()
-    singleOf(::buildInstrumented) { bind<StoreService>() }
+    single<DiskBlobStore>()
+    singleOf(::buildMetered) { bind<BlobStore>() }
 }
 
 fun useIt() {

@@ -4,18 +4,13 @@ import org.jetbrains.kotlin.DeprecatedForRemovalCompilerApi
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.common.lower.DeclarationIrBuilder
 import org.jetbrains.kotlin.descriptors.Modality
-import org.jetbrains.kotlin.descriptors.impl.EmptyPackageFragmentDescriptor
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
-import org.jetbrains.kotlin.fir.builder.buildPackageDirective
-import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.FirModuleData
-import org.jetbrains.kotlin.fir.declarations.builder.buildFile
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.UNDEFINED_OFFSET
 import org.jetbrains.kotlin.ir.builders.*
 import org.jetbrains.kotlin.ir.declarations.*
-import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.expressions.*
 import org.jetbrains.kotlin.ir.expressions.impl.IrClassReferenceImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrFunctionExpressionImpl
@@ -40,8 +35,6 @@ import org.koin.compiler.plugin.PropertyValueRegistry
 import org.jetbrains.kotlin.incremental.components.ExpectActualTracker
 import org.jetbrains.kotlin.incremental.components.LookupTracker
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 /**
  * Processes Koin annotations and generates module extension properties with definitions.
@@ -67,6 +60,8 @@ class KoinAnnotationProcessor(
     private val lookupTracker: LookupTracker? = null,
     private val expectActualTracker: ExpectActualTracker? = null
 ) {
+    /** Shared with the other phases of this compilation, so one off-classpath class has one stand-in. */
+    val hintClasses = HintClassResolver(context)
 
     // Parameter analyzer — used to attach requirements to definitions at collection time (A3
     // durable model, PR1). Same config (shared qualifierExtractor) as the validation-time analyzer,
@@ -119,9 +114,9 @@ class KoinAnnotationProcessor(
         definitionTopLevelFunctions.groupBy { it.packageFqName.asString() }
     }
 
-    // A3 Gate-3: return-type FqNames for which a `funcreqs_*` carrier hint has already been emitted in
-    // THIS compilation. Shared by the scan-path emission (generateModuleScanHints) and the orphan-path
-    // emission (emitOrphanFuncReqsHints) so each return type gets exactly one hint — an unscoped hint
+    // A3 Gate-3: (return-type FqName, qualifier) keys for which a `funcreqs_*` carrier hint has already
+    // been emitted in THIS compilation. Shared by the scan-path emission (generateModuleScanHints) and the
+    // orphan-path emission (emitOrphanFuncReqsHints) so each key gets exactly one hint — an unscoped hint
     // emitted twice is a hard KLIB SignatureClash on native/wasm. Fresh per compilation (this processor
     // is instantiated per IR generation).
     private val emittedFuncReqsReturnFqns = mutableSetOf<String>()
@@ -147,7 +142,7 @@ class KoinAnnotationProcessor(
      */
     fun getDefinitionsForModule(moduleClass: ModuleClass): DependencyModuleResult {
         val definitions = (cachedModuleDefinitions?.get(moduleClass) ?: collectAllDefinitions(moduleClass)).toMutableList()
-        var allComplete = true
+        val unresolvedModules = mutableListOf<String>()
 
         // Track visited modules to prevent infinite recursion on circular includes
         val visited = mutableSetOf<String>()
@@ -172,13 +167,13 @@ class KoinAnnotationProcessor(
                 definitions.addAll(newDefs)
             } else {
                 val result = collectDefinitionsFromDependencyModule(includedFqName, visited)
-                if (!result.isComplete) allComplete = false
+                unresolvedModules += result.unresolvedModules
                 val newDefs = result.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
                 definitions.addAll(newDefs)
             }
         }
 
-        return DependencyModuleResult(definitions, allComplete)
+        return DependencyModuleResult(definitions, unresolvedModules)
     }
 
     /** Get all definitions across all modules (for A4 call-site validation). */
@@ -462,7 +457,7 @@ class KoinAnnotationProcessor(
      * Get the scope qualifier name from `@Scope(name = "session")` (string-named scope).
      * Returns null when the annotation only has the typed `value` argument — use [getScopeClass] for that.
      *
-     * Bug it fixes (KTZ-4039 / #34): without this, both `@Scope(name = ...)` variants were silently
+     * Bug it fixes (#34): without this, both `@Scope(name = ...)` variants were silently
      * dropped — the typed-scope partition in `buildModuleBody` saw `scopeClass == null` and routed the
      * definition through `buildScoped` on a `Module` receiver, where no such overload exists, producing
      * no bean definition at all.
@@ -552,7 +547,7 @@ class KoinAnnotationProcessor(
     /**
      * Get `createdAtStart` from `@Module(createdAtStart = true)`. Drives whether the generated
      * `module(...)` DSL call passes `createdAtStart = true` to eagerly instantiate every
-     * `@Single` / `@Singleton` in the module at `startKoin`. KTZ-4048 / koin#2415.
+     * `@Single` / `@Singleton` in the module at `startKoin`. koin#2415.
      *
      * Signature: `@Module(includes: Array<KClass<*>> = [], createdAtStart: Boolean = false)`.
      */
@@ -918,44 +913,6 @@ class KoinAnnotationProcessor(
     }
 
     /**
-     * Batch [functions] into one synthetic hint file (package [KoinModuleFirGenerator.HINTS_PACKAGE],
-     * named [fileName], anchored under [basePath]'s directory) and register them for metadata
-     * serialization. Shared by every site that batches hint functions into one file — batching (vs.
-     * one file per declaration) is what lets a removed hint disappear on the next compile instead of
-     * orphaning a stale `.class` that IC never deletes.
-     */
-    private fun batchHintFile(
-        moduleFragment: IrModuleFragment,
-        functions: List<IrSimpleFunction>,
-        firModuleData: FirModuleData,
-        basePath: String,
-        fileName: String,
-    ) {
-        val fakeNewPath = Path(basePath).parent.resolve(fileName)
-        val firFile = buildFile {
-            moduleData = firModuleData
-            origin = FirDeclarationOrigin.Synthetic.PluginFile
-            packageDirective = buildPackageDirective { packageFqName = KoinModuleFirGenerator.HINTS_PACKAGE }
-            name = fileName
-            // KLIB metadata serialization (Native/JS/Wasm) requires every file to resolve to an io
-            // File; a synthetic file with no sourceFile fails wasm/js with "No file found for source
-            // null" (KT-82395).
-            sourceFile = syntheticHintSourceFile(fakeNewPath.absolutePathString())
-        }
-        val hintFile = IrFileImpl(
-            fileEntry = NaiveSourceBasedFileEntryImpl(fakeNewPath.absolutePathString()),
-            packageFragmentDescriptor = EmptyPackageFragmentDescriptor(moduleFragment.descriptor, KoinModuleFirGenerator.HINTS_PACKAGE),
-            module = moduleFragment
-        ).also { it.metadata = FirMetadataSource.File(firFile) }
-        moduleFragment.addFile(hintFile)
-        for (func in disambiguateDuplicateSignatures(functions)) {
-            hintFile.addChild(func)
-            func.parent = hintFile
-            context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(func)
-        }
-    }
-
-    /**
      * Make hint functions that would serialize to an identical signature distinct.
      *
      * Two hint functions sharing (name, erased parameter types) in one file are an invalid
@@ -1027,8 +984,6 @@ class KoinAnnotationProcessor(
         moduleFragment: IrModuleFragment,
         moduleDefinitions: Map<ModuleClass, List<Definition>>
     ) {
-        val hintsPackage = KoinModuleFirGenerator.HINTS_PACKAGE
-
         // Process all @Module classes that have @ComponentScan.
         // @Configuration is for module grouping/auto-loading labels; it must not gate cross-module
         // hint visibility. Without this, a @Module + @ComponentScan (no @Configuration) in a
@@ -1059,7 +1014,8 @@ class KoinAnnotationProcessor(
         for (moduleClass in modulesWithScan) {
             // A relay-only module has no moduleDefinitions entry but still needs its includes hint.
             val definitions = moduleDefinitions[moduleClass].orEmpty()
-            if (definitions.isEmpty() && moduleClass.includedModules.isEmpty()) continue
+            val nothingToPublish = definitions.isEmpty() && moduleClass.includedModules.isEmpty()
+            if (nothingToPublish && !moduleClass.hasComponentScan) continue
 
             val moduleClassId = moduleClass.irClass.classIdOrFail
             val sanitizedModuleId = KoinModuleFirGenerator.sanitizeModuleIdForHint(moduleClassId)
@@ -1085,6 +1041,15 @@ class KoinAnnotationProcessor(
                 val rosterFunc = createRosterHintFunction(rosterName, discriminators.sorted())
                 hintFunctions.add(rosterFunc)
                 KoinPluginLogger.debug { "    + componentscanfunc roster: $defTypeStr lists ${discriminators.size} qualifier(s) -> $rosterName" }
+            }
+
+            // Without a marker, a consumer can't tell an empty scan from missing hints and withholds
+            // validation for the whole entry point (KOIN-W008).
+            // Only when the scan found nothing at all: a found definition whose hint couldn't be built
+            // must keep the module incomplete, never pass as empty.
+            val scanFoundNothing = definitions.all { it is Definition.FunctionDef || it is Definition.DslDef }
+            if (moduleClass.hasComponentScan && scanFoundNothing && KoinPluginLogger.scanCompletionMarkersEnabled) {
+                hintFunctions.add(emptyScanMarker(sanitizedModuleId))
             }
 
             // Topology carrier: this module's own `includes=[...]` edges, re-published as a hint so a
@@ -1142,7 +1107,16 @@ class KoinAnnotationProcessor(
             val batchFileName = HintFileNaming.fileName(
                 "koin_hints_", KoinPluginLogger.moduleId, moduleClassId.asSingleFqName().asString(),
             )
-            batchHintFile(moduleFragment, hintFunctions, firModuleData, sourceFileEntry.name, batchFileName)
+            // One file per module, regenerated wholesale: a removed hint can't orphan a stale class.
+            addHintFunctions(
+                context,
+                moduleFragment,
+                disambiguateDuplicateSignatures(hintFunctions),
+                firModuleData,
+                sourceFileEntry.name,
+                batchFileName,
+                sourceBacked = true,
+            )
             KoinPluginLogger.debug { "    Batched ${hintFunctions.size} hints into single file: $batchFileName" }
         }
     }
@@ -1167,8 +1141,10 @@ class KoinAnnotationProcessor(
 
             when (definition) {
                 is Definition.ClassDef, is Definition.ExternalFunctionDef -> {
-                    scanHintFor(definition, sanitizedModuleId)?.let { hintFunctions.add(it) }
-                    KoinPluginLogger.debug { "    + componentscan hint: ${targetClass.name} ($defTypeStr)" }
+                    scanHintFor(definition, sanitizedModuleId, qualifiedEntriesByDefType)?.let {
+                        hintFunctions.add(it)
+                        KoinPluginLogger.debug { "    + scan hint ${it.name}: ${targetClass.name} ($defTypeStr)" }
+                    }
                 }
                 is Definition.TopLevelFunctionDef -> collectTopLevelFunctionHint(
                     definition, defTypeStr, targetClass, sanitizedModuleId, moduleClass, hintFunctions, qualifiedEntriesByDefType
@@ -1215,20 +1191,11 @@ class KoinAnnotationProcessor(
                 hintFunctions.add(reqHint)
                 KoinPluginLogger.debug { "    + funcreqs carrier: $returnFqn${carrierQualifier?.let { " @$it" } ?: ""} (${reqHint.parameters.size} requirement(s))" }
             }
-            // Compatibility carrier under the BARE name. The consumer derives its
-            // qualifier from the FIR-generated discovery hint, which understands only
-            // @Named/@Qualifier — not custom meta-annotation qualifiers, which the IR
-            // extractor here DOES resolve. When the two disagree the consumer looks up
-            // the bare name, and without this it would find nothing and silently drop
-            // the provider's requirements. Emitting the bare form once per return type
-            // keeps that case at its pre-qualifier-key behavior instead of regressing
-            // it to empty. Harmless where the sides agree: the qualified lookup wins.
-            if (carrierQualifier != null && emittedFuncReqsReturnFqns.add("$returnFqn|")) {
-                createFuncReqsHintFunction(targetClass, definition.requirements, null)?.let {
-                    hintFunctions.add(it)
-                    KoinPluginLogger.debug { "    + funcreqs carrier (bare fallback): $returnFqn" }
-                }
-            }
+            // No bare "compatibility" carrier for a qualified provider (#96): the bare name
+            // belongs to the unqualified provider of this type. Sharing it let a qualified provider's
+            // requirements leak onto an unqualified one (false KOIN-D004/D001), or take its slot and
+            // hide its real KOIN-D001. On this scan path the discovery hint and this carrier read the
+            // qualifier with the same extractor, so the consumer's qualified lookup finds the exact one.
         }
 
         // Top-level functions extract qualifier from the function declaration
@@ -1243,8 +1210,9 @@ class KoinAnnotationProcessor(
             // Qualified: per-qualifier entry under unique name to avoid signature clashes
             // when multiple functions share the same target type (e.g., Unit-returning initializers).
             val discriminator = qualifierDiscriminator(funcQualifier)
-            val existing = qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }
-            if (!existing.add(discriminator)) {
+            qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)
+            val entryKey = qualifiedEntryKey(sanitizedModuleId, defTypeStr, targetClass, discriminator)
+            if (!emittedQualifiedEntryKeys.add(entryKey)) {
                 // Two source funcs with the same (target, qualifier) — Koin-level duplicate binding.
                 // Silent-skip here; runtime will still raise if both are actually needed.
                 KoinPluginLogger.debug { "    ! duplicate qualifier '$discriminator' for $defTypeStr in ${moduleClass.irClass.name} — skipping second entry" }
@@ -1258,22 +1226,73 @@ class KoinAnnotationProcessor(
     }
 
     /**
-     * `componentscan_<moduleId>_<defType>` hint for a [Definition.ClassDef] / [Definition.ExternalFunctionDef]
-     * under [sanitizedModuleId] — shared by the scan loop below and [relayIncludedModuleHints] /
-     * [relayConfigurationHints]. Null for any other definition kind (those aren't scan-hint-shaped).
+     * Re-published scan hint for a [Definition.ClassDef] / [Definition.ExternalFunctionDef] under
+     * [sanitizedModuleId] — shared by the scan loop below and [relayIncludedModuleHints]. A class
+     * goes under the class-scan name; a function provider under the function-scan names (shared name
+     * when unqualified, per-qualifier entry recorded in [qualifiedEntriesByDefType] for the roster),
+     * or the consumer would rebuild it as a class and validate its return type's constructor (#114).
+     * Null for any other definition kind (those aren't scan-hint-shaped).
      */
-    private fun scanHintFor(definition: Definition, sanitizedModuleId: String): IrSimpleFunction? {
+    private fun scanHintFor(
+        definition: Definition,
+        sanitizedModuleId: String,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ): IrSimpleFunction? {
         val defTypeStr = definitionTypeToString(definition.definitionType)
-        val (bindings, scopeClass, qualifier) = when (definition) {
-            is Definition.ClassDef -> Triple(
-                definition.bindings, definition.scopeClass,
-                definition.qualifier ?: qualifierExtractor.extractFromClass(definition.irClass)
+        return when (definition) {
+            is Definition.ClassDef -> createHintFunction(
+                KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedModuleId, defTypeStr),
+                definition.returnTypeClass,
+                definition.bindings,
+                definition.scopeClass,
+                definition.qualifier ?: qualifierExtractor.extractFromClass(definition.irClass),
             )
-            is Definition.ExternalFunctionDef -> Triple(definition.bindings, definition.scopeClass, definition.qualifier)
-            else -> return null
+            is Definition.ExternalFunctionDef ->
+                functionScanHintFor(definition, defTypeStr, sanitizedModuleId, qualifiedEntriesByDefType)
+            else -> null
+        }?.eraseTypesThisModuleCannotName(context) // relays and scans reaching into a dependency
+    }
+
+    private fun functionScanHintFor(
+        definition: Definition.ExternalFunctionDef,
+        defTypeStr: String,
+        sanitizedModuleId: String,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ): IrSimpleFunction? {
+        val hintName = functionScanHintName(definition, defTypeStr, sanitizedModuleId, qualifiedEntriesByDefType)
+        val hint = hintName?.let {
+            createHintFunction(
+                it,
+                definition.returnTypeClass,
+                definition.bindings,
+                definition.scopeClass,
+                definition.qualifier,
+            )
         }
-        val hintName = KoinModuleFirGenerator.moduleScanHintFunctionName(sanitizedModuleId, defTypeStr)
-        return createHintFunction(hintName, definition.returnTypeClass, bindings, scopeClass, qualifier)
+        // Carry the provider's requirements in the entry itself: its own carrier sits in a module
+        // a consumer two hops away can't see (#114). Older consumers ignore these parameters.
+        hint?.let { function ->
+            requirementParams(definition.requirements, function.name.asString()) { name, type ->
+                hintValueParameter(function, name, type)
+            }?.let { function.parameters = function.parameters + it }
+        }
+        return hint
+    }
+
+    /** Shared name when unqualified; per-qualifier entry when qualified; null for a duplicate (type, qualifier). */
+    private fun functionScanHintName(
+        definition: Definition.ExternalFunctionDef,
+        defTypeStr: String,
+        sanitizedModuleId: String,
+        qualifiedEntriesByDefType: MutableMap<String, LinkedHashSet<String>>,
+    ): Name? {
+        val qualifier = definition.qualifier
+            ?: return KoinModuleFirGenerator.moduleScanFunctionHintFunctionName(sanitizedModuleId, defTypeStr)
+        val discriminator = qualifierDiscriminator(qualifier)
+        qualifiedEntriesByDefType.getOrPut(defTypeStr) { LinkedHashSet() }.add(discriminator)
+        val entryKey = qualifiedEntryKey(sanitizedModuleId, defTypeStr, definition.returnTypeClass, discriminator)
+        return KoinModuleFirGenerator.moduleScanFunctionEntryHintName(sanitizedModuleId, defTypeStr, discriminator)
+            .takeIf { emittedQualifiedEntryKeys.add(entryKey) }
     }
 
     /**
@@ -1416,6 +1435,20 @@ class KoinAnnotationProcessor(
     }
 
     /**
+     * Completion marker. From the module itself: its @ComponentScan found nothing. From a
+     * relay: the whole module resolved complete and empty. Either way, no scan entry is missing.
+     */
+    private fun emptyScanMarker(sanitizedModuleId: String): IrSimpleFunction =
+        createRosterHintFunction(KoinModuleFirGenerator.moduleScanEmptyHintName(sanitizedModuleId), emptyList())
+
+    /** A completion marker for [moduleFqName] is visible (see [emptyScanMarker]). */
+    private fun scanDeclaredEmpty(moduleFqName: String): Boolean {
+        val sanitizedId = KoinModuleFirGenerator.sanitizeModuleIdForHint(ClassId.topLevel(FqName(moduleFqName)))
+        val markerName = KoinModuleFirGenerator.moduleScanEmptyHintName(sanitizedId)
+        return cachedReferenceFunctions(CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, markerName)).isNotEmpty()
+    }
+
+    /**
      * Create a roster hint function whose parameter names enumerate the per-qualifier entry
      * discriminators for a given (moduleId, defType). All parameters are `Unit`-typed; the names
      * are the payload. Consumer reads the names to find which per-qualifier entries to look up.
@@ -1522,20 +1555,7 @@ class KoinAnnotationProcessor(
         )
 
         fun hintParam(paramName: String, type: org.jetbrains.kotlin.ir.types.IrType) =
-            context.irFactory.createValueParameter(
-                startOffset = UNDEFINED_OFFSET,
-                endOffset = UNDEFINED_OFFSET,
-                origin = IrDeclarationOrigin.DEFINED,
-                name = Name.identifier(paramName),
-                type = type,
-                isAssignable = false,
-                symbol = IrValueParameterSymbolImpl(),
-                kind = IrParameterKind.Regular,
-                varargElementType = null,
-                isCrossinline = false,
-                isNoinline = false,
-                isHidden = false
-            ).also { it.parent = function }
+            hintValueParameter(function, paramName, type)
 
         // Encoding (cut-2 — see [discoverFuncReqsForExternalDef] for the mirror decode). Each
         // must-validate requirement emits, in order:
@@ -1545,17 +1565,37 @@ class KoinAnnotationProcessor(
         // to the preceding r_ by position):
         //   qn_<sanitized-value>    : Unit                   — @Named / string @Qualifier value
         //   qt                      : <qualifier annotation>  — typed @Qualifier(T::class)
+        // and, for a Lazy<T> requirement, an adjacent flag companion (GH #115):
+        //   lz                      : Unit                   — Lazy edge, skipped by cycle detection
+        //                                                       (without it: false KOIN-D004)
+        val params = requirementParams(toCarry, returnFqn, ::hintParam) ?: return null
+        if (params.isEmpty()) return null
+
+        function.parameters = params
+        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
+        function.addDeprecatedHiddenAnnotation(context)
+        return function.eraseTypesThisModuleCannotName(context)
+    }
+
+    /**
+     * The `r_` / `qn_` / `qt` / `lz` encoding of [requirements] (see [createFuncReqsHintFunction]),
+     * built with [hintParam]. Null when a required type can't be named here: a partial list would
+     * validate the wrong graph.
+     */
+    private fun requirementParams(
+        requirements: List<Requirement>,
+        logOwner: String,
+        hintParam: (String, org.jetbrains.kotlin.ir.types.IrType) -> IrValueParameter,
+    ): List<IrValueParameter>? {
         val params = mutableListOf<IrValueParameter>()
-        for (req in toCarry) {
-            val classId = req.typeKey.classId ?: run {
-                KoinPluginLogger.debug { "    funcreqs SKIP for $returnFqn: unresolvable type for '${req.paramName}'" }
-                return null
-            }
-            val reqClass = context.referenceClass(classId)?.owner ?: run {
-                KoinPluginLogger.debug { "    funcreqs SKIP for $returnFqn: type ${classId.asFqNameString()} not on classpath" }
+        for (req in requirements) {
+            // A class off this classpath (re-relayed from 2+ hops) still has its id: keep it.
+            val reqClass = req.typeKey.classId?.let { hintClasses.classOrStub(it) } ?: run {
+                KoinPluginLogger.debug { "    requirements SKIP for $logOwner: '${req.paramName}' type not nameable" }
                 return null
             }
             params.add(hintParam("r_${KoinPluginConstants.sanitizeQualifierName(req.paramName)}", reqClass.hintParameterType(context)))
+            if (req.isLazy) params.add(hintParam("lz", context.irBuiltIns.unitType))
             when (val q = req.qualifier) {
                 is QualifierValue.StringQualifier ->
                     params.add(hintParam("qn_${KoinPluginConstants.sanitizeQualifierName(q.name)}", context.irBuiltIns.unitType))
@@ -1564,12 +1604,74 @@ class KoinAnnotationProcessor(
                 null -> {}
             }
         }
-        if (params.isEmpty()) return null
+        return params
+    }
 
-        function.parameters = params
-        function.body = context.irFactory.createBlockBody(UNDEFINED_OFFSET, UNDEFINED_OFFSET, emptyList())
-        function.addDeprecatedHiddenAnnotation(context)
-        return function
+    private fun hintValueParameter(
+        function: IrSimpleFunction,
+        paramName: String,
+        type: org.jetbrains.kotlin.ir.types.IrType,
+    ): IrValueParameter = context.irFactory.createValueParameter(
+        startOffset = UNDEFINED_OFFSET,
+        endOffset = UNDEFINED_OFFSET,
+        origin = IrDeclarationOrigin.DEFINED,
+        name = Name.identifier(paramName),
+        type = type,
+        isAssignable = false,
+        symbol = IrValueParameterSymbolImpl(),
+        kind = IrParameterKind.Regular,
+        varargElementType = null,
+        isCrossinline = false,
+        isNoinline = false,
+        isHidden = false,
+    ).also { it.parent = function }
+
+    /** A function provider's requirements: carried in its own hint when relayed, else from its carrier. */
+    private fun requirementsFromHint(
+        params: List<IrValueParameter>,
+        returnTypeClass: IrClass,
+        qualifier: QualifierValue?,
+    ): List<Requirement> =
+        decodeRequirementParams(params).ifEmpty { discoverFuncReqsForExternalDef(returnTypeClass, qualifier) }
+
+    /** Reverse of [requirementParams]: requirements read from a hint's parameters, in order. */
+    private fun decodeRequirementParams(params: List<IrValueParameter>): List<Requirement> {
+        val reqs = mutableListOf<Requirement>()
+        for (p in params) {
+            val name = p.name.asString()
+            when {
+                name.startsWith("r_") -> reqs.add(
+                    Requirement(
+                        typeKey = hintClasses.parameterClass(params, p)
+                            ?.let { TypeKey(ParameterAnalyzer.classIdFromIrClass(it), it.fqNameWhenAvailable) }
+                            ?: ParameterAnalyzer.typeKeyFromType(p.type),
+                        paramName = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("r_")),
+                        isNullable = false,
+                        hasDefault = false,
+                        isInjectedParam = false,
+                        isProvided = false,
+                        isScopeId = false,
+                        scopeIdName = null,
+                        isLazy = false,
+                        isList = false,
+                        isProperty = false,
+                        propertyKey = null,
+                        qualifier = null,
+                    ),
+                )
+                // Companions attach to the most recent requirement (positional adjacency).
+                name.startsWith("qn_") && reqs.isNotEmpty() -> {
+                    val v = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("qn_"))
+                    reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.StringQualifier(v))
+                }
+                name == "qt" && reqs.isNotEmpty() -> {
+                    val qClass = hintClasses.parameterClass(params, p)
+                    if (qClass != null) reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.TypeQualifier(qClass))
+                }
+                name == "lz" && reqs.isNotEmpty() -> reqs[reqs.lastIndex] = reqs.last().copy(isLazy = true)
+            }
+        }
+        return reqs
     }
 
     /**
@@ -1606,12 +1708,14 @@ class KoinAnnotationProcessor(
                     continue
                 }
 
+            val producerFile = fn.irFunction.fileOrNull?.fileEntry?.name
             val sourceFileEntry = try {
-                fn.irFunction.fileOrNull?.fileEntry ?: fn.returnTypeClass.fileEntry
+                fn.returnTypeClass.fileEntry
             } catch (_: NotImplementedError) {
                 null
             }
-            val basePath = sourceFileEntry?.name
+            val basePath = producerFile
+                ?: sourceFileEntry?.name
                 ?: moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name
                 ?: "/synthetic"
             // File name must carry the qualifier for the same reason the function name does: two
@@ -1620,7 +1724,15 @@ class KoinAnnotationProcessor(
             // allowing only one carrier per return type. No moduleId in the hash — funcreqs carriers
             // are deliberately unscoped by Gradle module (see the dedup comment above this loop).
             val fileName = HintFileNaming.fileName("koin_funcreqs_", returnFqn, carrierQualifier)
-            batchHintFile(moduleFragment, listOf(hint), firModuleData, basePath, fileName)
+            addHintFunctions(
+                context,
+                moduleFragment,
+                listOf(hint),
+                firModuleData,
+                basePath,
+                fileName,
+                sourceBacked = producerFile != null,
+            )
             KoinPluginLogger.debug { "    + funcreqs carrier (orphan): $returnFqn (${hint.parameters.size} requirement(s))" }
         }
     }
@@ -1643,8 +1755,8 @@ class KoinAnnotationProcessor(
         val localFqNames = moduleClasses.mapNotNullTo(mutableSetOf()) { it.irClass.fqNameWhenAvailable?.asString() }
         val toRelay = mutableListOf<IrClass>()
         for (hintFuncSymbol in visible) {
-            val paramType = hintFuncSymbol.owner.regularParameters.firstOrNull()?.type ?: continue
-            val moduleClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+            val params = hintFuncSymbol.owner.regularParameters
+            val moduleClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
             val fqName = moduleClass.fqNameWhenAvailable?.asString() ?: continue
             if (fqName in localFqNames) continue // FIR already emitted its own hint
             if (!relayedConfigurationModuleFqNames.add(fqName)) continue
@@ -1652,7 +1764,9 @@ class KoinAnnotationProcessor(
         }
         if (toRelay.isEmpty()) return
 
-        val hints = toRelay.mapNotNullTo(mutableListOf()) { createHintFunction(hintName, it) }
+        val hints = toRelay.mapNotNullTo(mutableListOf()) {
+            createHintFunction(hintName, it)?.eraseTypesThisModuleCannotName(context)
+        }
         // The module hint alone only makes the module discoverable — without also relaying its own
         // definitions, it resolves as an empty external stub, DependencyModuleResult.isComplete comes
         // back false, and validateFullGraph's fail-open policy withholds validation for the WHOLE
@@ -1677,7 +1791,16 @@ class KoinAnnotationProcessor(
 
         val basePath = moduleFragment.files.minByOrNull { it.fileEntry.name }?.fileEntry?.name ?: "/synthetic"
         val fileName = HintFileNaming.fileName("koin_hints_configrelay_", KoinPluginLogger.moduleId, label)
-        batchHintFile(moduleFragment, hints, firModuleData, basePath, fileName)
+        // Relayed from dependencies, not from basePath's source: not source-backed (see addHintFunctions).
+        addHintFunctions(
+            context,
+            moduleFragment,
+            disambiguateDuplicateSignatures(hints),
+            firModuleData,
+            basePath,
+            fileName,
+            sourceBacked = false,
+        )
         KoinPluginLogger.debug {
             "    + relayed ${hints.size} @Configuration($label) hint(s): ${toRelay.mapNotNull { it.fqNameWhenAvailable?.asString() }}"
         }
@@ -1708,53 +1831,14 @@ class KoinAnnotationProcessor(
         val hintName = Name.identifier(
             KoinPluginConstants.funcReqsHintFunctionName(returnFqn, qualifier?.let { qualifierDiscriminator(it) })
         )
-        val hintFunc = (context.referenceFunctions(
+        // Exact name only: the bare carrier is another (unqualified) provider's, never a fallback.
+        // No carrier: the provider has no requirement to carry, or (orphan path, see KTZ ticket on
+        // FIR-derived qualifiers) the consumer's qualifier differs from the producer's.
+        val hintFunc = context.referenceFunctions(
             CallableId(KoinModuleFirGenerator.HINTS_PACKAGE, hintName)
-        ).firstOrNull()
-        // Fall back to the bare name: producer and consumer can disagree on the qualifier (the
-        // consumer's comes from the FIR discovery hint, which does not model custom meta-annotation
-        // qualifiers). Missing here would mean silently unvalidated requirements.
-            ?: qualifier?.let {
-                context.referenceFunctions(
-                    CallableId(
-                        KoinModuleFirGenerator.HINTS_PACKAGE,
-                        Name.identifier(KoinPluginConstants.funcReqsHintFunctionName(returnFqn, null))
-                    )
-                ).firstOrNull()
-            })?.owner ?: return emptyList()
+        ).firstOrNull()?.owner ?: return emptyList()
 
-        val reqs = mutableListOf<Requirement>()
-        for (p in hintFunc.regularParameters) {
-            val name = p.name.asString()
-            when {
-                name.startsWith("r_") -> reqs.add(
-                    Requirement(
-                        typeKey = ParameterAnalyzer.typeKeyFromType(p.type),
-                        paramName = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("r_")),
-                        isNullable = false,
-                        hasDefault = false,
-                        isInjectedParam = false,
-                        isProvided = false,
-                        isScopeId = false,
-                        scopeIdName = null,
-                        isLazy = false,
-                        isList = false,
-                        isProperty = false,
-                        propertyKey = null,
-                        qualifier = null,
-                    )
-                )
-                // Qualifier companions attach to the most recent requirement (positional adjacency).
-                name.startsWith("qn_") && reqs.isNotEmpty() -> {
-                    val v = KoinPluginConstants.unsanitizeQualifierName(name.removePrefix("qn_"))
-                    reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.StringQualifier(v))
-                }
-                name == "qt" && reqs.isNotEmpty() -> {
-                    val qClass = (p.type.classifierOrNull as? IrClassSymbol)?.owner
-                    if (qClass != null) reqs[reqs.lastIndex] = reqs.last().copy(qualifier = QualifierValue.TypeQualifier(qClass))
-                }
-            }
-        }
+        val reqs = decodeRequirementParams(hintFunc.regularParameters)
         if (reqs.isNotEmpty()) {
             KoinPluginLogger.debug {
                 "      funcreqs decoded for $returnFqn: ${reqs.size} req(s) [${reqs.joinToString { it.typeKey.render() + (it.qualifier?.let { q -> " " + qualifierDisplayForLog(q) } ?: "") }}]"
@@ -2136,8 +2220,7 @@ class KoinAnnotationProcessor(
                 val hintFunc = hintFuncSymbol.owner
                 val params = hintFunc.regularParameters
                 // The first parameter type is the definition class
-                val paramType = params.firstOrNull()?.type ?: continue
-                val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val defClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
 
                 // Check if the class's package matches scan packages
                 val defPackage = defClass.packageFqName?.asString() ?: continue
@@ -2156,19 +2239,16 @@ class KoinAnnotationProcessor(
                 // This is critical for cross-module discovery — reading the IR class's supertypes
                 // directly is unreliable for `internal` classes loaded from JARs/klibs.
                 val hintBindings = params.filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    .mapNotNull { hintClasses.parameterClass(params, it) }
 
                 // Fallback to local detection if hint has no bindings encoded (older hints / @Inject case)
-                val bindings = if (hintBindings.isNotEmpty()) {
-                    hintBindings
-                } else {
-                    val explBindings = getExplicitBindings(defClass)
-                    if (explBindings != null) explBindings else detectBindings(defClass)
-                }
+                // An explicit `binds` read off the resolved class wins: the hint is built in FIR, before
+                // `binds = [X::class]` resolves, so it only holds the auto-detected supertypes (GH #98).
+                val bindings = getExplicitBindings(defClass) ?: hintBindings.ifEmpty { detectBindings(defClass) }
 
                 // Scope class from hint param, fallback to local class annotation
                 val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
-                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    ?.let { hintClasses.parameterClass(params, it) }
                     ?: getScopeClass(defClass)
 
                 // Qualifier from hint params (cross-module), fallback to direct extraction.
@@ -2180,7 +2260,7 @@ class KoinAnnotationProcessor(
                     } else {
                         val qTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qTypeParam != null) {
-                            val qClass = (qTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            val qClass = hintClasses.parameterClass(params, qTypeParam)
                             if (qClass != null) QualifierValue.TypeQualifier(qClass) else null
                         } else null
                     }
@@ -2232,8 +2312,7 @@ class KoinAnnotationProcessor(
                 val hintFunc = hintFuncSymbol.owner
                 val params = hintFunc.regularParameters
                 // The first parameter type is the return type of the original function (what it provides)
-                val paramType = params.firstOrNull()?.type ?: continue
-                val returnTypeClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val returnTypeClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
 
                 // Extract function's own package from funcpkg_<package> parameter (encoded when it differs from return type)
                 val funcPkgParam = params.firstOrNull { it.name.asString().startsWith("funcpkg_") }
@@ -2255,10 +2334,10 @@ class KoinAnnotationProcessor(
 
                 // Extract enriched metadata from hint parameters (C2: cross-module function hint metadata)
                 val bindings = params.filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    .mapNotNull { hintClasses.parameterClass(params, it) }
 
                 val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
-                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    ?.let { hintClasses.parameterClass(params, it) }
 
                 val qualifier: QualifierValue? = run {
                     val qualifierParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
@@ -2268,7 +2347,7 @@ class KoinAnnotationProcessor(
                     } else {
                         val qualTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qualTypeParam != null) {
-                            val qualClass = (qualTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            val qualClass = hintClasses.parameterClass(params, qualTypeParam)
                             if (qualClass != null) QualifierValue.TypeQualifier(qualClass) else null
                         } else null
                     }
@@ -2289,7 +2368,7 @@ class KoinAnnotationProcessor(
                     // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint so the
                     // entry-point verifier can check this provider's transitive deps (empty when the
                     // provider carried nothing — today's provider-only behavior).
-                    it.requirements = discoverFuncReqsForExternalDef(returnTypeClass, qualifier)
+                    it.requirements = requirementsFromHint(params, returnTypeClass, qualifier)
                     it.origin = SourceOrigin.of(returnTypeClass)
                 })
             }
@@ -2302,7 +2381,7 @@ class KoinAnnotationProcessor(
         // N identical `componentscan_<moduleId>_<defType>` roster hints (an ExternalFunctionDef is
         // provider-only — no `single { }` body is generated in the consumer, only the re-export roster hint)
         // → a hard KLIB SignatureClashDetector error on native/wasm (invisible on JVM/DEX). Analogous to the
-        // class-path dedup in findMatchingDefinitions (KTZ-4365), but keyed on type+qualifier rather than
+        // class-path dedup in findMatchingDefinitions, but keyed on type+qualifier rather than
         // class identity, since a function-provided type legitimately varies by qualifier. See issue #62's
         // cross-module native manifestation.
         val seenKeys = mutableSetOf<String>()
@@ -2331,7 +2410,7 @@ class KoinAnnotationProcessor(
         // Guard against circular module includes (A includes B, B includes A)
         if (!visited.add(moduleFqName)) {
             KoinPluginLogger.debug { "      Cycle detected: $moduleFqName already visited, skipping" }
-            return DependencyModuleResult(emptyList(), isComplete = true)
+            return DependencyModuleResult(emptyList())
         }
 
         val definitions = mutableListOf<Definition>()
@@ -2364,13 +2443,13 @@ class KoinAnnotationProcessor(
         val includedModules = getModuleIncludes(moduleIrClass)
         // Keyed by (type, qualifier), not type alone — see [definitionDedupeKey] / issue #94.
         val knownKeys = definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }
-        val classpathIncludesComplete = collectIncludedModuleDefinitions(includedModules, knownKeys, definitions, visited)
+        val classpathIncludesUnresolved = collectIncludedModuleDefinitions(includedModules, knownKeys, definitions, visited)
 
         // getModuleIncludes silently drops an edge whose INCLUDED class isn't on this reader's
         // classpath (2+ `implementation` hops away) — union in what its includes hint still saw.
         val classpathIncludeFqNames = includedModules.mapNotNull { it.fqNameWhenAvailable?.asString() }.toSet()
         val hintOnlyIncludes = discoverModuleIncludesFromHints(moduleFqName).filterNot { it in classpathIncludeFqNames }
-        val hintOnlyIncludesComplete = foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownKeys, visited)
+        val hintOnlyIncludesUnresolved = foldHintOnlyIncludes(hintOnlyIncludes, definitions, knownKeys, visited)
 
         if (definitions.isNotEmpty()) {
             KoinPluginLogger.debug { "    -> Found ${definitions.size} definitions from $moduleFqName (hasComponentScan=$hasComponentScan)" }
@@ -2382,11 +2461,13 @@ class KoinAnnotationProcessor(
         // whole thing look whole. When hint functions are unavailable, discoverModuleScanDefinitions
         // returns empty; in that case we can't fully resolve the module's scanned definitions and
         // must mark it incomplete to skip safety validation.
-        val isComplete = (!hasComponentScan || scanDefinitionsFound) && classpathIncludesComplete && hintOnlyIncludesComplete
-        if (!isComplete) {
+        val scanUnresolved = hasComponentScan && !scanDefinitionsFound && !scanDeclaredEmpty(moduleFqName)
+        if (scanUnresolved) {
             KoinPluginLogger.debug { "    -> WARNING: $moduleFqName has @ComponentScan but no scan hints found (hint functions unavailable)" }
         }
-        return DependencyModuleResult(definitions, isComplete = isComplete)
+        val unresolvedModules = (if (scanUnresolved) listOf(moduleFqName) else emptyList()) +
+            classpathIncludesUnresolved + hintOnlyIncludesUnresolved
+        return DependencyModuleResult(definitions, unresolvedModules)
     }
 
     /**
@@ -2418,9 +2499,10 @@ class KoinAnnotationProcessor(
         // Own class unresolvable → its includes=[...] can't be read off the classpath either, but
         // it already re-published them as a hint (generateModuleScanHints), so we can walk past it.
         val hintIncludes = discoverModuleIncludesFromHints(moduleFqName)
-        val hintIncludesComplete = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }, visited)
+        val hintIncludesUnresolved = foldHintOnlyIncludes(hintIncludes, definitions, definitions.mapTo(mutableSetOf()) { definitionDedupeKey(it) }, visited)
 
-        return DependencyModuleResult(definitions, isComplete = (definitions.isNotEmpty() || hintIncludes.isNotEmpty()) && hintIncludesComplete)
+        val selfUnresolved = definitions.isEmpty() && hintIncludes.isEmpty() && !scanDeclaredEmpty(moduleFqName)
+        return DependencyModuleResult(definitions, (if (selfUnresolved) listOf(moduleFqName) else emptyList()) + hintIncludesUnresolved)
     }
 
     /** Step 1 of [collectDefinitionsFromDependencyModule]: function definitions declared directly on the module class. */
@@ -2491,8 +2573,8 @@ class KoinAnnotationProcessor(
         knownKeys: MutableSet<String>,
         definitions: MutableList<Definition>,
         visited: MutableSet<String>,
-    ): Boolean {
-        var classpathIncludesComplete = true
+    ): List<String> {
+        val unresolvedModules = mutableListOf<String>()
         for (included in includedModules) {
             val includedFqName = included.fqNameWhenAvailable?.asString() ?: continue
             // Check if already collected locally (avoid re-processing)
@@ -2506,14 +2588,14 @@ class KoinAnnotationProcessor(
             } else {
                 // Included module from JAR — recursively collect
                 val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
-                if (!includedResult.isComplete) classpathIncludesComplete = false
+                unresolvedModules += includedResult.unresolvedModules
                 includedResult.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
             }
             definitions.addAll(newDefs)
             val source = if (localModuleClass != null) "local" else "dependency"
             KoinPluginLogger.debug { "      Included ($source) $includedFqName: ${newDefs.size} new definitions" }
         }
-        return classpathIncludesComplete
+        return unresolvedModules
     }
 
     /**
@@ -2546,7 +2628,7 @@ class KoinAnnotationProcessor(
      * [knownKeys] is [definitionDedupeKey] (type + qualifier), NOT type alone — see
      * [collectIncludedModuleDefinitions] / issue #94.
      *
-     * @return false if any folded-in submodule itself came back incomplete — a partial submodule's
+     * @return the unresolved modules of any folded-in submodule that came back incomplete — a partial submodule's
      *   definitions still get folded in (best-effort), but the caller must not report the combined
      *   result as complete, or a genuinely missing dependency inside that submodule goes unvalidated
      *   while everything else in the (wrongly-marked-complete) graph is checked as if it were whole.
@@ -2556,38 +2638,63 @@ class KoinAnnotationProcessor(
         definitions: MutableList<Definition>,
         knownKeys: MutableSet<String>,
         visited: MutableSet<String>,
-    ): Boolean {
-        var allComplete = true
+    ): List<String> {
+        val unresolvedModules = mutableListOf<String>()
         for (includedFqName in includedFqNames) {
             val includedResult = collectDefinitionsFromDependencyModule(includedFqName, visited)
-            if (!includedResult.isComplete) allComplete = false
+            unresolvedModules += includedResult.unresolvedModules
             val newDefs = includedResult.definitions.filter { knownKeys.add(definitionDedupeKey(it)) }
             definitions.addAll(newDefs)
             KoinPluginLogger.debug { "      Included (hint-only, classpath-invisible) $includedFqName: ${newDefs.size} new definitions" }
         }
-        return allComplete
+        return unresolvedModules
     }
 
     /**
      * Relay [includedFqName]'s own [Definition.ClassDef]/[Definition.ExternalFunctionDef] definitions
      * under its own hint names, physically compiled into the CURRENT (includer) module's hint file —
-     * see the call sites in [generateModuleScanHints] and [relayConfigurationHints] for why. Doesn't
-     * cover [Definition.FunctionDef] (no relay-able hint form yet) or a qualified/funcreqs-carrying
-     * [Definition.TopLevelFunctionDef] (only the unqualified shape is relayed) — tracked as a
-     * follow-up, not silently claimed. Deduped compilation-wide (two relayers of the same far module
-     * would otherwise double-emit — a KLIB duplicate-signature clash on native/wasm).
+     * see the call sites in [generateModuleScanHints] and [relayConfigurationHints] for why. Function
+     * providers go out as function-scan hints carrying their own requirements (see [scanHintFor]).
+     * Doesn't cover [Definition.FunctionDef] (no relay-able hint form yet). Deduped compilation-wide
+     * (two relayers of the same far module would otherwise double-emit — a KLIB duplicate-signature
+     * clash on native/wasm).
      */
     private fun relayIncludedModuleHints(includedFqName: String, into: MutableList<IrSimpleFunction>) {
         if (!relayedIncludedModuleFqNames.add(includedFqName)) return
         val result = collectDefinitionsFromDependencyModule(includedFqName)
-        if (result.definitions.isEmpty()) return
         val sanitizedIncludedId = KoinModuleFirGenerator.sanitizeModuleIdForHint(ClassId.topLevel(FqName(includedFqName)))
-        val relayed = result.definitions.mapNotNull { scanHintFor(it, sanitizedIncludedId) }
+        if (result.definitions.isEmpty()) {
+            // Resolved complete with nothing in it (scan and includes alike): stays complete one hop further.
+            if (result.isComplete && KoinPluginLogger.scanCompletionMarkersEnabled) {
+                into.add(emptyScanMarker(sanitizedIncludedId))
+            }
+            return
+        }
+        val qualifiedEntriesByDefType = mutableMapOf<String, LinkedHashSet<String>>()
+        val relayedDefinitions = result.definitions.mapNotNull {
+            scanHintFor(it, sanitizedIncludedId, qualifiedEntriesByDefType)
+        }
+        val relayed = relayedDefinitions + qualifiedEntriesByDefType.map { (defTypeStr, discriminators) ->
+                createRosterHintFunction(
+                    KoinModuleFirGenerator.moduleScanFunctionRosterHintName(sanitizedIncludedId, defTypeStr),
+                    discriminators.sorted(),
+                )
+            }
         into.addAll(relayed)
         if (relayed.isNotEmpty()) {
             KoinPluginLogger.debug { "    + relayed ${relayed.size} hint(s) from classpath-invisible include $includedFqName (id=$sanitizedIncludedId)" }
         }
     }
+
+    /**
+     * Per-qualifier entry hints already emitted, keyed by return type too: two `@Named("x")` providers
+     * of different types share an entry name as overloads (the consumer reads every overload), while
+     * the same type + qualifier twice is a duplicate definition.
+     */
+    private val emittedQualifiedEntryKeys = mutableSetOf<String>()
+
+    private fun qualifiedEntryKey(moduleId: String, defType: String, returnType: IrClass, discriminator: String) =
+        "$moduleId|$defType|${returnType.fqNameWhenAvailable?.asString()}|$discriminator"
 
     /** Compilation-wide dedupe for [relayIncludedModuleHints] — see its kdoc. */
     private val relayedIncludedModuleFqNames = mutableSetOf<String>()
@@ -2680,25 +2787,23 @@ class KoinAnnotationProcessor(
             for (hintFuncSymbol in hintFunctions) {
                 val hintFunc = hintFuncSymbol.owner
                 val classParams = hintFunc.regularParameters
-                val paramType = classParams.firstOrNull()?.type ?: continue
-                val defClass = (paramType.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                val defClass = classParams.firstOrNull()
+                    ?.let { hintClasses.parameterClass(classParams, it) }
+                    ?: continue
 
                 val definitionType = parseDefinitionType(defType) ?: continue
 
                 // Extract bindings from hint parameters first (binding0, binding1, ...)
                 // critical for `internal` cross-module classes whose IR supertypes may not be reliably accessible.
                 val hintBindings = classParams.filter { it.name.asString().startsWith("binding") }
-                    .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    .mapNotNull { hintClasses.parameterClass(classParams, it) }
 
-                val bindings = if (hintBindings.isNotEmpty()) {
-                    hintBindings
-                } else {
-                    val explBindings = getExplicitBindings(defClass)
-                    if (explBindings != null) explBindings else detectBindings(defClass)
-                }
+                // An explicit `binds` read off the resolved class wins: the hint is built in FIR, before
+                // `binds = [X::class]` resolves, so it only holds the auto-detected supertypes (GH #98).
+                val bindings = getExplicitBindings(defClass) ?: hintBindings.ifEmpty { detectBindings(defClass) }
 
                 val scopeClass = classParams.firstOrNull { it.name.asString() == "scope" }
-                    ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+                    ?.let { hintClasses.parameterClass(classParams, it) }
                     ?: getScopeClass(defClass)
 
                 // Qualifier from hint params (cross-module), fallback to direct extraction
@@ -2709,7 +2814,7 @@ class KoinAnnotationProcessor(
                     } else {
                         val qTypeParam = classParams.firstOrNull { it.name.asString() == "qualifierType" }
                         if (qTypeParam != null) {
-                            val qClass = (qTypeParam.type.classifierOrNull as? IrClassSymbol)?.owner
+                            val qClass = hintClasses.parameterClass(classParams, qTypeParam)
                             if (qClass != null) QualifierValue.TypeQualifier(qClass) else null
                         } else null
                     }
@@ -2838,13 +2943,12 @@ class KoinAnnotationProcessor(
         seenKeys: MutableSet<String>,
     ) {
         val params = hintFunc.regularParameters
-        val contributedType = params.firstOrNull()?.type ?: return
-        val returnTypeClass = (contributedType.classifierOrNull as? IrClassSymbol)?.owner ?: return
+        val returnTypeClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: return
 
         val bindings = params.filter { it.name.asString().startsWith("binding") }
-            .mapNotNull { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+            .mapNotNull { hintClasses.parameterClass(params, it) }
         val scopeClass = params.firstOrNull { it.name.asString() == "scope" }
-            ?.let { (it.type.classifierOrNull as? IrClassSymbol)?.owner }
+            ?.let { hintClasses.parameterClass(params, it) }
         val qualifier: QualifierValue? = run {
             val qStringParam = params.firstOrNull { it.name.asString().startsWith("qualifier_") }
             if (qStringParam != null) {
@@ -2852,7 +2956,7 @@ class KoinAnnotationProcessor(
                 QualifierValue.StringQualifier(raw)
             } else {
                 val qTypeParam = params.firstOrNull { it.name.asString() == "qualifierType" }
-                val qClass = (qTypeParam?.type?.classifierOrNull as? IrClassSymbol)?.owner
+                val qClass = qTypeParam?.let { hintClasses.parameterClass(params, it) }
                 if (qClass != null) QualifierValue.TypeQualifier(qClass) else null
             }
         }
@@ -2866,7 +2970,7 @@ class KoinAnnotationProcessor(
         ).also {
             // A3 Gate-3: rebuild requirements from the provider's funcreqs carrier hint (empty when
             // the provider carried nothing — today's provider-only behavior).
-            it.requirements = discoverFuncReqsForExternalDef(returnTypeClass, qualifier)
+            it.requirements = requirementsFromHint(params, returnTypeClass, qualifier)
             it.origin = SourceOrigin.of(returnTypeClass)
         }
         val key = definitionDedupeKey(candidate)
@@ -2964,7 +3068,7 @@ class KoinAnnotationProcessor(
 
         // Separate definitions by scope type. A definition belongs to root iff none of the
         // three scope-flavor fields is set; otherwise route into the matching group. This
-        // partition is the bug surface for KTZ-4039 / #34 — before scopeName existed, a
+        // partition is the bug surface for #34 — before scopeName existed, a
         // `@Scope(name = "session") @Scoped` definition had `scopeClass == null` and fell
         // through to `rootDefinitions`, where `buildScoped` on a `Module` receiver doesn't
         // exist and the call was silently dropped.
@@ -3002,7 +3106,7 @@ class KoinAnnotationProcessor(
             }
         }
 
-        // Generate scope(named("...")) { ... } blocks for string-named scope definitions (KTZ-4039)
+        // Generate scope(named("...")) { ... } blocks for string-named scope definitions
         for ((scopeName, scopeDefs) in namedScopeGroups) {
             val scopeBlock = buildNamedScopeBlock(scopeName, scopeDefs, moduleClass, moduleReceiverParam, lambdaFunction, lambdaBuilder, parentFunction)
             if (scopeBlock != null) {
@@ -3040,7 +3144,7 @@ class KoinAnnotationProcessor(
                 putRegularArgument(moduleDeclarationIndex, lambdaExpr)
             }
 
-            // KTZ-4048 / koin#2415 — propagate `@Module(createdAtStart = true)` to the
+            // koin#2415 — propagate `@Module(createdAtStart = true)` to the
             // `module(...)` DSL call. Without this, Kotlin's `module$default` trampoline
             // substitutes the parameter default (false) regardless of what the user wrote
             // on the annotation, and the eager-init behavior silently goes missing.
@@ -3091,7 +3195,7 @@ class KoinAnnotationProcessor(
 
     /**
      * Build: scope(named("name")) { scoped(...) } — string-named scope variant for
-     * `@Scope(name = "...")`. KTZ-4039 / #34.
+     * `@Scope(name = "...")`. #34.
      */
     private fun buildNamedScopeBlock(
         scopeName: String,

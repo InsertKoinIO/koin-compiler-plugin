@@ -61,6 +61,8 @@ class CompileSafetyValidator(
      * @param collectedModuleClasses Local module classes from annotation processing
      * @param getDefinitionsForModule Callback to get definitions for a local module (returns completeness info)
      * @param getDefinitionsForDependencyModule Callback to get definitions from a dependency JAR module
+     * @param dependencyDslProviders Loaded DSL definitions from dependency modules: they satisfy
+     *   requirements only, and stay out of [assembledGraphTypes] so call-site checks are unchanged
      */
     fun validateFullGraph(
         appName: String,
@@ -68,7 +70,8 @@ class CompileSafetyValidator(
         collectedModuleClasses: List<ModuleClass>,
         getDefinitionsForModule: (ModuleClass) -> DependencyModuleResult,
         getDefinitionsForDependencyModule: (String) -> DependencyModuleResult,
-        dslDefinitions: List<Definition> = emptyList()
+        dslDefinitions: List<Definition> = emptyList(),
+        dependencyDslProviders: List<Definition> = emptyList(),
     ) {
         KoinPluginLogger.debug { "── A3 Safety: Full-graph for $appName ──" }
         KoinPluginLogger.debug { "  modules in graph: ${allModuleIrClasses.size}" }
@@ -76,7 +79,7 @@ class CompileSafetyValidator(
         // Collect definitions from all modules in the graph — every one needs validation, since
         // there is no A2 pre-pass to have already handled any of them.
         val allDefinitions = mutableListOf<Definition>()
-        var allModulesComplete = true
+        val incompleteModules = mutableListOf<String>()
 
         KoinPluginLogger.debug { "  collecting definitions from all modules:" }
         for (moduleIrClass in allModuleIrClasses) {
@@ -89,7 +92,7 @@ class CompileSafetyValidator(
                 // Local module — collect all definitions (includes cross-module hints)
                 val result = getDefinitionsForModule(moduleClass)
                 allDefinitions.addAll(result.definitions)
-                if (!result.isComplete) allModulesComplete = false
+                incompleteModules += result.unresolvedModules
                 KoinPluginLogger.debug { "    + $moduleFqName (local): ${result.definitions.size} definitions [complete=${result.isComplete}]" }
             } else {
                 // Cross-module @Configuration module from dependency JAR
@@ -97,7 +100,7 @@ class CompileSafetyValidator(
                 val result = getDefinitionsForDependencyModule(moduleFqName)
                 KoinPluginLogger.debug { "      -> ${result.definitions.size} definitions [complete=${result.isComplete}]" }
                 allDefinitions.addAll(result.definitions)
-                if (!result.isComplete) allModulesComplete = false
+                incompleteModules += result.unresolvedModules
             }
         }
 
@@ -107,19 +110,12 @@ class CompileSafetyValidator(
             allDefinitions.addAll(dslDefinitions)
         }
 
-        // Store assembled graph types for A4 call-site validation
-        for (def in allDefinitions) {
-            def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
-            for (binding in def.bindings) {
-                binding.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
-            }
-        }
-        KoinPluginLogger.debug { "  assembled graph: ${_assembledGraphTypes.size} provided types" }
+        recordAssembledGraphTypes(allDefinitions)
 
-        if (!allModulesComplete) {
-            // Incomplete subgraph: at least one module's definitions couldn't be resolved on this
-            // compile classpath (e.g. hint functions unavailable). We cannot prove anything missing.
-            KoinPluginLogger.debug { "  -> SKIPPED: some dependency modules have incomplete definitions (hint functions unavailable)" }
+        if (incompleteModules.isNotEmpty()) {
+            // Incomplete subgraph: we cannot prove anything missing, so say so instead of passing silently.
+            KoinPluginLogger.debug { "  -> SKIPPED: incomplete definitions (hint functions unavailable): $incompleteModules" }
+            KoinPluginLogger.report(KoinDiagnostic.UnverifiableModuleHints(appName, incompleteModules.distinct()))
             return
         }
 
@@ -134,8 +130,9 @@ class CompileSafetyValidator(
         val fullGraphRegistry = BindingRegistry()
         val errorCount = fullGraphRegistry.validateModule(
             appName,
-            allDefinitions,
+            allDefinitions + dependencyDslProviders,
             qualifierExtractor,
+            definitionsToValidate = allDefinitions,
             reportedCycles = reportedCycles,
             reportedMissingDeps = reportedMissingDeps,
         )
@@ -144,5 +141,16 @@ class CompileSafetyValidator(
         } else {
             KoinPluginLogger.debug { "  -> DONE: all dependencies satisfied" }
         }
+    }
+
+    /** Types the A4 call-site validation resolves against. */
+    private fun recordAssembledGraphTypes(definitions: List<Definition>) {
+        for (def in definitions) {
+            def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
+            for (binding in def.bindings) {
+                binding.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
+            }
+        }
+        KoinPluginLogger.debug { "  assembled graph: ${_assembledGraphTypes.size} provided types" }
     }
 }

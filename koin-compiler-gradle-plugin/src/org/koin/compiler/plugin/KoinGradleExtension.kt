@@ -66,11 +66,9 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      * aggregator modules. A lifecycle log line announces the decision. Set explicitly to `true`
      * to force it on regardless of detection.
      *
-     * **Setting this to `false` no longer has any effect once an entry point is detected**
-     * (mandatory as of 1.1.0 — see [strictSafetyForceOff] for the real escape hatch, and
-     * `KoinGradlePlugin.configureStrictSafety` for the rationale). Full-graph validation no
-     * longer has a redundant per-module safety net once compiled, so silently skipping
-     * re-validation on an aggregator's incremental rebuild is a correctness gap, not a knob.
+     * Setting this to `false` turns it off, even when an entry point is detected (1.2.2; a warning
+     * says so): incremental builds may then miss graph changes, while clean and CI builds still
+     * validate. To enforce it on CI only: `strictSafety = providers.environmentVariable("CI").isPresent`.
      *
      * Background: Kotlin's incremental compilation skips `compileKotlin` when no source file
      * directly references a changed declaration. DSL lambda bodies are not part of any
@@ -79,8 +77,9 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      * full-graph safety check never re-runs, the build passes silently, and the failure
      * surfaces at runtime.
      *
-     * Cost when enabled: the aggregator's `compileKotlin` task always re-runs (no cache,
-     * no up-to-date skip). Other modules stay fully incremental.
+     * Cost when enabled: the aggregator's `compileKotlin` task always re-runs (no cache, no
+     * up-to-date skip), which in practice recompiles the whole module every build. Other modules
+     * stay fully incremental.
      *
      * Has no effect when `compileSafety = false`.
      *
@@ -88,22 +87,13 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      */
     val strictSafety: Property<Boolean> = objectFactory.property(Boolean::class.java)
 
-    /**
-     * Explicit acknowledgement that [strictSafety]'s auto-detection is a confirmed misfire on
-     * this module — the `startKoin`/`koinApplication`/`@KoinApplication` marker it found only
-     * appears in a comment or string literal, not a real entry point (default: `false`).
-     *
-     * This is a SEPARATE flag from `strictSafety = false` on purpose: since 1.1.0 a plain
-     * `strictSafety = false` is silently ignored whenever detection fires, because the two
-     * cases ("this really isn't an aggregator" vs. "I just don't want the cost") are otherwise
-     * indistinguishable from the Gradle side, and the wrong guess there reopens a real
-     * freshness gap. Set this to `true` only when you've confirmed the detection is wrong.
-     */
+    /** No longer needed: `strictSafety = false` is honored on its own since 1.2.2. */
+    @Deprecated("strictSafety = false is honored on its own since 1.2.2. Remove this setting.")
     val strictSafetyForceOff: Property<Boolean> = objectFactory.property(Boolean::class.java).convention(false)
 
     /**
      * Append a single AI-assist hint at the end of compilation if any Koin diagnostic fires (default: true).
-     * Emitted once per build (not per error), pointing developers to the Kotzilla MCP Server,
+     * Emitted once per Kotlin compilation (not per error), pointing developers to the Kotzilla MCP Server,
      * which can classify Koin errors and walk an AI coding assistant through the fix.
      * Set to false to suppress the CTA.
      * See: https://doc.kotzilla.io/docs/fixIssues/koinMcp
@@ -128,4 +118,14 @@ open class KoinGradleExtension(objectFactory: ObjectFactory) {
      * blocking an `allWarningsAsErrors` build and you've already assessed the compatibility risk.
      */
     val versionCheckSeverity: Property<String> = objectFactory.property(String::class.java).convention("warning")
+
+    /**
+     * What to do when a module that starts Koin reaches modules contributing Koin definitions only at
+     * runtime (an `implementation` dependency of one of its dependencies): compile safety sees them
+     * only indirectly and can miss problems. `"none"` (default) leaves the check off, `"warning"` names
+     * each one and the dependency to declare, `"error"` fails the build; case is ignored, any other
+     * value fails the build. JVM and Android only: Kotlin/Native, JS and Wasm compilations already
+     * see transitive dependencies. Opt-in: it resolves runtime classpaths while Gradle plans the build.
+     */
+    val hiddenDependencyCheck: Property<String> = objectFactory.property(String::class.java).convention("none")
 }

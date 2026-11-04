@@ -107,8 +107,10 @@ class KoinStartTransformer(
     private val safetyValidator: CompileSafetyValidator? = null,
     private val lookupTracker: LookupTracker? = null,
     private val expectActualTracker: ExpectActualTracker? = null,
-    private val dslDefinitions: List<Definition> = emptyList()
+    private val dslDefinitions: List<Definition> = emptyList(),
+    private val dependencyDslProviders: List<Definition> = emptyList(),
 ) : IrElementTransformerVoid() {
+    private val hintClasses = annotationProcessor?.hintClasses ?: HintClassResolver(context)
 
     private var currentFile: IrFile? = null
 
@@ -155,6 +157,14 @@ class KoinStartTransformer(
      * classpath — types it neither owns nor should provide. Regression test:
      * `testData/crossmodule/cross_module_koinapplication_library_ok.kt`.
      */
+    /**
+     * Every entry point here is a plain `koinApplication { }` — a test fixture or a preview. The
+     * global context is not built in this compilation, so global call sites can't be judged here
+     * (#58). `koinConfiguration { }` doesn't count: it is a Compose app's root (#38).
+     */
+    val onlyIsolatedEntryPoints: Boolean
+        get() = entryPoints.isNotEmpty() && entryPoints.all { it.kind == EntryKind.KOIN_APPLICATION }
+
     val ownsAuthoritativeGraph: Boolean
         get() = entryPoints.any {
             when (it.kind) {
@@ -191,7 +201,8 @@ class KoinStartTransformer(
                 processor.collectedModuleClasses,
                 processor::getDefinitionsForModule,
                 processor::getDefinitionsForDependencyModule,
-                dslDefinitions
+                dslDefinitions,
+                dependencyDslProviders,
             )
         }
     }
@@ -401,7 +412,7 @@ class KoinStartTransformer(
 
         // Untyped variants — `startKoin { modules(A::class) }`, `koinApplication { modules(...) }`,
         // and especially the Compose Composable-friendly `koinConfiguration { modules(...) }`
-        // (issue #38 / KTZ-4037) — don't have a `<T>` type parameter to drive `@KoinApplication`
+        // (issue #38) — don't have a `<T>` type parameter to drive `@KoinApplication`
         // discovery, but they DO carry the module list directly inside the trailing lambda. Walk
         // the lambda for `KoinApplication.modules(vararg KClass)` calls and route the result
         // through A3 so the bare-config entry point gets the same full-graph validation as the
@@ -739,8 +750,8 @@ class KoinStartTransformer(
 
                 for (hintFuncSymbol in hintFunctions) {
                     val hintFunc = hintFuncSymbol.owner
-                    val paramType = hintFunc.regularParameters.firstOrNull()?.type
-                    val moduleClass = (paramType?.classifierOrNull as? IrClassSymbol)?.owner ?: continue
+                    val params = hintFunc.regularParameters
+                    val moduleClass = params.firstOrNull()?.let { hintClasses.parameterClass(params, it) } ?: continue
                     val fqName = moduleClass.fqNameWhenAvailable?.asString()
                         ?: "<anon>@${System.identityHashCode(moduleClass)}"
                     if (seenFqNames.add(fqName)) {
@@ -806,7 +817,7 @@ class KoinStartTransformer(
      * `IrVariable` / `IrTypeOperatorCall` / `IrSetValue` cuts through the scaffolding
      * regardless of the exact shape.
      *
-     * Used by the untyped-entry A3 path (KTZ-4037 / #38) — without a `<T>` type parameter we
+     * Used by the untyped-entry A3 path (#38) — without a `<T>` type parameter we
      * can't get modules from `@KoinApplication(modules = [...])`, but the user's `modules(...)`
      * call inside the lambda gives us the same list at the IR level.
      */

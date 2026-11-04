@@ -81,6 +81,9 @@ buildConfig {
 
 tasks.test {
     dependsOn(annotationsRuntimeClasspath)
+    // ~460 in-process compilations; the Kotlin test framework keeps 10-25 alive at once (~500 MB),
+    // which OOMs intermittently on Gradle's 512 MB default.
+    maxHeapSize = "1g"
 
     useJUnitPlatform()
     workingDir = rootDir

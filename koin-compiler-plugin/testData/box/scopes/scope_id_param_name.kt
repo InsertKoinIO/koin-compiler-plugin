@@ -1,5 +1,5 @@
 // FILE: test.kt
-// Regression test for KTZ-4050 / GH koin#2368.
+// Regression test for koin#2368.
 //
 // `@ScopeId(name = "a") val t: Tnt` on a factory constructor parameter should
 // emit `scope.getScope("a").get<Tnt>()` at runtime, not `scope.get<Tnt>()`

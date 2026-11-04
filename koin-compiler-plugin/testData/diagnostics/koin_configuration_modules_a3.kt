@@ -1,6 +1,6 @@
 // RUN_PIPELINE_TILL: BACKEND
 // FILE: test.kt
-// Regression test for KTZ-4037 / GH koin-compiler-plugin#38.
+// Regression test for koin-compiler-plugin#38.
 //
 // Before the fix, bare `koinConfiguration { modules(M::class) }` (no `<T>` — the form
 // used by the Compose `KoinApplication(configuration = koinConfiguration { … })`

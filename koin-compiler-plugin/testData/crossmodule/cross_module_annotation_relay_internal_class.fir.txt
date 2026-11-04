@@ -1,0 +1,45 @@
+Module: data
+FILE: Data.kt
+    package data
+
+    public abstract interface Repo : R|kotlin/Any| {
+    }
+    @R|org/koin/core/annotation/Single|() internal final class Cache : R|kotlin/Any| {
+        public constructor(): R|data/Cache| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() internal final class RepoImpl : R|data/Repo| {
+        public constructor(cache: R|data/Cache|): R|data/RepoImpl| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val cache: R|data/Cache| = R|<local>/cache|
+            public get(): R|data/Cache|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(data))) public final class DataModule : R|kotlin/Any| {
+        public constructor(): R|data/DataModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: data/dataDataModuleModule.kt
+    package data
+
+    public final fun R|data/DataModule|.module(): R|org/koin/core/module/Module|
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    @R|org/koin/core/annotation/Module|(includes = <collectionLiteralCall>(<getClass>(Q|data/DataModule|))) @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(feature))) public final class FeatureModule : R|kotlin/Any| {
+        public constructor(): R|feature/FeatureModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: feature/featureFeatureModuleModule.kt
+    package feature
+
+    public final fun R|feature/FeatureModule|.module(): R|org/koin/core/module/Module|

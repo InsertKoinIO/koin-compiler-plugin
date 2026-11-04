@@ -1,0 +1,90 @@
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(lib.none))) public final class LibModule : R|kotlin/Any| {
+        public constructor(): R|lib/LibModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: lib/libLibModuleModule.kt
+    package lib
+
+    public final fun R|lib/LibModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/libLibModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|lib/LibModule|): R|kotlin/Unit|
+Module: mid
+FILE: Mid.kt
+    package mid
+
+    @R|org/koin/core/annotation/Single|() public final class MidThing : R|kotlin/Any| {
+        public constructor(): R|mid/MidThing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(mid))) public final class MidModule : R|kotlin/Any| {
+        public constructor(): R|mid/MidModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+FILE: mid/midMidModuleModule.kt
+    package mid
+
+    public final fun R|mid/MidModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/midMidModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|mid/MidModule|): R|kotlin/Unit|
+Module: app
+FILE: App.kt
+    package app
+
+    public final class Missing : R|kotlin/Any| {
+        public constructor(): R|app/Missing| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class Screen : R|kotlin/Any| {
+        public constructor(thing: R|mid/MidThing|, missing: R|app/Missing|): R|app/Screen| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val thing: R|mid/MidThing| = R|<local>/thing|
+            public get(): R|mid/MidThing|
+
+        public final val missing: R|app/Missing| = R|<local>/missing|
+            public get(): R|app/Missing|
+
+    }
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|(value = vararg(String(app))) public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|() public final object MainApplication : R|kotlin/Any| {
+        private constructor(): R|app/MainApplication| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MainApplication|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            ^@startKoin Unit
+        }
+        )
+    }
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/appAppModuleModule.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun configuration_default(contributed: R|app/AppModule|): R|kotlin/Unit|

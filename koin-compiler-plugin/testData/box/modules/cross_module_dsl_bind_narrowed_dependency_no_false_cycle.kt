@@ -1,5 +1,5 @@
 // Cross-module counterpart of dsl_bind_narrowed_dependency_no_false_cycle (testData/diagnostics):
-// same decorator shape (FileStorageModule/InstrumentedStoreService, found in a real downstream
+// same decorator shape (MeteredBlobStore, found in a real downstream
 // app), but the DSL definition and the koinApplication entry point live in DIFFERENT modules.
 //
 // A DIFFERENT code path builds the graph here: the entry point module doesn't see the DSL
@@ -9,32 +9,32 @@
 // definition, including providerOnly (hand-written lambda) ones — ignoring the already-decoded
 // providerOnly flag. That is the same bug the same-module fix (KoinDSLTransformer.kt) covers,
 // but a SEPARATE occurrence: fixing the same-module collection path alone left this cross-module
-// path still producing a false KOIN-D004 self-cycle on `InstrumentedStoreService`.
+// path still producing a false KOIN-D004 self-cycle on `MeteredBlobStore`.
 //
 // RED signal: before the DslHintGenerator fix, this module fails to COMPILE (KOIN-D004), so the
 // regression guard is compilation success itself, not a runtime assertion.
 
 // MODULE: core
-// FILE: filestore.kt
-package io.kotzilla.ingestion.filestore.service
+// FILE: blobstore.kt
+package com.example.blobstore
 
 import org.koin.dsl.bind
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.single
 
-interface StoreService
-class ObjectStoreService : StoreService
-class InstrumentedStoreService(private val delegate: StoreService) : StoreService
+interface BlobStore
+class DiskBlobStore : BlobStore
+class MeteredBlobStore(private val delegate: BlobStore) : BlobStore
 
-fun fileStorageModule() = module {
-    single<ObjectStoreService>()
-    single { InstrumentedStoreService(get<ObjectStoreService>()) } bind StoreService::class
+fun blobStoreModule() = module {
+    single<DiskBlobStore>()
+    single { MeteredBlobStore(get<DiskBlobStore>()) } bind BlobStore::class
 }
 
 // MODULE: app(core)
 // FILE: test.kt
-import io.kotzilla.ingestion.filestore.service.StoreService
-import io.kotzilla.ingestion.filestore.service.fileStorageModule
+import com.example.blobstore.BlobStore
+import com.example.blobstore.blobStoreModule
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.single
@@ -46,9 +46,9 @@ class Marker
 
 fun box(): String {
     val koin = koinApplication {
-        modules(module { single<Marker>() }, fileStorageModule())
+        modules(module { single<Marker>() }, blobStoreModule())
     }.koin
-    koin.get<StoreService>()
+    koin.get<BlobStore>()
     koin.get<Marker>()
     return "OK"
 }

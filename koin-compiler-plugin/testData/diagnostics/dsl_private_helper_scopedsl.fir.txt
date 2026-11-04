@@ -1,0 +1,66 @@
+FILE: dsl_private_helper_scopedsl.kt
+    public final class Store : R|kotlin/Any| {
+        public constructor(): R|Store| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Creator : R|kotlin/Any| {
+        public constructor(store: R|Store|): R|Creator| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|Store| = R|<local>/store|
+            public get(): R|Store|
+
+    }
+    public final class Consumer : R|kotlin/Any| {
+        public constructor(c: R|Creator|): R|Consumer| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val c: R|Creator| = R|<local>/c|
+            public get(): R|Creator|
+
+    }
+    public final class Links : R|kotlin/Any| {
+        public constructor(): R|Links| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class MyScope : R|kotlin/Any| {
+        public constructor(): R|MyScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    private final fun R|org/koin/dsl/ScopeDSL|.scopedBeans(): R|kotlin/Unit| {
+        this@R|/scopedBeans|.R|org/koin/plugin/module/dsl/scoped|<R|Creator|>()
+    }
+    public final val rootModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|Links|>()
+        this@R|special/anonymous|.R|org/koin/core/module/Module.scope|<R|MyScope|>(<L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=Inline, kind=UNKNOWN>  {
+            this@R|special/anonymous|.R|/scopedBeans|()
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    private final fun R|org/koin/dsl/ScopeDSL|.otherScopedBeans(): R|kotlin/Unit| {
+        this@R|/otherScopedBeans|.R|org/koin/plugin/module/dsl/scoped|<R|Consumer|>()
+    }
+    public final val unloadedModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/core/module/Module.scope|<R|MyScope|>(<L> = scope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=Inline, kind=UNKNOWN>  {
+            this@R|special/anonymous|.R|/otherScopedBeans|()
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|/rootModule|)
+        }
+        )
+    }
