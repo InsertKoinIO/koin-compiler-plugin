@@ -107,7 +107,8 @@ class KoinStartTransformer(
     private val safetyValidator: CompileSafetyValidator? = null,
     private val lookupTracker: LookupTracker? = null,
     private val expectActualTracker: ExpectActualTracker? = null,
-    private val dslDefinitions: List<Definition> = emptyList()
+    private val dslDefinitions: List<Definition> = emptyList(),
+    private val dependencyDslProviders: List<Definition> = emptyList(),
 ) : IrElementTransformerVoid() {
     private val hintClasses = annotationProcessor?.hintClasses ?: HintClassResolver(context)
 
@@ -200,7 +201,8 @@ class KoinStartTransformer(
                 processor.collectedModuleClasses,
                 processor::getDefinitionsForModule,
                 processor::getDefinitionsForDependencyModule,
-                dslDefinitions
+                dslDefinitions,
+                dependencyDslProviders,
             )
         }
     }

@@ -1,0 +1,68 @@
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    @R|org/koin/core/annotation/Module|() @R|org/koin/core/annotation/ComponentScan|() public final class UnloadedLibModule : R|kotlin/Any| {
+        public constructor(): R|lib/UnloadedLibModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class Repo : R|kotlin/Any| {
+        public constructor(): R|lib/Repo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Foo : R|kotlin/Any| {
+        public constructor(): R|lib/Foo| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val featureKoin: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|lib/Foo|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+FILE: lib/libUnloadedLibModuleModule.kt
+    package lib
+
+    public final fun R|lib/UnloadedLibModule|.module(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    @R|org/koin/core/annotation/Module|() public final class AppModule : R|kotlin/Any| {
+        public constructor(): R|app/AppModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/KoinApplication|(modules = <collectionLiteralCall>(<getClass>(Q|app/AppModule|))) public final object MyApp : R|kotlin/Any| {
+        private constructor(): R|app/MyApp| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Screen : R|org/koin/core/component/KoinComponent| {
+        public constructor(): R|app/Screen| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|lib/Repo|by this@R|app/Screen|.R|org/koin/core/component/inject|<R|lib/Repo|>()
+            public get(): R|lib/Repo| {
+                ^ this@R|app/Screen|.D|app/Screen.repo|.R|kotlin/getValue|<R|lib/Repo|>(this@R|app/Screen|, ::R|app/Screen.repo|)
+            }
+
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/plugin/module/dsl/startKoin|<R|app/MyApp|>(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|lib/featureKoin|)
+        }
+        )
+    }
+FILE: app/appAppModuleModule.kt
+    package app
+
+    public final fun R|app/AppModule|.module(): R|org/koin/core/module/Module|

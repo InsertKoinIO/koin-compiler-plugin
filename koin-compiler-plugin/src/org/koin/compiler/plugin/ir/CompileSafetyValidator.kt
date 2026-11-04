@@ -61,6 +61,8 @@ class CompileSafetyValidator(
      * @param collectedModuleClasses Local module classes from annotation processing
      * @param getDefinitionsForModule Callback to get definitions for a local module (returns completeness info)
      * @param getDefinitionsForDependencyModule Callback to get definitions from a dependency JAR module
+     * @param dependencyDslProviders Loaded DSL definitions from dependency modules: they satisfy
+     *   requirements only, and stay out of [assembledGraphTypes] so call-site checks are unchanged
      */
     fun validateFullGraph(
         appName: String,
@@ -68,7 +70,8 @@ class CompileSafetyValidator(
         collectedModuleClasses: List<ModuleClass>,
         getDefinitionsForModule: (ModuleClass) -> DependencyModuleResult,
         getDefinitionsForDependencyModule: (String) -> DependencyModuleResult,
-        dslDefinitions: List<Definition> = emptyList()
+        dslDefinitions: List<Definition> = emptyList(),
+        dependencyDslProviders: List<Definition> = emptyList(),
     ) {
         KoinPluginLogger.debug { "── A3 Safety: Full-graph for $appName ──" }
         KoinPluginLogger.debug { "  modules in graph: ${allModuleIrClasses.size}" }
@@ -107,14 +110,7 @@ class CompileSafetyValidator(
             allDefinitions.addAll(dslDefinitions)
         }
 
-        // Store assembled graph types for A4 call-site validation
-        for (def in allDefinitions) {
-            def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
-            for (binding in def.bindings) {
-                binding.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
-            }
-        }
-        KoinPluginLogger.debug { "  assembled graph: ${_assembledGraphTypes.size} provided types" }
+        recordAssembledGraphTypes(allDefinitions)
 
         if (incompleteModules.isNotEmpty()) {
             // Incomplete subgraph: we cannot prove anything missing, so say so instead of passing silently.
@@ -134,8 +130,9 @@ class CompileSafetyValidator(
         val fullGraphRegistry = BindingRegistry()
         val errorCount = fullGraphRegistry.validateModule(
             appName,
-            allDefinitions,
+            allDefinitions + dependencyDslProviders,
             qualifierExtractor,
+            definitionsToValidate = allDefinitions,
             reportedCycles = reportedCycles,
             reportedMissingDeps = reportedMissingDeps,
         )
@@ -144,5 +141,16 @@ class CompileSafetyValidator(
         } else {
             KoinPluginLogger.debug { "  -> DONE: all dependencies satisfied" }
         }
+    }
+
+    /** Types the A4 call-site validation resolves against. */
+    private fun recordAssembledGraphTypes(definitions: List<Definition>) {
+        for (def in definitions) {
+            def.returnTypeClass.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
+            for (binding in def.bindings) {
+                binding.fqNameWhenAvailable?.asString()?.let { _assembledGraphTypes.add(it) }
+            }
+        }
+        KoinPluginLogger.debug { "  assembled graph: ${_assembledGraphTypes.size} provided types" }
     }
 }

@@ -149,7 +149,27 @@ class KoinIrExtension(
         // Into: startKoin { printLogger(); modules(listOf(Module1().module, ...)) }
         // A3 full-graph validation includes DSL definitions as providers + consumers
         KoinPluginLogger.debug { "Phase 3: Transforming startKoin calls" }
-        val startKoinTransformer = KoinStartTransformer(pluginContext, moduleFragment, annotationProcessor, safetyValidator, lookupTracker, expectActualTracker, dslDefinitions)
+        val loadedDependencyDslProviders = if (safetyValidator == null) {
+            emptyList()
+        } else {
+            callSiteValidator.loadedDependencyDslProviders(
+                dslHintGenerator,
+                koinTransformer.startKoinModules,
+                koinTransformer.moduleIncludes,
+                koinTransformer.entryModulesIncomplete,
+                koinTransformer.modulesWithIncompleteIncludes,
+            )
+        }
+        val startKoinTransformer = KoinStartTransformer(
+            pluginContext,
+            moduleFragment,
+            annotationProcessor,
+            safetyValidator,
+            lookupTracker,
+            expectActualTracker,
+            dslDefinitions,
+            loadedDependencyDslProviders,
+        )
         moduleFragment.transform(startKoinTransformer, null)
 
         // A3 §4: single graph-verification pass over the reified entry points. Must run before

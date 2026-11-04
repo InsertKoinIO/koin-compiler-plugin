@@ -1282,9 +1282,51 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_scan_requires_helper_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_helper_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_helper_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_requires_internal_dsl_provider_no_false_d001.kt")
+    public void testCross_module_scan_requires_internal_dsl_provider_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_internal_dsl_provider_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_requires_preview_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_preview_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_preview_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_requires_scope_factory_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_scope_factory_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_scope_factory_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_requires_scoped_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_scoped_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_scoped_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_requires_unloaded_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_unloaded_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_unloaded_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_scope_satisfied_ok.kt")
     public void testCross_module_scope_satisfied_ok() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scope_satisfied_ok.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_typed_entry_without_definitions_no_new_d002.kt")
+    public void testCross_module_typed_entry_without_definitions_no_new_d002() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_typed_entry_without_definitions_no_new_d002.kt");
     }
 
     @Test

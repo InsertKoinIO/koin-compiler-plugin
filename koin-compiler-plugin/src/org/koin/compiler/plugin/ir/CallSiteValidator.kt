@@ -27,6 +27,9 @@ private fun Definition.providedTypeNames(): List<String> = buildList {
     }
 }
 
+// DSL hints carry no scope: only types that can't be declared in a `scope { }` block are root providers.
+private val ROOT_SCOPE_ONLY_TYPES = setOf(DefinitionType.SINGLE, DefinitionType.WORKER)
+
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 class CallSiteValidator(private val context: IrPluginContext) {
 
@@ -613,6 +616,25 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
         KoinPluginLogger.debug { "  Reachable modules: $reachable (from entry: $startKoinModules)" }
         return reachable
+    }
+
+    /** Dependency DSL definitions that this compilation's `modules(...)` loads, as providers only (GH #124). */
+    fun loadedDependencyDslProviders(
+        dslHintGenerator: DslHintGenerator,
+        startKoinModules: List<String>,
+        moduleIncludes: Map<String, List<String>>,
+        entryModulesIncomplete: Boolean,
+        modulesWithIncompleteIncludes: Set<String>,
+    ): List<Definition.DslDef> {
+        val loadedModuleIds = computeReachableModules(
+            startKoinModules, moduleIncludes, dslHintGenerator, entryModulesIncomplete, modulesWithIncompleteIncludes
+        )
+        // Unknown or empty loaded set: add nothing, as before.
+        if (loadedModuleIds.isNullOrEmpty()) return emptyList()
+        return dslHintGenerator.discoverDslDefinitionsFromHints()
+            .filter { it.modulePropertyId in loadedModuleIds && it.definitionType in ROOT_SCOPE_ONLY_TYPES }
+            // No requirements: no consumer check, no cycle edge.
+            .map { definition -> definition.copy().also { it.requirements = emptyList() } }
     }
 
     private fun partitionByReachability(

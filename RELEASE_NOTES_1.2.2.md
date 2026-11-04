@@ -8,6 +8,7 @@ Compile safety on Kotlin/Native and wasm/JS now sees your whole graph, and multi
 
 - **Native, wasm and JS:** definitions from another Gradle module were invisible to compile safety. You got a false `KOIN-D002` on valid code, or a real missing dependency passed the build (#105, #106, #113). If you turned `compileSafety` off for these targets, turn it back on.
 - **False `KOIN-D001` / `KOIN-D004` across modules** on DSL parameters that need no provider: default value, nullable, `List<T>`, `Lazy<T>`, `@InjectedParam`, `@Property`, `@Provided`, `@ScopeId` (#115). Also on qualified function providers of the same type (#96), on a `@Single fun` provider two modules away (#114), on two `@Named("x")` providers of different types, and on definitions in a `private fun Module.x()` helper.
+- **`startKoin<MyApp>` loading a DSL module from another Gradle module** in `modules(...)`: an annotated class needing a type that this module declares with `single` got a false `KOIN-D001` (#124). A `factory` or `scoped` provider there still needs `@Provided` for now.
 - **`@Single(binds = [X::class])` on a class from another module** lost its binding: false `KOIN-D001`, and `getAll<X>()` empty at runtime (#98).
 - **Modules reported as not loaded:** false `KOIN-W001` after moving a module to another package, and on `includes()` chains of 3 modules or more. A function that returns one of several modules no longer makes them all unloaded (false `KOIN-D002`).
 - **Crashes:** "No classId" on local classes and anonymous objects (#101), invalid IR (fatal under `-Xverify-ir`) when a definition in another module targets an `internal` class (#74), and the Kotlin daemon running out of memory on multi-module builds (#110).
@@ -39,9 +40,9 @@ plugins {
 
 ## Thanks
 
-@PhBogdanov traced the KLIB root cause down to the Kotlin serializer across four Kotlin versions (#106), and found and fixed the daemon memory leak (#111). @shreknitin89 (#116) and @cpaleop (#90) sent fixes this release builds on.
+@PhBogdanov traced the KLIB root cause down to the Kotlin serializer across four Kotlin versions (#106), and found and fixed the daemon memory leak (#111). @shreknitin89 (#116), @cpaleop (#90) and @paulnunezm (#128) sent fixes this release builds on.
 
-Thanks to everyone who reported, reproduced and retested: @acmpo6ou, @ahmedhappa, @alexandru-calinoiu, @andrew-turner-control4, @aoreshkov, @axiel7, @brueggenthies-adesso, @dmitry-stakhov, @emartynov, @Faltenreich, @GoodSir42, @hmy65, @ikurek, @imcmib, @jamesarich, @Komdosh, @MattSkala, @nabiu256, @nagatsuka-shuuya, @sanders9, @smartine-ledger, @stzouvaras, @tylerwilson, @VladimirPupavaESET, @xephosbot, @yaroslav-v and @zjarlin.
+Thanks to everyone who reported, reproduced and retested: @acmpo6ou, @ahmedhappa, @alexandru-calinoiu, @andrew-turner-control4, @aoreshkov, @axiel7, @brueggenthies-adesso, @dmitry-stakhov, @emartynov, @Faltenreich, @GoodSir42, @hmy65, @ikurek, @imcmib, @JajaComp, @jamesarich, @Komdosh, @MattSkala, @nabiu256, @nagatsuka-shuuya, @sanders9, @smartine-ledger, @stzouvaras, @tylerwilson, @VladimirPupavaESET, @xephosbot, @yaroslav-v and @zjarlin.
 
 Your feedback is welcome 🙏
 
