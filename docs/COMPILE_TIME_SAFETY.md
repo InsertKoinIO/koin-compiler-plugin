@@ -80,7 +80,9 @@ When a call site cannot be resolved locally (e.g., in a feature module without t
 
 ### Phase 3.1: DSL-Only A3
 
-When `startKoin { }` is present but no `startKoin<T>()` or `@KoinApplication` is used, Phase 3.1 performs A3-style validation on DSL definitions only. It validates constructor parameters of local DSL definitions (`single<T>()`, `factory<T>()`, etc.) against all known providers (local DSL + dependency DSL hints + annotation definitions). This catches missing definitions like commenting out `single<Repository>()` that a ViewModel needs.
+When `startKoin { }` is present but no `startKoin<T>()` or `@KoinApplication` is used, Phase 3.1 performs A3-style validation on DSL definitions only. It validates constructor parameters of the DSL definitions (`single<T>()`, `factory<T>()`, etc.) that the entry point loads — this compilation's own, and those of other Gradle modules reached through `modules(...)` and `includes()` — against all known providers (local DSL + dependency DSL hints + annotation definitions). This catches missing definitions like commenting out `single<Repository>()` that a ViewModel needs.
+
+A definition from another Gradle module has no source file in this compilation, so its KOIN-D001 is anchored at the `modules(...)` call that loads it, and names the `includes()` chain: `loaded by: modules() at App.kt:12 → featureModule → dataModule`.
 
 Only runs in the entry-point module (the one that calls `startKoin { }`) to avoid false positives in leaf modules that don't have the full graph visible.
 

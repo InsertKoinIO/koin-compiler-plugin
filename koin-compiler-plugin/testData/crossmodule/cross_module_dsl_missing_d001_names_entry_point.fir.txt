@@ -1,0 +1,74 @@
+Module: kernel
+FILE: Kernel.kt
+    package kernel
+
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|kernel/Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class SentNotifications : R|kotlin/Any| {
+        public constructor(clock: R|kernel/Clock|): R|kernel/SentNotifications| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val clock: R|kernel/Clock| = R|<local>/clock|
+            public get(): R|kernel/Clock|
+
+    }
+    public final val kernelModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|kernel/SentNotifications|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: feature
+FILE: Feature.kt
+    package feature
+
+    public final fun toolsModule(): R|org/koin/core/module/Module| {
+        ^toolsModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|feature/useCasesModule|()))
+        }
+        )
+    }
+    public final fun useCasesModule(): R|org/koin/core/module/Module| {
+        ^useCasesModule R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|kernel/kernelModule|))
+        }
+        )
+    }
+Module: app
+FILE: OtherTest.kt
+    package app
+
+    public final class Unrelated : R|kotlin/Any| {
+        public constructor(): R|app/Unrelated| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun other(): R|app/Unrelated| {
+        ^other R|app/Unrelated.Unrelated|()
+    }
+FILE: ToolsTest.kt
+    package app
+
+    public final class Database : R|kotlin/Any| {
+        public constructor(): R|app/Database| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun tools(): R|org/koin/core/KoinApplication| {
+        ^tools R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|feature/toolsModule|(), R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|app/Database|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|app/Database| <inline=NoInline>  {
+                    ^ R|app/Database.Database|()
+                }
+                )
+            }
+            )))
+        }
+        )
+    }

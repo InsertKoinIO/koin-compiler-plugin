@@ -1,3 +1,4 @@
 [Koin][KOIN-D001] Missing dependency: data.Repository
   required by: dsl:feature.Service (parameter 'repo')
   in module: feature.featureModule
+  loaded by: modules() at App.kt:70 → appModule → featureModule

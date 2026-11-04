@@ -1,0 +1,4 @@
+[Koin][KOIN-D001] Missing dependency: kernel.Clock
+  required by: dsl:kernel.SentNotifications (parameter 'clock')
+  in module: kernel.kernelModule
+  loaded by: modules() at ToolsTest.kt:60 → toolsModule → useCasesModule → kernelModule

@@ -134,6 +134,10 @@ class KoinDSLTransformer(
     private val _startKoinModules = mutableListOf<String>()
     val startKoinModules: List<String> get() = _startKoinModules
 
+    /** The first `modules(...)` call loading each of [startKoinModules], for KOIN-D001's "loaded by:". */
+    private val _entryModuleOrigins = linkedMapOf<String, SourceOrigin>()
+    val entryModuleOrigins: Map<String, SourceOrigin> get() = _entryModuleOrigins
+
     /**
      * Set when any `modules(...)` / `includes(...)` argument could not be resolved to a `Module` val
      * — a list variable, a spread, a function call, a conditional.
@@ -1340,20 +1344,26 @@ class KoinDSLTransformer(
                 if (!complete) {
                     _entryModulesIncomplete = true
                     if (_entryModulesIncompleteOrigin == null) {
-                        val file = currentFile
-                        val line = if (file != null && expression.startOffset >= 0) {
-                            file.fileEntry.getLineNumber(expression.startOffset) + 1
-                        } else null
-                        _entryModulesIncompleteOrigin = SourceOrigin(moduleFqName = null, filePath = file?.fileEntry?.name, line = line)
+                        _entryModulesIncompleteOrigin = originOf(expression)
                     }
                     KoinPluginLogger.debug { "  modules() at startKoin has an UNRESOLVABLE argument — loaded set unknown" }
                 }
                 if (loadedModules.isNotEmpty()) {
                     _startKoinModules.addAll(loadedModules)
+                    val origin = originOf(expression)
+                    loadedModules.forEach { _entryModuleOrigins.putIfAbsent(it, origin) }
                     KoinPluginLogger.debug { "  modules() at startKoin: $loadedModules" }
                 }
             }
         }
+    }
+
+    private fun originOf(expression: IrExpression): SourceOrigin {
+        val file = currentFile
+        val line = if (file != null && expression.startOffset >= 0) {
+            file.fileEntry.getLineNumber(expression.startOffset) + 1
+        } else null
+        return SourceOrigin(moduleFqName = null, filePath = file?.fileEntry?.name, line = line)
     }
 
     /**

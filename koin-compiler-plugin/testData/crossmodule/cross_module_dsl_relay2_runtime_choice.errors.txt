@@ -1,4 +1,5 @@
 [Koin][KOIN-D001] Missing dependency: data.Missing
   required by: dsl:data.Repo (parameter 'missing')
   in module: data.aModule
+  loaded by: modules() at App.kt:44 → featureModule → dataModule → aModule
 [Koin][KOIN-W011] dataModule() loads one of aModule / bModule at runtime (if/when). Compile safety checked them as if all were loaded: a definition not provided by all of them is not guaranteed at runtime.

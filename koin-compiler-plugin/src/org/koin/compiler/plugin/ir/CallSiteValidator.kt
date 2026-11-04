@@ -50,6 +50,9 @@ class CallSiteValidator(private val context: IrPluginContext) {
     /** The module whose partial edge set made the loaded set unknown, for KOIN-W003's label. */
     private var incompleteModuleReached: String? = null
 
+    /** The module whose includes() first reached each non-root loaded module, for KOIN-D001's "loaded by:". */
+    private val includedBy = mutableMapOf<String, String>()
+
     /** Set by [validateDslDefinitionGraph] on KOIN-W003; makes [validatePendingCallSites] defer instead of hard KOIN-D002. */
     private var topologyUnverifiable: Boolean = false
 
@@ -446,6 +449,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
         entryModulesIncompleteOrigin: SourceOrigin? = null,
         modulesWithIncompleteIncludes: Set<String> = emptySet(),
         ownsAuthoritativeGraph: Boolean = true,
+        entryModuleOrigins: Map<String, SourceOrigin> = emptyMap(),
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -511,7 +515,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
             providerDefinitions,
             qualifierExtractor,
             defsToValidate,
-            topologyUnknown = resolvedReachable == null
+            topologyUnknown = resolvedReachable == null,
+            loadTrace = { moduleId -> LoadTrace.of(moduleId, includedBy, entryModuleOrigins) },
         )
 
         // KOIN-W001 means "you declared this module and never loaded it". Whose module it is decides
@@ -589,6 +594,8 @@ class CallSiteValidator(private val context: IrPluginContext) {
         if (entryModulesIncomplete) return null
         if (startKoinModules.isEmpty()) return emptySet()
         val reachable = mutableSetOf<String>()
+        val roots = startKoinModules.toSet()
+        includedBy.clear()
         val queue = ArrayDeque(startKoinModules)
         while (queue.isNotEmpty()) {
             val moduleId = queue.removeFirst()
@@ -609,7 +616,10 @@ class CallSiteValidator(private val context: IrPluginContext) {
                     incompleteModuleReached = moduleId
                     return null
                 }
-                for (included in localEdges + crossModule?.edges.orEmpty()) {
+                val edges = localEdges + crossModule?.edges.orEmpty()
+                // A tree: each module is recorded once, from one already reached.
+                edges.filterNot { it in reachable || it in roots }.forEach { includedBy.putIfAbsent(it, moduleId) }
+                for (included in edges) {
                     if (included !in reachable) queue.add(included)
                 }
             }
