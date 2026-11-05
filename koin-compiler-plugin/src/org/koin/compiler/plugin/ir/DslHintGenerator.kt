@@ -16,6 +16,12 @@ import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 
+// DSL hint marker: declared outside any `scope { }` block (Definition.DslDef.declaredAtRoot).
+private const val ROOT_MARKER = "root"
+
+// Kinds a `scope { }` block can hold too: only the marker tells root from scoped.
+private val SCOPE_CAPABLE_TYPES = setOf(DefinitionType.FACTORY, DefinitionType.VIEW_MODEL)
+
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 class DslHintGenerator(
     private val context: IrPluginContext,
@@ -227,6 +233,11 @@ class DslHintGenerator(
         def.modulePropertyId?.let { params += buildModuleIdParam(function, it) }
         // create(::function) definitions.
         if (def.providerOnly) params += newValueParameter(function, Name.identifier("providerOnly"), context.irBuiltIns.unitType)
+        // A kind a `scope { }` block can also hold, declared outside one: a root provider for other
+        // modules' typed entry points (#143). single/worker are root by construction, scoped never is.
+        if (def.declaredAtRoot == true && def.definitionType in SCOPE_CAPABLE_TYPES) {
+            params += newValueParameter(function, Name.identifier(ROOT_MARKER), context.irBuiltIns.unitType)
+        }
         buildQualifierParam(function, def.qualifier)?.let { params += it }
 
         function.parameters = params
@@ -582,6 +593,8 @@ class DslHintGenerator(
                     ?.removePrefix(modulePrefix)
                     ?.replace('$', '.')
                 val providerOnly = params.any { it.name.asString() == "providerOnly" }
+                // Absent: in a scope block, or a producer older than the marker. Both mean "not known root".
+                val declaredAtRoot = if (params.any { it.name.asString() == ROOT_MARKER }) true else null
                 // Decode qualifier: string qualifier (qualifier_<name>) or type qualifier (qualifierType with class type)
                 val stringQualifierParam = params.firstOrNull { it.name.asString().startsWith(qualifierPrefix) }
                 val typeQualifierParam = params.firstOrNull { it.name.asString() == "qualifierType" }
@@ -656,7 +669,8 @@ class DslHintGenerator(
                     bindings = bindings,
                     modulePropertyId = modulePropertyId,
                     providerOnly = providerOnly,
-                    qualifier = qualifier
+                    qualifier = qualifier,
+                    declaredAtRoot = declaredAtRoot,
                 ).also { def ->
                     def.requirements = requirements
                     def.origin = SourceOrigin.of(targetClass)
@@ -669,7 +683,7 @@ class DslHintGenerator(
         // module is ALSO directly classpath-visible (e.g. it's a direct Gradle dependency, not
         // genuinely 2+ hops from here), both the original hint AND the relay resolve in this same
         // scan, surfacing the identical definition twice and double-reporting every diagnostic
-        // against it. Keyed on (module, type, definition kind, qualifier, bindings, providerOnly) —
+        // against it. Keyed on (module, type, definition kind, qualifier, bindings, providerOnly, root) —
         // an exact match on all of these can only be the same source definition seen twice, never two
         // distinct real definitions.
         val deduped = definitions.distinctBy { def ->
@@ -679,6 +693,7 @@ class DslHintGenerator(
                 def.irClass.fqNameWhenAvailable?.asString() ?: "",
                 def.definitionType,
                 def.providerOnly,
+                def.declaredAtRoot,
                 def.qualifier,
                 bindingsKey,
             )

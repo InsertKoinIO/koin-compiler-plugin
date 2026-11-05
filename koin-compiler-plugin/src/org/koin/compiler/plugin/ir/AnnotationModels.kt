@@ -157,11 +157,14 @@ sealed class Definition {
         val modulePropertyId: String? = null,
         val providerOnly: Boolean = false,
         val qualifier: QualifierValue? = null, // Qualifier from @Named/@Qualifier on class or create(::function)
+        // True when declared outside any ScopeDSL block (`scope { }`, `activityScope { }`, a wrapper):
+        // the definition lives in the root scope. Null when unknown (a hint that does not say).
+        val declaredAtRoot: Boolean? = null,
         // Source file containing the DSL call (`single<T>()`, `factory<T>()`, etc.). Always a file
         // in the current compile unit. Used as the stable anchor for synthetic hint files so
         // incremental compilation invalidates stale hints correctly (see issue #32). Null when
         // the registration site is unknown (e.g. discovered from a cross-module hint).
-        val registrationSourceFile: IrFile? = null
+        val registrationSourceFile: IrFile? = null,
     ) : Definition() {
         override val returnTypeClass: IrClass get() = irClass
     }

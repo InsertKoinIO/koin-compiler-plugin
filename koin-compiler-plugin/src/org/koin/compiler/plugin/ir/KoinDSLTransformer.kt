@@ -291,6 +291,8 @@ class KoinDSLTransformer(
      * @property lambda The enclosing lambda (for create() validation)
      * @property definitionCall The enclosing DSL definition call (single/factory/scoped/etc.)
      * @property scopeTypeClass The scope type when inside a scope<ScopeType> { } block
+     * @property inScopeBlock Inside a lambda or function with a `ScopeDSL` receiver: `scope { }`, Koin's
+     *   `activityScope { }` / `viewModelScope { }` / `requestScope { }`, a user wrapper, a `ScopeDSL.x()` helper
      */
     private data class TransformContext(
         val function: IrFunction? = null,
@@ -302,6 +304,7 @@ class KoinDSLTransformer(
         val definitionCallTypeArg: IrClass? = null,
         val definitionQualifier: QualifierValue? = null,
         val scopeTypeClass: IrClass? = null,
+        val inScopeBlock: Boolean = false,
         val createQualifier: QualifierValue? = null,
         val createReturnClass: IrClass? = null,
         val modulePropertyId: String? = null,
@@ -318,7 +321,12 @@ class KoinDSLTransformer(
     private val currentDefinitionCall: Name? get() = transformContext.definitionCall
 
     override fun visitFunctionExpression(expression: IrFunctionExpression): IrExpression {
-        return withContext(transformContext.copy(lambda = expression.function)) {
+        val lambda = expression.function
+        val context = transformContext.copy(
+            lambda = lambda,
+            inScopeBlock = lambda.inScopeBlockOr(transformContext.inScopeBlock),
+        )
+        return withContext(context) {
             super.visitFunctionExpression(expression)
         }
     }
@@ -335,7 +343,10 @@ class KoinDSLTransformer(
      * `includes()` calls attribute to it. Otherwise just pushes the enclosing-function frame.
      */
     private fun contextForFunction(declaration: IrFunction): TransformContext {
-        val baseContext = transformContext.copy(function = declaration)
+        val baseContext = transformContext.copy(
+            function = declaration,
+            inScopeBlock = declaration.inScopeBlockOr(transformContext.inScopeBlock),
+        )
         if (!compileSafetyEnabled || declaration !is IrSimpleFunction) return baseContext
         if (isPrivateModuleHelper(declaration)) {
             return baseContext.copy(
@@ -818,16 +829,34 @@ class KoinDSLTransformer(
                 definitionCall = functionName,
                 definitionQualifier = outerQualifier,
                 definitionCallTypeArg = outerTypeArg,
+                // `ScopeDSL.factory { }` is a member: its receiver says scope even outside any lambda rule.
+                inScopeBlock = current.inScopeBlock || callee.receiverFqName() == SCOPE_DSL_FQNAME,
             )
         }
-        if (functionName == scopeName && expression.typeArguments.size >= 1) {
-            val scopeTypeArg = expression.getTypeArgumentCompat(0)
-            val scopeTypeClass = (scopeTypeArg?.classifierOrNull as? IrClassSymbol)?.owner
-            if (scopeTypeClass != null) {
-                return current.copy(scopeTypeClass = scopeTypeClass)
-            }
+        if (functionName == scopeName && callee.isKoinModuleScopeCall()) {
+            // `scope<T> { }` carries its type; `scope(named("x")) { }` only the fact of being a block.
+            val scopeTypeClass = expression.takeIf { it.typeArguments.isNotEmpty() }
+                ?.getTypeArgumentCompat(0)?.classifierOrNull?.let { it as? IrClassSymbol }?.owner
+            return current.copy(inScopeBlock = true, scopeTypeClass = scopeTypeClass ?: current.scopeTypeClass)
         }
         return current
+    }
+
+    /** `Module.scope(...)`, member or extension, as opposed to a user function that happens to be named `scope`. */
+    private fun IrSimpleFunction.isKoinModuleScopeCall(): Boolean = receiverFqName() == KOIN_MODULE_FQNAME
+
+    private fun IrFunction.receiverFqName(): String? =
+        (extensionReceiverParam ?: dispatchReceiverParameter)?.type?.classFqName?.asString()
+
+    /**
+     * Whether this lambda or function body is a scope block: a `ScopeDSL` receiver says yes whatever the
+     * call that takes it is named, a `Module` receiver says no (a `module { }` nested in one), anything
+     * else keeps the enclosing answer.
+     */
+    private fun IrFunction.inScopeBlockOr(enclosing: Boolean): Boolean = when (receiverFqName()) {
+        SCOPE_DSL_FQNAME -> true
+        KOIN_MODULE_FQNAME -> false
+        else -> enclosing
     }
 
     /**
@@ -1776,7 +1805,8 @@ class KoinDSLTransformer(
         modulePropertyId = transformContext.modulePropertyId,
         providerOnly = providerOnly,
         qualifier = qualifier,
-        registrationSourceFile = currentFile
+        declaredAtRoot = !transformContext.inScopeBlock,
+        registrationSourceFile = currentFile,
     ).attachA3Metadata(providedClass, requirements).apply {
         // A class from another module has no file here: the registration call is this definition's own source line.
         if (origin?.filePath == null) origin = originOf(this@buildDslDef)

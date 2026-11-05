@@ -432,12 +432,12 @@ val b = koin.get<B>()              // resolves at runtime; must also resolve at 
 
 | Layer | What's checked | How |
 |-------|----------------|-----|
-| A3 (full graph) | `@Module`-discovered definitions only | Walks `@KoinApplication`-discovered + `@Configuration` modules |
+| A3 (full graph) | `@Module`-discovered definitions, this compilation's DSL definitions, and as **providers only** the DSL definitions of other Gradle modules that `modules(...)` / `includes()` reach | Walks `@KoinApplication`-discovered + `@Configuration` modules, then the `dsl_<defType>` hints of the loaded modules |
 | A4 (call sites) | A3 graph **+ cross-module DSL hints** | Phase 3.5 unions `dsl_single`/`dsl_factory`/… hints from dependency JARs |
 
-A3 doesn't reach DSL module properties (they are values, not classes — the typed entry doesn't know which DSL modules you'll pass at the call site). A4 does, via the `dsl_<defType>` hints emitted in Phase 2.5 by the source set that owns the DSL module. That's enough to make `koin.get<B>()` resolve cleanly across the source-set boundary in the example above.
+A dependency's DSL definition counts as a root provider when its kind cannot live in a scope block (`single`, `worker`), or when it is a `factory` whose hint says it was declared outside one (`root` marker, 1.2.3). A `factory` inside `scope { }`, `activityScope { }` or any other `ScopeDSL` block stays scoped; `scoped` never counts; `viewModel` is not counted yet. A hint built by a plugin older than 1.2.3 carries no marker, so its factories are not counted until the library is rebuilt.
 
-**What this does not cover**: dependencies *inside* a DSL module's own definitions are not reverse-checked against the typed entry's annotation graph at A3 time. Those are still validated locally in the source set that declares the DSL module (Phase 3.1 / A4).
+**What this does not cover**: the requirements *inside* those dependency DSL definitions are not checked against the typed entry's graph (a missing dependency of a library's `single<Service>()` is not reported there). They are validated in the source set that declares the DSL module (Phase 3.1 / A4), which a later release extends to typed entry points.
 
 ## Generic DSL Types
 

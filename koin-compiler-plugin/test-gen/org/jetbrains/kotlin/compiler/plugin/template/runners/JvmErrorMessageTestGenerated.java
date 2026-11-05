@@ -1330,9 +1330,21 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_scan_requires_internal_dsl_factory_provider_no_false_d001.kt")
+    public void testCross_module_scan_requires_internal_dsl_factory_provider_no_false_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_internal_dsl_factory_provider_no_false_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_scan_requires_internal_dsl_provider_no_false_d001.kt")
     public void testCross_module_scan_requires_internal_dsl_provider_no_false_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_internal_dsl_provider_no_false_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_requires_named_scope_factory_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_named_scope_factory_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_named_scope_factory_dsl_provider_missing_d001.kt");
     }
 
     @Test
@@ -1348,6 +1360,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     }
 
     @Test
+    @TestMetadata("cross_module_scan_requires_scope_helper_factory_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_scope_helper_factory_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_scope_helper_factory_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
     @TestMetadata("cross_module_scan_requires_scoped_dsl_provider_missing_d001.kt")
     public void testCross_module_scan_requires_scoped_dsl_provider_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_scoped_dsl_provider_missing_d001.kt");
@@ -1357,6 +1375,12 @@ public class JvmErrorMessageTestGenerated extends AbstractJvmErrorMessageTest {
     @TestMetadata("cross_module_scan_requires_unloaded_dsl_provider_missing_d001.kt")
     public void testCross_module_scan_requires_unloaded_dsl_provider_missing_d001() {
       runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_unloaded_dsl_provider_missing_d001.kt");
+    }
+
+    @Test
+    @TestMetadata("cross_module_scan_requires_wrapped_scope_factory_dsl_provider_missing_d001.kt")
+    public void testCross_module_scan_requires_wrapped_scope_factory_dsl_provider_missing_d001() {
+      runTest("koin-compiler-plugin/testData/crossmodule/cross_module_scan_requires_wrapped_scope_factory_dsl_provider_missing_d001.kt");
     }
 
     @Test

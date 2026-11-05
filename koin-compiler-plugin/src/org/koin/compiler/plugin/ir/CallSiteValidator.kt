@@ -27,8 +27,13 @@ private fun Definition.providedTypeNames(): List<String> = buildList {
     }
 }
 
-// DSL hints carry no scope: only types that can't be declared in a `scope { }` block are root providers.
+// Root providers for a typed entry point: kinds a `scope { }` block cannot hold, plus a factory whose
+// hint says it was declared outside one (#143). viewModel waits for harness coverage; scoped never.
 private val ROOT_SCOPE_ONLY_TYPES = setOf(DefinitionType.SINGLE, DefinitionType.WORKER)
+private val ROOT_WHEN_DECLARED_SO_TYPES = setOf(DefinitionType.FACTORY)
+
+private fun Definition.DslDef.isRootProvider(): Boolean =
+    definitionType in ROOT_SCOPE_ONLY_TYPES || (definitionType in ROOT_WHEN_DECLARED_SO_TYPES && declaredAtRoot == true)
 
 @OptIn(DeprecatedForRemovalCompilerApi::class)
 class CallSiteValidator(private val context: IrPluginContext) {
@@ -643,7 +648,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
         // Unknown or empty loaded set: add nothing, as before.
         if (loadedModuleIds.isNullOrEmpty()) return emptyList()
         return dslHintGenerator.discoverDslDefinitionsFromHints()
-            .filter { it.modulePropertyId in loadedModuleIds && it.definitionType in ROOT_SCOPE_ONLY_TYPES }
+            .filter { it.modulePropertyId in loadedModuleIds && it.isRootProvider() }
             // No requirements: no consumer check, no cycle edge.
             .map { definition -> definition.copy().also { it.requirements = emptyList() } }
     }

@@ -271,7 +271,18 @@ fun componentscanfunc_comExampleCoreModule_single(contributed: CacheService): Un
 
 DSL definition hints encode types registered via the DSL (`single<T>()`, `factory<T>()`, etc.) for cross-module compile-time safety validation. Unlike annotation-based hints, these are generated entirely in the IR phase since DSL calls are only visible after IR transformation.
 
-The parameter encodes the concrete type, and additional parameters encode binding types.
+The first parameter is the declared type; the others carry the rest of the definition by name, so a consumer reads an allow-list of prefixes and ignores what it does not know:
+
+| Parameter | Meaning |
+|---|---|
+| `binding<i>` | an explicit `bind<T>()` |
+| `reqsEncoded`, `req<i>_<name>`, `req<i>f_<flag>`, `req<i>q_<qualifier>`, `req<i>qt` | the definition's own requirements, with flags and qualifiers |
+| `module_<id>` | the `module { }` val or function that declares it (`.` → `$`) |
+| `providerOnly` | a `create(::function)` definition: provides its type, requirements unknown |
+| `root` | a `factory`/`viewModel` declared outside any `ScopeDSL` block, so a root provider (1.2.3) |
+| `qualifier_<name>`, `qualifierType` | string / type qualifier |
+| `erased<i>_<ClassId>` | a type this module cannot name, erased to `Any` |
+| `dup<n>_<position>` | signature-uniqueness marker, no content (see `HintFiles.kt`) |
 
 **Generated example:**
 
@@ -284,7 +295,7 @@ val myModule = module {
 // Generated hint
 package org.koin.plugin.hints
 
-fun dsl_single(contributed: UserRepositoryImpl, bind1: UserRepository): Unit = error("Stub!")
+fun dsl_single(contributed: UserRepository, reqsEncoded: Unit, module_pkg$myModule: Unit, providerOnly: Unit): Unit = error("Stub!")
 ```
 
 **Lifecycle:**

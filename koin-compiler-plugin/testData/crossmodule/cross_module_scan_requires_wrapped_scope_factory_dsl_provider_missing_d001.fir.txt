@@ -1,0 +1,54 @@
+FILE: Lib.kt
+    package lib
+
+    @<ERROR TYPE REF: Ambiguity: Module, [org/koin/core/annotation/Module, org/koin/core/module/Module]>() @R|org/koin/core/annotation/Configuration|() @R|org/koin/core/annotation/ComponentScan|() public final class LibModule : R|kotlin/Any| {
+        public constructor(): R|lib/LibModule| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class CV11 : R|kotlin/Any| {
+        public constructor(): R|lib/CV11| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Other : R|kotlin/Any| {
+        public constructor(): R|lib/Other| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    @R|org/koin/core/annotation/Single|() public final class CV1 : R|kotlin/Any| {
+        public constructor(cv11: R|lib/CV11|): R|lib/CV1| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val cv11: R|lib/CV11| = R|<local>/cv11|
+            public get(): R|lib/CV11|
+
+    }
+    public final class LibScope : R|kotlin/Any| {
+        public constructor(): R|lib/LibScope| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun <ERROR TYPE REF: Ambiguity: Module, [org/koin/core/annotation/Module, org/koin/core/module/Module]>.libScope(block: R|org/koin/dsl/ScopeDSL.() -> kotlin/Unit|): <ERROR TYPE REF: Unresolved name: scope> {
+        ^libScope <Unresolved name: scope>#<R|lib/LibScope|>(R|<local>/block|)
+    }
+    public final val module2Koin: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|lib/libScope|(<L> = libScope@fun R|org/koin/dsl/ScopeDSL|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/dsl/ScopeDSL.factory|<R|lib/CV11|>(<L> = factory@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|lib/CV11| <inline=NoInline>  {
+                ^ R|lib/CV11.CV11|()
+            }
+            )
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+FILE: org/koin/plugin/hints/libCV1Definition.kt
+    package org.koin.plugin.hints
+
+    @R|kotlin/Deprecated|(message = String(Koin compiler plugin internal hint function), level = Q|kotlin/DeprecationLevel|.R|kotlin/DeprecationLevel.HIDDEN|) public final fun definition_single(contributed: R|lib/CV1|): R|kotlin/Unit|
