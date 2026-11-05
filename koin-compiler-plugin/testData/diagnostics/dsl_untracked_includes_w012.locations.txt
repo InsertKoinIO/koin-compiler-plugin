@@ -1,6 +1,6 @@
-test.kt:19 [Koin][KOIN-D001] Missing dependency: testpkg.Cache
-test.kt:19 [Koin][KOIN-D001] Missing dependency: testpkg.Repository
-test.kt:21 [Koin][KOIN-W001] Module 'dataModule' is not loaded at startKoin — 1 definitions unreachable: Repository
-test.kt:22 [Koin][KOIN-W001] Module 'cacheModule' is not loaded at startKoin — 1 definitions unreachable: Cache
-test.kt:25 [Koin][KOIN-W012] includes() in fun Module.wire() is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).
-test.kt:31 [Koin][KOIN-W012] includes() in an inline module { } is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).
+test.kt:19:1 [Koin][KOIN-D001] Missing dependency: testpkg.Cache
+test.kt:19:1 [Koin][KOIN-D001] Missing dependency: testpkg.Repository
+test.kt:21:1 [Koin][KOIN-W001] Module 'dataModule' is not loaded at startKoin — 1 definitions unreachable: Repository
+test.kt:22:1 [Koin][KOIN-W001] Module 'cacheModule' is not loaded at startKoin — 1 definitions unreachable: Cache
+test.kt:25:5 [Koin][KOIN-W012] includes() in fun Module.wire() is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).
+test.kt:31:13 [Koin][KOIN-W012] includes() in an inline module { } is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).

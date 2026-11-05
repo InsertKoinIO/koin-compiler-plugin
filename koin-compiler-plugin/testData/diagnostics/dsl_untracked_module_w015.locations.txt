@@ -1,1 +1,1 @@
-test.kt:19 [Koin][KOIN-W015] This module { } is not tracked by compile safety: its definitions are assumed loaded by every entry point of this compilation and are never reported as unloaded (KOIN-W001).
+test.kt:19:5 [Koin][KOIN-W015] This module { } is not tracked by compile safety: its definitions are assumed loaded by every entry point of this compilation and are never reported as unloaded (KOIN-W001).

@@ -1,0 +1,21 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Clock : R|kotlin/Any| {
+        public constructor(): R|testpkg/Clock| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final fun boot(modules: R|kotlin/Array<org/koin/core/module/Module>|): R|org/koin/core/KoinApplication| {
+        ^boot R|org/koin/dsl/koinApplication|(<L> = koinApplication@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|<local>/modules|.R|kotlin/collections/asList|<R|org/koin/core/module/Module|>().R|kotlin/collections/plus|<R|org/koin/core/module/Module|>(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|testpkg/Clock|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|testpkg/Clock| <inline=NoInline>  {
+                    ^ R|testpkg/Clock.Clock|()
+                }
+                )
+            }
+            )))
+        }
+        )
+    }

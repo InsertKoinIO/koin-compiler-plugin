@@ -718,6 +718,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
                 ),
                 origin?.filePath,
                 origin?.line ?: -1,
+                origin?.column ?: -1,
             )
         }
     }

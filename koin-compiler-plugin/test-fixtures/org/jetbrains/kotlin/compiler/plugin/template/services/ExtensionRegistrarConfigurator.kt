@@ -27,7 +27,10 @@ object CapturedErrors {
 
     val errors: MutableList<String> get() = threadLocalErrors.get()
 
-    /** `File.kt:line` (or `-` when unlocated) + first message line, per typed Koin diagnostic. */
+    /**
+     * `File.kt:line:column` (or `-` when unlocated) + first message line, per typed Koin diagnostic.
+     * The column matters: Kotlin's Gradle renderer prints no position at all when it is 0.
+     */
     val locations: MutableList<String> get() = threadLocalLocations.get()
 
     fun clear() {
@@ -59,7 +62,7 @@ class CapturingMessageCollector(private val delegate: MessageCollector) : Messag
             CapturedErrors.errors.add(message)
         }
         if (isTypedKoinDiagnostic) {
-            val at = location?.let { "${it.path.substringAfterLast('/')}:${it.line}" } ?: "-"
+            val at = location?.let { "${it.path.substringAfterLast('/')}:${it.line}:${it.column}" } ?: "-"
             CapturedErrors.locations.add("$at ${message.lineSequence().first()}")
         }
         delegate.report(severity, message, location)

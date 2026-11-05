@@ -1,1 +1,1 @@
-test.kt:32 [Koin][KOIN-W003] Graph not verifiable at compile time: this entry point loads a module set computed at runtime: compile safety cannot read property 'extras'.
+test.kt:32:13 [Koin][KOIN-W003] Graph not verifiable at compile time: this entry point loads a module set computed at runtime: compile safety cannot read property 'extras'.

@@ -210,6 +210,8 @@ data class SourceOrigin(
     val moduleFqName: String?,
     val filePath: String?,
     val line: Int?,
+    // 1-based, like [line]. Kotlin's Gradle renderer prints no position at all without a column > 0.
+    val column: Int? = null,
 ) {
     companion object {
         /**
@@ -223,10 +225,14 @@ data class SourceOrigin(
             val line = if (fileEntry != null && startOffset >= 0) {
                 runCatching { fileEntry.getLineNumber(startOffset) + 1 }.getOrNull()
             } else null
+            val column = if (fileEntry != null && startOffset >= 0) {
+                runCatching { fileEntry.getColumnNumber(startOffset) + 1 }.getOrNull()
+            } else null
             return SourceOrigin(
                 moduleFqName = file?.packageFqName?.asString(),
                 filePath = fileEntry?.name,
                 line = line,
+                column = column,
             )
         }
     }

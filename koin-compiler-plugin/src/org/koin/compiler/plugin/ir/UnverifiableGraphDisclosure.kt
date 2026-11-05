@@ -39,10 +39,13 @@ internal class UnverifiableGraphDisclosure(
                 entryModuleOrigins[rootLoading(reached)],
             )
         }
+        val fromParameter = (reached == null && entryModulesUnreadable?.fromParameter == true) ||
+            localIncludes?.fromParameter == true
         KoinPluginLogger.report(
-            KoinDiagnostic.UnverifiableDynamicGraph(subject, unreadable),
+            KoinDiagnostic.UnverifiableDynamicGraph(subject, unreadable, fromParameter),
             origin?.filePath,
             origin?.line ?: -1,
+            origin?.column ?: -1,
         )
     }
 

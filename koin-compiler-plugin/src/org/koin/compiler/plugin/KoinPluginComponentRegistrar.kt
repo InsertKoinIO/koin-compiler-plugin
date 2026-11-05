@@ -336,12 +336,18 @@ object KoinPluginLogger {
         val severity = when (diagnostic.severity) {
             KoinDiagnostic.Severity.ERROR -> CompilerMessageSeverity.ERROR
             KoinDiagnostic.Severity.WARNING -> CompilerMessageSeverity.WARNING
+            KoinDiagnostic.Severity.INFO -> CompilerMessageSeverity.INFO
         }
-        val severityRank = if (diagnostic.severity == KoinDiagnostic.Severity.ERROR) 2 else 1
+        val severityRank = when (diagnostic.severity) {
+            KoinDiagnostic.Severity.ERROR -> 2
+            KoinDiagnostic.Severity.WARNING -> 1
+            KoinDiagnostic.Severity.INFO -> 0
+        }
+        // A known line always goes out with a column >= 1: Gradle's renderer drops the whole position otherwise.
         val location = if (filePath != null && line >= 0) {
-            CompilerMessageLocation.create(filePath, line, column.coerceAtLeast(0), null)
+            CompilerMessageLocation.create(filePath, line, column.coerceAtLeast(if (line >= 1) 1 else 0), null)
         } else null
-        effectiveFlags.diagnostics.record(severityRank, location)
+        if (severityRank > 0) effectiveFlags.diagnostics.record(severityRank, location)
         effectiveCollector.report(severity, body, location)
     }
 

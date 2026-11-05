@@ -178,12 +178,61 @@ class KoinDSLTransformer(
     /** Inline `module { }` calls passed straight to `modules()` / `includes()`: that call identifies them. */
     private val directlyLoadedInlineModules = mutableSetOf<IrCall>()
 
-    /** KOIN-W015 for every `module { }` nothing identifies. Call once the whole compilation is walked. */
-    fun reportUntrackedModules() {
+    /** An `includes()` met in a module with no identity (KOIN-W012), held until the module blocks are judged. */
+    private class UntrackedIncludes(
+        val moduleBody: IrSimpleFunction?,
+        val where: String,
+        val rewrite: String,
+        val origin: SourceOrigin,
+    )
+
+    private val untrackedIncludesCandidates = mutableListOf<UntrackedIncludes>()
+
+    /**
+     * KOIN-W015 for every `module { }` nothing identifies, then KOIN-W012 for every `includes()` in a
+     * module that got no W015 (one warning per block). Call once the entry points are known: with no
+     * entry point in this compilation both become INFO, since the consequence they describe lands in
+     * the module that starts Koin.
+     */
+    fun reportUntrackedShapes(entryPointHere: Boolean) {
+        val reportedModuleBodies = mutableSetOf<IrSimpleFunction>()
         for ((call, origin) in untrackedModuleCandidates) {
             if (call in directlyLoadedInlineModules) continue
-            KoinPluginLogger.report(KoinDiagnostic.UntrackedModule(), origin.filePath, origin.line ?: -1)
+            val body = call.moduleBody()
+            body?.let { reportedModuleBodies += it }
+            val advice = if (body?.holdsOnlyIncludes() == true) {
+                KoinDiagnostic.UntrackedModule.INCLUDES_ONLY_ADVICE
+            } else {
+                KoinDiagnostic.UntrackedModule.STORE_MODULE_ADVICE
+            }
+            KoinPluginLogger.report(
+                KoinDiagnostic.UntrackedModule(entryPointHere, advice),
+                origin.filePath,
+                origin.line ?: -1,
+                origin.column ?: -1,
+            )
         }
+        for (candidate in untrackedIncludesCandidates) {
+            if (candidate.moduleBody in reportedModuleBodies) continue
+            KoinPluginLogger.report(
+                KoinDiagnostic.UntrackedIncludes(candidate.where, candidate.rewrite, entryPointHere),
+                candidate.origin.filePath,
+                candidate.origin.line ?: -1,
+                candidate.origin.column ?: -1,
+            )
+        }
+    }
+
+    /** The lambda of a `module { }` call. */
+    private fun IrCall.moduleBody(): IrSimpleFunction? = (0 until regularArgumentsCount)
+        .firstNotNullOfOrNull { getRegularArgument(it) as? IrFunctionExpression }
+        ?.function
+
+    /** A module body made of `includes(...)` calls and nothing else: a wrapper the caller can do without. */
+    private fun IrSimpleFunction.holdsOnlyIncludes(): Boolean {
+        val statements = (body as? IrBlockBody)?.statements ?: return false
+        return statements.isNotEmpty() &&
+            statements.all { it is IrCall && it.symbol.owner.name.asString() == "includes" }
     }
 
     /**
@@ -779,6 +828,7 @@ class KoinDSLTransformer(
             KoinDiagnostic.UnattributedHelper("${callee.name.asString()}()", how),
             origin.filePath,
             origin.line ?: -1,
+            origin.column ?: -1,
         )
     }
 
@@ -1490,7 +1540,10 @@ class KoinDSLTransformer(
         if (expression.startOffset < 0 || insidePluginGeneratedCode()) return
         val enclosing = (transformContext.function as? IrSimpleFunction)
             ?.takeIf { it.origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA && !it.name.isSpecial }
+        val moduleBody = transformContext.lambda
         val (where, rewrite) = when {
+            enclosing == null && moduleBody?.holdsOnlyIncludes() == true ->
+                "an inline module { }" to KoinDiagnostic.UntrackedModule.INCLUDES_ONLY_ADVICE
             enclosing == null ->
                 "an inline module { }" to
                     "Declare the module as a top-level val, e.g. val featureModule = module { includes(...) }, and load that."
@@ -1499,16 +1552,18 @@ class KoinDSLTransformer(
                     "Call includes() in the module val itself, or make ${enclosing.name}() private: private helpers are followed."
             else -> "fun ${enclosing.name}()" to "Call includes() in the module val itself."
         }
-        val origin = originOf(expression)
-        KoinPluginLogger.report(KoinDiagnostic.UntrackedIncludes(where, rewrite), origin.filePath, origin.line ?: -1)
+        untrackedIncludesCandidates += UntrackedIncludes(moduleBody, where, rewrite, originOf(expression))
     }
 
     private fun originOf(element: IrElement): SourceOrigin {
-        val file = currentFile
-        val line = if (file != null && element.startOffset >= 0) {
-            file.fileEntry.getLineNumber(element.startOffset) + 1
-        } else null
-        return SourceOrigin(moduleFqName = null, filePath = file?.fileEntry?.name, line = line)
+        val fileEntry = currentFile?.fileEntry
+        val located = fileEntry != null && element.startOffset >= 0
+        return SourceOrigin(
+            moduleFqName = null,
+            filePath = fileEntry?.name,
+            line = if (located) fileEntry.getLineNumber(element.startOffset) + 1 else null,
+            column = if (located) fileEntry.getColumnNumber(element.startOffset) + 1 else null,
+        )
     }
 
     /**
@@ -1538,18 +1593,52 @@ class KoinDSLTransformer(
         return ResolvedModules(result, complete, unreadable)
     }
 
-    /** The element of [argument] that defeated [resolveModuleRef], as KOIN-W003 should name it. */
+    /** The operand of [argument] that defeated [resolveModuleRef], as KOIN-W003 should name it. */
     private fun unreadableArgument(argument: IrExpression): UnreadableModuleArgument {
-        val leaf: IrElement = (argument as? IrVararg)?.elements?.firstOrNull { element ->
-            element is IrSpreadElement || (element is IrExpression && !resolveModuleRef(element, mutableListOf()))
-        } ?: argument
-        val expression = (leaf as? IrSpreadElement)?.expression ?: leaf
-        val description = if (leaf is IrSpreadElement) {
-            "a spread argument (*...)"
-        } else {
-            describeModuleArgument(expression)
+        val leaf = unreadableLeaf(argument)
+        val fromParameter = leaf is IrGetValue && leaf.symbol.owner is IrValueParameter
+        return UnreadableModuleArgument(originOf(leaf), describeModuleArgument(leaf), fromParameter)
+    }
+
+    /** The first vararg element [resolveModuleRef] cannot read, a spread unwrapped to what it spreads. */
+    private fun IrVararg.unreadableElement(): IrExpression? = elements.firstNotNullOfOrNull { element ->
+        when {
+            element is IrSpreadElement -> element.expression
+            element is IrExpression && !resolveModuleRef(element, mutableListOf()) -> element
+            else -> null
         }
-        return UnreadableModuleArgument(originOf(expression), description)
+    }
+
+    /** The operands [resolveModuleRef] reads through for a call: `a + b`, `listOf(...)`, `.asList()` / `.toList()`. */
+    private fun readThroughOperands(call: IrCall): List<IrExpression> {
+        val calleeFqName = call.symbol.owner.fqNameWhenAvailable?.asString()
+        return when {
+            calleeFqName == "kotlin.collections.plus" ->
+                listOfNotNull(call.extensionReceiverArgument, call.getRegularArgument(0))
+            calleeFqName in TRANSPARENT_LIST_BUILDERS && call.dispatchReceiver == null ->
+                (0 until call.regularArgumentsCount).mapNotNull { call.getRegularArgument(it) }
+            calleeFqName in TRANSPARENT_LIST_CONVERTERS -> listOfNotNull(call.extensionReceiverArgument)
+            else -> emptyList()
+        }
+    }
+
+    /**
+     * Descend through the shapes [resolveModuleRef] follows (vararg, spread, `+`, list builders and
+     * converters, a local `val`) to the first operand it cannot read: naming the wrapper ("call
+     * 'plus()'", "a spread argument") sends the user to rewrite a shape that is already followed.
+     */
+    private fun unreadableLeaf(expression: IrExpression): IrExpression {
+        fun unresolved(e: IrExpression) = !resolveModuleRef(e, mutableListOf())
+        return when (expression) {
+            is IrVararg -> expression.unreadableElement()?.let { unreadableLeaf(it) } ?: expression
+            is IrCall -> readThroughOperands(expression).firstOrNull { unresolved(it) }
+                ?.let { unreadableLeaf(it) }
+                ?: expression
+            is IrGetValue -> (expression.symbol.owner as? IrVariable)
+                ?.takeIf { !it.isVar }?.initializer?.takeIf { unresolved(it) }?.let { unreadableLeaf(it) }
+                ?: expression
+            else -> expression
+        }
     }
 
     /** Module ids read off a `modules(...)`/`includes(...)` call, whether ALL resolved, and the first that did not. */
@@ -1607,16 +1696,18 @@ class KoinDSLTransformer(
                         } else false
                     }
                     // listOf/listOfNotNull/emptyList/arrayOf — same content every call, recurse into args.
+                    // Every operand is visited even after one fails: an inline `module { }` next to an
+                    // unreadable one is still loaded here, and must not be reported as untracked (W015).
                     calleeFqName in TRANSPARENT_LIST_BUILDERS && expression.dispatchReceiver == null ->
-                        (0 until expression.regularArgumentsCount).all { i ->
-                            expression.getRegularArgument(i)?.let { resolveModuleRef(it, result) } ?: true
-                        }
+                        (0 until expression.regularArgumentsCount)
+                            .map { i -> expression.getRegularArgument(i)?.let { resolveModuleRef(it, result) } ?: true }
+                            .all { it }
                     // a + b — both operands must resolve.
                     calleeFqName == "kotlin.collections.plus" -> {
                         val receiver = expression.extensionReceiverArgument
                         val arg = expression.getRegularArgument(0)
                         receiver != null && arg != null &&
-                            resolveModuleRef(receiver, result) && resolveModuleRef(arg, result)
+                            listOf(resolveModuleRef(receiver, result), resolveModuleRef(arg, result)).all { it }
                     }
                     // .toList()/.asList() — only as good as whatever they're converting.
                     calleeFqName in TRANSPARENT_LIST_CONVERTERS ->
@@ -2189,8 +2280,15 @@ private class PrivateHelpers {
 /** The modules a module function can return: other modules by id, plus [inlineModules] `module { }` of its own. */
 data class ModuleChoice(val moduleIds: List<String>, val inlineModules: Int)
 
-/** A `modules(...)` / `includes(...)` argument compile safety could not read: where, and how to name it. */
-data class UnreadableModuleArgument(val origin: SourceOrigin, val description: String)
+/**
+ * A `modules(...)` / `includes(...)` argument compile safety could not read: where, and how to name it.
+ * [fromParameter]: the operand is a parameter of the enclosing function, so its callers own the module set.
+ */
+data class UnreadableModuleArgument(
+    val origin: SourceOrigin,
+    val description: String,
+    val fromParameter: Boolean = false,
+)
 
 private fun receiverPrefix(call: IrCall): String {
     val receiver = call.dispatchReceiver ?: call.extensionReceiverArgument ?: return ""

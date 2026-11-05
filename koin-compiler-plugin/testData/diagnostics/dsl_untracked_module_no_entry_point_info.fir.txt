@@ -1,0 +1,22 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final val lazyModule: R|org/koin/core/module/Module|by R|kotlin/lazy|<R|org/koin/core/module/Module|>(<L> = lazy@fun <anonymous>(): R|org/koin/core/module/Module| <inline=NoInline>  {
+        ^ R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/module/Module.single|<R|testpkg/Repository|>(<L> = single@fun R|org/koin/core/scope/Scope|.<anonymous>(it: R|org/koin/core/parameter/ParametersHolder|): R|testpkg/Repository| <inline=NoInline>  {
+                ^ R|testpkg/Repository.Repository|()
+            }
+            )
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module| {
+            ^ D|testpkg/lazyModule|.R|kotlin/getValue|<R|org/koin/core/module/Module|>(Null(null), ::R|testpkg/lazyModule|)
+        }

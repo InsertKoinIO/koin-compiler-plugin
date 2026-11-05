@@ -80,7 +80,6 @@ class KoinIrExtension(
         KoinPluginLogger.debug { "Phase 2: Transforming DSL calls" }
         val koinTransformer = KoinDSLTransformer(pluginContext, lookupTracker, expectActualTracker)
         moduleFragment.transform(koinTransformer, null)
-        koinTransformer.reportUntrackedModules()
         val dslDefinitions = koinTransformer.dslDefinitions
         val pendingCallSites = koinTransformer.collectedCallSites
         KoinPluginLogger.debug { "Phase 2: Collected ${dslDefinitions.size} DSL definitions, ${pendingCallSites.size} pending call sites" }
@@ -177,6 +176,8 @@ class KoinIrExtension(
         // Phase 3.1 so it populates assembledGraphTypes first — Phase 3.1 skips when that set is
         // non-empty, exactly as when validation happened inline during the transform.
         startKoinTransformer.verifyEntryPoints()
+        // KOIN-W012/W015 need to know whether this compilation starts Koin: INFO when it does not.
+        koinTransformer.reportUntrackedShapes(entryPointHere = startKoinTransformer.hasKoinEntryPoint)
 
         // Phase 3.1: DSL-only A3 validation (when startKoin { } is present but no startKoin<T>() / @KoinApplication)
         // Validates constructor parameters of local DSL definitions against all known definitions.

@@ -1,3 +1,3 @@
 [Koin][KOIN-W003] Graph not verifiable at compile time: this entry point loads a module set computed at runtime: compile safety cannot read property 'extras'.
-  Compile-time dependency checks are skipped for this entry point; Koin's checkModules() still verifies it at runtime.
+  Compile-time dependency checks are skipped for this entry point.
   Pass module vals, module functions or MyModule::class directly, or a listOf(...) / '+' of those, so compile safety can follow them.

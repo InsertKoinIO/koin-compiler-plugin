@@ -13,7 +13,8 @@ sealed class KoinDiagnostic(
     val severity: Severity,
     val message: String,
 ) {
-    enum class Severity { ERROR, WARNING }
+    /** INFO: a disclosure whose consequence cannot happen in this compilation; never fails `allWarningsAsErrors`. */
+    enum class Severity { ERROR, WARNING, INFO }
 
     /** KOIN-D001 — A definition parameter has no provider in the visible scope. */
     class MissingBinding(
@@ -296,6 +297,8 @@ sealed class KoinDiagnostic(
     class UnverifiableDynamicGraph(
         subject: String,
         unreadable: String?,
+        // The unreadable operand is a parameter of the enclosing function: the set is its callers' to know.
+        fromParameter: Boolean = false,
     ) : KoinDiagnostic(
         code = "KOIN-W003",
         severity = Severity.WARNING,
@@ -307,10 +310,15 @@ sealed class KoinDiagnostic(
                 append(": compile safety cannot read ")
                 append(unreadable)
             }
-            append(".\n  Compile-time dependency checks are skipped for this entry point; ")
-            append("Koin's checkModules() still verifies it at runtime.")
-            append("\n  Pass module vals, module functions or MyModule::class directly, or a ")
-            append("listOf(...) / '+' of those, so compile safety can follow them.")
+            append(".\n  Compile-time dependency checks are skipped for this entry point.\n  ")
+            if (fromParameter) {
+                append("The modules come from this function's callers, so nothing here can be verified. ")
+                append("Start Koin where the modules are known, passing module vals, module functions or ")
+                append("MyModule::class to modules().")
+            } else {
+                append("Pass module vals, module functions or MyModule::class directly, or a ")
+                append("listOf(...) / '+' of those, so compile safety can follow them.")
+            }
         },
     )
 
@@ -485,12 +493,22 @@ sealed class KoinDiagnostic(
     class UntrackedIncludes(
         where: String,
         rewrite: String,
+        // False in a compilation that starts no Koin: the consequence lands in the module that does, so INFO.
+        entryPointHere: Boolean = true,
     ) : KoinDiagnostic(
         code = "KOIN-W012",
-        severity = Severity.WARNING,
-        message = "includes() in $where is not followed by compile safety: the included modules may be " +
-            "reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).\n  $rewrite",
-    )
+        severity = if (entryPointHere) Severity.WARNING else Severity.INFO,
+        message = "includes() in $where is not followed by compile safety: ${consequence(entryPointHere)} " +
+            "as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).\n  $rewrite",
+    ) {
+        companion object {
+            private fun consequence(entryPointHere: Boolean): String = if (entryPointHere) {
+                "the included modules may be reported"
+            } else {
+                "this compilation starts no Koin, so the module that does may report the included modules"
+            }
+        }
+    }
 
     /**
      * KOIN-W013 — An entry point in a compilation with no DSL definition of its own: the DSL graph
@@ -532,13 +550,29 @@ sealed class KoinDiagnostic(
      * builder function returning a list). Its definitions keep no module id and count as loaded
      * whatever the entry point loads.
      */
-    class UntrackedModule : KoinDiagnostic(
+    class UntrackedModule(
+        entryPointHere: Boolean = true,
+        advice: String = STORE_MODULE_ADVICE,
+    ) : KoinDiagnostic(
         code = "KOIN-W015",
-        severity = Severity.WARNING,
-        message = "This module { } is not tracked by compile safety: its definitions are assumed loaded by " +
-            "every entry point of this compilation and are never reported as unloaded (KOIN-W001).\n  " +
-            "Store it in a top-level val or fun(): Module, e.g. val featureModule = module { ... }, and load that.",
-    )
+        severity = if (entryPointHere) Severity.WARNING else Severity.INFO,
+        message = "This module { } is not tracked by compile safety: ${consequence(entryPointHere)}\n  $advice",
+    ) {
+        companion object {
+            const val STORE_MODULE_ADVICE =
+                "Store it in a top-level val, or in a function returning Module (parameters are " +
+                    "fine), e.g. fun featureModule(config: Config) = module { ... }, and load that."
+            const val INCLUDES_ONLY_ADVICE = "It only includes other modules: pass them to modules() directly."
+
+            private fun consequence(entryPointHere: Boolean): String = if (entryPointHere) {
+                "its definitions are assumed loaded by every entry point of this compilation and are never " +
+                    "reported as unloaded (KOIN-W001)."
+            } else {
+                "this compilation starts no Koin, so the module that loads it cannot report it unloaded " +
+                    "(KOIN-W001)."
+            }
+        }
+    }
 
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */
     class MissingViewModelArtifact(

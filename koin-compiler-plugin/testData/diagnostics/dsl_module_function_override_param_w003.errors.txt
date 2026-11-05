@@ -1,3 +1,3 @@
 [Koin][KOIN-W003] Graph not verifiable at compile time: module 'appModule' loads a module set computed at runtime: compile safety cannot read parameter 'overrides'.
-  Compile-time dependency checks are skipped for this entry point; Koin's checkModules() still verifies it at runtime.
-  Pass module vals, module functions or MyModule::class directly, or a listOf(...) / '+' of those, so compile safety can follow them.
+  Compile-time dependency checks are skipped for this entry point.
+  The modules come from this function's callers, so nothing here can be verified. Start Koin where the modules are known, passing module vals, module functions or MyModule::class to modules().

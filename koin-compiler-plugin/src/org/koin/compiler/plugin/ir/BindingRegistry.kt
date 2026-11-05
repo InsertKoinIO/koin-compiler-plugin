@@ -673,6 +673,7 @@ class BindingRegistry {
             ),
             filePath = anchor?.filePath,
             line = anchor?.line ?: -1,
+            column = anchor?.column ?: -1,
         )
     }
 

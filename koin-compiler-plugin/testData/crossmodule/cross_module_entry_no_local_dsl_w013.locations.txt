@@ -1,1 +1,1 @@
-App.kt:34 [Koin][KOIN-W013] DSL graph not validated at compile time for this startKoin: this module declares no DSL definition of its own, and the check only runs from a module that does. The definitions it loads from other Gradle modules are not checked for missing dependencies here.
+App.kt:34:5 [Koin][KOIN-W013] DSL graph not validated at compile time for this startKoin: this module declares no DSL definition of its own, and the check only runs from a module that does. The definitions it loads from other Gradle modules are not checked for missing dependencies here.

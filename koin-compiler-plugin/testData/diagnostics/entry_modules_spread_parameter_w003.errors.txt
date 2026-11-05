@@ -1,0 +1,3 @@
+[Koin][KOIN-W003] Graph not verifiable at compile time: this entry point loads a module set computed at runtime: compile safety cannot read parameter 'module'.
+  Compile-time dependency checks are skipped for this entry point.
+  The modules come from this function's callers, so nothing here can be verified. Start Koin where the modules are known, passing module vals, module functions or MyModule::class to modules().

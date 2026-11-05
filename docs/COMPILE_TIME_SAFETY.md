@@ -205,14 +205,16 @@ and knowingly lose it.
 
 | Shape | Warning | Rewrite |
 |-------|---------|---------|
-| `includes()` inside an inline `module { }` or a public `fun Module.x()` helper | `KOIN-W012` | Declare the module as a top-level `val` and load that; or make the helper private |
-| A `modules()` or `includes()` argument the plugin cannot read: an `if`/`when`, a spread, a `var`, a parameter, a call on an object or interface | `KOIN-W003`, anchored at that argument | Pass module vals, module functions or `X::class` directly, or a `listOf(...)` / `+` of those |
-| An entry point in a module with no DSL definition of its own | `KOIN-W013` | None in 1.2.x: the DSL graph check only runs from a module that declares one (fixed in 1.3.0) |
+| `includes()` inside an inline `module { }` or a public `fun Module.x()` helper | `KOIN-W012` | Declare the module as a top-level `val` and load that; when the module only includes others, pass them to `modules()` directly; or make the helper private |
+| A `modules()` or `includes()` argument the plugin cannot read: an `if`/`when`, a `var`, a parameter, a call on an object or interface | `KOIN-W003`, anchored at the operand it cannot read (a spread, a `+` or a `listOf()` around it is followed) | Pass module vals, module functions or `X::class` directly, or a `listOf(...)` / `+` of those. A parameter means the callers own the module set: start Koin where the modules are known to get verification |
+| An entry point in a module with no DSL definition of its own | `KOIN-W013` | None in 1.2.x: the DSL graph check only runs from a module that declares one (a later release runs it from any entry point) |
 | A private helper called on an explicit receiver, from outside a module body, or passed as a function reference | `KOIN-W014` | Call it with no receiver inside the `module { }` that should own its definitions |
-| A `module { }` stored anywhere else: `by lazy`, a lambda, a builder returning a list | `KOIN-W015` | Store it in a top-level `val` or `fun(): Module` and load that |
+| A `module { }` stored anywhere else: `by lazy`, a lambda, a builder returning a list | `KOIN-W015` | Store it in a top-level `val`, or in a function returning `Module` (parameters are fine), and load that; when it only includes others, pass them directly |
+
+Every warning carries `file:line:column`. One warning per block: a wrapper `module { }` that is both untracked and holds an `includes()` gets `KOIN-W015` only. In a compilation that starts no Koin, `KOIN-W012` and `KOIN-W015` are reported at INFO severity (Gradle shows them with `--info`), never failing `allWarningsAsErrors`: the consequence they describe lands in the module that starts Koin.
 
 What is lost in each case is stated in the message: a dropped edge makes the included modules look
-unloaded (`KOIN-W001`) and leaves their requirements unchecked; a definition with no module counts
+unloaded (`KOIN-W001`) and the types they provide look missing (`KOIN-D001`); a definition with no module counts
 as loaded whatever the entry point loads; an unreadable argument makes that entry point unverified.
 `KOIN-W001` and `KOIN-W003` point at the module declaration and at the unreadable argument.
 
@@ -386,8 +388,8 @@ genuinely absent from the assembled graph:
 
 `@Provided` is the declaration of intent — *"this type arrives from outside the graph the compiler
 can see"* — the same mechanism used for platform types like `Context` (see
-[`@Provided`](#provided-annotation) above). Validation steps back, responsibility moves to you, and
-the graph is checked at runtime by Koin's `checkModules()`.
+[`@Provided`](#provided-annotation) above). Validation steps back and responsibility moves to you:
+the type must be there at runtime, or Koin fails at the first resolution.
 
 **Scope it as narrowly as possible.** Prefer parameter-level `@Provided` on the specific injection
 point; class-level disables validation for *every* usage of that type:

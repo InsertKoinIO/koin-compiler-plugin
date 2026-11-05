@@ -256,8 +256,12 @@ class KoinStartTransformer(
     /** Best-effort source origin of a call site (for the reified EntryPoint / debug logs). */
     private fun originOf(element: IrElement): SourceOrigin {
         val fe = currentFile?.fileEntry
-        val line = fe?.let { runCatching { it.getLineNumber(element.startOffset) + 1 }.getOrNull() }
-        return SourceOrigin(moduleFqName = null, filePath = fe?.name, line = line)
+        return SourceOrigin(
+            moduleFqName = null,
+            filePath = fe?.name,
+            line = fe?.let { runCatching { it.getLineNumber(element.startOffset) + 1 }.getOrNull() },
+            column = fe?.let { runCatching { it.getColumnNumber(element.startOffset) + 1 }.getOrNull() },
+        )
     }
 
     /**
@@ -307,12 +311,16 @@ class KoinStartTransformer(
      * imply a guarantee it didn't make (see KoinDiagnostic.UnverifiableDynamicGraph).
      */
     private fun discloseDynamicEntryPoint(entryLabel: String, expression: IrCall, argument: IrElement?) {
-        val o = originOf(argument ?: expression)
-        val unreadable = argument?.let { describeModuleArgument(it) }
+        // Name the operand, not the spread around it; a parameter means the callers own the module set.
+        val operand = (argument as? IrSpreadElement)?.expression ?: argument
+        val o = originOf(operand ?: expression)
+        val unreadable = operand?.let { describeModuleArgument(it) }
+        val fromParameter = operand is IrGetValue && operand.symbol.owner is IrValueParameter
         KoinPluginLogger.report(
-            KoinDiagnostic.UnverifiableDynamicGraph("entry point $entryLabel", unreadable),
+            KoinDiagnostic.UnverifiableDynamicGraph("entry point $entryLabel", unreadable, fromParameter),
             o.filePath,
             o.line ?: -1,
+            o.column ?: -1,
         )
     }
 
@@ -332,6 +340,7 @@ class KoinStartTransformer(
                 KoinDiagnostic.DslGraphNotValidated(entryKindDisplayLabel(entryPoint.kind)),
                 origin?.filePath,
                 origin?.line ?: -1,
+                origin?.column ?: -1,
             )
         }
     }
