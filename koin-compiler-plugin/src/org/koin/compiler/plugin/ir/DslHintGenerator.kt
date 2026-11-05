@@ -115,7 +115,6 @@ class DslHintGenerator(
             // Requirement types off this classpath come back as stand-ins: never name those here.
             val functions = groupDefs.mapNotNull { buildDslHintFunction(it)?.eraseTypesThisModuleCannotName(context) }
                 .toMutableList()
-            disambiguateDuplicateSignatures(functions)
             // Topology carrier: this module's own `includes()` edges, in the same per-module file so
             // they are regenerated wholesale and can never orphan (same reason as the defs above).
             val edges = moduleIncludes[groupKey].orEmpty()
@@ -239,46 +238,6 @@ class DslHintGenerator(
         function.addDeprecatedHiddenAnnotation(context)
 
         return function
-    }
-
-    /**
-     * Disambiguate JVM-signature collisions among hint functions about to land in the SAME file.
-     *
-     * Two unrelated definitions of the SAME type, with the SAME bindings/requirements/qualifier
-     * shape (most commonly two provider-only anonymous `single<T> { ... }` blocks in one file — no
-     * `val`/`fun` id, no constructor params to distinguish them), erase to an IDENTICAL JVM method
-     * descriptor: parameter NAMES (`req0_x` vs `req0_y`, or here, nothing at all) don't affect
-     * erasure, only parameter TYPES do, and Unit-typed markers all erase to the same `Lkotlin/Unit;`
-     * regardless of what they're named. Two hint functions sharing (name, erased param types) in one
-     * class file is an invalid classfile — `Duplicate method name "dsl_single" with signature
-     * "(...)V"` at class-load time, not a compile error, so it surfaces far from its cause (JVM only;
-     * native/wasm's KLIB serializer already rejects this earlier via SignatureClashDetector).
-     *
-     * Fix: tag occurrence N in each colliding group with N Unit-typed `dup1_<index>..dupN_<index>`
-     * markers (one per duplicate is NOT enough — occurrences 2 and 3 would collide again on
-     * `(T, Unit, Unit)`) — new to the decoder's ALLOW-list of recognized prefixes, so it's just
-     * silently ignored there (see [discoverDslDefinitionsFromHints]'s binding-parse comment for why
-     * that's the deliberate parsing stance), while making the two functions' descriptors diverge.
-     * Scoped to only the definitions that actually collide, so the overwhelming majority of hint
-     * functions (one distinct shape per file) keep their existing signature unchanged.
-     */
-    private fun disambiguateDuplicateSignatures(functions: MutableList<IrSimpleFunction>) {
-        val seen = mutableMapOf<String, Int>()
-        for (i in functions.indices) {
-            val function = functions[i]
-            val key = function.name.asString() + "(" + function.parameters.joinToString(",") { it.type.render() } + ")"
-            val occurrence = seen.getOrDefault(key, 0)
-            seen[key] = occurrence + 1
-            if (occurrence == 0) continue
-            // One marker PER OCCURRENCE, not one marker total: parameter names never reach a JVM
-            // or KLIB signature, only types do, so occurrences 2 and 3 tagged with a single Unit
-            // each would collide again as `(T, Unit, Unit)`.
-            functions[i] = function.also {
-                it.parameters = it.parameters + (1..occurrence).map { k ->
-                    newValueParameter(it, Name.identifier("dup${k}_$i"), context.irBuiltIns.unitType)
-                }
-            }
-        }
     }
 
     private fun buildBindingParams(function: IrSimpleFunction, bindings: List<IrClass>): List<IrValueParameter> =
@@ -830,7 +789,6 @@ class DslHintGenerator(
         if (farIncludedIds.isEmpty()) return
         val hints = farIncludedIds.flatMap { relayDslDefinitionHints(it) }.toMutableList()
         if (hints.isEmpty()) return
-        disambiguateDuplicateSignatures(hints)
 
         val firModuleData = extractFirModuleDataFromModule(moduleFragment)
         if (firModuleData == null) {

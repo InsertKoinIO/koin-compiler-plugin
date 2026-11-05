@@ -320,6 +320,7 @@ class InjectedParamHintGenerator(
         val hintFunc = symbols.firstOrNull()?.owner ?: return null
         val slots = mutableListOf<InjectedParamSlot>()
         for (p in hintFunc.regularParameters) {
+            if (p.isDupMarker()) continue
             val classifier = (p.type.classifierOrNull as? IrClassSymbol)?.owner
             val typeFqName = classifier?.fqNameWhenAvailable?.asString() ?: return null
             slots.add(

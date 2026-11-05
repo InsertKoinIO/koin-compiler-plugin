@@ -135,7 +135,7 @@ private fun IrClass.isNameableFromThisModule(): Boolean {
     }
 }
 
-private fun newUnitParameter(context: IrPluginContext, function: IrSimpleFunction, name: String): IrValueParameter =
+internal fun newUnitParameter(context: IrPluginContext, function: IrSimpleFunction, name: String): IrValueParameter =
     context.irFactory.createValueParameter(
         startOffset = UNDEFINED_OFFSET,
         endOffset = UNDEFINED_OFFSET,

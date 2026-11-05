@@ -30,3 +30,6 @@ if (providers.gradleProperty("stale").orNull == "true") include(":lib-stale", ":
 
 // Every IR-built hint kind, crossed once; ./verify-wide.sh checks each KLIB target reports exactly what jvm reports.
 include(":lib-wide", ":app-wide")
+
+// #144: hint signatures unique per KLIB file; ./verify-dup.sh must print PASS for every task.
+include(":lib-dup", ":lib-dup-public")

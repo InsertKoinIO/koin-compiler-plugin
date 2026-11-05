@@ -913,65 +913,6 @@ class KoinAnnotationProcessor(
     }
 
     /**
-     * Make hint functions that would serialize to an identical signature distinct.
-     *
-     * Two hint functions sharing (name, erased parameter types) in one file are an invalid
-     * classfile on JVM and a hard `SignatureClashDetector` error when a KLIB is serialized on
-     * wasm/native, reported with no source location since both declarations are plugin-generated.
-     *
-     * Tags every function past the first in a colliding group with an extra `Unit`-typed
-     * `dupN_<index>` parameter, which diverges the descriptors. Every decoder in this file matches
-     * parameters by name prefix (`binding*`, `qualifier_*`, `qualifierType`, `scope`, `r_`/`qn_`/`qt`)
-     * with only `param[0]` positional, so a trailing unrecognized marker is ignored on read. Same
-     * technique, same key, as [DslHintGenerator.disambiguateDuplicateSignatures] on the DSL side.
-     *
-     * DO NOT "simplify" this to dropping the duplicate. The erased signature is deliberately NOT a
-     * unique identity here: a `StringQualifier`'s value is carried in a parameter NAME with type
-     * `Unit`, so two `componentscan_*` hints for the same type under different `@Named` qualifiers
-     * share a signature while describing different providers. Dropping one throws away a distinct
-     * provider at emit time; disambiguating keeps both on the wire at no cost.
-     *
-     * Tags occurrence N with N `Unit` markers, not one: parameter names are not part of a JVM or
-     * KLIB signature, so a single marker per duplicate leaves occurrences 2 and 3 colliding again.
-     *
-     * Scope: this guarantees the hints are EMITTED. Whether a differently-qualified pair survives
-     * being read back is `discoverModuleScanDefinitions`'s job -- its ClassDef branch dedupes on
-     * (type, qualifier) since 1.2.1 (#94); before that it was type-only and dropped the second.
-     */
-    private fun disambiguateDuplicateSignatures(functions: List<IrSimpleFunction>): List<IrSimpleFunction> {
-        if (functions.size < 2) return functions
-        val seen = mutableMapOf<String, Int>()
-        return functions.map { func ->
-            val key = func.name.asString() + "(" + func.parameters.joinToString(",") { it.type.render() } + ")"
-            val occurrence = seen.getOrDefault(key, 0)
-            seen[key] = occurrence + 1
-            if (occurrence == 0) return@map func
-            KoinPluginLogger.debug { "    disambiguated duplicate hint signature: $key (occurrence ${occurrence + 1})" }
-            // One marker PER OCCURRENCE, not one marker total: parameter names never reach a JVM
-            // or KLIB signature, only types do, so occurrences 2 and 3 tagged with a single Unit
-            // each would collide again as `(T, Unit, Unit)`.
-            func.also {
-                it.parameters = it.parameters + (1..occurrence).map { k ->
-                    context.irFactory.createValueParameter(
-                        startOffset = UNDEFINED_OFFSET,
-                        endOffset = UNDEFINED_OFFSET,
-                        origin = IrDeclarationOrigin.DEFINED,
-                        name = Name.identifier("dup$k"),
-                        type = context.irBuiltIns.unitType,
-                        isAssignable = false,
-                        symbol = IrValueParameterSymbolImpl(),
-                        kind = IrParameterKind.Regular,
-                        varargElementType = null,
-                        isCrossinline = false,
-                        isNoinline = false,
-                        isHidden = false,
-                    ).also { p -> p.parent = func }
-                }
-            }
-        }
-    }
-
-    /**
      * Generate module-scoped component scan hints (`componentscan_*`/`componentscanfunc_*`) at IR
      * time — IR sees @Inject constructor classes in subpackages that FIR predicates/PSI scanning miss.
      *
@@ -1111,7 +1052,7 @@ class KoinAnnotationProcessor(
             addHintFunctions(
                 context,
                 moduleFragment,
-                disambiguateDuplicateSignatures(hintFunctions),
+                hintFunctions,
                 firModuleData,
                 sourceFileEntry.name,
                 batchFileName,
@@ -1795,7 +1736,7 @@ class KoinAnnotationProcessor(
         addHintFunctions(
             context,
             moduleFragment,
-            disambiguateDuplicateSignatures(hints),
+            hints,
             firModuleData,
             basePath,
             fileName,

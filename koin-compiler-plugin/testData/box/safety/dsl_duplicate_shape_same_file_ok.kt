@@ -11,9 +11,9 @@
 // "(Lpkg.Clock;Lkotlin.Unit;Lkotlin.Unit;)V"`), not at compile time, so it surfaced far downstream
 // of its actual cause.
 //
-// EXPECTED: both koinApplication { } calls resolve their own Clock successfully — proves the
-// disambiguation (disambiguateDuplicateSignatures) makes the two hint functions' descriptors diverge
-// without breaking decoding of either.
+// EXPECTED: both koinApplication { } calls resolve their own Clock successfully, and the IR golden
+// pins the dup marker (HintFiles.addHintFunctions) that makes the two hints' descriptors diverge.
+// Decoding is not exercised here: a single-module box test never reads its own hints.
 import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.single

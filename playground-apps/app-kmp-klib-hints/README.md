@@ -12,6 +12,7 @@ empty graph — false `KOIN-D002`, or a real missing dependency passing silently
 | `:app` | `@KoinApplication` + `startKoin<App> { modules(…) }`, looks up every type above | valid graph |
 | `:app-falsify` | entry point over `:lib-config`; `-Pfalsify=true` adds a definition with a missing dependency | must fail with `KOIN-D001` |
 | `:lib-wide` / `:app-wide` | one shape per IR-built hint kind (`componentscan_`, `componentscanfunc_`, `funcreqs_`, `annotationincludes_`, `injectedparams_`, `callsite`, `dsl_`, `dslincludes_`) | `./verify-wide.sh <version>`: each KLIB target must report exactly what jvm reports (D001 `Tire`, D003 `AppOnly`, D006 `Greeter`) |
+| `:lib-dup` / `:lib-dup-public` | `:lib-dup`: two `internal` types of `commonMain` provided by two inline modules in two test files, and by two `val` modules in one (#144 rows 1-2, the 1.2.2 regression). `:lib-dup-public`: the same public type in two `val` modules (row 5, already crashed on 1.2.1) | `./verify-dup.sh <version>`: every task must PASS. 1.2.2: `:lib-dup` test compilations and `:lib-dup-public` CLASH on wasmJs / iosArm64 (`Different declarations with the same signatures`); 1.2.1: only `:lib-dup-public` |
 | `:lib-stale` / `:app-stale` | `-Pstale=true`: dependency pinned to plugin 1.2.1 (no hints in its KLIB) | must warn `KOIN-W008`, never pass silently |
 
 ## Run

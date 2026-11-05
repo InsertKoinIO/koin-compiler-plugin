@@ -12,6 +12,7 @@ import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
+import org.jetbrains.kotlin.ir.declarations.IrValueParameter
 import org.jetbrains.kotlin.ir.declarations.impl.IrFileImpl
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.impl.IrAnnotationImpl
@@ -21,12 +22,14 @@ import org.jetbrains.kotlin.ir.types.defaultType
 import org.jetbrains.kotlin.ir.util.NaiveSourceBasedFileEntryImpl
 import org.jetbrains.kotlin.ir.util.addChild
 import org.jetbrains.kotlin.ir.util.addFile
+import org.jetbrains.kotlin.ir.util.render
 import org.jetbrains.kotlin.name.ClassId
 import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.jvm.isJvm
 import org.koin.compiler.adapter.KotlinAdapterLoader
 import org.koin.compiler.plugin.KoinPluginConstants
+import org.koin.compiler.plugin.KoinPluginLogger
 import org.koin.compiler.plugin.fir.KoinModuleFirGenerator
 import java.io.File
 import kotlin.io.path.Path
@@ -68,12 +71,45 @@ internal fun addHintFunctions(
             // JVM only: KLIB keys files by path, a second file at a source's path must not exist there.
             HintFileLocation(basePath, fileName, sourceBacked && firModuleData.platform.isJvm()),
         )
+    val taken = hintFile.declarations.filterIsInstance<IrSimpleFunction>().mapTo(mutableSetOf()) { it.signatureKey() }
     for (function in functions) {
+        function.makeSignatureUniqueIn(context, taken, position = hintFile.declarations.size)
         hintFile.addChild(function)
         function.parent = hintFile
         context.metadataDeclarationRegistrar.registerFunctionAsMetadataVisible(function)
     }
 }
+
+/**
+ * Two hint functions with the same name and parameter types in one file are an invalid class file
+ * on JVM and a `SignatureClashDetector` crash when a KLIB is serialized, reported with no source
+ * location. Parameter names never reach a signature, only types do, and a hint's identity lives in
+ * its names (`module_<id>`, `erased<n>_<ClassId>`, `qualifier_<name>`): two definitions of one type,
+ * or of two types this compilation cannot name, have the same signature. On KLIB targets every hint
+ * of the compilation lands in the one anchor file, so uniqueness holds per destination file, never
+ * per producer batch (#144). Unit-typed `dupN_<position>` markers are appended until the signature
+ * is unique. Decoders read parameters by name, so an allow-list ignores them; the one decoder that
+ * reads every parameter as content skips them through [isDupMarker].
+ *
+ * Never drop a duplicate instead: the signature is deliberately not the identity, and two hints
+ * with one signature describe two providers.
+ */
+private fun IrSimpleFunction.makeSignatureUniqueIn(context: IrPluginContext, taken: MutableSet<String>, position: Int) {
+    var marker = 0
+    while (!taken.add(signatureKey())) {
+        marker++
+        KoinPluginLogger.debug { "    disambiguated duplicate hint signature: ${signatureKey()} (marker $marker)" }
+        parameters = parameters + newUnitParameter(context, this, "dup${marker}_$position")
+    }
+}
+
+private fun IrSimpleFunction.signatureKey(): String =
+    name.asString() + "(" + parameters.joinToString(",") { it.type.render() } + ")"
+
+private val DUP_MARKER = Regex("dup\\d+_\\d+")
+
+/** A signature-uniqueness marker from [makeSignatureUniqueIn], never part of the hint's content. */
+internal fun IrValueParameter.isDupMarker(): Boolean = DUP_MARKER.matches(name.asString())
 
 private fun IrModuleFragment.findHintAnchorFile(): IrFile? = files.firstOrNull { file ->
     file.packageFqName == KoinModuleFirGenerator.HINTS_PACKAGE &&
