@@ -479,8 +479,8 @@ sealed class KoinDiagnostic(
     /**
      * KOIN-W012 — `includes(...)` inside a module compile safety cannot identify: an inline
      * `module { }` passed to `modules()`, or a public `fun Module.x()` helper. The edge is dropped,
-     * so the included modules look unloaded (KOIN-W001) and whatever they fail to provide is never
-     * checked. Disclosed on the line, with the shape that is followed.
+     * so the included modules look unloaded (KOIN-W001) and the types they provide look missing
+     * (KOIN-D001): correct code fails to build. Disclosed on the line, with the shape that is followed.
      */
     class UntrackedIncludes(
         where: String,
@@ -489,7 +489,7 @@ sealed class KoinDiagnostic(
         code = "KOIN-W012",
         severity = Severity.WARNING,
         message = "includes() in $where is not followed by compile safety: the included modules may be " +
-            "reported as not loaded (KOIN-W001) and their missing dependencies are not checked.\n  $rewrite",
+            "reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).\n  $rewrite",
     )
 
     /**

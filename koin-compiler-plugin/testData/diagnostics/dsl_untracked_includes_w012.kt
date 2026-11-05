@@ -5,7 +5,8 @@
 // public `fun Module.wire()` helper. Both are correct Koin code.
 //
 // EXPECTED: one KOIN-W012 at each includes() line, naming the shape that is followed. Validation
-// itself is unchanged in 1.2.3, so the false KOIN-W001 for the included modules stays.
+// itself is unchanged in 1.2.3, so the false KOIN-W001 for the included modules and the false
+// KOIN-D001 for the types they provide stay: this correct code still fails to build.
 package testpkg
 
 import org.koin.core.context.startKoin

@@ -8,7 +8,7 @@
   Add it to modules() or includes() to make these definitions available
 [Koin][KOIN-W001] Module 'dataModule' is not loaded at startKoin — 1 definitions unreachable: Repository
   Add it to modules() or includes() to make these definitions available
-[Koin][KOIN-W012] includes() in an inline module { } is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and their missing dependencies are not checked.
+[Koin][KOIN-W012] includes() in an inline module { } is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).
   Declare the module as a top-level val, e.g. val featureModule = module { includes(...) }, and load that.
-[Koin][KOIN-W012] includes() in fun Module.wire() is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and their missing dependencies are not checked.
+[Koin][KOIN-W012] includes() in fun Module.wire() is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and the types they provide as missing (KOIN-D001).
   Call includes() in the module val itself, or make wire() private: private helpers are followed.
