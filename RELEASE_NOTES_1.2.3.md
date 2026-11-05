@@ -1,23 +1,20 @@
-A `KOIN-D001` on a definition from another Gradle module now tells you where to fix it.
+Patch release: two regressions reported on 1.2.2, a location for cross-module `KOIN-D001`, and compile safety that says, on the line, which DSL shape it could not follow.
 
 ## 🐛 Fixed
 
-- **`KOIN-D001` on a definition from another Gradle module had no location.** In a compilation with several Koin graphs, such as a test source set with many `koinApplication { }` calls, nothing said which graph loads it. The error now points at the `modules(...)` call that loads it, and names the `includes()` chain:
+- **Native, JS and wasm compilations crashed on 1.2.2** with `Different declarations with the same signatures` when two DSL modules provided two `internal` types of the main source set, or the same type twice (#144).
+- **False `KOIN-D001` for a `factory<T>()` from another Gradle module** under `startKoin<T>` / `@KoinApplication`; 1.2.2 fixed it for `single` only (#143). A `factory` inside a `scope { }` block stays scoped. Rebuild the library with 1.2.3 to get it.
+- **`KOIN-D001` on a definition from another Gradle module had no location.** With `startKoin { modules(...) }` it now points at the `modules(...)` call that loads it, with the chain: `loaded by: modules() at ToolsTest.kt:60 → toolsModule → useCasesModule → notificationsKernelModule`. A local `single<LibImpl>()` of a library class points at that line.
+- **The "Fix with AI" line could point at the wrong file**, or at another compilation's error under parallel builds (#140). It follows the error.
 
-  ```
-  [Koin][KOIN-D001] Missing dependency: kotlin.time.Clock
-    required by: dsl:kernel.SentNotificationsPort (parameter 'clock')
-    in module: kernel.notificationsKernelModule
-    loaded by: modules() at ToolsTest.kt:60 → toolsModule → useCasesModule → notificationsKernelModule
-  ```
+## ✨ Added
 
-- **`KOIN-D001` on a definition whose class lives in another Gradle module had no location.** For `module { single<ServiceImpl>() }`, with `ServiceImpl` from a library, the error now points at the `single<ServiceImpl>()` line.
-
-- **The "Fix with AI" line could point at the wrong file.** It took the location of the last located diagnostic, even a warning in another file. It now follows the error.
+- **Compile safety discloses the DSL shapes it cannot follow**, on the line, with the shape to use instead: `KOIN-W012` for an `includes()` inside an inline `module { }` or a public `fun Module.x()` helper (its modules are reported unloaded and their types missing), `KOIN-W014` for a private helper called on an explicit receiver or as a function reference, `KOIN-W015` for a `module { }` in `by lazy`, a lambda or a list builder. `KOIN-W013` says an entry point in a module with no DSL definition of its own gets no DSL graph check (#142); no rewrite yet. Followed shapes: [docs/COMPILE_TIME_SAFETY.md](docs/COMPILE_TIME_SAFETY.md#dsl-shapes-compile-safety-understands). Like every `KOIN-W`, they fail a build with `allWarningsAsErrors`.
 
 ## 🔧 Changed
 
-- **`KOIN-D001` gains a `loaded by:` line** for a definition from another Gradle module. A definition of the compiling module keeps its message. No diagnostic is added or removed, and no severity changes.
+- **`modules(AppModule().module())` is now verified** like `modules(AppModule::class)`. A missing dependency in such a graph now reports `KOIN-D001`.
+- **`KOIN-W003` points at the argument it could not read and names it**; `KOIN-W001` points at the module declaration.
 
 ## ✅ Compatibility
 
@@ -31,6 +28,10 @@ plugins {
     id("io.insert-koin.compiler.plugin") version "1.2.3"
 }
 ```
+
+## Thanks
+
+@richmenaft (#144), @JajaComp (#143) and @renaudmathieu (#142) for the reports and reproducers.
 
 Your feedback is welcome 🙏
 
