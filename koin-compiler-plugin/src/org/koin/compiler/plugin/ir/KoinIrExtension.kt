@@ -80,6 +80,7 @@ class KoinIrExtension(
         KoinPluginLogger.debug { "Phase 2: Transforming DSL calls" }
         val koinTransformer = KoinDSLTransformer(pluginContext, lookupTracker, expectActualTracker)
         moduleFragment.transform(koinTransformer, null)
+        koinTransformer.reportUntrackedModules()
         val dslDefinitions = koinTransformer.dslDefinitions
         val pendingCallSites = koinTransformer.collectedCallSites
         KoinPluginLogger.debug { "Phase 2: Collected ${dslDefinitions.size} DSL definitions, ${pendingCallSites.size} pending call sites" }
@@ -194,14 +195,29 @@ class KoinIrExtension(
                 modulesWithIncompleteIncludes = koinTransformer.modulesWithIncompleteIncludes,
                 ownsAuthoritativeGraph = startKoinTransformer.ownsAuthoritativeGraph,
                 entryModuleOrigins = koinTransformer.entryModuleOrigins,
+                entryModulesUnreadable = koinTransformer.entryModulesUnreadable,
+                incompleteIncludesArguments = koinTransformer.incompleteIncludesArguments,
+                moduleDeclarationOrigins = koinTransformer.moduleDeclarationOrigins,
             )
         } else if (safetyValidator != null && dslDefinitions.isEmpty()
             && safetyValidator.assembledGraphTypes.isEmpty()
             && startKoinTransformer.hasKoinEntryPoint) {
             // Disclosure, same stance as the no-entry-point one below: Phase 3.1 needs at least one
             // local DSL definition, so an entry point that only loads other modules' DSL definitions
-            // validates nothing. Not changing that here — just not doing it silently.
-            KoinPluginLogger.warn("compile-safety: DSL graph not validated — no DSL definition in this entry-point module.")
+            // validates nothing. Not changing that here — just not doing it silently: KOIN-W003 when
+            // the `modules(...)` argument itself was unreadable (`X().module()`), KOIN-W013 when DSL
+            // modules were read but nothing checks what they need.
+            val alreadyDisclosedDynamic = startKoinTransformer.entryPoints.any {
+                it.classification == EntryClassification.DYNAMIC
+            }
+            when {
+                alreadyDisclosedDynamic -> Unit
+                koinTransformer.entryModulesIncomplete -> UnverifiableGraphDisclosure(
+                    entryModulesUnreadable = koinTransformer.entryModulesUnreadable,
+                    entryModulesIncompleteOrigin = koinTransformer.entryModulesIncompleteOrigin,
+                ).report(reached = null)
+                koinTransformer.startKoinModules.isNotEmpty() -> startKoinTransformer.discloseUnvalidatedDslGraph()
+            }
         }
 
         // Phase 3.2: disclose runtime-chosen modules loaded by any entry point (KOIN-W011).

@@ -1,0 +1,34 @@
+Module: lib
+FILE: Lib.kt
+    package lib
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|lib/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|lib/Repository|): R|lib/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|lib/Repository| = R|<local>/repo|
+            public get(): R|lib/Repository|
+
+    }
+    public final val libModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|lib/Service|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+Module: app
+FILE: App.kt
+    package app
+
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|lib/libModule|)
+        }
+        )
+    }

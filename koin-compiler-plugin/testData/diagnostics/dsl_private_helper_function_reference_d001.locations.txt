@@ -1,0 +1,2 @@
+dsl_private_helper_function_reference_d001.kt:13 [Koin][KOIN-D001] Missing dependency: Store
+dsl_private_helper_function_reference_d001.kt:24 [Koin][KOIN-W014] Definitions declared in beans() are attributed to no module: it is passed as a function reference. Compile safety counts them as loaded whatever the entry point loads, so an unloaded module is never reported for them.

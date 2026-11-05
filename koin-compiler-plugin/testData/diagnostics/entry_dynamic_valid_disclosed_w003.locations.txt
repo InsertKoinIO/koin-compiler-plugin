@@ -1,0 +1,1 @@
+test.kt:33 [Koin][KOIN-W003] Graph not verifiable at compile time: entry point startKoin { … } loads a module set computed at runtime: compile safety cannot read an if/when expression.

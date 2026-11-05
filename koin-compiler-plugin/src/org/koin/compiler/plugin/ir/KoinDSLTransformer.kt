@@ -27,6 +27,7 @@ import org.jetbrains.kotlin.name.Name
 import org.koin.compiler.plugin.GeneratedResolutionCallRegistry
 import org.koin.compiler.plugin.KoinAnnotationFqNames
 import org.koin.compiler.plugin.KoinDiagnostic
+import org.koin.compiler.plugin.KoinPluginConstants
 import org.koin.compiler.plugin.KoinPluginLogger
 
 /**
@@ -126,9 +127,14 @@ class KoinDSLTransformer(
     private val _moduleDeclarationFiles = mutableMapOf<String, String>()
     val moduleDeclarationFiles: Map<String, String> get() = _moduleDeclarationFiles
 
-    private fun recordModuleId(moduleId: String) {
+    /** Where each module val/function is declared: KOIN-W001's anchor. */
+    private val _moduleDeclarationOrigins = mutableMapOf<String, SourceOrigin>()
+    val moduleDeclarationOrigins: Map<String, SourceOrigin> get() = _moduleDeclarationOrigins
+
+    private fun recordModuleId(moduleId: String, declaration: IrDeclaration) {
         _allModuleIds.add(moduleId)
         currentFile?.fileEntry?.name?.let { _moduleDeclarationFiles.putIfAbsent(moduleId, it) }
+        _moduleDeclarationOrigins.putIfAbsent(moduleId, originOf(declaration))
     }
 
     private val _startKoinModules = mutableListOf<String>()
@@ -148,9 +154,37 @@ class KoinDSLTransformer(
     private var _entryModulesIncomplete = false
     val entryModulesIncomplete: Boolean get() = _entryModulesIncomplete
 
-    /** File:line of the `modules(...)` call that set [_entryModulesIncomplete], for KOIN-W003's "at:". */
+    /** File:line of the `modules(...)` call that set [_entryModulesIncomplete]. */
     private var _entryModulesIncompleteOrigin: SourceOrigin? = null
     val entryModulesIncompleteOrigin: SourceOrigin? get() = _entryModulesIncompleteOrigin
+
+    /** The first `modules(...)` argument that could not be read: KOIN-W003's anchor and name. */
+    private var _entryModulesUnreadable: UnreadableModuleArgument? = null
+    val entryModulesUnreadable: UnreadableModuleArgument? get() = _entryModulesUnreadable
+
+    /** Per module, the `includes(...)` argument that could not be read: KOIN-W003's anchor when it is reached. */
+    private val _incompleteIncludesArguments = linkedMapOf<String, UnreadableModuleArgument>()
+    val incompleteIncludesArguments: Map<String, UnreadableModuleArgument>
+        get() {
+            val roots = privateHelpers.resolveRoots()
+            return _incompleteIncludesArguments.mapKeys { (id, _) ->
+                if (PrivateHelpers.isPlaceholder(id)) roots[id] ?: id else id
+            }
+        }
+
+    /** `module { }` calls met outside any identified module; reported after the walk unless loaded directly. */
+    private val untrackedModuleCandidates = linkedMapOf<IrCall, SourceOrigin>()
+
+    /** Inline `module { }` calls passed straight to `modules()` / `includes()`: that call identifies them. */
+    private val directlyLoadedInlineModules = mutableSetOf<IrCall>()
+
+    /** KOIN-W015 for every `module { }` nothing identifies. Call once the whole compilation is walked. */
+    fun reportUntrackedModules() {
+        for ((call, origin) in untrackedModuleCandidates) {
+            if (call in directlyLoadedInlineModules) continue
+            KoinPluginLogger.report(KoinDiagnostic.UntrackedModule(), origin.filePath, origin.line ?: -1)
+        }
+    }
 
     /**
      * Module vals whose own `includes(...)` had an argument we could not resolve, so their edge set
@@ -313,7 +347,7 @@ class KoinDSLTransformer(
             ?: moduleGetterPropertyId(declaration)
             ?: return baseContext
         KoinPluginLogger.debug { "Module-returning function: $functionModuleId" }
-        recordModuleId(functionModuleId)
+        recordModuleId(functionModuleId, declaration)
         collectReturnedModuleEdges(declaration, functionModuleId)
         return baseContext.copy(modulePropertyId = functionModuleId)
     }
@@ -351,6 +385,9 @@ class KoinDSLTransformer(
         val isChoice = returned.choiceCount >= 2
         if (returned.callerSupplied || (isChoice && returned.unreadableBranches > 0)) {
             _modulesWithIncompleteIncludes.add(functionModuleId)
+            returned.unreadable?.let {
+                _incompleteIncludesArguments.putIfAbsent(functionModuleId, unreadableArgument(it))
+            }
             KoinPluginLogger.debug { "  returned modules: $functionModuleId returns a module that can't be known here" }
         } else if (isChoice) {
             _moduleAlternatives[functionModuleId] =
@@ -367,6 +404,7 @@ class KoinDSLTransformer(
         val ownModules = mutableSetOf<IrExpression>()
         var unreadableBranches = 0
         var callerSupplied = false
+        var unreadable: IrExpression? = null
         val choiceCount: Int get() = moduleIds.size + ownModules.size + unreadableBranches
     }
 
@@ -392,6 +430,7 @@ class KoinDSLTransformer(
         val ids = mutableListOf<String>()
         if (!resolveModuleRef(expression, ids)) {
             returned.unreadableBranches++
+            if (returned.unreadable == null) returned.unreadable = expression
             return
         }
         // A recursive call loads nothing new.
@@ -400,7 +439,10 @@ class KoinDSLTransformer(
 
     private fun collectReturnedValue(expression: IrGetValue, returned: ReturnedModules) {
         when (val value = expression.symbol.owner) {
-            is IrValueParameter -> returned.callerSupplied = true
+            is IrValueParameter -> {
+                returned.callerSupplied = true
+                if (returned.unreadable == null) returned.unreadable = expression
+            }
             is IrVariable -> value.initializer?.takeUnless { value.isVar }?.let { collectReturnedModules(it, returned) }
             else -> Unit
         }
@@ -430,7 +472,7 @@ class KoinDSLTransformer(
         if (!isModuleType) return null
         val propertyId = buildModulePropertyId(declaration) ?: return null
         KoinPluginLogger.debug { "Module property: $propertyId" }
-        recordModuleId(propertyId)
+        recordModuleId(propertyId, declaration)
         return propertyId
     }
 
@@ -467,6 +509,13 @@ class KoinDSLTransformer(
         }
         if (!ownerOk) return null
         return function.fqNameWhenAvailable?.asString()
+    }
+
+    /** `X().module()` where `X` is a `@Module` class: the generated module function on a fresh instance. */
+    private fun IrCall.isAnnotationModuleLoad(): Boolean {
+        val receiver = extensionReceiverArgument as? IrConstructorCall
+        return symbol.owner.name.asString() == KoinPluginConstants.MODULE_FUNCTION_NAME &&
+            receiver?.symbol?.owner?.constructedClass?.hasAnnotation(KoinAnnotationFqNames.MODULE) == true
     }
 
     /** True for `List<Module>` — the collection counterpart of [KOIN_MODULE_FQNAME]. */
@@ -670,6 +719,14 @@ class KoinDSLTransformer(
         collectModuleLoadingInfo(expression, callee)
         collectKoinBuilderLambdas(expression, callee)
         collectPrivateHelperCall(expression, callee)
+        collectUntrackedModuleCandidate(expression, callee)
+    }
+
+    /** SAFETY ONLY. A source `module { }` met outside any identified module (see [reportUntrackedModules]). */
+    private fun collectUntrackedModuleCandidate(expression: IrCall, callee: IrSimpleFunction) {
+        if (transformContext.modulePropertyId != null || expression.startOffset < 0) return
+        if (callee.fqNameWhenAvailable?.asString() != KOIN_MODULE_DSL_FQNAME || insidePluginGeneratedCode()) return
+        untrackedModuleCandidates[expression] = originOf(expression)
     }
 
     /**
@@ -693,6 +750,25 @@ class KoinDSLTransformer(
         }
         privateHelpers.recordCall(helperId, caller)
         KoinPluginLogger.debug { "  private module helper ${callee.name}: caller ${caller ?: "unattributed"}" }
+        // Inside an inline `module { }` the helper follows that module (KOIN-W015 covers an untracked one).
+        if (caller == null && receiverOwner !in koinBuilderLambdas) {
+            val how = if (receiverOwner == null) {
+                "it is called on an explicit receiver"
+            } else {
+                "it is called from a function or lambda that is not a module { } body"
+            }
+            reportUnattributedHelper(expression, callee, how)
+        }
+    }
+
+    /** KOIN-W014: [callee]'s definitions will carry no module id, so they count as always loaded. */
+    private fun reportUnattributedHelper(at: IrElement, callee: IrSimpleFunction, how: String) {
+        val origin = originOf(at)
+        KoinPluginLogger.report(
+            KoinDiagnostic.UnattributedHelper("${callee.name.asString()}()", how),
+            origin.filePath,
+            origin.line ?: -1,
+        )
     }
 
     private fun collectKoinBuilderLambdas(expression: IrCall, callee: IrSimpleFunction) {
@@ -719,6 +795,7 @@ class KoinDSLTransformer(
         val target = expression.symbol.owner as? IrSimpleFunction
         if (compileSafetyEnabled && target != null && isPrivateModuleHelper(target)) {
             privateHelpers.recordCall(privateHelpers.placeholderFor(target), caller = null)
+            reportUnattributedHelper(expression, target, "it is passed as a function reference")
         }
         return super.visitFunctionReference(expression)
     }
@@ -1324,10 +1401,15 @@ class KoinDSLTransformer(
             val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.module.Module") {
-                val currentModuleId = transformContext.modulePropertyId ?: return
-                val (includedModules, complete) = resolveModuleReferences(expression)
+                val currentModuleId = transformContext.modulePropertyId
+                if (currentModuleId == null) {
+                    reportUntrackedIncludes(expression)
+                    return
+                }
+                val (includedModules, complete, unreadable) = resolveModuleReferences(expression)
                 if (!complete) {
                     _modulesWithIncompleteIncludes.add(currentModuleId)
+                    unreadable?.let { _incompleteIncludesArguments.putIfAbsent(currentModuleId, it) }
                     KoinPluginLogger.debug { "  includes: $currentModuleId has an UNRESOLVABLE argument — its edge set is partial" }
                 }
                 if (includedModules.isNotEmpty()) {
@@ -1341,11 +1423,12 @@ class KoinDSLTransformer(
             val receiverType = (callee.extensionReceiverParam ?: callee.dispatchReceiverParameter)
                 ?.type?.classFqName?.asString()
             if (receiverType == "org.koin.core.KoinApplication") {
-                val (loadedModules, complete) = resolveModuleReferences(expression)
+                val (loadedModules, complete, unreadable) = resolveModuleReferences(expression)
                 if (!complete) {
                     _entryModulesIncomplete = true
                     if (_entryModulesIncompleteOrigin == null) {
                         _entryModulesIncompleteOrigin = originOf(expression)
+                        _entryModulesUnreadable = unreadable
                     }
                     KoinPluginLogger.debug { "  modules() at startKoin has an UNRESOLVABLE argument — loaded set unknown" }
                 }
@@ -1359,10 +1442,42 @@ class KoinDSLTransformer(
         }
     }
 
-    private fun originOf(expression: IrExpression): SourceOrigin {
+    /** The plugin's own `fun T.module()` for a `@Module` class: its body is generated, not user DSL. */
+    private fun isPluginGeneratedModuleFunction(function: IrSimpleFunction): Boolean =
+        function.name.asString() == KoinPluginConstants.MODULE_FUNCTION_NAME &&
+            function.extensionReceiverParam?.type?.getClass()?.hasAnnotation(KoinAnnotationFqNames.MODULE) == true
+
+    private fun insidePluginGeneratedCode(): Boolean {
+        var parent: IrDeclarationParent? = transformContext.function
+        while (parent is IrDeclaration) {
+            if (parent is IrSimpleFunction && isPluginGeneratedModuleFunction(parent)) return true
+            parent = parent.parent
+        }
+        return false
+    }
+
+    /** KOIN-W012: this `includes()` sits in a module with no identity, so its edge cannot be recorded. */
+    private fun reportUntrackedIncludes(expression: IrCall) {
+        if (expression.startOffset < 0 || insidePluginGeneratedCode()) return
+        val enclosing = (transformContext.function as? IrSimpleFunction)
+            ?.takeIf { it.origin != IrDeclarationOrigin.LOCAL_FUNCTION_FOR_LAMBDA && !it.name.isSpecial }
+        val (where, rewrite) = when {
+            enclosing == null ->
+                "an inline module { }" to
+                    "Declare the module as a top-level val, e.g. val featureModule = module { includes(...) }, and load that."
+            enclosing.extensionReceiverParam?.type?.classFqName?.asString() == KOIN_MODULE_FQNAME ->
+                "fun Module.${enclosing.name}()" to
+                    "Call includes() in the module val itself, or make ${enclosing.name}() private: private helpers are followed."
+            else -> "fun ${enclosing.name}()" to "Call includes() in the module val itself."
+        }
+        val origin = originOf(expression)
+        KoinPluginLogger.report(KoinDiagnostic.UntrackedIncludes(where, rewrite), origin.filePath, origin.line ?: -1)
+    }
+
+    private fun originOf(element: IrElement): SourceOrigin {
         val file = currentFile
-        val line = if (file != null && expression.startOffset >= 0) {
-            file.fileEntry.getLineNumber(expression.startOffset) + 1
+        val line = if (file != null && element.startOffset >= 0) {
+            file.fileEntry.getLineNumber(element.startOffset) + 1
         } else null
         return SourceOrigin(moduleFqName = null, filePath = file?.fileEntry?.name, line = line)
     }
@@ -1380,20 +1495,40 @@ class KoinDSLTransformer(
     private fun resolveModuleReferences(call: IrCall): ResolvedModules {
         val result = mutableListOf<String>()
         var complete = true
+        var unreadable: UnreadableModuleArgument? = null
         for (i in 0 until call.regularArgumentsCount) {
             val arg = call.getRegularArgument(i)
             if (arg == null || !resolveModuleRef(arg, result)) {
                 complete = false
+                if (unreadable == null && arg != null) unreadable = unreadableArgument(arg)
                 KoinPluginLogger.debug {
                     "  modules()/includes(): argument #$i is not a resolvable Module val"
                 }
             }
         }
-        return ResolvedModules(result, complete)
+        return ResolvedModules(result, complete, unreadable)
     }
 
-    /** Module ids read off a `modules(...)`/`includes(...)` call, and whether ALL arguments resolved. */
-    data class ResolvedModules(val ids: List<String>, val complete: Boolean)
+    /** The element of [argument] that defeated [resolveModuleRef], as KOIN-W003 should name it. */
+    private fun unreadableArgument(argument: IrExpression): UnreadableModuleArgument {
+        val leaf: IrElement = (argument as? IrVararg)?.elements?.firstOrNull { element ->
+            element is IrSpreadElement || (element is IrExpression && !resolveModuleRef(element, mutableListOf()))
+        } ?: argument
+        val expression = (leaf as? IrSpreadElement)?.expression ?: leaf
+        val description = if (leaf is IrSpreadElement) {
+            "a spread argument (*...)"
+        } else {
+            describeModuleArgument(expression)
+        }
+        return UnreadableModuleArgument(originOf(expression), description)
+    }
+
+    /** Module ids read off a `modules(...)`/`includes(...)` call, whether ALL resolved, and the first that did not. */
+    data class ResolvedModules(
+        val ids: List<String>,
+        val complete: Boolean,
+        val unreadable: UnreadableModuleArgument? = null,
+    )
 
     /** @return true when this expression resolved to a `Module`-typed property (or all of them, for a vararg). */
     private fun resolveModuleRef(expression: IrExpression, result: MutableList<String>): Boolean {
@@ -1418,12 +1553,16 @@ class KoinDSLTransformer(
                     else -> false
                 }
             }
+            // `modules(X::class)` for a @Module class: the typed path verifies X; nothing for the DSL graph to track.
+            is IrClassReference -> expression.classType.getClass()?.hasAnnotation(KoinAnnotationFqNames.MODULE) == true
             is IrCall -> {
                 val callee = expression.symbol.owner
                 val calleeFqName = callee.fqNameWhenAvailable?.asString()
                 val isModuleTyped = expression.type.classFqName?.asString() == KOIN_MODULE_FQNAME
                 val property = callee.correspondingPropertySymbol?.owner
                 when {
+                    // `modules(X().module())` for a @Module class: same as `modules(X::class)` above.
+                    expression.isAnnotationModuleLoad() -> true
                     property != null && isModuleTyped -> record(property, true)
                     // A List<Module>-typed property accessed via its getter call (not IrGetField, in
                     // this context) — same "look through to the initializer" as the IrGetField case.
@@ -1433,6 +1572,7 @@ class KoinDSLTransformer(
                     isModuleTyped && expression.dispatchReceiver == null && callee is IrSimpleFunction -> {
                         val fnId = buildModuleFunctionId(callee)
                         if (fnId != null) {
+                            if (calleeFqName == KOIN_MODULE_DSL_FQNAME) directlyLoadedInlineModules += expression
                             result.add(fnId)
                             true
                         } else false
@@ -2018,3 +2158,35 @@ private class PrivateHelpers {
 
 /** The modules a module function can return: other modules by id, plus [inlineModules] `module { }` of its own. */
 data class ModuleChoice(val moduleIds: List<String>, val inlineModules: Int)
+
+/** A `modules(...)` / `includes(...)` argument compile safety could not read: where, and how to name it. */
+data class UnreadableModuleArgument(val origin: SourceOrigin, val description: String)
+
+private fun receiverPrefix(call: IrCall): String {
+    val receiver = call.dispatchReceiver ?: call.extensionReceiverArgument ?: return ""
+    return when (receiver) {
+        is IrGetObjectValue -> "${receiver.symbol.owner.name}."
+        is IrConstructorCall -> "${receiver.symbol.owner.constructedClass.name}()."
+        is IrGetValue -> "${receiver.symbol.owner.name}."
+        is IrCall -> receiver.symbol.owner.correspondingPropertySymbol?.owner?.let { "${it.name}." }.orEmpty()
+        else -> ""
+    }
+}
+
+/** How KOIN-W003 names the argument it could not read. */
+internal fun describeModuleArgument(expression: IrElement): String = when (expression) {
+    is IrGetValue -> when (val owner = expression.symbol.owner) {
+        is IrValueParameter -> "parameter '${owner.name}'"
+        is IrVariable -> "${if (owner.isVar) "var" else "val"} '${owner.name}'"
+        else -> "'${owner.name}'"
+    }
+    is IrGetField -> {
+        val field = expression.symbol.owner
+        "property '${field.correspondingPropertySymbol?.owner?.name ?: field.name}'"
+    }
+    is IrCall -> expression.symbol.owner.correspondingPropertySymbol?.owner?.let { "property '${it.name}'" }
+        ?: "call '${receiverPrefix(expression)}${expression.symbol.owner.name}()'"
+    is IrWhen -> "an if/when expression"
+    is IrSpreadElement -> "a spread argument (*...)"
+    else -> "this argument"
+}

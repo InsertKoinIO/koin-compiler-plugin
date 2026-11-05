@@ -1,0 +1,46 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Store : R|kotlin/Any| {
+        public constructor(): R|testpkg/Store| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Creator : R|kotlin/Any| {
+        public constructor(store: R|testpkg/Store|): R|testpkg/Creator| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val store: R|testpkg/Store| = R|<local>/store|
+            public get(): R|testpkg/Store|
+
+    }
+    public final class Links : R|kotlin/Any| {
+        public constructor(): R|testpkg/Links| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    private final fun R|org/koin/core/module/Module|.beans(): R|kotlin/Unit| {
+        this@R|testpkg/beans|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Creator|>()
+    }
+    public final val loadedModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Store|>()
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Links|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val wiringModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        R|testpkg/loadedModule|.R|testpkg/beans|()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val refModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(Q|org/koin/core/module/Module|::R|testpkg/beans|)
+        public get(): R|org/koin/core/module/Module|
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|testpkg/loadedModule|)
+        }
+        )
+    }

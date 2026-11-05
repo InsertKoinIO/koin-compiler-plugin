@@ -1,0 +1,1 @@
+App.kt:77 [Koin][KOIN-W003] Graph not verifiable at compile time: module 'coreModule', loaded here, loads a module set computed at runtime: compile safety cannot read its includes() (declared in another Gradle module).

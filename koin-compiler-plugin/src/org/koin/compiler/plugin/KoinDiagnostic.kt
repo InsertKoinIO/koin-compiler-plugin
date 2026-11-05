@@ -281,36 +281,36 @@ sealed class KoinDiagnostic(
     )
 
     /**
-     * KOIN-W003 — An entry point (`startKoin` / `koinApplication` / `koinConfiguration`) was given a
-     * module set that is NOT statically resolvable — a conditional (`modules(if (x) A else B)`), a
-     * spread of a runtime list (`modules(*list)`), or a variable. The set of modules actually loaded
-     * depends on runtime values, so the plugin cannot assemble and verify the full graph at compile
-     * time for this root.
+     * KOIN-W003 — An entry point (`startKoin` / `koinApplication` / `koinConfiguration`) loads a
+     * module set compile safety cannot read: a conditional (`modules(if (x) a else b)`), a spread
+     * of a runtime list (`modules(*list)`), a parameter, a property whose value is computed at
+     * runtime, or a dependency module whose own `includes()` was not readable. The loaded set then
+     * depends on runtime values, so the graph cannot be assembled and verified for this root.
      *
      * Warning, not error, and never silent: compile-time safety fundamentally cannot verify a
      * runtime-decided graph, but hiding that would let a green build imply a guarantee it never made
-     * (the doctrine's worst failure class). We disclose it here; the graph is validated at runtime by
-     * Koin's `checkModules()`. Any statically-visible modules in the call are still verified normally
-     * (this only flags that verification is partial/unverifiable, not that anything is wrong).
+     * (the doctrine's worst failure class). Anchored at the argument that could not be read, and
+     * naming it, so the user can choose a shape compile safety follows. Any statically-visible
+     * modules in the call are still verified normally.
      */
     class UnverifiableDynamicGraph(
-        entry: String,
-        origin: String?,
+        subject: String,
+        unreadable: String?,
     ) : KoinDiagnostic(
         code = "KOIN-W003",
         severity = Severity.WARNING,
         message = buildString {
             append("Graph not verifiable at compile time: ")
-            append(entry)
-            append(" is loaded with a dynamically-computed module set (a conditional, spread, or ")
-            append("variable), so the assembled graph is unknowable here.")
-            if (origin != null) {
-                append("\n  at: ")
-                append(origin)
+            append(subject)
+            append(" loads a module set computed at runtime")
+            if (unreadable != null) {
+                append(": compile safety cannot read ")
+                append(unreadable)
             }
-            append("\n  Compile-time dependency checks are skipped for this entry point; it is ")
-            append("validated at runtime via checkModules(). Pass module classes directly — e.g. ")
-            append("modules(MyModule::class) — to enable full compile-time verification.")
+            append(".\n  Compile-time dependency checks are skipped for this entry point; ")
+            append("Koin's checkModules() still verifies it at runtime.")
+            append("\n  Pass module vals, module functions or MyModule::class directly, or a ")
+            append("listOf(...) / '+' of those, so compile safety can follow them.")
         },
     )
 
@@ -474,6 +474,70 @@ sealed class KoinDiagnostic(
         message = "$moduleFunction loads one of ${modules.joinToString(" / ")} at runtime (if/when). " +
             "Compile safety checked them as if all were loaded: a definition not provided by all of them " +
             "is not guaranteed at runtime.",
+    )
+
+    /**
+     * KOIN-W012 — `includes(...)` inside a module compile safety cannot identify: an inline
+     * `module { }` passed to `modules()`, or a public `fun Module.x()` helper. The edge is dropped,
+     * so the included modules look unloaded (KOIN-W001) and whatever they fail to provide is never
+     * checked. Disclosed on the line, with the shape that is followed.
+     */
+    class UntrackedIncludes(
+        where: String,
+        rewrite: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W012",
+        severity = Severity.WARNING,
+        message = "includes() in $where is not followed by compile safety: the included modules may be " +
+            "reported as not loaded (KOIN-W001) and their missing dependencies are not checked.\n  $rewrite",
+    )
+
+    /**
+     * KOIN-W013 — An entry point in a compilation with no DSL definition of its own: the DSL graph
+     * check (Phase 3.1) only runs from a module that declares one, so the definitions this entry
+     * point loads from other Gradle modules are never checked for missing dependencies (GH #142).
+     * A known 1.2.x gap; disclosed at the entry point instead of a text log line.
+     */
+    class DslGraphNotValidated(
+        entry: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W013",
+        severity = Severity.WARNING,
+        message = "DSL graph not validated at compile time for this $entry: this module declares no DSL " +
+            "definition of its own, and the check only runs from a module that does. The definitions it " +
+            "loads from other Gradle modules are not checked for missing dependencies here.\n  No rewrite " +
+            "exists in this version; a later release runs the check from any entry point.",
+    )
+
+    /**
+     * KOIN-W014 — A private `Module.helper()` whose definitions cannot be attributed to a module:
+     * called on an explicit receiver (`other.helper()`), from outside a `module { }` body, or passed
+     * as a function reference. Its definitions keep no module id and count as loaded whatever the
+     * entry point loads, so an unloaded module is never reported for them.
+     */
+    class UnattributedHelper(
+        helper: String,
+        how: String,
+    ) : KoinDiagnostic(
+        code = "KOIN-W014",
+        severity = Severity.WARNING,
+        message = "Definitions declared in $helper are attributed to no module: $how. Compile safety counts " +
+            "them as loaded whatever the entry point loads, so an unloaded module is never reported for " +
+            "them.\n  Call $helper with no receiver inside the module { } that should own its definitions.",
+    )
+
+    /**
+     * KOIN-W015 — A `module { }` compile safety cannot identify: not stored in a top-level `val` or
+     * `fun(): Module`, and not passed straight to `modules()` / `includes()` (`by lazy`, a lambda, a
+     * builder function returning a list). Its definitions keep no module id and count as loaded
+     * whatever the entry point loads.
+     */
+    class UntrackedModule : KoinDiagnostic(
+        code = "KOIN-W015",
+        severity = Severity.WARNING,
+        message = "This module { } is not tracked by compile safety: its definitions are assumed loaded by " +
+            "every entry point of this compilation and are never reported as unloaded (KOIN-W001).\n  " +
+            "Store it in a top-level val or fun(): Module, e.g. val featureModule = module { ... }, and load that.",
     )
 
     /** KOIN-A001 — `@KoinViewModel` used without `io.insert-koin:koin-core-viewmodel`. */

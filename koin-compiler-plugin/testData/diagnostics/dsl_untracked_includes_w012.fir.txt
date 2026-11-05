@@ -1,0 +1,51 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Cache : R|kotlin/Any| {
+        public constructor(): R|testpkg/Cache| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|testpkg/Repository|, cache: R|testpkg/Cache|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|testpkg/Repository| = R|<local>/repo|
+            public get(): R|testpkg/Repository|
+
+        public final val cache: R|testpkg/Cache| = R|<local>/cache|
+            public get(): R|testpkg/Cache|
+
+    }
+    public final val dataModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Repository|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final val cacheModule: R|org/koin/core/module/Module| = R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+        this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Cache|>()
+    }
+    )
+        public get(): R|org/koin/core/module/Module|
+    public final fun R|org/koin/core/module/Module|.wire(): R|kotlin/Unit| {
+        this@R|testpkg/wire|.R|org/koin/core/module/Module.includes|(vararg(R|testpkg/cacheModule|))
+    }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/core/module/Module.includes|(vararg(R|testpkg/dataModule|))
+                this@R|special/anonymous|.R|testpkg/wire|()
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Service|>()
+            }
+            ))
+        }
+        )
+    }

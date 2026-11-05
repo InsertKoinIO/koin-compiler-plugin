@@ -450,6 +450,9 @@ class CallSiteValidator(private val context: IrPluginContext) {
         modulesWithIncompleteIncludes: Set<String> = emptySet(),
         ownsAuthoritativeGraph: Boolean = true,
         entryModuleOrigins: Map<String, SourceOrigin> = emptyMap(),
+        entryModulesUnreadable: UnreadableModuleArgument? = null,
+        incompleteIncludesArguments: Map<String, UnreadableModuleArgument> = emptyMap(),
+        moduleDeclarationOrigins: Map<String, SourceOrigin> = emptyMap(),
     ) {
         val allDefinitions = mutableListOf<Definition>()
         allDefinitions.addAll(dslDefinitions)
@@ -472,16 +475,14 @@ class CallSiteValidator(private val context: IrPluginContext) {
         )
         if (resolvedReachable == null) {
             topologyUnverifiable = true
-            val originStr = entryModulesIncompleteOrigin?.filePath
-                ?.let { "${it.substringAfterLast('/')}:${entryModulesIncompleteOrigin.line ?: "?"}" }
-            KoinPluginLogger.report(
-                KoinDiagnostic.UnverifiableDynamicGraph(
-                    entry = (incompleteModuleReached ?: startKoinModules.firstOrNull { it != INLINE_MODULE_ID })
-                        ?.substringAfterLast('.')
-                        ?.let { "the entry point loading $it" } ?: "this entry point",
-                    origin = originStr,
-                ),
-            )
+            UnverifiableGraphDisclosure(
+                entryModulesUnreadable,
+                entryModulesIncompleteOrigin,
+                includedBy,
+                incompleteIncludesArguments,
+                entryModuleOrigins,
+                moduleDeclarationOrigins,
+            ).report(incompleteModuleReached)
         }
         val reachableModuleIds = resolvedReachable ?: emptySet()
         val allDslDefs = dslDefinitions + dependencyDslDefs.filterIsInstance<Definition.DslDef>()
@@ -535,7 +536,7 @@ class CallSiteValidator(private val context: IrPluginContext) {
             if (ownsAuthoritativeGraph) unreachableDefs
             else unreachableDefs.filter { it.modulePropertyId in localModuleIds }
         if (reportableUnreachable.isNotEmpty()) {
-            reportUnreachableModules(reportableUnreachable, reachableModuleIds)
+            reportUnreachableModules(reportableUnreachable, reachableModuleIds, moduleDeclarationOrigins)
         }
         val withheld = unreachableDefs.size - reportableUnreachable.size
         if (withheld > 0) {
@@ -696,17 +697,22 @@ class CallSiteValidator(private val context: IrPluginContext) {
 
     private fun reportUnreachableModules(
         unreachableDefs: List<Definition.DslDef>,
-        reachableModuleIds: Set<String>
+        reachableModuleIds: Set<String>,
+        moduleDeclarationOrigins: Map<String, SourceOrigin>,
     ) {
         val byModule = unreachableDefs.groupBy { it.modulePropertyId ?: "<unknown>" }
         for ((moduleId, defs) in byModule) {
             val typeNames = defs.mapNotNull { it.returnTypeClass.fqNameWhenAvailable?.shortName()?.asString() }
             val shortModuleName = moduleId.substringAfterLast('.')
+            // A dependency's module has no declaration here: its KOIN-W001 stays unanchored.
+            val origin = moduleDeclarationOrigins[moduleId]
             KoinPluginLogger.report(
                 KoinDiagnostic.UnreachableModule(
                     module = shortModuleName,
                     types = typeNames,
-                )
+                ),
+                origin?.filePath,
+                origin?.line ?: -1,
             )
         }
     }
@@ -785,5 +791,3 @@ class CallSiteValidator(private val context: IrPluginContext) {
         }
     }
 }
-
-private const val INLINE_MODULE_ID = "org.koin.dsl.module"

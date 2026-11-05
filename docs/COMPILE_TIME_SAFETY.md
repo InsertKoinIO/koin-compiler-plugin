@@ -182,6 +182,40 @@ guaranteed at runtime.
 
 Known limit: a binding only some branches provide passes. Branches that throw or return `null` (including the compiler's `else` of an exhaustive `when`) don't count. A function that returns a caller-supplied module (`overrides ?: module { }`), or has a branch the compiler can't read (a member call on an object, for example), makes the loaded set unknown: `KOIN-W003`, as for `modules(if (c) a else b)` written inline.
 
+## DSL shapes compile safety understands
+
+Compile safety recovers the module graph from your DSL code. Annotations are declarations, so the
+plugin reads them completely. The DSL is executable Kotlin, so the plugin follows a fixed set of
+shapes and says so, on the line, whenever it meets one it cannot follow. Every such warning names
+the shape it can follow instead, so you can choose: rewrite and get verification, or keep the shape
+and knowingly lose it.
+
+**Followed (verified):**
+
+| Shape | Example |
+|-------|---------|
+| Top-level or object-member module `val` | `val dataModule = module { ... }`, `object Modules { val data = module { } }` |
+| Module function, with or without parameters | `fun dataModule(): Module = module { ... }`, `fun pick(c: Boolean) = if (c) a else b` (both branches count, `KOIN-W011`) |
+| Private helper called with no receiver inside a module body | `private fun Module.beans() { single<Repo>() }`, then `module { beans() }` |
+| `includes(...)` inside one of the above, with the same kinds of argument | `module { includes(dataModule, featureModule()) }` |
+| `modules(...)` with module vals, module functions, `listOf(...)`, `+`, a local `val`, or a `@Module` class | `modules(appModule, listOf(a) + b)`, `modules(AppModule::class)`, `modules(AppModule().module())` |
+| Inline `module { }` passed straight to `modules()` or `includes()` | `modules(module { single<Config>() })` |
+
+**Not followed (disclosed on the line, nothing counted silently):**
+
+| Shape | Warning | Rewrite |
+|-------|---------|---------|
+| `includes()` inside an inline `module { }` or a public `fun Module.x()` helper | `KOIN-W012` | Declare the module as a top-level `val` and load that; or make the helper private |
+| A `modules()` or `includes()` argument the plugin cannot read: an `if`/`when`, a spread, a `var`, a parameter, a call on an object or interface | `KOIN-W003`, anchored at that argument | Pass module vals, module functions or `X::class` directly, or a `listOf(...)` / `+` of those |
+| An entry point in a module with no DSL definition of its own | `KOIN-W013` | None in 1.2.x: the DSL graph check only runs from a module that declares one (fixed in 1.3.0) |
+| A private helper called on an explicit receiver, from outside a module body, or passed as a function reference | `KOIN-W014` | Call it with no receiver inside the `module { }` that should own its definitions |
+| A `module { }` stored anywhere else: `by lazy`, a lambda, a builder returning a list | `KOIN-W015` | Store it in a top-level `val` or `fun(): Module` and load that |
+
+What is lost in each case is stated in the message: a dropped edge makes the included modules look
+unloaded (`KOIN-W001`) and leaves their requirements unchecked; a definition with no module counts
+as loaded whatever the entry point loads; an unreadable argument makes that entry point unverified.
+`KOIN-W001` and `KOIN-W003` point at the module declaration and at the unreadable argument.
+
 ## External Types: `@Provided` and Whitelist
 
 Some types are provided by the platform or framework at runtime (e.g., Android's `Context`, `SavedStateHandle`) and are never declared as Koin definitions. Without special handling, these would trigger false "missing dependency" errors.

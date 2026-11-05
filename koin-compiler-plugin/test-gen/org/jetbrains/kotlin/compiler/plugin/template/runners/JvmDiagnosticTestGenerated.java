@@ -495,6 +495,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   }
 
   @Test
+  @TestMetadata("dsl_private_helper_unattributed_w014.kt")
+  public void testDsl_private_helper_unattributed_w014() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_private_helper_unattributed_w014.kt");
+  }
+
+  @Test
   @TestMetadata("dsl_singleof_function_qualifier_ok.kt")
   public void testDsl_singleof_function_qualifier_ok() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_function_qualifier_ok.kt");
@@ -516,6 +522,18 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @TestMetadata("dsl_singleof_narrowed_dependency_no_false_cycle.kt")
   public void testDsl_singleof_narrowed_dependency_no_false_cycle() {
     runTest("koin-compiler-plugin/testData/diagnostics/dsl_singleof_narrowed_dependency_no_false_cycle.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_untracked_includes_w012.kt")
+  public void testDsl_untracked_includes_w012() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_untracked_includes_w012.kt");
+  }
+
+  @Test
+  @TestMetadata("dsl_untracked_module_w015.kt")
+  public void testDsl_untracked_module_w015() {
+    runTest("koin-compiler-plugin/testData/diagnostics/dsl_untracked_module_w015.kt");
   }
 
   @Test
@@ -558,6 +576,12 @@ public class JvmDiagnosticTestGenerated extends AbstractJvmDiagnosticTest {
   @TestMetadata("entry_modules_partial_resolution_w003.kt")
   public void testEntry_modules_partial_resolution_w003() {
     runTest("koin-compiler-plugin/testData/diagnostics/entry_modules_partial_resolution_w003.kt");
+  }
+
+  @Test
+  @TestMetadata("entry_modules_unreadable_argument_w003.kt")
+  public void testEntry_modules_unreadable_argument_w003() {
+    runTest("koin-compiler-plugin/testData/diagnostics/entry_modules_unreadable_argument_w003.kt");
   }
 
   @Test

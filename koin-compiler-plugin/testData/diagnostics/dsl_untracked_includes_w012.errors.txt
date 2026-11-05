@@ -1,0 +1,14 @@
+[Koin][KOIN-D001] Missing dependency: testpkg.Cache
+  required by: dsl:testpkg.Service (parameter 'cache')
+  in module: testpkg
+[Koin][KOIN-D001] Missing dependency: testpkg.Repository
+  required by: dsl:testpkg.Service (parameter 'repo')
+  in module: testpkg
+[Koin][KOIN-W001] Module 'cacheModule' is not loaded at startKoin — 1 definitions unreachable: Cache
+  Add it to modules() or includes() to make these definitions available
+[Koin][KOIN-W001] Module 'dataModule' is not loaded at startKoin — 1 definitions unreachable: Repository
+  Add it to modules() or includes() to make these definitions available
+[Koin][KOIN-W012] includes() in an inline module { } is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and their missing dependencies are not checked.
+  Declare the module as a top-level val, e.g. val featureModule = module { includes(...) }, and load that.
+[Koin][KOIN-W012] includes() in fun Module.wire() is not followed by compile safety: the included modules may be reported as not loaded (KOIN-W001) and their missing dependencies are not checked.
+  Call includes() in the module val itself, or make wire() private: private helpers are followed.

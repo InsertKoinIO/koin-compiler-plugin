@@ -1,0 +1,4 @@
+[Koin][KOIN-W014] Definitions declared in beans() are attributed to no module: it is called on an explicit receiver. Compile safety counts them as loaded whatever the entry point loads, so an unloaded module is never reported for them.
+  Call beans() with no receiver inside the module { } that should own its definitions.
+[Koin][KOIN-W014] Definitions declared in beans() are attributed to no module: it is passed as a function reference. Compile safety counts them as loaded whatever the entry point loads, so an unloaded module is never reported for them.
+  Call beans() with no receiver inside the module { } that should own its definitions.

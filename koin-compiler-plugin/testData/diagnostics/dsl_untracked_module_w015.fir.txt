@@ -1,0 +1,37 @@
+FILE: test.kt
+    package testpkg
+
+    public final class Repository : R|kotlin/Any| {
+        public constructor(): R|testpkg/Repository| {
+            super<R|kotlin/Any|>()
+        }
+
+    }
+    public final class Service : R|kotlin/Any| {
+        public constructor(repo: R|testpkg/Repository|): R|testpkg/Service| {
+            super<R|kotlin/Any|>()
+        }
+
+        public final val repo: R|testpkg/Repository| = R|<local>/repo|
+            public get(): R|testpkg/Repository|
+
+    }
+    public final val lazyModule: R|org/koin/core/module/Module|by R|kotlin/lazy|<R|org/koin/core/module/Module|>(<L> = lazy@fun <anonymous>(): R|org/koin/core/module/Module| <inline=NoInline>  {
+        ^ R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Repository|>()
+        }
+        )
+    }
+    )
+        public get(): R|org/koin/core/module/Module| {
+            ^ D|testpkg/lazyModule|.R|kotlin/getValue|<R|org/koin/core/module/Module|>(Null(null), ::R|testpkg/lazyModule|)
+        }
+    public final fun main(): R|kotlin/Unit| {
+        R|org/koin/core/context/startKoin|(<L> = startKoin@fun R|org/koin/core/KoinApplication|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+            this@R|special/anonymous|.R|org/koin/core/KoinApplication.modules|(vararg(R|testpkg/lazyModule|, R|org/koin/dsl/module|(<L> = module@fun R|org/koin/core/module/Module|.<anonymous>(): R|kotlin/Unit| <inline=NoInline>  {
+                this@R|special/anonymous|.R|org/koin/plugin/module/dsl/single|<R|testpkg/Service|>()
+            }
+            )))
+        }
+        )
+    }

@@ -1,2 +1,5 @@
-[Koin][KOIN-W003] Graph not verifiable at compile time: the entry point loading dataModule is loaded with a dynamically-computed module set (a conditional, spread, or variable), so the assembled graph is unknowable here.
-  Compile-time dependency checks are skipped for this entry point; it is validated at runtime via checkModules(). Pass module classes directly — e.g. modules(MyModule::class) — to enable full compile-time verification.
+[Koin][KOIN-W003] Graph not verifiable at compile time: module 'dataModule', loaded here, loads a module set computed at runtime: compile safety cannot read its includes() (declared in another Gradle module).
+  Compile-time dependency checks are skipped for this entry point; Koin's checkModules() still verifies it at runtime.
+  Pass module vals, module functions or MyModule::class directly, or a listOf(...) / '+' of those, so compile safety can follow them.
+[Koin][KOIN-W015] This module { } is not tracked by compile safety: its definitions are assumed loaded by every entry point of this compilation and are never reported as unloaded (KOIN-W001).
+  Store it in a top-level val or fun(): Module, e.g. val featureModule = module { ... }, and load that.
